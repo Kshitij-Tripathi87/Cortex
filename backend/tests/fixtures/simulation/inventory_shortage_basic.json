@@ -1,0 +1,60 @@
+{
+  "scenario_id": "inventory_shortage_hand_calc_03",
+  "name": "Inventory Shortage Analytical Trajectory",
+  "description": "Warehouse WH1 experiences severe stock depletion (-400 units from initial 250 units), crossing into negative inventory (-150 units), triggering stockout hours and SLA breach.",
+  "engine_version": "simulation-v2.0",
+  "initial_state": {
+    "workspace_id": "ws_sim_fixture",
+    "world_id": "world_sim_fixture",
+    "version": 1,
+    "variables": {
+      "inventory.warehouse.wh_01": {
+        "variable_id": "inventory.warehouse.wh_01",
+        "variable_type": "inventory",
+        "entity_id": "wh_01",
+        "entity_type": "warehouse",
+        "value": 250,
+        "unit": "units"
+      },
+      "demand.product.prod_01": {
+        "variable_id": "demand.product.prod_01",
+        "variable_type": "demand",
+        "entity_id": "prod_01",
+        "entity_type": "product",
+        "value": 100,
+        "unit": "units"
+      }
+    }
+  },
+  "scenario_events": [
+    {
+      "tick": 1,
+      "entity_type": "warehouse",
+      "entity_id": "wh_01",
+      "event_type": "inventory_changed",
+      "payload": {
+        "warehouse_id": "wh_01",
+        "component_id": "comp_01",
+        "quantity_change": -400,
+        "reason": "unplanned_scrap_event"
+      }
+    }
+  ],
+  "expected_trajectory": [
+    {
+      "tick": 0,
+      "expected_inventory": 250,
+      "status": "normal"
+    },
+    {
+      "tick": 1,
+      "expected_inventory": -150,
+      "status": "stockout_critical"
+    }
+  ],
+  "expected_final_kpis": {
+    "total_inventory": -150.0,
+    "revenue_at_risk": 15000.0,
+    "sla_breaches": 2.0
+  }
+}

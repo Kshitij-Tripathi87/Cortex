@@ -1,0 +1,206 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  CORTEX_ENV: test
+  CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_test
+  CORTEX_REDIS_URL: redis://localhost:6379/0
+  CORTEX_S3_ENDPOINT: http://localhost:9000
+  CORTEX_S3_BUCKET: cortex-uploads
+  CORTEX_S3_ACCESS_KEY: minioadmin
+  CORTEX_S3_SECRET_KEY: minioadmin
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -e ".[dev]"
+      
+      - name: Run Ruff
+        run: |
+          cd backend
+          source .venv/bin/activate
+          ruff check .
+          ruff format --check .
+
+      - name: Forbid deferred imports in production paths
+        run: |
+          cd backend
+          matches=$(grep -rE 'from app\.deferred|import app\.deferred' app/ tests/ alembic/versions/ 2>/dev/null | grep -vE '^app/deferred/|^tests/deferred/')
+          if [ -n "$matches" ]; then
+            echo "ERROR: app.deferred.* must not be imported in production paths (ADR-0007)"
+            echo "$matches"
+            exit 1
+          fi
+
+      - name: Run MyPy
+        run: |
+          cd backend
+          source .venv/bin/activate
+          mypy app
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cortex_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+      
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports: ["9000:9000", "9001:9001"]
+        command: server /data --console-address ":9001"
+        options: --health-cmd "mc ready local" --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -e ".[dev]"
+      
+      - name: Run Alembic migrations
+        run: |
+          cd backend
+          source .venv/bin/activate
+          alembic upgrade head
+      
+      - name: Run tests
+        run: |
+          cd backend
+          source .venv/bin/activate
+          pytest tests/ -v --tb=short --cov=app --cov-report=xml
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./backend/coverage.xml
+
+  budget-check:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -e ".[dev]"
+      
+      - name: Run budget checks
+        run: |
+          cd backend
+          source .venv/bin/activate
+          python scripts/check_budgets.py
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run TruffleHog (secrets scan)
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: .
+          base: main
+          head: HEAD
+      
+      - name: Run dependency audit (Python)
+        run: |
+          cd backend
+          pip install pip-audit
+          pip-audit --desc
+      
+      - name: Run dependency audit (Node)
+        run: |
+          cd frontend
+          npm ci
+          npm audit --audit-level=high
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test, budget-check, security]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: cortex/backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          tags: cortex/frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test, budget-check, security, docker]
+    if: always()
+    steps:
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ CI failed - check workflow logs"
+          # Add Slack/email notification here

@@ -1,0 +1,15 @@
+order_id,customer_id,seller_id,product_id,price,freight_value,order_status,corridor,sla_due_date
+ord_9901,cust_2011,seller_01a00b8e99,prod_elec_44,189.50,25.00,in_transit,BR-116,2026-08-18T18:00:00Z
+ord_9902,cust_2012,seller_01a00b8e99,prod_elec_44,340.00,30.00,in_transit,BR-116,2026-08-18T20:00:00Z
+ord_9903,cust_2013,seller_01a00b8e99,prod_app_12,120.00,18.00,in_transit,BR-116,2026-08-19T12:00:00Z
+ord_9904,cust_2014,seller_01a00b8e99,prod_elec_44,95.00,15.00,in_transit,BR-116,2026-08-19T14:00:00Z
+ord_9905,cust_2015,seller_01a00b8e99,prod_elec_44,210.00,22.00,in_transit,BR-116,2026-08-19T15:00:00Z
+ord_9906,cust_2016,seller_01a00b8e99,prod_app_12,145.00,19.00,in_transit,BR-116,2026-08-19T16:00:00Z
+ord_9907,cust_2017,seller_01a00b8e99,prod_elec_44,180.00,20.00,in_transit,BR-116,2026-08-19T18:00:00Z
+ord_9908,cust_2018,seller_01a00b8e99,prod_elec_44,89.00,14.00,in_transit,BR-116,2026-08-19T19:00:00Z
+ord_9909,cust_2019,seller_01a00b8e99,prod_app_12,112.50,16.00,in_transit,BR-116,2026-08-19T20:00:00Z
+ord_9910,cust_2020,seller_01a00b8e99,prod_elec_44,75.00,12.00,in_transit,BR-116,2026-08-20T10:00:00Z
+ord_9911,cust_2021,seller_01a00b8e99,prod_elec_44,129.00,17.00,in_transit,BR-116,2026-08-20T12:00:00Z
+ord_9912,cust_2022,seller_01a00b8e99,prod_elec_44,60.00,10.00,in_transit,BR-116,2026-08-20T14:00:00Z
+ord_9913,cust_2023,seller_bb99112233,prod_app_12,110.00,15.00,delivered,RJ-LOCAL,2026-08-17T12:00:00Z
+ord_9914,cust_2024,seller_cc33445566,prod_elec_44,220.00,25.00,in_transit,BR-040,2026-08-20T16:00:00Z

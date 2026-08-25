@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-agent-runtime
+  namespace: cortex
+  labels:
+    app: cortex-agent-runtime
+    tier: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cortex-agent-runtime
+  template:
+    metadata:
+      labels:
+        app: cortex-agent-runtime
+        tier: worker
+    spec:
+      containers:
+        - name: agent-runtime
+          image: cortex-backend:latest
+          command: ["python", "-m", "app.modules.multi_agent.runtime_worker"]
+          envFrom:
+            - configMapRef:
+                name: cortex-config
+          env:
+            - name: CORTEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-simulation-worker
+  namespace: cortex
+  labels:
+    app: cortex-simulation-worker
+    tier: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cortex-simulation-worker
+  template:
+    metadata:
+      labels:
+        app: cortex-simulation-worker
+        tier: worker
+    spec:
+      containers:
+        - name: simulation-worker
+          image: cortex-backend:latest
+          command: ["python", "-m", "app.modules.digital_twin.simulation_worker"]
+          envFrom:
+            - configMapRef:
+                name: cortex-config
+          env:
+            - name: CORTEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "4000m"
+              memory: "8Gi"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cortex-network-policy
+  namespace: cortex
+spec:
+  podSelector:
+    matchLabels:
+      app: cortex-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: cortex-frontend
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cortex-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cortex-redis
+      ports:
+        - protocol: TCP
+          port: 6379

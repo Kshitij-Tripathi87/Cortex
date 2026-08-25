@@ -1,0 +1,101 @@
+from_type,from_ref,to_type,to_ref,edge_type,weight
+factory,FA-00,product,PROD-00017,makes,1.4262
+component,COMP-00014,warehouse,DC-002,stored_in,1.6201
+factory,PL-02,product,PROD-00003,makes,1.5558
+supplier,Westgate PKH1DN,component,COMP-00028,supplies,1.541
+supplier,Westgate 7XVG0F,component,COMP-00002,supplies,1.6942
+factory,FA-01,component,COMP-00022,consumes,1.146
+component,COMP-00026,warehouse,WH-004,stored_in,1.3489
+component,COMP-00011,warehouse,RT-001,stored_in,0.6185
+factory,PL-02,product,PROD-00019,makes,0.8612
+customer,Zenith Manufacturing,product,PROD-00004,orders,1.1917
+factory,FA-01,component,COMP-00029,consumes,1.5003
+factory,PL-02,product,PROD-00009,makes,1.3199
+supplier,Westgate 7XVG0F,component,COMP-00028,supplies,1.9815
+factory,FA-01,component,COMP-00040,consumes,1.5355
+factory,FA-00,product,PROD-00009,makes,1.9991
+factory,FA-00,product,PROD-00003,makes,1.072
+factory,FA-01,component,COMP-00036,consumes,1.989
+factory,PL-02,component,COMP-00001,consumes,1.0937
+supplier,Umbra E0IFD0,component,COMP-00036,supplies,1.8659
+factory,FA-00,product,PROD-00009,makes,1.4106
+factory,PL-02,component,COMP-00014,consumes,0.7852
+factory,PL-02,component,COMP-00043,consumes,1.6512
+component,COMP-00040,warehouse,DC-000,stored_in,1.4695
+factory,FA-00,component,COMP-00028,consumes,1.3694
+component,COMP-00018,warehouse,DC-000,stored_in,0.9901
+factory,FA-00,product,PROD-00005,makes,0.6982
+customer,Westgate Group,product,PROD-00011,orders,1.2527
+factory,FA-01,component,COMP-00010,consumes,1.8711
+factory,PL-02,product,PROD-00009,makes,1.8056
+supplier,Glen IVUZZP,component,COMP-00029,supplies,0.7111
+component,COMP-00035,warehouse,RT-003,stored_in,1.0487
+factory,FA-01,product,PROD-00000,makes,1.3049
+factory,PL-02,product,PROD-00011,makes,1.6235
+factory,FA-01,component,COMP-00037,consumes,1.7336
+factory,PL-02,component,COMP-00006,consumes,0.8507
+supplier,Meridian N9ER14,component,COMP-00039,supplies,0.992
+customer,Beacon Manufacturing,product,PROD-00007,orders,1.4531
+factory,FA-01,product,PROD-00022,makes,1.4739
+supplier,Umbra E0IFD0,component,COMP-00008,supplies,1.9194
+factory,FA-00,component,COMP-00031,consumes,0.6458
+customer,Orion Inc,product,PROD-00004,orders,1.1805
+customer,Beacon Industries,product,PROD-00013,orders,1.6134
+component,COMP-00041,warehouse,RT-003,stored_in,0.6485
+factory,FA-01,product,PROD-00019,makes,1.9086
+factory,PL-02,component,COMP-00002,consumes,1.0558
+factory,FA-00,product,PROD-00014,makes,1.7832
+supplier,Westgate 7XVG0F,component,COMP-00043,supplies,1.3167
+factory,FA-01,component,COMP-00003,consumes,0.9138
+supplier,Glen IVUZZP,component,COMP-00029,supplies,1.4942
+customer,Glen Systems,product,PROD-00000,orders,1.6802
+component,COMP-00036,warehouse,RT-001,stored_in,0.8078
+customer,Beacon Industries,product,PROD-00006,orders,0.8239
+component,COMP-00049,warehouse,DC-002,stored_in,0.7213
+customer,Echo Industries,product,PROD-00000,orders,1.7876
+component,COMP-00034,warehouse,RT-001,stored_in,0.876
+component,COMP-00042,warehouse,DC-000,stored_in,1.7997
+component,COMP-00022,warehouse,DC-000,stored_in,1.685
+component,COMP-00020,warehouse,WH-004,stored_in,0.5237
+factory,FA-00,component,COMP-00003,consumes,1.6126
+customer,Beacon Manufacturing,product,PROD-00003,orders,1.2144
+factory,PL-02,component,COMP-00032,consumes,0.6636
+customer,Beacon Industries,product,PROD-00007,orders,0.565
+customer,Echo Inc,product,PROD-00009,orders,1.465
+supplier,Glen XO6QJI,component,COMP-00003,supplies,1.7709
+factory,FA-00,product,PROD-00021,makes,1.2354
+factory,FA-00,product,PROD-00002,makes,0.9832
+component,COMP-00008,warehouse,DC-000,stored_in,0.9125
+customer,Beacon Manufacturing,product,PROD-00017,orders,1.0714
+customer,Echo Industries,product,PROD-00016,orders,1.1806
+customer,Beacon Manufacturing,product,PROD-00013,orders,1.6896
+supplier,Meridian N9ER14,component,COMP-00041,supplies,1.5813
+component,COMP-00028,warehouse,RT-003,stored_in,1.8321
+factory,FA-01,product,PROD-00010,makes,1.0981
+supplier,Helix Y41IBL,component,COMP-00020,supplies,0.9688
+factory,FA-00,component,COMP-00023,consumes,1.5302
+factory,FA-00,product,PROD-00002,makes,1.7477
+supplier,Glen IVUZZP,component,COMP-00027,supplies,1.6169
+factory,PL-02,component,COMP-00008,consumes,0.59
+customer,Beacon Manufacturing,product,PROD-00017,orders,1.505
+factory,PL-02,product,PROD-00011,makes,1.9117
+factory,FA-00,product,PROD-00023,makes,1.9526
+customer,Beacon Manufacturing,product,PROD-00009,orders,0.6554
+customer,Pinnacle Systems,product,PROD-00006,orders,1.4851
+component,COMP-00022,warehouse,DC-000,stored_in,1.7681
+factory,FA-01,component,COMP-00007,consumes,1.3612
+factory,PL-02,product,PROD-00017,makes,1.4204
+customer,Beacon Industries,product,PROD-00000,orders,1.8936
+factory,FA-00,component,COMP-00001,consumes,0.9099
+factory,FA-01,component,COMP-00021,consumes,0.5092
+component,COMP-00042,warehouse,WH-004,stored_in,1.1012
+component,COMP-00005,warehouse,DC-000,stored_in,1.6192
+component,COMP-00026,warehouse,RT-003,stored_in,1.1805
+component,COMP-00019,warehouse,DC-002,stored_in,1.5824
+customer,Beacon Manufacturing,product,PROD-00019,orders,1.825
+component,COMP-00048,warehouse,RT-001,stored_in,1.4268
+supplier,Glen XO6QJI,component,COMP-00017,supplies,1.4929
+factory,FA-01,product,PROD-00019,makes,1.1213
+component,COMP-00007,warehouse,WH-004,stored_in,1.0178
+supplier,Cascade NVQJT7,component,COMP-00018,supplies,1.2299
+factory,FA-00,component,COMP-00002,consumes,1.0929

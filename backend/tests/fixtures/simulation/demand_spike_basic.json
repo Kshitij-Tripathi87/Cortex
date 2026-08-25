@@ -1,0 +1,57 @@
+{
+  "scenario_id": "demand_spike_hand_calc_04",
+  "name": "Demand Spike Analytical Trajectory",
+  "description": "Customer surge increases product demand by +500 units (from 200 to 700 units).",
+  "engine_version": "simulation-v2.0",
+  "initial_state": {
+    "workspace_id": "ws_sim_fixture",
+    "world_id": "world_sim_fixture",
+    "version": 1,
+    "variables": {
+      "demand.product.prod_01": {
+        "variable_id": "demand.product.prod_01",
+        "variable_type": "demand",
+        "entity_id": "prod_01",
+        "entity_type": "product",
+        "value": 200,
+        "unit": "units"
+      },
+      "inventory.warehouse.wh_01": {
+        "variable_id": "inventory.warehouse.wh_01",
+        "variable_type": "inventory",
+        "entity_id": "wh_01",
+        "entity_type": "warehouse",
+        "value": 400,
+        "unit": "units"
+      }
+    }
+  },
+  "scenario_events": [
+    {
+      "tick": 1,
+      "entity_type": "product",
+      "entity_id": "prod_01",
+      "event_type": "demand_changed",
+      "payload": {
+        "demand_change": 500,
+        "confidence": 0.95
+      }
+    }
+  ],
+  "expected_trajectory": [
+    {
+      "tick": 0,
+      "expected_demand": 200,
+      "status": "baseline_demand"
+    },
+    {
+      "tick": 1,
+      "expected_demand": 700,
+      "status": "demand_surged"
+    }
+  ],
+  "expected_final_kpis": {
+    "total_demand": 700.0,
+    "total_inventory": 400.0
+  }
+}

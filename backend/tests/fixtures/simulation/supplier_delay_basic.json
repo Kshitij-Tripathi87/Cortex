@@ -1,0 +1,68 @@
+{
+  "scenario_id": "supplier_delay_hand_calc_02",
+  "name": "Supplier Delay Analytical Trajectory",
+  "description": "Supplier S1 experiences logistics delay at t=0 (+7 days). Supplier capacity remains 100% operational, but lead time expands from 5 to 12 days.",
+  "engine_version": "simulation-v2.0",
+  "initial_state": {
+    "workspace_id": "ws_sim_fixture",
+    "world_id": "world_sim_fixture",
+    "version": 1,
+    "variables": {
+      "inventory.warehouse.wh_01": {
+        "variable_id": "inventory.warehouse.wh_01",
+        "variable_type": "inventory",
+        "entity_id": "wh_01",
+        "entity_type": "warehouse",
+        "value": 500,
+        "unit": "units"
+      },
+      "lead_time.supplier.sup_01": {
+        "variable_id": "lead_time.supplier.sup_01",
+        "variable_type": "lead_time",
+        "entity_id": "sup_01",
+        "entity_type": "supplier",
+        "value": 5,
+        "unit": "days"
+      },
+      "capacity.supplier.sup_01": {
+        "variable_id": "capacity.supplier.sup_01",
+        "variable_type": "capacity",
+        "entity_id": "sup_01",
+        "entity_type": "supplier",
+        "value": 100.0,
+        "unit": "percent"
+      }
+    }
+  },
+  "scenario_events": [
+    {
+      "tick": 1,
+      "entity_type": "supplier",
+      "entity_id": "sup_01",
+      "event_type": "supplier_delayed",
+      "payload": {
+        "delay_days": 7,
+        "disruption_type": "port_congestion"
+      }
+    }
+  ],
+  "expected_trajectory": [
+    {
+      "tick": 0,
+      "expected_lead_time": 5,
+      "expected_capacity": 100.0,
+      "status": "normal"
+    },
+    {
+      "tick": 1,
+      "expected_lead_time": 12,
+      "expected_capacity": 100.0,
+      "status": "lead_time_shifted"
+    }
+  ],
+  "expected_final_kpis": {
+    "avg_lead_time": 12.0,
+    "avg_capacity": 100.0,
+    "time_to_recovery_days": 12.0
+  }
+}

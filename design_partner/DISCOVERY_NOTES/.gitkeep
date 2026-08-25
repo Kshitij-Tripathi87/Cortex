@@ -1,0 +1,12 @@
+# This directory holds per-prospect discovery notes.
+
+File naming: `{prospect-slug}.md` (e.g., `acme-corp.md`, `globex-industries.md`)
+
+Each file should capture:
+- Disruption pain points
+- Current workflow (tools, people, time)
+- Available exports (systems, format, frequency)
+- Data freshness (how stale is "current"?)
+- Decision timing (hours/days from event to action)
+- Willingness to pilot (explicit yes/no/maybe)
+- Single KPI that matters most (revenue at risk / margin risk / stockout risk / SLA risk / recovery time)

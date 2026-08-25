@@ -1,0 +1,5 @@
+seller_id,seller_zip_code_prefix,seller_city,seller_state,reliability_score
+seller_01a00b8e99,01310,sao paulo,SP,0.92
+seller_bb99112233,20000,rio de janeiro,RJ,0.95
+seller_cc33445566,30130,belo horizonte,MG,0.88
+seller_dd77889900,80010,curitiba,PR,0.97

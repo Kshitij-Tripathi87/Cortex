@@ -1,0 +1,11 @@
+name,country,tier,lead_time_days,status,risk_score
+Umbra E0IFD0,CN,tier_3,7,active,0.0318
+Glen IVUZZP,DE,tier_2,39,active,0.8693
+Westgate PKH1DN,US,tier_2,56,active,0.2645
+Xenon QE7CKW,JP,tier_2,38,active,0.0696
+York KCIDKW,KR,tier_2,12,active,0.2095
+Westgate 7XVG0F,GB,tier_2,19,disabled,0.64
+Helix Y41IBL,TW,tier_2,6,active,0.9429
+Glen XO6QJI,FR,tier_3,36,active,0.5846
+Meridian N9ER14,FR,tier_1,42,active,0.6805
+Cascade NVQJT7,KR,tier_3,48,active,0.8848

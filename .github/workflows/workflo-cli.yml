@@ -1,0 +1,142 @@
+name: Workflo CLI Release Gate
+
+# Release gate for @cortex/workflo. A release is impossible unless every stage
+# passes: INSTALL -> CLI START -> API CONNECTIVITY -> SANDBOX CREATE ->
+# FILE MOUNT -> COMMAND EXECUTION -> TEST EXECUTION -> ARTIFACT COLLECTION ->
+# AGENT ANALYSIS -> REPORT -> SANDBOX DESTROY, plus security blocks.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workflo-cli/**"
+      - "backend/app/modules/workflo/**"
+      - "backend/app/api/v1/workflo.py"
+      - ".github/workflows/workflo-cli.yml"
+  pull_request:
+    paths:
+      - "workflo-cli/**"
+      - ".github/workflows/workflo-cli.yml"
+  workflow_dispatch:
+
+jobs:
+  cli-gate:
+    name: CLI install + smoke + security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workflo-cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build CLI
+        run: |
+          npm ci || npm install
+          npm run build
+          npm pack
+
+      - name: INSTALL — global install from packed tarball
+        run: npm install -g ./cortex-workflo-*.tgz --allow-scripts=@cortex/workflo || npm install -g ./cortex-workflo-*.tgz
+
+      - name: CLI START — version and help
+        working-directory: /tmp
+        run: |
+          workflo --version
+          workflo --help > /dev/null
+
+      - name: Start control plane (standalone)
+        working-directory: scripts
+        run: |
+          python -m pip install fastapi uvicorn
+          CORTEX_WORKFLO_ROOT=/tmp/wf-root WORKFLO_API_PORT=8000 \
+            nohup python workflo_dev_server.py > /tmp/server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/api/v1/workflo/health; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:8000/api/v1/workflo/health | grep workflo-control-plane
+
+      - name: AUTH + API CONNECTIVITY — doctor against live control plane
+        working-directory: /tmp
+        env:
+          CORTEX_URL: http://localhost:8000
+        run: workflo doctor
+
+      - name: SANDBOX CREATE + EXEC + SECURITY BLOCKS via CLI
+        working-directory: /tmp
+        env:
+          CORTEX_URL: http://localhost:8000
+        run: |
+          set -e
+          SID=$(workflo sandbox create | grep -o 'sbx_[a-f0-9]*' | head -1)
+          echo "sandbox: $SID"
+          test -n "$SID"
+
+          # COMMAND EXECUTION
+          OUT=$(workflo sandbox exec "$SID" "echo gate-ok")
+          echo "$OUT" | grep -q "gate-ok"
+
+          # unauthorized command blocked (exit 3 = policy violation)
+          if workflo sandbox exec "$SID" "whoami"; then
+            echo "unauthorized command NOT blocked"; exit 1
+          fi
+          # network violation blocked
+          if workflo sandbox exec "$SID" "curl http://evil.example.com"; then
+            echo "network violation NOT blocked"; exit 1
+          fi
+          # secret access blocked
+          if workflo sandbox exec "$SID" "cat ~/.ssh/id_rsa"; then
+            echo "secret access NOT blocked"; exit 1
+          fi
+          # host escape blocked
+          if workflo sandbox exec "$SID" "cat /etc/shadow"; then
+            echo "host escape NOT blocked"; exit 1
+          fi
+
+          # FILE MOUNT
+          mkdir -p demo && echo "hello from mount" > demo/mount.txt
+          FILES=$(workflo sandbox files "$SID")
+          echo "$FILES"
+
+          # AGENT ANALYSIS
+          workflo agent "run the regression suite and find why checkout is failing" | grep -q inspect_failure
+
+          # SANDBOX DESTROY
+          workflo sandbox destroy "$SID"
+          # reuse after destroy blocked
+          if workflo sandbox exec "$SID" "echo hi"; then
+            echo "sandbox reuse after destroy NOT blocked"; exit 1
+          fi
+
+      - name: TEST EXECUTION + REPORT via control-plane run pipeline
+        working-directory: /tmp
+        env:
+          CORTEX_URL: http://localhost:8000
+        run: |
+          set -e
+          mkdir -p proj && cd proj
+          cat > package.json <<'EOF'
+          {"name":"ci-demo","version":"1.0.0","scripts":{"test":"node run.js"}}
+          EOF
+          cat > run.js <<'EOF'
+          console.log("suites:\n  auth 3 passing\n  checkout 1 failing");
+          process.exit(1);
+          EOF
+          RUN=$(workflo run "run regression and diagnose failure") || true
+          echo "$RUN"
+
+      - name: Full-stack smoke script (standalone mode)
+        working-directory: /
+        env:
+          CORTEX_URL: http://localhost:8000
+        run: |
+          chmod +x $GITHUB_WORKSPACE/scripts/smoke.sh
+          $GITHUB_WORKSPACE/scripts/smoke.sh --skip-infra

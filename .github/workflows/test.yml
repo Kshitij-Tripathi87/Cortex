@@ -1,0 +1,56 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cortex_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        working-directory: ./backend
+        # Per ADR-015 Program J J.1: PR CI excludes `@pytest.mark.stress`.
+        # The 100k replay-determinism gate runs in the nightly `stress` job
+        # (/.github/workflows/stress.yml) and on release candidates.
+        run: pytest tests/ -v --tb=short
+        env:
+          CORTEX_ENV: test
+          CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_test
+          CORTEX_REDIS_URL: redis://localhost:6379/0
+          CORTEX_S3_ENDPOINT: http://localhost:9000
+          CORTEX_S3_BUCKET: cortex-test
+          CORTEX_S3_REGION: us-east-1
+          CORTEX_S3_ACCESS_KEY: minioadmin
+          CORTEX_S3_SECRET_KEY: minioadmin
+          CORTEX_S3_USE_PATH_STYLE: "true"

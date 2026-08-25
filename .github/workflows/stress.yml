@@ -1,0 +1,70 @@
+# Stress CI — runs `@pytest.mark.stress` tests nightly and on release candidates.
+#
+# Per ADR-015 Program J J.1:
+#   PR / push-to-main CI intentionally skips stress tests (see test.yml);
+#   those ~2-minute replay-determinism gates run here instead.
+#
+# Triggers:
+#   - schedule: nightly at 00:00 UTC
+#   - workflow_dispatch: manual run from the Actions tab (release-candidate gates)
+#   - push: any tag matching v* (release candidates)
+#
+# Failure of this workflow must block a release cut but should not block
+# ordinary PR merges.
+
+name: Stress
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CORTEX_ENV: test
+  CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_stress
+  CORTEX_REDIS_URL: redis://localhost:6379/0
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cortex_stress
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: pip install -e ".[dev]"
+
+      - name: Run stress tests
+        working-directory: ./backend
+        # `-m stress` overrides the `addopts = "... -m 'not stress'"` default
+        # in pyproject.toml so ONLY stress-marked tests execute.
+        run: pytest tests/ -m stress -v --tb=short
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::warning::Stress CI failed — release gate. See job logs."
+          exit 1

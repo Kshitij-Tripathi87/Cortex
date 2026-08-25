@@ -1,0 +1,135 @@
+# Default values for Cortex Helm Chart
+
+# Global settings
+global:
+  registry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Backend configuration
+backend:
+  replicaCount: 3
+  image:
+    repository: cortex-backend
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: false
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: cortex.example.com
+        paths:
+          - path: /api
+            pathType: Prefix
+    tls:
+      - secretName: cortex-tls
+        hosts:
+          - cortex.example.com
+
+# Frontend configuration
+frontend:
+  replicaCount: 2
+  image:
+    repository: cortex-frontend
+    tag: "0.2.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3000
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    database: cortex
+    username: cortex
+    password: ""  # Auto-generated if empty
+  primary:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    persistence:
+      size: 10Gi
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# MinIO configuration
+minio:
+  enabled: true
+  mode: standalone
+  rootUser: ""  # Auto-generated if empty
+  rootPassword: ""  # Auto-generated if empty
+  buckets:
+    - name: cortex-uploads
+      policy: none
+      purge: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  persistence:
+    size: 20Gi
+
+# Environment configuration
+config:
+  CORTEX_ENV: production
+  CORTEX_HOST: 0.0.0.0
+  CORTEX_PORT: 8000
+  OTEL_SERVICE_NAME: cortex-backend
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+# Secrets (use external secret management in production)
+secrets:
+  dbPassword: ""
+  s3AccessKey: ""
+  s3SecretKey: ""
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false

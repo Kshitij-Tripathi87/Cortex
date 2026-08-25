@@ -1,0 +1,1007 @@
+{
+  "workspace_id": "test-gt",
+  "size": "small",
+  "seed": 42,
+  "generated_at": "2026-08-08",
+  "suppliers": [
+    {
+      "name": "Umbra E0IFD0",
+      "country": "CN",
+      "tier": "tier_3",
+      "lead_time_days": "7",
+      "status": "active",
+      "risk_score": "0.0318"
+    },
+    {
+      "name": "Glen IVUZZP",
+      "country": "DE",
+      "tier": "tier_2",
+      "lead_time_days": "39",
+      "status": "active",
+      "risk_score": "0.8693"
+    },
+    {
+      "name": "Westgate PKH1DN",
+      "country": "US",
+      "tier": "tier_2",
+      "lead_time_days": "56",
+      "status": "active",
+      "risk_score": "0.2645"
+    },
+    {
+      "name": "Xenon QE7CKW",
+      "country": "JP",
+      "tier": "tier_2",
+      "lead_time_days": "38",
+      "status": "active",
+      "risk_score": "0.0696"
+    },
+    {
+      "name": "York KCIDKW",
+      "country": "KR",
+      "tier": "tier_2",
+      "lead_time_days": "12",
+      "status": "active",
+      "risk_score": "0.2095"
+    },
+    {
+      "name": "Westgate 7XVG0F",
+      "country": "GB",
+      "tier": "tier_2",
+      "lead_time_days": "19",
+      "status": "disabled",
+      "risk_score": "0.64"
+    },
+    {
+      "name": "Helix Y41IBL",
+      "country": "TW",
+      "tier": "tier_2",
+      "lead_time_days": "6",
+      "status": "active",
+      "risk_score": "0.9429"
+    },
+    {
+      "name": "Glen XO6QJI",
+      "country": "FR",
+      "tier": "tier_3",
+      "lead_time_days": "36",
+      "status": "active",
+      "risk_score": "0.5846"
+    },
+    {
+      "name": "Meridian N9ER14",
+      "country": "FR",
+      "tier": "tier_1",
+      "lead_time_days": "42",
+      "status": "active",
+      "risk_score": "0.6805"
+    },
+    {
+      "name": "Cascade NVQJT7",
+      "country": "KR",
+      "tier": "tier_3",
+      "lead_time_days": "48",
+      "status": "active",
+      "risk_score": "0.8848"
+    }
+  ],
+  "components": [
+    {
+      "sku": "COMP-00000",
+      "name": "Capacitor EPQ85J",
+      "category": "Capacitor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00001",
+      "name": "PCB SDW4SH",
+      "category": "PCB",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00002",
+      "name": "PCB T2TALA",
+      "category": "PCB",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00003",
+      "name": "Resistor IIUC03",
+      "category": "Resistor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00004",
+      "name": "PCB ERTJ5P",
+      "category": "PCB",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00005",
+      "name": "Housing 1YZOYN",
+      "category": "Housing",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00006",
+      "name": "Fastener EIMVIH",
+      "category": "Fastener",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00007",
+      "name": "Sensor I64CIY",
+      "category": "Sensor",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00008",
+      "name": "Housing E7UR23",
+      "category": "Housing",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00009",
+      "name": "Actuator DPPQ0Y",
+      "category": "Actuator",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00010",
+      "name": "Actuator C02DGT",
+      "category": "Actuator",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00011",
+      "name": "Coil GQ5C34",
+      "category": "Coil",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00012",
+      "name": "Sensor XTAD1I",
+      "category": "Sensor",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00013",
+      "name": "Fastener R56FAO",
+      "category": "Fastener",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00014",
+      "name": "Resistor P89UZF",
+      "category": "Resistor",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00015",
+      "name": "Semiconductor 8UT0CV",
+      "category": "Semiconductor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00016",
+      "name": "Housing F8CGVY",
+      "category": "Housing",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00017",
+      "name": "Coil E6IVWP",
+      "category": "Coil",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00018",
+      "name": "Wire S7HZIO",
+      "category": "Wire",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00019",
+      "name": "Resistor Q77AWU",
+      "category": "Resistor",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00020",
+      "name": "Actuator TSEMCI",
+      "category": "Actuator",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00021",
+      "name": "PCB PTK93T",
+      "category": "PCB",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00022",
+      "name": "Housing KX7EED",
+      "category": "Housing",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00023",
+      "name": "PCB JVZHWJ",
+      "category": "PCB",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00024",
+      "name": "Resistor 64DPJA",
+      "category": "Resistor",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00025",
+      "name": "Resistor FPZUE8",
+      "category": "Resistor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00026",
+      "name": "PCB T4UFEL",
+      "category": "PCB",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00027",
+      "name": "Capacitor HID25O",
+      "category": "Capacitor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00028",
+      "name": "PCB 7IF2GO",
+      "category": "PCB",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00029",
+      "name": "Capacitor 2OY0IF",
+      "category": "Capacitor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00030",
+      "name": "Actuator NBQH7M",
+      "category": "Actuator",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00031",
+      "name": "Semiconductor AGL58K",
+      "category": "Semiconductor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00032",
+      "name": "Housing O9T7E8",
+      "category": "Housing",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00033",
+      "name": "Wire 8JDP0L",
+      "category": "Wire",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00034",
+      "name": "Housing E6GBPS",
+      "category": "Housing",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00035",
+      "name": "Semiconductor NCXLL4",
+      "category": "Semiconductor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00036",
+      "name": "Resistor SYLZTG",
+      "category": "Resistor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00037",
+      "name": "Coil Y6WKTA",
+      "category": "Coil",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00038",
+      "name": "Semiconductor PUXQPH",
+      "category": "Semiconductor",
+      "unit_of_measure": "KG"
+    },
+    {
+      "sku": "COMP-00039",
+      "name": "PCB XKXWD8",
+      "category": "PCB",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00040",
+      "name": "Resistor IHAIR4",
+      "category": "Resistor",
+      "unit_of_measure": "EA"
+    },
+    {
+      "sku": "COMP-00041",
+      "name": "Fastener OWGZRI",
+      "category": "Fastener",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00042",
+      "name": "Sensor 6452H2",
+      "category": "Sensor",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00043",
+      "name": "Housing QU7EEQ",
+      "category": "Housing",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00044",
+      "name": "Housing V86WZS",
+      "category": "Housing",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00045",
+      "name": "Fastener 60RJIW",
+      "category": "Fastener",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00046",
+      "name": "Fastener WJCKJL",
+      "category": "Fastener",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00047",
+      "name": "Actuator EIYZCO",
+      "category": "Actuator",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00048",
+      "name": "Fastener OHP6VZ",
+      "category": "Fastener",
+      "unit_of_measure": "M"
+    },
+    {
+      "sku": "COMP-00049",
+      "name": "Coil R7KO64",
+      "category": "Coil",
+      "unit_of_measure": "M"
+    }
+  ],
+  "warehouses": [
+    {
+      "code": "DC-000",
+      "name": "Warehouse 0",
+      "location": "BR/HPBMYO",
+      "capacity_units": "22632"
+    },
+    {
+      "code": "RT-001",
+      "name": "Warehouse 1",
+      "location": "DE/9T6VXD",
+      "capacity_units": "57179"
+    },
+    {
+      "code": "DC-002",
+      "name": "Warehouse 2",
+      "location": "BR/GJLQM5",
+      "capacity_units": "37471"
+    },
+    {
+      "code": "RT-003",
+      "name": "Warehouse 3",
+      "location": "KR/4Q0B8I",
+      "capacity_units": "9993"
+    },
+    {
+      "code": "WH-004",
+      "name": "Warehouse 4",
+      "location": "US/8HAFEY",
+      "capacity_units": "74920"
+    }
+  ],
+  "factories": [
+    {
+      "code": "FA-00",
+      "name": "Plant QJNV8Z",
+      "location": "DE/8DALY8",
+      "throughput_per_day": "6598"
+    },
+    {
+      "code": "FA-01",
+      "name": "Plant CYWD14",
+      "location": "FR/22UBTX",
+      "throughput_per_day": "1229"
+    },
+    {
+      "code": "PL-02",
+      "name": "Plant APRPN6",
+      "location": "BR/ZP08J3",
+      "throughput_per_day": "8917"
+    }
+  ],
+  "products": [
+    {
+      "sku": "PROD-00000",
+      "name": "Jet P0J43D",
+      "factory_code": "FA-01",
+      "unit_price": "4409.3396",
+      "lead_time_days": "8"
+    },
+    {
+      "sku": "PROD-00001",
+      "name": "Iris MRLRMJ",
+      "factory_code": "FA-01",
+      "unit_price": "1405.4959",
+      "lead_time_days": "20"
+    },
+    {
+      "sku": "PROD-00002",
+      "name": "Galaxy USGIOT",
+      "factory_code": "PL-02",
+      "unit_price": "1209.2164",
+      "lead_time_days": "16"
+    },
+    {
+      "sku": "PROD-00003",
+      "name": "Jet QAKOIX",
+      "factory_code": "PL-02",
+      "unit_price": "1851.412",
+      "lead_time_days": "18"
+    },
+    {
+      "sku": "PROD-00004",
+      "name": "Halo P0LZJJ",
+      "factory_code": "PL-02",
+      "unit_price": "612.0729",
+      "lead_time_days": "7"
+    },
+    {
+      "sku": "PROD-00005",
+      "name": "Comet 08YG0J",
+      "factory_code": "FA-01",
+      "unit_price": "2952.0387",
+      "lead_time_days": "25"
+    },
+    {
+      "sku": "PROD-00006",
+      "name": "Galaxy 93KMKZ",
+      "factory_code": "PL-02",
+      "unit_price": "641.649",
+      "lead_time_days": "2"
+    },
+    {
+      "sku": "PROD-00007",
+      "name": "Galaxy ZE5R5U",
+      "factory_code": "FA-00",
+      "unit_price": "2352.2908",
+      "lead_time_days": "15"
+    },
+    {
+      "sku": "PROD-00008",
+      "name": "Eclipse 8J5ECR",
+      "factory_code": "FA-01",
+      "unit_price": "2889.3356",
+      "lead_time_days": "22"
+    },
+    {
+      "sku": "PROD-00009",
+      "name": "Eclipse FUK9E1",
+      "factory_code": "FA-00",
+      "unit_price": "3035.5251",
+      "lead_time_days": "26"
+    },
+    {
+      "sku": "PROD-00010",
+      "name": "Falcon 1N6KVP",
+      "factory_code": "PL-02",
+      "unit_price": "2847.4611",
+      "lead_time_days": "2"
+    },
+    {
+      "sku": "PROD-00011",
+      "name": "Comet 8HHXFG",
+      "factory_code": "PL-02",
+      "unit_price": "384.5737",
+      "lead_time_days": "1"
+    },
+    {
+      "sku": "PROD-00012",
+      "name": "Jet YQBKK4",
+      "factory_code": "FA-01",
+      "unit_price": "365.187",
+      "lead_time_days": "8"
+    },
+    {
+      "sku": "PROD-00013",
+      "name": "Falcon PTX63C",
+      "factory_code": "FA-01",
+      "unit_price": "837.9547",
+      "lead_time_days": "10"
+    },
+    {
+      "sku": "PROD-00014",
+      "name": "Galaxy PQKOJT",
+      "factory_code": "PL-02",
+      "unit_price": "2194.4167",
+      "lead_time_days": "20"
+    },
+    {
+      "sku": "PROD-00015",
+      "name": "Iris 0VAIY4",
+      "factory_code": "FA-00",
+      "unit_price": "2939.7434",
+      "lead_time_days": "1"
+    },
+    {
+      "sku": "PROD-00016",
+      "name": "Galaxy U1GSPK",
+      "factory_code": "PL-02",
+      "unit_price": "4984.7579",
+      "lead_time_days": "14"
+    },
+    {
+      "sku": "PROD-00017",
+      "name": "Jet 8QOLDF",
+      "factory_code": "PL-02",
+      "unit_price": "2064.109",
+      "lead_time_days": "16"
+    },
+    {
+      "sku": "PROD-00018",
+      "name": "Iris 3TQLL8",
+      "factory_code": "FA-01",
+      "unit_price": "2026.8335",
+      "lead_time_days": "17"
+    },
+    {
+      "sku": "PROD-00019",
+      "name": "Jet OGN1W1",
+      "factory_code": "FA-00",
+      "unit_price": "1025.7556",
+      "lead_time_days": "18"
+    },
+    {
+      "sku": "PROD-00020",
+      "name": "Galaxy PZE9VI",
+      "factory_code": "FA-00",
+      "unit_price": "800.307",
+      "lead_time_days": "18"
+    },
+    {
+      "sku": "PROD-00021",
+      "name": "Iris D96QE3",
+      "factory_code": "FA-00",
+      "unit_price": "2496.8938",
+      "lead_time_days": "23"
+    },
+    {
+      "sku": "PROD-00022",
+      "name": "Galaxy ORQQFG",
+      "factory_code": "FA-01",
+      "unit_price": "3000.8942",
+      "lead_time_days": "24"
+    },
+    {
+      "sku": "PROD-00023",
+      "name": "Comet J2O7S3",
+      "factory_code": "FA-00",
+      "unit_price": "1421.3665",
+      "lead_time_days": "10"
+    },
+    {
+      "sku": "PROD-00024",
+      "name": "Jet 5QRL1N",
+      "factory_code": "PL-02",
+      "unit_price": "4664.9328",
+      "lead_time_days": "28"
+    }
+  ],
+  "customers": [
+    {
+      "name": "Glen Systems",
+      "country": "JP",
+      "tier": "bronze",
+      "contract_value_annual": "1945705.7022"
+    },
+    {
+      "name": "Beacon Manufacturing",
+      "country": "MX",
+      "tier": "gold",
+      "contract_value_annual": "1624972.8198"
+    },
+    {
+      "name": "Pinnacle Systems",
+      "country": "MX",
+      "tier": "silver",
+      "contract_value_annual": "4942649.3096"
+    },
+    {
+      "name": "Zenith Manufacturing",
+      "country": "DE",
+      "tier": "silver",
+      "contract_value_annual": "4825880.9699"
+    },
+    {
+      "name": "Echo Industries",
+      "country": "FR",
+      "tier": "silver",
+      "contract_value_annual": "4355016.5511"
+    },
+    {
+      "name": "Beacon Manufacturing",
+      "country": "BR",
+      "tier": "gold",
+      "contract_value_annual": "2653457.8797"
+    },
+    {
+      "name": "Orion Inc",
+      "country": "DE",
+      "tier": "silver",
+      "contract_value_annual": "4361118.2082"
+    },
+    {
+      "name": "Echo Inc",
+      "country": "BR",
+      "tier": "silver",
+      "contract_value_annual": "1725878.1086"
+    },
+    {
+      "name": "Westgate Group",
+      "country": "CN",
+      "tier": "silver",
+      "contract_value_annual": "4269089.616"
+    },
+    {
+      "name": "Beacon Industries",
+      "country": "MX",
+      "tier": "silver",
+      "contract_value_annual": "3152655.9361"
+    }
+  ],
+  "disruptions": [
+    {
+      "scenario_id": "disrupt-umbra-e0ifd0",
+      "supplier_name": "Umbra E0IFD0",
+      "disruption_type": "failure",
+      "severity": "critical",
+      "started_at": "2026-08-08",
+      "delay_hours": 0.0,
+      "recovery_hours": 0.0,
+      "affected_components": [
+        {
+          "component_id": "COMP-00036",
+          "sku": "COMP-00036",
+          "name": "Resistor SYLZTG",
+          "hop": 1,
+          "attenuated_exposure": 0.93295
+        },
+        {
+          "component_id": "COMP-00008",
+          "sku": "COMP-00008",
+          "name": "Housing E7UR23",
+          "hop": 1,
+          "attenuated_exposure": 0.9597
+        }
+      ],
+      "affected_products": [],
+      "affected_warehouses": [
+        {
+          "warehouse_id": "RT-003",
+          "component_id": "COMP-00008",
+          "quantity": 4874,
+          "safety_stock": 362,
+          "daily_usage": 1,
+          "coverage_days": 4874.0
+        },
+        {
+          "warehouse_id": "DC-002",
+          "component_id": "COMP-00008",
+          "quantity": 4312,
+          "safety_stock": 47,
+          "daily_usage": 1,
+          "coverage_days": 4312.0
+        }
+      ],
+      "affected_orders": [],
+      "stockout_events": [
+        {
+          "hour": 103488,
+          "title": "COMP-00008 at DC-002",
+          "description": "Coverage: 4312.0 days",
+          "status": "ok"
+        },
+        {
+          "hour": 116976,
+          "title": "COMP-00008 at RT-003",
+          "description": "Coverage: 4874.0 days",
+          "status": "ok"
+        }
+      ],
+      "stockout_deadline_hours": 116976.0,
+      "revenue_risk_usd": 0.0,
+      "margin_risk_usd": 0.0,
+      "penalty_exposure_usd": 26000,
+      "working_capital_impact_usd": 1412450,
+      "customer_impact_score": 45,
+      "operational_impact_score": 100,
+      "expected_recommendations": [
+        {
+          "action": "expedite_alternate_supplier",
+          "name": "Expedite Alternate Supplier",
+          "rank": 1,
+          "net_benefit": 850000
+        },
+        {
+          "action": "expedite_shipment",
+          "name": "Expedite Shipment from Alternate Source",
+          "rank": 2,
+          "net_benefit": 620000
+        },
+        {
+          "action": "reallocate_inventory",
+          "name": "Reallocate Inventory from Other Warehouses",
+          "rank": 3,
+          "net_benefit": 450000
+        }
+      ],
+      "confidence_overall": 0.4979,
+      "confidence_completeness": 0.0667,
+      "confidence_freshness": 0.95,
+      "confidence_agreement": 0.98,
+      "confidence_conflict_density": 0.01
+    },
+    {
+      "scenario_id": "disrupt-york-kcidkw",
+      "supplier_name": "York KCIDKW",
+      "disruption_type": "delay",
+      "severity": "high",
+      "started_at": "2026-08-08",
+      "delay_hours": 120.0,
+      "recovery_hours": 48.0,
+      "affected_components": [],
+      "affected_products": [],
+      "affected_warehouses": [],
+      "affected_orders": [],
+      "stockout_events": [],
+      "stockout_deadline_hours": 1.0,
+      "revenue_risk_usd": 0.0,
+      "margin_risk_usd": 0.0,
+      "penalty_exposure_usd": 26000,
+      "working_capital_impact_usd": 1412450,
+      "customer_impact_score": 45,
+      "operational_impact_score": 100,
+      "expected_recommendations": [
+        {
+          "action": "expedite_alternate_supplier",
+          "name": "Expedite Alternate Supplier",
+          "rank": 1,
+          "net_benefit": 850000
+        },
+        {
+          "action": "expedite_shipment",
+          "name": "Expedite Shipment from Alternate Source",
+          "rank": 2,
+          "net_benefit": 620000
+        },
+        {
+          "action": "reallocate_inventory",
+          "name": "Reallocate Inventory from Other Warehouses",
+          "rank": 3,
+          "net_benefit": 450000
+        }
+      ],
+      "confidence_overall": 0.333,
+      "confidence_completeness": 0.0133,
+      "confidence_freshness": 0.95,
+      "confidence_agreement": 0.98,
+      "confidence_conflict_density": 0.01
+    },
+    {
+      "scenario_id": "disrupt-westgate-pkh1dn",
+      "supplier_name": "Westgate PKH1DN",
+      "disruption_type": "failure",
+      "severity": "high",
+      "started_at": "2026-08-08",
+      "delay_hours": 0.0,
+      "recovery_hours": 0.0,
+      "affected_components": [
+        {
+          "component_id": "COMP-00028",
+          "sku": "COMP-00028",
+          "name": "PCB 7IF2GO",
+          "hop": 1,
+          "attenuated_exposure": 0.7705
+        }
+      ],
+      "affected_products": [
+        {
+          "product_id": "PROD-00007",
+          "sku": "PROD-00007",
+          "name": "Galaxy ZE5R5U",
+          "component_id": "COMP-00028",
+          "qty_needed_per_unit": "12.6013",
+          "hop": 3
+        },
+        {
+          "product_id": "PROD-00018",
+          "sku": "PROD-00018",
+          "name": "Iris 3TQLL8",
+          "component_id": "COMP-00028",
+          "qty_needed_per_unit": "9.7719",
+          "hop": 3
+        },
+        {
+          "product_id": "PROD-00008",
+          "sku": "PROD-00008",
+          "name": "Eclipse 8J5ECR",
+          "component_id": "COMP-00028",
+          "qty_needed_per_unit": "18.2008",
+          "hop": 3
+        }
+      ],
+      "affected_warehouses": [
+        {
+          "warehouse_id": "WH-004",
+          "component_id": "COMP-00028",
+          "quantity": 4624,
+          "safety_stock": 329,
+          "daily_usage": 1328,
+          "coverage_days": 3.5
+        },
+        {
+          "warehouse_id": "RT-003",
+          "component_id": "COMP-00028",
+          "quantity": 308,
+          "safety_stock": 29,
+          "daily_usage": 1328,
+          "coverage_days": 0.2
+        },
+        {
+          "warehouse_id": "DC-000",
+          "component_id": "COMP-00028",
+          "quantity": 4683,
+          "safety_stock": 333,
+          "daily_usage": 1328,
+          "coverage_days": 3.5
+        },
+        {
+          "warehouse_id": "RT-003",
+          "component_id": "COMP-00028",
+          "quantity": 4293,
+          "safety_stock": 267,
+          "daily_usage": 1328,
+          "coverage_days": 3.2
+        }
+      ],
+      "affected_orders": [
+        {
+          "order_id": "",
+          "customer_id": "Zenith Manufacturing",
+          "product_id": "PROD-00018",
+          "quantity": "427",
+          "status": "in_production"
+        },
+        {
+          "order_id": "",
+          "customer_id": "Echo Industries",
+          "product_id": "PROD-00007",
+          "quantity": "984",
+          "status": "in_production"
+        },
+        {
+          "order_id": "",
+          "customer_id": "Pinnacle Systems",
+          "product_id": "PROD-00007",
+          "quantity": "810",
+          "status": "confirmed"
+        },
+        {
+          "order_id": "",
+          "customer_id": "Westgate Group",
+          "product_id": "PROD-00018",
+          "quantity": "378",
+          "status": "in_production"
+        },
+        {
+          "order_id": "",
+          "customer_id": "Beacon Manufacturing",
+          "product_id": "PROD-00008",
+          "quantity": "202",
+          "status": "in_production"
+        },
+        {
+          "order_id": "",
+          "customer_id": "Beacon Industries",
+          "product_id": "PROD-00008",
+          "quantity": "667",
+          "status": "pending"
+        },
+        {
+          "order_id": "",
+          "customer_id": "Orion Inc",
+          "product_id": "PROD-00018",
+          "quantity": "316",
+          "status": "pending"
+        }
+      ],
+      "stockout_events": [
+        {
+          "hour": 5,
+          "title": "COMP-00028 at RT-003",
+          "description": "Coverage: 0.2 days",
+          "status": "critical"
+        },
+        {
+          "hour": 77,
+          "title": "COMP-00028 at RT-003",
+          "description": "Coverage: 3.2 days",
+          "status": "ok"
+        },
+        {
+          "hour": 84,
+          "title": "COMP-00028 at WH-004",
+          "description": "Coverage: 3.5 days",
+          "status": "ok"
+        },
+        {
+          "hour": 84,
+          "title": "COMP-00028 at DC-000",
+          "description": "Coverage: 3.5 days",
+          "status": "ok"
+        }
+      ],
+      "stockout_deadline_hours": 84.0,
+      "revenue_risk_usd": 0.0,
+      "margin_risk_usd": 0.0,
+      "penalty_exposure_usd": 26000,
+      "working_capital_impact_usd": 1412450,
+      "customer_impact_score": 45,
+      "operational_impact_score": 100,
+      "expected_recommendations": [
+        {
+          "action": "expedite_alternate_supplier",
+          "name": "Expedite Alternate Supplier",
+          "rank": 1,
+          "net_benefit": 850000
+        },
+        {
+          "action": "expedite_shipment",
+          "name": "Expedite Shipment from Alternate Source",
+          "rank": 2,
+          "net_benefit": 620000
+        },
+        {
+          "action": "reallocate_inventory",
+          "name": "Reallocate Inventory from Other Warehouses",
+          "rank": 3,
+          "net_benefit": 450000
+        }
+      ],
+      "confidence_overall": 0.4382,
+      "confidence_completeness": 0.04,
+      "confidence_freshness": 0.95,
+      "confidence_agreement": 0.98,
+      "confidence_conflict_density": 0.01
+    }
+  ]
+}

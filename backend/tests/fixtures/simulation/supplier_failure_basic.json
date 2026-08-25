@@ -1,0 +1,117 @@
+{
+  "scenario_id": "supplier_failure_hand_calc_01",
+  "name": "Supplier Failure Analytical Trajectory",
+  "description": "Supplier S1 suffers total failure at t=0. Daily consumption=100 units. Initial inventory=300 units. Depletion occurs at t=3 days.",
+  "engine_version": "simulation-v2.0",
+  "initial_state": {
+    "workspace_id": "ws_sim_fixture",
+    "world_id": "world_sim_fixture",
+    "version": 1,
+    "variables": {
+      "inventory.warehouse.wh_01": {
+        "variable_id": "inventory.warehouse.wh_01",
+        "variable_type": "inventory",
+        "entity_id": "wh_01",
+        "entity_type": "warehouse",
+        "value": 300,
+        "unit": "units"
+      },
+      "lead_time.supplier.sup_01": {
+        "variable_id": "lead_time.supplier.sup_01",
+        "variable_type": "lead_time",
+        "entity_id": "sup_01",
+        "entity_type": "supplier",
+        "value": 5,
+        "unit": "days"
+      },
+      "capacity.supplier.sup_01": {
+        "variable_id": "capacity.supplier.sup_01",
+        "variable_type": "capacity",
+        "entity_id": "sup_01",
+        "entity_type": "supplier",
+        "value": 100.0,
+        "unit": "percent"
+      }
+    }
+  },
+  "scenario_events": [
+    {
+      "tick": 1,
+      "entity_type": "supplier",
+      "entity_id": "sup_01",
+      "event_type": "factory_shutdown",
+      "payload": {
+        "capacity_pct": 0.0,
+        "cause": "supplier_failure"
+      }
+    },
+    {
+      "tick": 1,
+      "entity_type": "warehouse",
+      "entity_id": "wh_01",
+      "event_type": "inventory_changed",
+      "payload": {
+        "warehouse_id": "wh_01",
+        "component_id": "comp_01",
+        "quantity_change": -100,
+        "reason": "daily_consumption_day_1"
+      }
+    },
+    {
+      "tick": 2,
+      "entity_type": "warehouse",
+      "entity_id": "wh_01",
+      "event_type": "inventory_changed",
+      "payload": {
+        "warehouse_id": "wh_01",
+        "component_id": "comp_01",
+        "quantity_change": -100,
+        "reason": "daily_consumption_day_2"
+      }
+    },
+    {
+      "tick": 3,
+      "entity_type": "warehouse",
+      "entity_id": "wh_01",
+      "event_type": "inventory_changed",
+      "payload": {
+        "warehouse_id": "wh_01",
+        "component_id": "comp_01",
+        "quantity_change": -100,
+        "reason": "daily_consumption_day_3"
+      }
+    }
+  ],
+  "expected_trajectory": [
+    {
+      "tick": 0,
+      "expected_inventory": 300,
+      "expected_capacity": 100.0,
+      "status": "normal"
+    },
+    {
+      "tick": 1,
+      "expected_inventory": 200,
+      "expected_capacity": 0.0,
+      "status": "supply_failed"
+    },
+    {
+      "tick": 2,
+      "expected_inventory": 100,
+      "expected_capacity": 0.0,
+      "status": "buffer_depleting"
+    },
+    {
+      "tick": 3,
+      "expected_inventory": 0,
+      "expected_capacity": 0.0,
+      "status": "stockout_reached"
+    }
+  ],
+  "expected_final_kpis": {
+    "total_inventory": 0.0,
+    "avg_capacity": 0.0,
+    "stockout_hours": 0.0,
+    "production_downtime_hours": 72.0
+  }
+}

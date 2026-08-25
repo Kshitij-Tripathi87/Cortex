@@ -1,0 +1,4 @@
+route_id,origin,destination,corridor,baseline_delay_days,congestion_factor,alternative_air_carrier
+route_SP_to_RJ,SP,RJ,BR-116,1.4,1.9,VCP_SDU_AIR_CARGO
+route_SP_to_MG,SP,MG,BR-381,1.1,1.0,NONE
+route_RJ_to_PR,RJ,PR,BR-101,1.8,1.2,GIG_CWB_AIR_CARGO

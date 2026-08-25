@@ -1,0 +1,66 @@
+name: Cortex Nexus — Production Release & Artifact Freeze (Pipeline 4)
+
+on:
+  push:
+    tags:
+      - "nexus-v*"
+
+jobs:
+  release-verification:
+    name: Production Release Gate & Artifact Packaging
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Database Migrations (Upgrade / Downgrade)
+        run: |
+          cd backend
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -e ".[dev]"
+          alembic upgrade head
+          alembic downgrade -1
+          alembic upgrade head
+
+      - name: Run Canonical 26-Step Acceptance Suite
+        run: |
+          cd backend
+          source .venv/bin/activate
+          pytest tests/test_nexus_release_acceptance.py -v --tb=short
+
+      - name: Build & Scan Production Container Images
+        run: |
+          docker build -t cortex-backend:latest ./backend
+          docker build -t cortex-frontend:latest ./frontend
+
+      - name: Generate Software Bill of Materials (SBOM)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./
+          format: spdx-json
+          output-file: nexus-release-sbom.spdx.json
+
+      - name: Package Release Candidate Artifacts
+        run: |
+          mkdir -p release-artifacts
+          cp nexus-release-sbom.spdx.json release-artifacts/
+          cp docker-compose.prod.yml release-artifacts/
+          cp backend/openapi.json release-artifacts/
+          tar -czvf nexus-1.0.0-rc1.tar.gz release-artifacts/
+
+      - name: Publish GitHub Release Artifacts
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            nexus-1.0.0-rc1.tar.gz
+            nexus-release-sbom.spdx.json
+          draft: false
+          prerelease: true
+          generate_release_notes: true

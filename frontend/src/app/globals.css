@@ -1,0 +1,160 @@
+/* Cortex Nexus — global stylesheet (spec §3). Begins by making browser defaults impossible. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '@/components/nexus/graph-styles.css';
+
+:root {
+  /* Spec §1.1 palette */
+  --nx-bg: #09090b;
+  --nx-surface: #18181b;
+  --nx-surface-2: #1f1f23;
+  --nx-border: #27272a;
+  --nx-border-strong: #3f3f46;
+  --nx-text: #fafafa;
+  --nx-text-secondary: #a1a1aa;
+  --nx-text-muted: #71717a;
+  --nx-accent: #16a34a;
+  --nx-accent-hover: #15803d;
+  --nx-accent-subtle: rgba(22, 163, 74, 0.12);
+  --nx-critical: #dc2626;
+  --nx-critical-subtle: rgba(220, 38, 38, 0.12);
+  --nx-warning: #d97706;
+  --nx-warning-subtle: rgba(217, 119, 6, 0.12);
+  --nx-info: #a1a1aa;
+  --nx-overlay: rgba(0, 0, 0, 0.7);
+
+  /* Typography tokens (spec §1.2) */
+  --nx-font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --nx-font-mono: '"JetBrains Mono"', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Spacing scale */
+  --nx-space-1: 4px;
+  --nx-space-2: 8px;
+  --nx-space-3: 12px;
+  --nx-space-4: 16px;
+  --nx-space-6: 24px;
+  --nx-space-8: 32px;
+  --nx-space-12: 48px;
+
+  /* Back-compat aliases for the legacy marketing header (components/Header.tsx).
+     New product surfaces MUST use the --nx-* tokens / Tailwind zinc theme. */
+  --cx-canvas: var(--nx-bg);
+  --cx-surface: var(--nx-surface);
+  --cx-surface-raised: var(--nx-surface-2);
+  --cx-ink: var(--nx-text);
+  --cx-ink-secondary: var(--nx-text-secondary);
+  --cx-muted: var(--nx-text-secondary);
+  --cx-muted-dim: var(--nx-text-muted);
+  --cx-line: var(--nx-border);
+  --cx-line-subtle: var(--nx-surface-2);
+  --cx-accent: var(--nx-accent);
+  --cx-accent-hover: var(--nx-accent-hover);
+  --cx-accent-subtle: var(--nx-accent-subtle);
+  --cx-danger: var(--nx-critical);
+  --cx-danger-subtle: var(--nx-critical-subtle);
+  --cx-focus: var(--nx-accent);
+  --cx-radius: 0px;
+  --cx-transition: 180ms ease;
+}
+
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--nx-bg);
+    color: var(--nx-text);
+    font-family: var(--nx-font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Form controls inherit typography (spec §3) */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* No tap highlight */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Anchor reset — no browser-blue links, ever (spec §3 / §1.3) */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: none;
+  }
+
+  /* Button reset — remove user-agent defaults so our design system owns geometry */
+  button {
+    background-color: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--nx-bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--nx-border);
+    border: 2px solid var(--nx-bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--nx-border-strong);
+  }
+  * {
+    scrollbar-color: var(--nx-border) var(--nx-bg);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--nx-accent-subtle);
+    color: var(--nx-accent);
+  }
+
+  /* Focus (spec §3) */
+  :focus-visible {
+    outline: 2px solid var(--nx-accent);
+    outline-offset: 2px;
+  }
+
+  /* Reduced motion (spec §3) */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

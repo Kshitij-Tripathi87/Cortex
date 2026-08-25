@@ -1,0 +1,254 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cortex-postgres-pvc
+  namespace: cortex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-postgres
+  namespace: cortex
+  labels:
+    app: cortex-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cortex-postgres
+  template:
+    metadata:
+      labels:
+        app: cortex-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: DB_PASSWORD
+            - name: POSTGRES_DB
+              value: "cortex"
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - cortex
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - cortex
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: cortex-postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-postgres
+  namespace: cortex
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app: cortex-postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-redis
+  namespace: cortex
+  labels:
+    app: cortex-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cortex-redis
+  template:
+    metadata:
+      labels:
+        app: cortex-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-redis
+  namespace: cortex
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: cortex-redis
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cortex-minio-pvc
+  namespace: cortex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-minio
+  namespace: cortex
+  labels:
+    app: cortex-minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cortex-minio
+  template:
+    metadata:
+      labels:
+        app: cortex-minio
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2024-06-22T05-26-31Z
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9001
+              name: console
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: S3_ACCESS_KEY
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: S3_SECRET_KEY
+          args:
+            - server
+            - /data
+            - --console-address
+            - :9001
+          volumeMounts:
+            - name: minio-storage
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: minio-storage
+          persistentVolumeClaim:
+            claimName: cortex-minio-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-minio
+  namespace: cortex
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: api
+    - port: 9001
+      targetPort: 9001
+      protocol: TCP
+      name: console
+  selector:
+    app: cortex-minio

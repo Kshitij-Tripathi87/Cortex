@@ -1,0 +1,4 @@
+product_id,product_category_name,product_weight_g,product_length_cm,product_height_cm,product_width_cm
+prod_elec_44,telefonia,450,18,5,10
+prod_app_12,utilidades_domesticas,1200,30,15,20
+prod_comp_08,informatica_acessorios,350,15,4,12
