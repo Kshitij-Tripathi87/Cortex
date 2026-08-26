@@ -21,7 +21,7 @@ from app.common.ids import uuid7
 @dataclass
 class CanonicalEntity:
     canonical_id: str
-    entity_type: str  # "CUSTOMER" | "SELLER" | "PRODUCT" | "ORDER" | "LOCATION" | "ROUTE"
+    entity_type: str  # "CUSTOMER" | "SUPPLIER" | "PRODUCT" | "ORDER" | "LOCATION" | "ROUTE" ("SELLER" is an ingest-time alias of "SUPPLIER")
     source_identifiers: dict[str, str]  # system_name -> source_id
     attributes: dict[str, Any]
     confidence_score: float = 1.0
@@ -60,7 +60,7 @@ class EntityResolutionEngine:
         canonical_id = f"seller_{uuid7().replace('-', '')}"
         entity = CanonicalEntity(
             canonical_id=canonical_id,
-            entity_type="SELLER",
+            entity_type="SUPPLIER",  # canonical type; "SELLER" is normalized to this at ingest
             source_identifiers={system_name: source_id},
             attributes={"zip_code": zip_code, "city": city, "state": state},
         )

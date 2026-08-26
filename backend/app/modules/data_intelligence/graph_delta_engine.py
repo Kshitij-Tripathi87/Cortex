@@ -180,10 +180,10 @@ class GraphDeltaEngine:
             e2 = self.graph_engine.add_edge(order_id, product_id, "CONTAINS")
             delta.added_edges.append(EdgeDelta(e2.edge_id, "ADDED", order_id, product_id, "CONTAINS"))
 
-            # 4. Seller Node & Edge
+            # 4. Supplier (alias: seller) Node & Edge
             if seller_id not in self.graph_engine.nodes:
-                self.graph_engine.add_node(seller_id, "SELLER", {"state": origin})
-                delta.added_nodes.append(NodeDelta(seller_id, "ADDED", "SELLER", {"state": origin}))
+                self.graph_engine.add_node(seller_id, "SUPPLIER", {"state": origin})
+                delta.added_nodes.append(NodeDelta(seller_id, "ADDED", "SUPPLIER", {"state": origin}))
             e3 = self.graph_engine.add_edge(order_id, seller_id, "FULFILLED_BY")
             delta.added_edges.append(EdgeDelta(e3.edge_id, "ADDED", order_id, seller_id, "FULFILLED_BY"))
 
@@ -194,12 +194,12 @@ class GraphDeltaEngine:
             e4 = self.graph_engine.add_edge(order_id, route_id, "TRAVELS_TO")
             delta.added_edges.append(EdgeDelta(e4.edge_id, "ADDED", order_id, route_id, "TRAVELS_TO"))
 
-        elif event_type in {"SELLER_STATUS_CHANGED", "SELLER_DEGRADATION"}:
+        elif event_type in {"SELLER_STATUS_CHANGED", "SELLER_DEGRADATION", "SUPPLIER_STATUS_CHANGED", "SUPPLIER_DEGRADATION"}:
             seller_id = payload.get("seller_id", "seller_default")
             if seller_id in self.graph_engine.nodes:
                 node = self.graph_engine.nodes[seller_id]
                 node.attributes.update(payload)
-                delta.updated_nodes.append(NodeDelta(seller_id, "UPDATED", "SELLER", node.attributes, node.pagerank, node.is_spof))
+                delta.updated_nodes.append(NodeDelta(seller_id, "UPDATED", "SUPPLIER", node.attributes, node.pagerank, node.is_spof))
 
         self.delta_history.append(delta)
         return delta

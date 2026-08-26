@@ -146,6 +146,12 @@ class RootCauseImpactEngine:
                     price = float(node.attributes.get("price", 0) or 0)
                     freight = float(node.attributes.get("freight_value", 0) or 0)
                     total_revenue += price + freight
+                elif node.node_type == "ORDER_ITEM":
+                    # Order lines are the priced records in item-level datasets;
+                    # their parent ORDER carries no amount of its own.
+                    price = float(node.attributes.get("price", 0) or 0)
+                    freight = float(node.attributes.get("freight_value", 0) or 0)
+                    total_revenue += price + freight
                 elif node.node_type == "CUSTOMER":
                     affected_customers.add(current)
                 elif node.node_type == "LOCATION":

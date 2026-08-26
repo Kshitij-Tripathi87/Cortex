@@ -17,8 +17,8 @@ from app.common.ids import uuid7
 class OperationalSignal:
     signal_id: str
     entity_id: str
-    entity_type: str  # "SELLER" | "ROUTE" | "ORDER" | "REGION"
-    signal_type: str  # "SELLER_DEGRADATION" | "ROUTE_CONGESTION" | "SLA_BREACH_RISK" | "ORDER_ACCUMULATION"
+    entity_type: str  # "SUPPLIER" | "ROUTE" | "ORDER" | "REGION" ("SELLER" is an ingest-time alias of "SUPPLIER")
+    signal_type: str  # "SUPPLIER_DEGRADATION" | "ROUTE_CONGESTION" | "SLA_BREACH_RISK" | "ORDER_ACCUMULATION"
     severity: str  # "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
     confidence: float
     metric_value: float
@@ -63,8 +63,8 @@ class OperationalSignalEngine:
             sig = OperationalSignal(
                 signal_id=f"sig_{uuid7()[:8]}",
                 entity_id=seller_id,
-                entity_type="SELLER",
-                signal_type="SELLER_DEGRADATION",
+                entity_type="SUPPLIER",
+                signal_type="SUPPLIER_DEGRADATION",
                 severity=sev,
                 confidence=0.94,
                 metric_value=avg_dispatch_days,

@@ -61,13 +61,13 @@ class QueryPlanner:
                 step_id="step_1_spof_scan",
                 target_engine="GRAPH_ENGINE",
                 operation="FILTER_CRITICAL_SPOF_NODES",
-                parameters={"node_type": "SELLER", "min_pagerank": 0.02},
+                parameters={"node_type": "SUPPLIER", "min_pagerank": 0.02},
             ))
             steps.append(QueryStep(
                 step_id="step_2_signal_join",
                 target_engine="SIGNAL_ENGINE",
                 operation="SCAN_ACTIVE_DEGRADATION_SIGNALS",
-                parameters={"signal_types": ["SELLER_DEGRADATION", "SLA_BREACH_RISK"]},
+                parameters={"signal_types": ["SUPPLIER_DEGRADATION", "SLA_BREACH_RISK"]},
             ))
 
         elif intent.intent_type == IntentType.TRACE_BLAST_RADIUS:

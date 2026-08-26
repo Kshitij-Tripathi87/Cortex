@@ -71,8 +71,8 @@ async def test_nexus_multi_agent_operational_acceptance():
 
     # 2. Dynamic Agent Routing via Graph Relevance
     routes = DynamicAgentRouter.route_incident(
-        signal_type="SELLER_DEGRADATION",
-        entity_type="SELLER",
+        signal_type="SUPPLIER_DEGRADATION",
+        entity_type="SUPPLIER",
         severity="CRITICAL",
         has_route_bottleneck=True,
     )

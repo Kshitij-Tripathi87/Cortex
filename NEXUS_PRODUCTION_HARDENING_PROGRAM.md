@@ -29,19 +29,19 @@ The central acceptance criterion. Frontend and backend participate in the
 
 | # | Phase | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Authoritative baseline (full stack, measured) | ✅ MEASURED | `BASELINE_REPORT.md` — 1336/1337 backend tests, 10 tracked gaps |
+| 1 | Authoritative baseline (full stack, measured) | ✅ MEASURED | `BASELINE_REPORT.md` — 10 gaps tracked |
 | 2 | Nexus frontend recovery (tsc / build / routes / states) | 🔄 COMPILE GREEN | tsc=0 ✅ build=0 ✅ (45 routes) — route/state matrix + E2E pending |
-| 3 | API boundary hardening (contracts, authZ, error model) | ⬜ | contract audit table |
-| 4 | Integration suite (Dataset→…→Evidence regression) | ⬜ | permanent regression test |
+| 3 | API boundary hardening (contracts, authZ, error model) | 🔄 STARTED | G1 taxonomy contract unified; G8 type-shadow dedup open |
+| 4 | Integration suite (Dataset→…→Evidence regression) | ✅ CORE DONE | Hermetic vertical-slice regression green (fixture + `CORTEX_OLIST_DIR` override); realtime/contract suites pending |
 | 5 | Failure-behavior tests (backend + frontend) | ⬜ | failure matrix results |
 | 6 | Realtime correctness (seq/version/resync protocol) | ⬜ | protocol tests |
 | 7 | PostgreSQL concurrency hardening (10→1000 writers) | ⬜ | concurrency test results |
 | 8 | Redis production semantics (per-use failure model) | ⬜ | failure-model table |
 | 9 | API performance (P50/P95/P99, SLOs) | ⬜ | SLO doc + measurements |
-| 10 | Production infra (backup/restore, probes, K8s) | ⬜ | validated runbooks |
+| 10 | Production infra (backup/restore, probes, K8s) | ⬜ | G5 git done; readyz/backups/rollback open |
 | 11 | Observability (end-to-end trace: request→evidence) | ⬜ | trace walkthrough |
 | 12 | Security hardening (RLS, isolation, scanning) | ⬜ | security audit pass |
-| 13 | Real-data validation (multi-dataset, no fake constants) | ⬜ | dataset matrix |
+| 13 | Real-data validation (multi-dataset, no fake constants) | 🔄 STARTED | Orchestrator de-fabricated (G4); **G4b open**: counterfactual simulations + shipment telemetry are declared scenario inputs — wire real Digital Twin runtime |
 | 14 | Chaos / resilience (kill deps, inject faults) | ⬜ | chaos test results |
 | 15 | Final production gate | ⬜ | all boxes checked below |
 

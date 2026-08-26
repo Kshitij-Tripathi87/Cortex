@@ -13,6 +13,7 @@ Validates the full enterprise loop on real Olist data:
 - P0 Fixes: 100% Total Canary Traffic Accounting & Anti-Affinity Failure-Domain Scheduling
 """
 
+import csv
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -34,14 +35,28 @@ from app.modules.data_intelligence.profiler import DataQualityProfiler
 from app.modules.data_intelligence.root_cause_engine import RootCauseImpactEngine
 from app.modules.data_intelligence.signal_engine import OperationalSignalEngine
 
+# Hermetic dataset: repo-checked-in Olist-shaped fixture, overridable via
+# CORTEX_OLIST_DIR for runs against a downloaded full archive.
+OLIST_DATA_DIR = os.environ.get(
+    "CORTEX_OLIST_DIR",
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "tests",
+        "fixtures",
+        "olist",
+    ),
+)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Program Q1 & Q2: Data Quality Engine
 # ─────────────────────────────────────────────────────────────────────────────
 def test_data_quality_profiler_on_real_olist():
-    """Verify DataQualityProfiler inspects real Olist CSVs and generates readiness report."""
+    """Verify DataQualityProfiler inspects the Olist-shaped dataset and generates readiness report."""
     profiler = DataQualityProfiler()
-    orders_path = r"C:\Users\21330\Downloads\archive\olist_orders_dataset.csv"
+    orders_path = os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv")
+    with open(orders_path, encoding="utf-8") as fh:
+        expected_rows = sum(1 for _ in csv.DictReader(fh))
 
     report = profiler.profile_csv(
         filepath=orders_path,
@@ -52,7 +67,7 @@ def test_data_quality_profiler_on_real_olist():
         max_rows=1000,
     )
 
-    assert report.total_records == 1000
+    assert report.total_records == expected_rows
     assert report.overall_readiness in {"READY", "READY_WITH_WARNINGS"}
     assert report.dimension_scores["SCHEMA"].passed is True
     assert report.dimension_scores["INTEGRITY"].passed is True
@@ -71,8 +86,8 @@ def test_operational_graph_and_analytics():
     s2 = entities.resolve_seller("s_200", "20040", "Rio de Janeiro", "RJ")
     c1 = entities.resolve_customer("c_300", "01310", "Sao Paulo", "SP")
 
-    graph.add_node(s1.canonical_id, "SELLER", s1.attributes)
-    graph.add_node(s2.canonical_id, "SELLER", s2.attributes)
+    graph.add_node(s1.canonical_id, "SUPPLIER", s1.attributes)
+    graph.add_node(s2.canonical_id, "SUPPLIER", s2.attributes)
     graph.add_node(c1.canonical_id, "CUSTOMER", c1.attributes)
     graph.add_node("ord_01", "ORDER", {"price": 200.0})
 
@@ -92,7 +107,7 @@ def test_operational_graph_and_analytics():
 def test_signals_blast_radius_and_feature_store():
     """Verify operational anomaly detection, blast radius projection, and temporal leakage protection."""
     graph = OperationalGraphEngine()
-    graph.add_node("seller_99", "SELLER")
+    graph.add_node("seller_99", "SUPPLIER")
     graph.add_node("ord_1", "ORDER")
     graph.add_node("ord_2", "ORDER")
     graph.add_edge("ord_1", "seller_99", "FULFILLED_BY")
@@ -102,7 +117,7 @@ def test_signals_blast_radius_and_feature_store():
     sig_engine = OperationalSignalEngine()
     sig = sig_engine.evaluate_seller_performance("seller_99", avg_dispatch_days=4.5, baseline_dispatch_days=2.0)
     assert sig is not None
-    assert sig.signal_type == "SELLER_DEGRADATION"
+    assert sig.signal_type == "SUPPLIER_DEGRADATION"
     assert sig.severity == "CRITICAL"
 
     # Root Cause & Blast Radius
@@ -135,12 +150,13 @@ async def test_nexus_data_to_decision_orchestration():
     """Verify complete canonical Nexus Data -> Graph -> Signals -> Context -> Deliberation -> Evidence loop."""
     ctx = ExecutionContext.create_system_context()
     orchestrator = NexusDataIntelligenceOrchestrator()
-    data_dir = r"C:\Users\21330\Downloads\archive"
+    data_dir = OLIST_DATA_DIR
 
     result = await orchestrator.execute_data_to_decision_pipeline(
         data_dir=data_dir,
         context=ctx,
         max_orders=200,
+        world_state_version=101,
     )
 
     # 1. Ingestion & Quality
@@ -149,7 +165,7 @@ async def test_nexus_data_to_decision_orchestration():
     # 2. Multi-Table Operational Graph Coverage (Hundreds of real nodes & relationships)
     assert result.graph_analytics.coverage.total_nodes_created > 500
     assert result.graph_analytics.coverage.total_edges_created > 500
-    assert "SELLER" in result.graph_analytics.coverage.nodes_by_type
+    assert "SUPPLIER" in result.graph_analytics.coverage.nodes_by_type
     assert "ORDER" in result.graph_analytics.coverage.nodes_by_type
     assert "CUSTOMER" in result.graph_analytics.coverage.nodes_by_type
     assert "ROUTE" in result.graph_analytics.coverage.nodes_by_type

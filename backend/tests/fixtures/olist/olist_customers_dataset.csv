@@ -1,0 +1,181 @@
+customer_id,customer_unique_id,customer_zip_code_prefix,customer_city,customer_state
+cust000,cuniq000,20000,salvador,BA
+cust001,cuniq001,20013,salvador,BA
+cust002,cuniq002,20026,salvador,BA
+cust003,cuniq003,20039,belo horizonte,MG
+cust004,cuniq004,20052,uberlandia,MG
+cust005,cuniq005,20065,belo horizonte,MG
+cust006,cuniq006,20078,curitiba,PR
+cust007,cuniq007,20091,curitiba,PR
+cust008,cuniq008,20104,curitiba,PR
+cust009,cuniq009,20117,niteroi,RJ
+cust010,cuniq010,20130,rio de janeiro,RJ
+cust011,cuniq011,20143,niteroi,RJ
+cust012,cuniq012,20156,porto alegre,RS
+cust013,cuniq013,20169,porto alegre,RS
+cust014,cuniq014,20182,porto alegre,RS
+cust015,cuniq015,20195,santos,SP
+cust016,cuniq016,20208,santos,SP
+cust017,cuniq017,20221,campinas,SP
+cust018,cuniq018,20234,salvador,BA
+cust019,cuniq019,20247,salvador,BA
+cust020,cuniq020,20260,salvador,BA
+cust021,cuniq021,20273,belo horizonte,MG
+cust022,cuniq022,20286,uberlandia,MG
+cust023,cuniq023,20299,belo horizonte,MG
+cust024,cuniq024,20312,curitiba,PR
+cust025,cuniq025,20325,curitiba,PR
+cust026,cuniq026,20338,curitiba,PR
+cust027,cuniq027,20351,niteroi,RJ
+cust028,cuniq028,20364,niteroi,RJ
+cust029,cuniq029,20377,niteroi,RJ
+cust030,cuniq030,20390,porto alegre,RS
+cust031,cuniq031,20403,porto alegre,RS
+cust032,cuniq032,20416,porto alegre,RS
+cust033,cuniq033,20429,santos,SP
+cust034,cuniq034,20442,santos,SP
+cust035,cuniq035,20455,campinas,SP
+cust036,cuniq036,20468,salvador,BA
+cust037,cuniq037,20481,salvador,BA
+cust038,cuniq038,20494,salvador,BA
+cust039,cuniq039,20507,uberlandia,MG
+cust040,cuniq040,20520,uberlandia,MG
+cust041,cuniq041,20533,belo horizonte,MG
+cust042,cuniq042,20546,curitiba,PR
+cust043,cuniq043,20559,curitiba,PR
+cust044,cuniq044,20572,curitiba,PR
+cust045,cuniq045,20585,niteroi,RJ
+cust046,cuniq046,20598,rio de janeiro,RJ
+cust047,cuniq047,20611,niteroi,RJ
+cust048,cuniq048,20624,porto alegre,RS
+cust049,cuniq049,20637,porto alegre,RS
+cust050,cuniq050,20650,porto alegre,RS
+cust051,cuniq051,20663,campinas,SP
+cust052,cuniq052,20676,sao paulo,SP
+cust053,cuniq053,20689,santos,SP
+cust054,cuniq054,20702,salvador,BA
+cust055,cuniq055,20715,salvador,BA
+cust056,cuniq056,20728,salvador,BA
+cust057,cuniq057,20741,uberlandia,MG
+cust058,cuniq058,20754,uberlandia,MG
+cust059,cuniq059,20767,uberlandia,MG
+cust060,cuniq060,20780,curitiba,PR
+cust061,cuniq061,20793,curitiba,PR
+cust062,cuniq062,20806,curitiba,PR
+cust063,cuniq063,20819,rio de janeiro,RJ
+cust064,cuniq064,20832,niteroi,RJ
+cust065,cuniq065,20845,rio de janeiro,RJ
+cust066,cuniq066,20858,porto alegre,RS
+cust067,cuniq067,20871,porto alegre,RS
+cust068,cuniq068,20884,porto alegre,RS
+cust069,cuniq069,20897,campinas,SP
+cust070,cuniq070,20910,santos,SP
+cust071,cuniq071,20923,campinas,SP
+cust072,cuniq072,20936,salvador,BA
+cust073,cuniq073,20949,salvador,BA
+cust074,cuniq074,20962,salvador,BA
+cust075,cuniq075,20975,belo horizonte,MG
+cust076,cuniq076,20988,belo horizonte,MG
+cust077,cuniq077,21001,belo horizonte,MG
+cust078,cuniq078,21014,curitiba,PR
+cust079,cuniq079,21027,curitiba,PR
+cust080,cuniq080,21040,curitiba,PR
+cust081,cuniq081,21053,rio de janeiro,RJ
+cust082,cuniq082,21066,rio de janeiro,RJ
+cust083,cuniq083,21079,rio de janeiro,RJ
+cust084,cuniq084,21092,porto alegre,RS
+cust085,cuniq085,21105,porto alegre,RS
+cust086,cuniq086,21118,porto alegre,RS
+cust087,cuniq087,21131,sao paulo,SP
+cust088,cuniq088,21144,sao paulo,SP
+cust089,cuniq089,21157,santos,SP
+cust090,cuniq090,21170,salvador,BA
+cust091,cuniq091,21183,salvador,BA
+cust092,cuniq092,21196,salvador,BA
+cust093,cuniq093,21209,uberlandia,MG
+cust094,cuniq094,21222,belo horizonte,MG
+cust095,cuniq095,21235,uberlandia,MG
+cust096,cuniq096,21248,curitiba,PR
+cust097,cuniq097,21261,curitiba,PR
+cust098,cuniq098,21274,curitiba,PR
+cust099,cuniq099,21287,niteroi,RJ
+cust100,cuniq100,21300,rio de janeiro,RJ
+cust101,cuniq101,21313,niteroi,RJ
+cust102,cuniq102,21326,porto alegre,RS
+cust103,cuniq103,21339,porto alegre,RS
+cust104,cuniq104,21352,porto alegre,RS
+cust105,cuniq105,21365,sao paulo,SP
+cust106,cuniq106,21378,campinas,SP
+cust107,cuniq107,21391,campinas,SP
+cust108,cuniq108,21404,salvador,BA
+cust109,cuniq109,21417,salvador,BA
+cust110,cuniq110,21430,salvador,BA
+cust111,cuniq111,21443,belo horizonte,MG
+cust112,cuniq112,21456,uberlandia,MG
+cust113,cuniq113,21469,belo horizonte,MG
+cust114,cuniq114,21482,curitiba,PR
+cust115,cuniq115,21495,curitiba,PR
+cust116,cuniq116,21508,curitiba,PR
+cust117,cuniq117,21521,niteroi,RJ
+cust118,cuniq118,21534,rio de janeiro,RJ
+cust119,cuniq119,21547,niteroi,RJ
+cust120,cuniq120,21560,porto alegre,RS
+cust121,cuniq121,21573,porto alegre,RS
+cust122,cuniq122,21586,porto alegre,RS
+cust123,cuniq123,21599,sao paulo,SP
+cust124,cuniq124,21612,sao paulo,SP
+cust125,cuniq125,21625,sao paulo,SP
+cust126,cuniq126,21638,salvador,BA
+cust127,cuniq127,21651,salvador,BA
+cust128,cuniq128,21664,salvador,BA
+cust129,cuniq129,21677,belo horizonte,MG
+cust130,cuniq130,21690,belo horizonte,MG
+cust131,cuniq131,21703,uberlandia,MG
+cust132,cuniq132,21716,curitiba,PR
+cust133,cuniq133,21729,curitiba,PR
+cust134,cuniq134,21742,curitiba,PR
+cust135,cuniq135,21755,rio de janeiro,RJ
+cust136,cuniq136,21768,rio de janeiro,RJ
+cust137,cuniq137,21781,rio de janeiro,RJ
+cust138,cuniq138,21794,porto alegre,RS
+cust139,cuniq139,21807,porto alegre,RS
+cust140,cuniq140,21820,porto alegre,RS
+cust141,cuniq141,21833,campinas,SP
+cust142,cuniq142,21846,campinas,SP
+cust143,cuniq143,21859,campinas,SP
+cust144,cuniq144,21872,salvador,BA
+cust145,cuniq145,21885,salvador,BA
+cust146,cuniq146,21898,salvador,BA
+cust147,cuniq147,21911,belo horizonte,MG
+cust148,cuniq148,21924,uberlandia,MG
+cust149,cuniq149,21937,belo horizonte,MG
+cust150,cuniq150,21950,curitiba,PR
+cust151,cuniq151,21963,curitiba,PR
+cust152,cuniq152,21976,curitiba,PR
+cust153,cuniq153,21989,niteroi,RJ
+cust154,cuniq154,22002,niteroi,RJ
+cust155,cuniq155,22015,niteroi,RJ
+cust156,cuniq156,22028,porto alegre,RS
+cust157,cuniq157,22041,porto alegre,RS
+cust158,cuniq158,22054,porto alegre,RS
+cust159,cuniq159,22067,sao paulo,SP
+cust160,cuniq160,22080,campinas,SP
+cust161,cuniq161,22093,sao paulo,SP
+cust162,cuniq162,22106,salvador,BA
+cust163,cuniq163,22119,salvador,BA
+cust164,cuniq164,22132,salvador,BA
+cust165,cuniq165,22145,uberlandia,MG
+cust166,cuniq166,22158,uberlandia,MG
+cust167,cuniq167,22171,belo horizonte,MG
+cust168,cuniq168,22184,curitiba,PR
+cust169,cuniq169,22197,curitiba,PR
+cust170,cuniq170,22210,curitiba,PR
+cust171,cuniq171,22223,rio de janeiro,RJ
+cust172,cuniq172,22236,niteroi,RJ
+cust173,cuniq173,22249,rio de janeiro,RJ
+cust174,cuniq174,22262,porto alegre,RS
+cust175,cuniq175,22275,porto alegre,RS
+cust176,cuniq176,22288,porto alegre,RS
+cust177,cuniq177,22301,sao paulo,SP
+cust178,cuniq178,22314,campinas,SP
+cust179,cuniq179,22327,campinas,SP

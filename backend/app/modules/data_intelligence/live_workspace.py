@@ -223,7 +223,7 @@ class LiveNexusWorkspace:
             # Orders frequently denormalize fulfillment FKs — link them when present.
             if row.get("seller_id"):
                 sid = self._typed_id("seller_", row["seller_id"])
-                self.graph_engine.add_node(sid, "SELLER")
+                self.graph_engine.add_node(sid, "SUPPLIER")
                 self.graph_engine.add_edge(oid, sid, "FULFILLED_BY")
             if row.get("product_id"):
                 pid = self._typed_id("prod_", row["product_id"])
@@ -239,13 +239,13 @@ class LiveNexusWorkspace:
             sid = self._typed_id("seller_", row.get("seller_id"))
             self.graph_engine.add_node(oid, "ORDER", {"price": float(row.get("price", 0.0))})
             self.graph_engine.add_node(pid, "PRODUCT")
-            self.graph_engine.add_node(sid, "SELLER")
+            self.graph_engine.add_node(sid, "SUPPLIER")
             self.graph_engine.add_edge(oid, pid, "CONTAINS")
             self.graph_engine.add_edge(oid, sid, "FULFILLED_BY")
         elif "seller" in lower_tbl:
             sid = self._typed_id("seller_", row.get("seller_id"))
             loc = self._typed_id("loc_", row.get("seller_state"), "loc_SP_")
-            self.graph_engine.add_node(sid, "SELLER", {"zip": row.get("seller_zip_code_prefix"), "state": row.get("seller_state"), "reliability_score": row.get("reliability_score")})
+            self.graph_engine.add_node(sid, "SUPPLIER", {"zip": row.get("seller_zip_code_prefix"), "state": row.get("seller_state"), "reliability_score": row.get("reliability_score")})
             self.graph_engine.add_node(loc, "LOCATION", {"state": row.get("seller_state")})
             self.graph_engine.add_edge(sid, loc, "LOCATED_IN")
         elif "route" in lower_tbl:
@@ -288,7 +288,7 @@ class LiveNexusWorkspace:
         """Scans the operational graph and generates signals on degraded components."""
         self.active_signals.clear()
         for nid, node in self.graph_engine.nodes.items():
-            if node.node_type == "SELLER":
+            if node.node_type == "SUPPLIER":
                 deg = len(self.graph_engine.adjacency.get(nid, set()))
                 if deg >= 1 or node.is_spof:
                     sig = self.signal_engine.evaluate_seller_performance(
@@ -374,7 +374,7 @@ class LiveNexusWorkspace:
         target_id = incident_entity_id or (self.active_signals[0].entity_id if self.active_signals else "seller_default")
 
         # 1. Root Cause & Blast Radius
-        sig = self.active_signals[0] if self.active_signals else OperationalSignal("sig_live", target_id, "SELLER", "SELLER_DEGRADATION", "CRITICAL", 3.8, 2.0, 1.8, 90.0, ["f_delay"])
+        sig = self.active_signals[0] if self.active_signals else OperationalSignal("sig_live", target_id, "SUPPLIER", "SUPPLIER_DEGRADATION", "CRITICAL", 3.8, 2.0, 1.8, 90.0, ["f_delay"])
         blast = self.root_cause_engine.analyze_blast_radius(sig)
 
         # 2. Context Package
@@ -497,7 +497,7 @@ class LiveNexusWorkspace:
             graph_version=f"graph_v{self.delta_engine.current_version_counter}",
             world_state_version=self.world_state_version,
             dependent_entities=[target_id, "route_SP_to_RJ", "order_9901", "order_9902"],
-            dependent_signals=["SELLER_DEGRADATION", "SLA_BREACH_RISK"],
+            dependent_signals=["SUPPLIER_DEGRADATION", "SLA_BREACH_RISK"],
         )
 
         return {

@@ -23,11 +23,22 @@ from app.modules.agents.lifecycle_models import AgentLifecycleState
 from app.modules.agents.olist_pipeline import OlistLogisticsPipeline
 from app.modules.agents.replay_engine import AgentReplayEngine
 
+# Hermetic dataset: repo fixture by default, overridable via CORTEX_OLIST_DIR.
+OLIST_DATA_DIR = os.environ.get(
+    "CORTEX_OLIST_DIR",
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "tests",
+        "fixtures",
+        "olist",
+    ),
+)
+
 
 @pytest.mark.asyncio
 async def test_olist_real_dataset_ingestion_and_training():
     """Verify that real-world Olist e-commerce logistics data is ingested, trained, evaluated, and deployed."""
-    pipeline = OlistLogisticsPipeline(data_dir=r"C:\Users\21330\Downloads\archive")
+    pipeline = OlistLogisticsPipeline(data_dir=OLIST_DATA_DIR)
 
     # 1. Run complete training and qualification pipeline on real Olist data
     dataset, artifact, report = await pipeline.run_end_to_end_training_and_qualification(

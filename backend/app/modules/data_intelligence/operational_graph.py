@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 @dataclass
 class GraphNode:
     node_id: str
-    node_type: str  # "SUPPLIER" | "CUSTOMER" | "ORDER" | "PRODUCT" | "LOCATION" | "ROUTE" | "ORDER_ITEM" | …
+    node_type: str  # canonical: "SUPPLIER" | "CUSTOMER" | "ORDER" | "PRODUCT" | "LOCATION" | "ROUTE" | "ORDER_ITEM" | … ("SELLER" is normalized to "SUPPLIER" at ingest)
     attributes: dict[str, Any] = field(default_factory=dict)
     pagerank: float = 0.0
     degree_centrality: float = 0.0
@@ -449,24 +449,40 @@ class OperationalGraphEngine:
     ) -> dict["EntityType", str]:
         """Detect the primary ID column for each table.
 
-        Convention: the first column ending in ``_id`` is the primary ID,
-        or the column literally named ``id``.
+        Candidates are ``*_id`` columns ranked by cardinality (a primary key
+        is unique across rows), with the conventional
+        ``<entity_type>_id`` name preferred on ties. This prevents a foreign
+        key column (e.g. ORDER_ITEM.order_id) from being mistaken for the
+        table's identity when the conventionally-named column uses a short
+        form (e.g. ``item_id``).
         """
         result: dict["EntityType", str] = {}
         for entity_type, table in canonical_dataset.tables.items():
             if not table.rows:
                 continue
             sample = table.rows[0]
-            # Prefer entity-specific ID columns
             preferred = f"{entity_type.value.lower()}_id"
-            if preferred in sample:
-                result[entity_type] = preferred
+            candidates = [
+                col
+                for col in sample
+                if col.endswith("_id") and not col.startswith("_")
+            ]
+            if not candidates:
                 continue
-            # Fall back to any *_id column
-            for col in sample:
-                if col.endswith("_id") and not col.startswith("_"):
-                    result[entity_type] = col
-                    break
+
+            def uniqueness(col: str) -> float:
+                distinct = {str(row.get(col)) for row in table.rows}
+                return len(distinct) / len(table.rows)
+
+            best = max(
+                candidates,
+                key=lambda col: (
+                    round(uniqueness(col), 6),
+                    col == preferred,
+                    -candidates.index(col),
+                ),
+            )
+            result[entity_type] = best
         return result
 
     def _build_fk_edges(

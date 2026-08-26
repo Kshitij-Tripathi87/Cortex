@@ -48,6 +48,7 @@ from app.modules.data_intelligence.signal_engine import (
     OperationalSignal,
     OperationalSignalEngine,
 )
+from app.modules.nexus_spine.canonical_schema import EntityType, OlistAdapter
 
 
 @dataclass
@@ -105,8 +106,14 @@ class NexusDataIntelligenceOrchestrator:
         data_dir: str,
         context: ExecutionContext,
         max_orders: int = 500,
+        world_state_version: int = 0,
     ) -> NexusIntelligenceRunResult:
-        """Executes the complete canonical Data -> Graph -> Signals -> Context -> Deliberation -> Evidence loop."""
+        """Executes the complete canonical Data -> Graph -> Signals -> Context -> Deliberation -> Evidence loop.
+
+        ``world_state_version`` identifies the World State snapshot this run is
+        anchored to. It is recorded verbatim in analytics, features, and the
+        context package — never invented here.
+        """
         orders_csv_path = os.path.join(data_dir, "olist_orders_dataset.csv")
 
         # 1. Ingestion & Quality Profiling
@@ -119,41 +126,56 @@ class NexusDataIntelligenceOrchestrator:
             max_rows=max_orders,
         )
 
-        # 2. Full Multi-Table Operational Graph Construction
-        self.graph_engine.build_graph_from_olist_tables(data_dir, max_orders=max_orders)
+        # 2. Canonical ingestion + Full Multi-Table Operational Graph Construction
+        adapter = OlistAdapter()
+        dataset = adapter.from_data_dir(data_dir, max_orders=max_orders)
+        self.graph_engine.build_graph(dataset)
 
         # 3. Structural Graph Analytics (PageRank, Betweenness, SPOFs, Gini)
         analytics = self.graph_engine.compute_graph_analytics(
             graph_version="graph_olist_v1.0",
-            world_state_version=101,
+            world_state_version=world_state_version,
         )
 
-        # 4. Signal & Anomaly Detection
-        # Identify top critical seller from graph and evaluate dispatch variance
-        top_seller_id = analytics.top_critical_suppliers[0]["supplier_id"] if analytics.top_critical_suppliers else "seller_alpha"
-        sig = self.signal_engine.evaluate_seller_performance(
-            seller_id=top_seller_id,
-            avg_dispatch_days=3.8,  # Degraded dispatch
-            baseline_dispatch_days=2.0,
+        # 4. Signal & Anomaly Detection — dispatch latency derived from the
+        #    ingested dataset (purchase -> carrier handoff per supplier), with a
+        #    cross-supplier median baseline. No fabricated metrics.
+        top_seller_id = (
+            analytics.top_critical_suppliers[0]["supplier_id"]
+            if analytics.top_critical_suppliers
+            else ""
         )
+        dispatch_stats = self._dispatch_stats_by_supplier(dataset)
+        baseline_days = self._baseline_dispatch_days(dispatch_stats)
+        observed_dispatch = dispatch_stats.get(top_seller_id) if top_seller_id else None
+        sig = None
+        if observed_dispatch is not None and observed_dispatch > baseline_days * 1.5:
+            sig = self.signal_engine.evaluate_seller_performance(
+                seller_id=top_seller_id,
+                avg_dispatch_days=observed_dispatch,
+                baseline_dispatch_days=baseline_days,
+            )
         active_signals = [sig] if sig else []
 
-        # 5. Root Cause Analysis & Blast Radius Projection
-        blast_radius = self.root_cause_engine.analyze_blast_radius(
-            sig or OperationalSignal("sig_d", top_seller_id, "SELLER", "NORMAL", "LOW", 1.0, 2.0, 2.0, 0.0, [])
+        # 5. Root Cause Analysis & Blast Radius Projection — computed by BFS
+        #    over the actual graph, never from hardcoded fallback constants.
+        blast_radius = self.root_cause_engine.analyze_from_graph(
+            [s.to_dict() for s in active_signals],
         )
 
-        # 6. Feature Store with Temporal Protection
+        # 6. Feature Store with Temporal Protection — flags computed from the
+        #    actual graph and dataset, not asserted constants.
         now = datetime.now(UTC)
+        top_node = self.graph_engine.nodes.get(top_seller_id) if top_seller_id else None
         feat_vec = VersionedFeatureVector(
             entity_id=top_seller_id,
             feature_group="GRAPH",
             features={
-                "seller_pagerank": self.graph_engine.nodes.get(top_seller_id, None).pagerank if top_seller_id in self.graph_engine.nodes else 0.05,
-                "is_spof": True,
-                "avg_dispatch_days": 3.8,
+                "seller_pagerank": top_node.pagerank if top_node is not None else 0.0,
+                "is_spof": bool(top_seller_id in analytics.high_dependency_spofs),
+                "avg_dispatch_days": round(observed_dispatch, 3) if observed_dispatch is not None else 0.0,
             },
-            world_state_version=101,
+            world_state_version=world_state_version,
             feature_timestamp=now,
         )
         self.feature_store.put_features(feat_vec)
@@ -168,7 +190,7 @@ class NexusDataIntelligenceOrchestrator:
             primary_entity_id=top_seller_id,
             signal=sig or active_signals[0],
             blast_radius=blast_radius,
-            world_state_version=101,
+            world_state_version=world_state_version,
         )
 
         # 8. Graph-Aware Dynamic Agent Routing
@@ -240,36 +262,41 @@ class NexusDataIntelligenceOrchestrator:
         n_src = evidence_graph.add_evidence_step(
             "SOURCE_RECORD",
             "Olist Orders CSV",
-            {"dataset": "olist_orders", "rows_profiled": max_orders, "completeness": readiness.dimension_scores["COMPLETENESS"].score_pct},
+            {"dataset": "olist_orders", "rows_profiled": readiness.total_records, "completeness": readiness.dimension_scores["COMPLETENESS"].score_pct},
         )
         n_ent = evidence_graph.add_evidence_step(
             "ENTITY",
-            f"Canonical Seller {top_seller_id}",
-            {"entity_id": top_seller_id, "is_spof": True},
+            f"Canonical Supplier {top_seller_id}",
+            {"entity_id": top_seller_id, "is_spof": bool(top_seller_id in analytics.high_dependency_spofs)},
             parent_node_id=n_src.node_id,
         )
         n_sig = evidence_graph.add_evidence_step(
             "SIGNAL",
-            "Seller Dispatch Degradation Anomaly",
-            {"deviation_pct": 90.0, "avg_dispatch_days": 3.8},
+            "Supplier Dispatch Degradation Anomaly",
+            {
+                "deviation_pct": sig.deviation_pct if sig else 0.0,
+                "avg_dispatch_days": round(observed_dispatch, 2) if observed_dispatch is not None else None,
+                "baseline_days": baseline_days,
+            },
             parent_node_id=n_ent.node_id,
         )
         n_hyp = evidence_graph.add_evidence_step(
             "HYPOTHESIS",
-            "Root-Cause Hypothesis: Seller Dispatch Buffer Exhaustion",
-            {"support_score": 0.91, "alternative_hypotheses": [{"route_congestion": 0.54}, {"weather": 0.37}]},
+            "Root-Cause Hypothesis: Supplier Dispatch Buffer Exhaustion",
+            {"support_score": round(sig.confidence, 3) if sig else 0.0},
             parent_node_id=n_sig.node_id,
         )
         n_prop = evidence_graph.add_evidence_step(
             "PROPOSAL",
             "Multi-Agent Expedite & Cross-Dock Proposal",
-            {"target_route": routes[0].route_id, "cost_usd": 450.0},
+            {"target_route": routes[0].route_id, "cost_usd": routes[0].cost_usd},
             parent_node_id=n_hyp.node_id,
         )
+        best_candidate = max(counterfactuals, key=lambda c: c.net_economic_value_usd)
         evidence_graph.add_evidence_step(
             "DECISION",
-            "Synthesized Policy Decision Card: Candidate C",
-            {"net_economic_value_usd": 2900.0, "optimal": True},
+            f"Synthesized Policy Decision Card: {best_candidate.candidate_id}",
+            {"net_economic_value_usd": best_candidate.net_economic_value_usd, "optimal": True},
             parent_node_id=n_prop.node_id,
         )
 
@@ -277,13 +304,12 @@ class NexusDataIntelligenceOrchestrator:
 
         synthesized_decision = {
             "decision_id": "dec_nexus_01",
-            "action_type": "reroute_air_freight_and_cross_dock",
-            "primary_rationale": f"Seller {top_seller_id} dispatch delay created SLA breach risk for route SP->RJ. Candidate C proven optimal via Digital Twin counterfactuals.",
+            "action_type": best_candidate.action_type,
+            "primary_rationale": f"Supplier {top_seller_id} dispatch latency {observed_dispatch:.2f}d exceeded baseline {baseline_days:.2f}d creating SLA breach risk. {best_candidate.candidate_id} optimal via Digital Twin counterfactuals.",
             "target_route": routes[0].route_id,
             "mitigation_plan": {
-                "expedite_cost_usd": 450.0,
-                "residual_loss_usd": 850.0,
-                "gross_loss_prevented_usd": 4200.0,
+                "expedite_cost_usd": best_candidate.operational_cost_usd,
+                "gross_loss_prevented_usd": best_candidate.revenue_protected_usd,
             },
             "status": "PROPOSED_FOR_POLICY_GATE",
         }
@@ -301,5 +327,60 @@ class NexusDataIntelligenceOrchestrator:
             inventory_proposal={"transfer_id": inv_xfer.transfer_id, "quantity": inv_xfer.quantity},
             synthesized_decision=synthesized_decision,
             decision_evidence_graph=evidence_graph.get_lineage_trace(),
-            net_economic_value_usd=2900.0,
+            net_economic_value_usd=best_candidate.net_economic_value_usd,
         )
+
+    # ── Dispatch-latency derivation (no fabricated metrics) ─────────────
+
+    @staticmethod
+    def _parse_ts(value: Any) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+
+    def _dispatch_stats_by_supplier(self, dataset: Any) -> dict[str, float]:
+        """Mean purchase -> carrier-handoff latency (days) per supplier.
+
+        Joins ORDER_ITEM.supplier_id to ORDER timestamps from the canonical
+        dataset. Suppliers with fewer than 3 dated samples are omitted —
+        statistically unsupported latencies are never reported. Keys use the
+        graph node-id form (``supplier_<raw_id>``) so results join directly
+        against graph analytics output.
+        """
+        items = dataset.get(EntityType.ORDER_ITEM)
+        orders = dataset.get(EntityType.ORDER)
+        if items is None or orders is None:
+            return {}
+        by_order_id = {str(o.get("order_id")): o for o in orders.rows}
+        samples: dict[str, list[float]] = {}
+        for item in items.rows:
+            supplier_id = str(item.get("supplier_id", ""))
+            order = by_order_id.get(str(item.get("order_id", "")))
+            if not supplier_id or order is None:
+                continue
+            purchased = self._parse_ts(order.get("purchase_timestamp"))
+            handed_off = self._parse_ts(order.get("delivered_carrier_date"))
+            if purchased is None or handed_off is None or handed_off < purchased:
+                continue
+            samples.setdefault(f"supplier_{supplier_id}", []).append(
+                (handed_off - purchased).total_seconds() / 86400.0
+            )
+        return {
+            sid: sum(vals) / len(vals)
+            for sid, vals in samples.items()
+            if len(vals) >= 3
+        }
+
+    @staticmethod
+    def _baseline_dispatch_days(dispatch_stats: dict[str, float]) -> float:
+        """Cross-supplier median dispatch latency as the degradation baseline."""
+        if len(dispatch_stats) < 3:
+            return 2.0
+        ordered = sorted(dispatch_stats.values())
+        mid = len(ordered) // 2
+        if len(ordered) % 2 == 1:
+            return ordered[mid]
+        return (ordered[mid - 1] + ordered[mid]) / 2.0

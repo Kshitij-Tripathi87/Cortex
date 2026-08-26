@@ -89,8 +89,8 @@ class NexusSwarmSupervisor:
 
         # 1. Dynamic Routing
         routes = DynamicAgentRouter.route_incident(
-            signal_type="SELLER_DEGRADATION",
-            entity_type="SELLER",
+            signal_type="SUPPLIER_DEGRADATION",
+            entity_type="SUPPLIER",
             severity="CRITICAL",
         )
 

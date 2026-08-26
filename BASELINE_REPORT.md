@@ -128,15 +128,33 @@ attic/ or delete).
 
 ## Gap list (promoted to program phases)
 
-| # | Gap | Phase |
-|---|-----|-------|
-| G1 | SELLER vs SUPPLIER taxonomy split across graph/delta/signal/live modules | 3 (contract fix) + 4 (regression) |
-| G2 | Vertical-slice test non-hermetic (absolute path to Downloads) | 4 — re-home dataset into repo fixtures |
-| G3 | relationship_coverage_pct 33.8% vs asserted 95% under sampling | 4/13 — define correct expectation per sample policy |
-| G4 | `world_state_version=101` constant smell in live path | 13 — derive or document |
-| G5 | No git repository | 10 — initialize VCS before any further work |
-| G6 | `/readyz` probes only DB (docs claim DB+Redis+S3) | 10/11 |
-| G7 | Python 3.14 vs documented 3.12 | 10 — pin + validate |
-| G8 | page.tsx local `GraphNode` shadows `types/nexus.ts` | 3 |
-| G9 | Scratch scripts in repo root | 10 hygiene |
-| G10 | Playwright specs not run (tsc only) — E2E against live stack pending | Phase 5 onward |
+| # | Gap | Phase | Status |
+|---|-----|-------|--------|
+| G1 | SELLER vs SUPPLIER taxonomy split across graph/delta/signal/live modules | 3 | ✅ **RESOLVED 2026-08-26** — canonical `SUPPLIER`; `SELLER` accepted only as ingest alias (delta event names, CSV conventions). Emission paths unified in entity_resolution, signal_engine, graph_delta_engine, live_workspace, query_planner, nexus_supervisor, orchestrator |
+| G2 | Vertical-slice test non-hermetic (absolute path to Downloads) | 4 | ✅ **RESOLVED** — deterministic seeded fixture (`backend/tests/fixtures/olist/`, generator: `scripts/generate_olist_fixture.py`); `CORTEX_OLIST_DIR` env override for full-archive runs |
+| G3 | relationship_coverage_pct 33.8% vs asserted 95% under sampling | 4/13 | ✅ **RESOLVED** — two real bugs fixed: (a) adapter now referentially filters ORDER_ITEM/PRODUCT to sampled orders instead of disjoint row caps; (b) `_detect_id_fields` mis-picked `order_id` as ORDER_ITEM's PK (cardinality-ranked detection now); coverage honestly ~100% on complete data |
+| G4 | `world_state_version=101` constant smell in live path | 13 | ✅ **RESOLVED (orchestrator)** — version now a pipeline parameter recorded verbatim; dispatch-latency signal derived from actual purchase→handoff data with cross-supplier median baseline; blast radius switched from hardcoded fallbacks to real BFS traversal; evidence payloads derived. ⚠️ **G4b OPEN**: the 4 counterfactual simulations and shipment telemetry remain declared scenario inputs — wiring the real Digital Twin runtime is Phase 13 work |
+| G5 | No git repository | 10 | ✅ **RESOLVED** — repo initialized; baseline commit `6588aca`; hardening changes committed separately |
+| G6 | `/readyz` probes only DB (docs claim DB+Redis+S3) | 10/11 | ⬜ open |
+| G7 | Python 3.14 vs documented 3.12 | 10 | ⬜ open |
+| G8 | page.tsx local `GraphNode` shadows `types/nexus.ts` | 3 | ⬜ open |
+| G9 | Scratch scripts in repo root | 10 hygiene | ⬜ open |
+| G10 | Playwright specs not run (tsc only) — E2E against live stack pending | Phase 5 onward | ⬜ open |
+
+## Post-fix verification (2026-08-26)
+
+```
+Backend: 1337 passed, 17 skipped, 2 deselected — 154.96s   (baseline was 1336 pass / 1 fail)
+Frontend: tsc --noEmit = 0 errors; next build = clean (45 routes)
+```
+
+The flagship vertical-slice test now proves the honest chain on hermetic data:
+
+```
+CSV fixture → canonical dataset (referentially complete under sampling)
+  → operational graph (SUPPLIER taxonomy) → analytics (real PageRank/SPOF/Gini)
+  → signal CRITICAL SUPPLIER_DEGRADATION (8.08d actual vs 2.08d median baseline — derived)
+  → blast radius via BFS ($37,466.55 across 37 orders / 159 customers / 6 regions — traversed)
+  → features (real pagerank/spof flags) → context → deliberation → decision card
+  → evidence graph (payloads sourced from the computed values above)
+```

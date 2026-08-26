@@ -318,10 +318,16 @@ class OlistAdapter:
         """Read Olist CSVs from ``data_dir`` and produce a canonical dataset.
 
         ``max_orders`` caps the ORDER table for test/perf scenarios.
-        ORDER_ITEM and PRODUCT rows are capped proportionally.
+        When the ORDER table is truncated by the cap, dependent tables
+        (ORDER_ITEM, PRODUCT) are filtered to rows that reference the sampled
+        orders so the resulting dataset stays referentially complete instead
+        of accumulating dangling foreign keys.
         """
         tables: dict[EntityType, CanonicalTable] = {}
         order_limit = 0  # running count of orders ingested
+        orders_truncated = False
+        sampled_order_ids: set[str] | None = None
+        referenced_product_ids: set[str] | None = None
 
         for filename, entity_type, field_mappings in _OLIST_MAPPINGS:
             path = os.path.join(data_dir, filename)
@@ -337,16 +343,18 @@ class OlistAdapter:
             rows: list[dict[str, Any]] = []
             column_types: dict[str, str] = {}
             sample_row_read = False
+            item_count = 0  # running count of accepted ORDER_ITEM rows
 
             with open(path, encoding="utf-8") as fh:
                 reader = csv.DictReader(fh)
                 for row_idx, raw_row in enumerate(reader):
                     # Per-type row caps
                     if entity_type == EntityType.ORDER and order_limit >= max_orders:
+                        orders_truncated = True
                         break
-                    if entity_type == EntityType.ORDER_ITEM and order_limit >= max_orders * 3:
+                    if entity_type == EntityType.ORDER_ITEM and item_count >= max_orders * 3:
                         break
-                    if entity_type == EntityType.PRODUCT and row_idx >= max_orders * 2:
+                    if entity_type == EntityType.PRODUCT and referenced_product_ids is None and row_idx >= max_orders * 2:
                         break
 
                     # Type inference from first row
@@ -365,9 +373,20 @@ class OlistAdapter:
                         if col in canonical_row and ctype in {"int", "float", "bool"}:
                             canonical_row[col] = _coerce(str(canonical_row[col]), ctype)
 
+                    # Referential filter under sampling: drop dependent rows that
+                    # reference entities outside the sampled order set.
+                    if sampled_order_ids is not None and entity_type == EntityType.ORDER_ITEM:
+                        if str(canonical_row.get("order_id", "")) not in sampled_order_ids:
+                            continue
+                    if referenced_product_ids is not None and entity_type == EntityType.PRODUCT:
+                        if str(canonical_row.get("product_id", "")) not in referenced_product_ids:
+                            continue
+
                     rows.append(canonical_row)
                     if entity_type == EntityType.ORDER:
                         order_limit += 1
+                    elif entity_type == EntityType.ORDER_ITEM:
+                        item_count += 1
 
             if rows:
                 tables[entity_type] = CanonicalTable(
@@ -377,6 +396,13 @@ class OlistAdapter:
                     source_file=filename,
                     schema_mapping=mapping,
                 )
+
+            # Sampling bookkeeping between files (mapping order guarantees
+            # ORDER is read before ORDER_ITEM, and ORDER_ITEM before PRODUCT).
+            if entity_type == EntityType.ORDER and orders_truncated:
+                sampled_order_ids = {str(r.get("order_id", "")) for r in rows}
+            elif entity_type == EntityType.ORDER_ITEM and orders_truncated:
+                referenced_product_ids = {str(r.get("product_id", "")) for r in rows}
 
         dataset = CanonicalDataset(
             tables=tables,
