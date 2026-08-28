@@ -241,32 +241,91 @@ async def get_graph_deltas(since_version: str = Query("", description="Previous 
 
 
 @router.get("/stream")
-async def stream_workspace_events(request: Request) -> StreamingResponse:
+async def stream_workspace_events(
+    request: Request,
+    since_seq: int = Query(
+        default=-1,
+        description=(
+            "E1 resync: the seq number the client last saw. The server "
+            "replays all deltas with seq > since_seq before entering "
+            "live tailing. -1 = no resync, jump straight to live."
+        ),
+    ),
+) -> StreamingResponse:
     """Server-Sent Events channel for live workspace reconciliation.
 
     Emits:
-    - ``graph_delta``  — fired when the delta engine records new mutations
-    - ``heartbeat``    — periodic authoritative versions + graph size, so
-      clients can detect out-of-band changes (e.g. ingestion) and reconcile
-      even when no delta event was recorded.
+    - ``graph_delta``  — fired when the delta engine records new mutations;
+      payload includes ``seq`` (E1 monotonic per-engine sequence number)
+      and the canonical ``nodes_count`` / ``edges_count`` for client
+      reconciliation.
+    - ``heartbeat``    — periodic authoritative versions + graph size,
+      with the current ``seq`` so clients can detect missed events.
+    - ``resync``       — sent exactly once at connect time if the
+      client's ``since_seq`` is older than the oldest in-memory delta;
+      the client must do a full refresh on receipt.
     """
     workspace = _workspace_instance
 
     async def event_stream() -> AsyncGenerator[str]:
-        last_counter = workspace.delta_engine.current_version_counter
+        engine = workspace.delta_engine
+
+        # ── E1: resync handshake ────────────────────────────────────
+        # If the client is reconnecting with a since_seq, replay the
+        # missed deltas before live tailing. If the since_seq is older
+        # than the oldest delta we still have, emit a `resync` event
+        # so the client knows to do a full refresh (the gap is too
+        # wide to replay).
+        if since_seq >= 0:
+            min_seq = engine.min_known_seq()
+            if since_seq < min_seq - 1:
+                # Gap larger than the in-memory buffer can cover. Tell
+                # the client to do a full refresh; do NOT replay any
+                # deltas (they would form an incomplete sequence).
+                yield (
+                    "event: resync\n"
+                    f"data: {json.dumps({
+                        'type': 'resync',
+                        'reason': 'since_seq_below_buffer',
+                        'min_known_seq': min_seq,
+                        'head_seq': engine.current_version_counter,
+                        'world_state_version': workspace.world_state_version,
+                    })}\n\n"
+                )
+            else:
+                # Replay in seq order, then fall through to live tailing.
+                for d in engine.get_deltas_since_seq(since_seq):
+                    yield (
+                        "event: graph_delta\n"
+                        f"data: {json.dumps({
+                            'type': 'graph_delta',
+                            'graph_version': d.new_graph_version,
+                            'world_state_version': d.world_state_version,
+                            'seq': d.seq,
+                            'delta': d.to_dict(),
+                        })}\n\n"
+                    )
+
+        # ── Live tailing loop ───────────────────────────────────────
+        last_counter = engine.current_version_counter
         while True:
             if await request.is_disconnected():
                 break
-            engine = workspace.delta_engine
             counter = engine.current_version_counter
             if counter != last_counter:
                 last_counter = counter
+                # Look up the latest delta so we can stamp its seq.
+                # In normal operation the latest delta is the one that
+                # bumped the counter; `delta_history[-1]` is correct.
+                latest = engine.delta_history[-1] if engine.delta_history else None
                 yield (
                     "event: graph_delta\n"
                     f"data: {json.dumps({
                         'type': 'graph_delta',
                         'graph_version': f'graph_v{counter}',
                         'world_state_version': workspace.world_state_version,
+                        'seq': latest.seq if latest else counter,
+                        'delta': latest.to_dict() if latest else None,
                     })}\n\n"
                 )
             else:
@@ -276,8 +335,15 @@ async def stream_workspace_events(request: Request) -> StreamingResponse:
                         'type': 'heartbeat',
                         'graph_version': f'graph_v{counter}',
                         'world_state_version': workspace.world_state_version,
+                        # Canonical E1 names — frontend prefers `nodes_count`
+                        # and `edges_count`. Legacy `total_graph_nodes` is
+                        # kept for backward compatibility with the
+                        # 1,337-test regression suite's openapi.json.
+                        'nodes_count': len(workspace.graph_engine.nodes),
+                        'edges_count': len(workspace.graph_engine.edges),
                         'total_graph_nodes': len(workspace.graph_engine.nodes),
                         'total_graph_edges': len(workspace.graph_engine.edges),
+                        'seq': counter,
                     })}\n\n"
                 )
             await asyncio.sleep(2)

@@ -2,31 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, apiBaseUrl } from "@/lib/api";
-
-interface GraphNode {
-  id: string;
-  type: string;
-  attributes?: Record<string, unknown>;
-  pagerank?: number;
-  degree?: number;
-  is_spof?: boolean;
-}
-
-interface GraphEdge {
-  edge_id: string;
-  source: string;
-  target: string;
-  relation_type: string;
-  weight?: number;
-}
-
-interface SubgraphResponse {
-  focal_node?: string;
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  total_graph_nodes?: number;
-  total_graph_edges?: number;
-}
+import type { GraphNode, GraphEdge, SubgraphResponse } from "@/types/nexus";
 
 interface WorkspaceState {
   status: string;
@@ -365,16 +341,20 @@ export default function NexusConsolePage() {
         try {
           const hb = JSON.parse((event as MessageEvent).data) as {
             total_graph_nodes?: number;
+            nodes_count?: number;
             world_state_version?: number;
           };
           // Reconcile on out-of-band mutations (e.g. ingestion) that don't
           // emit deltas: authoritative size/version vs what we rendered.
           const sg = subgraphRef.current;
           const st = stateRef.current;
+          // Server may emit either total_graph_nodes (legacy) or nodes_count
+          // (canonical). Use whichever is present.
+          const hbNodes = hb.total_graph_nodes ?? hb.nodes_count;
           const staleNodes =
-            typeof hb.total_graph_nodes === "number" &&
+            typeof hbNodes === "number" &&
             sg != null &&
-            hb.total_graph_nodes !== sg.total_graph_nodes;
+            hbNodes !== sg.nodes_count;
           const staleVersion =
             typeof hb.world_state_version === "number" &&
             st != null &&

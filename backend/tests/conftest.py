@@ -36,6 +36,23 @@ def pytest_configure(config):
         postgres_url = "postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_test"
     config.postgres_url = postgres_url
 
+    # Install an in-memory OpenTelemetry TracerProvider for
+    # tests that assert on the captured span tree. The OTel
+    # SDK only allows setting the global TracerProvider ONCE
+    # per process; doing it here (before any test) means the
+    # in-memory provider is the active one for the entire
+    # session. The F3 trace-context regression tests rely on
+    # this to capture the spans they assert on.
+    from opentelemetry import trace as _otel_trace
+    from opentelemetry.sdk.trace import TracerProvider as _SDKTP
+    _sdk_provider = _SDKTP()
+    try:
+        _otel_trace.set_tracer_provider(_sdk_provider)
+    except Exception:
+        # Already set by an earlier session; ignore — the
+        # already-installed provider is used.
+        pass
+
 # Eagerly import access.models so `core.workspaces` and `core.users` register
 # in Base.metadata BEFORE any test imports another module with FK references
 # to them. Without this, FKs from later-loaded models (e.g.,

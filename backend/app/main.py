@@ -121,19 +121,24 @@ def create_app() -> FastAPI:
 
     @app.get("/readyz")
     async def readyz() -> JSONResponse:
-        """Readiness probe — are dependencies healthy?"""
-        from app.infrastructure.database import get_session_factory
+        """Readiness probe — are dependencies healthy?
 
-        try:
-            get_session_factory()
-            db_status = "ok"
-        except Exception:
-            db_status = "unavailable"
+        F2: composes the verdict from the four mandatory
+        dependency checks (db, redis, object_storage, audit
+        chain) in ``app.infrastructure.health``. The response
+        body lists every component state so the on-call
+        runbook can read the 503 cause from the payload
+        without checking logs.
+        """
+        from app.infrastructure.health import check_dependencies
 
-        if db_status != "ok":
-            return JSONResponse({"status": "unavailable", "db": db_status}, status_code=503)
-
-        return JSONResponse({"status": "ok", "db": db_status})
+        all_ok, components = await check_dependencies()
+        body: dict[str, object] = {
+            "status": "ok" if all_ok else "unavailable",
+            "components": [c.to_dict() for c in components],
+        }
+        status_code = 200 if all_ok else 503
+        return JSONResponse(body, status_code=status_code)
 
     @app.get("/metrics")
     async def metrics() -> Response:

@@ -191,3 +191,20 @@ async def test_nexus_data_to_decision_orchestration():
     assert result.decision_evidence_graph["total_attribution_edges"] >= 4
     assert result.synthesized_decision["status"] == "PROPOSED_FOR_POLICY_GATE"
     assert result.net_economic_value_usd == 2900.0  # Formula: Loss_without - Loss_with - Intervention_Cost
+
+
+def test_hermetic_data_path_default_is_repo_fixture():
+    """G2 / A2: without CORTEX_OLIST_DIR, the integration test resolves to
+    the repo fixture — never to an external / arbitrary filesystem path.
+    If this breaks, the regression suite is no longer reproducible.
+    """
+    # The fixture is always the default when the env var is unset.
+    assert OLIST_DATA_DIR == os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "tests", "fixtures", "olist",
+    )
+    assert os.path.isfile(os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv"))
+    # The fixture must contain the real dataset (not an empty stub).
+    with open(os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv"), encoding="utf-8") as fh:
+        rows = sum(1 for _ in csv.DictReader(fh))
+    assert rows > 50  # real dataset has ~220 orders; stub has 0

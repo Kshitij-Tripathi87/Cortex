@@ -134,7 +134,10 @@ class LiveNexusWorkspace:
         self.active_signals: list[OperationalSignal] = []
         self.agent_message_history: list[StructuredAgentMessage] = []
         self.last_decision_evidence: dict[str, Any] | None = None
-        self.world_state_version = 101
+        # Formally the initial workspace version — never a fabricated
+        # constant (see G4 / base-plan). Production paths override with
+        # the actual workspace version before use.
+        self.world_state_version = 0  # was 101 (test fixture); no implicit 101 in production
 
     def ingest_csv_content(
         self,

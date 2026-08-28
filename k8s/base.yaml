@@ -87,6 +87,20 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
+          # F2: startupProbe gives the readiness check up to
+          # ~3 minutes to pass the first time (DB pool warm,
+          # Redis ping, audit chain marker). Without it, the
+          # readiness probe's 5s initialDelaySeconds can flip
+          # the pod NotReady before init_db() has finished,
+          # and K8s kills it on the next cycle.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36  # 5s * 36 = 180s = 3m budget
           readinessProbe:
             httpGet:
               path: /readyz

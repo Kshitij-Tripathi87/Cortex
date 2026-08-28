@@ -44,6 +44,12 @@ class GraphDelta:
     new_graph_version: str
     world_state_version: int
     event_type: str = "STREAM_EVENT"
+    # E1 (realtime seq/version/resync): monotonic per-engine sequence number.
+    # Assigned at the moment `apply_stream_event` constructs the delta.
+    # Clients use `seq` to detect gaps; the server uses `since_seq` to
+    # replay missed deltas. The value is engine-local and resets only
+    # on process restart — clients must re-handshake across restarts.
+    seq: int = 0
     added_nodes: list[NodeDelta] = field(default_factory=list)
     updated_nodes: list[NodeDelta] = field(default_factory=list)
     removed_nodes: list[str] = field(default_factory=list)
@@ -70,6 +76,7 @@ class GraphDelta:
             "previous_graph_version": self.previous_graph_version,
             "new_graph_version": self.new_graph_version,
             "world_state_version": self.world_state_version,
+            "seq": self.seq,
             "total_changes_count": self.total_changes_count,
             "added_nodes": [
                 {
@@ -141,12 +148,18 @@ class GraphDeltaEngine:
         new_ver = f"graph_v{self.current_version_counter}"
 
         delta_id = f"delta_{uuid7()[:8]}"
+        # E1: stamp the seq at construction time. Use the post-increment
+        # counter value so the first delta has seq=2 (matching
+        # `current_version_counter` for that snapshot). The
+        # regression test pins monotonicity across N consecutive
+        # apply_stream_event calls.
         delta = GraphDelta(
             delta_id=delta_id,
             previous_graph_version=prev_ver,
             new_graph_version=new_ver,
             world_state_version=world_state_version,
             event_type=event_type,
+            seq=self.current_version_counter,
         )
 
         if event_type in {"ORDER_PLACED", "ORDER_CREATED"}:
@@ -215,3 +228,25 @@ class GraphDeltaEngine:
                 found = True
                 result.append(d)
         return result if found else self.delta_history
+
+    def get_deltas_since_seq(self, since_seq: int) -> list[GraphDelta]:
+        """E1: replay deltas with `seq > since_seq`, ordered by seq ascending.
+
+        Used by the SSE /workspace/stream handler when a client
+        reconnects with `?since_seq=N` to fill in the gap. Returns
+        the full history if `since_seq` is negative (the client is
+        past the head; caller must decide whether to emit a resync).
+        """
+        if since_seq < 0:
+            return list(self.delta_history)
+        return [d for d in self.delta_history if d.seq > since_seq]
+
+    def min_known_seq(self) -> int:
+        """E1: the seq of the oldest delta still in the in-memory
+        history. Clients reconnecting with `since_seq < min_known_seq`
+        have a gap larger than the server can replay — caller must
+        emit a `resync` event so the client does a full refresh.
+        """
+        if not self.delta_history:
+            return self.current_version_counter
+        return self.delta_history[0].seq

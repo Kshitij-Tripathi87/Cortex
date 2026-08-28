@@ -1,0 +1,83 @@
+# F2 — Postgres backup CronJob (Phase 15 production gate).
+#
+# Runs the backup script (scripts/backup.py) at 02:00 UTC
+# every day. The script verifies the backup by restoring
+# into a scratch schema and running SELECT COUNT(*) on
+# every frozen table; the CronJob tail-logs the JSON status
+# line and a Prometheus alert (A-O2 in the alert catalog)
+# fires on status != "ok".
+#
+# The PVC ``cortex-pg-backups`` is mounted so the backup
+# files persist across pod restarts. The retention policy
+# in the script (7d daily, 4w weekly, 12m monthly) keeps
+# the PVC bounded at ~5GB for the canonical dataset.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cortex-pg-backup
+  namespace: cortex
+  labels:
+    app.kubernetes.io/name: cortex
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 2 * * *"  # 02:00 UTC daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cortex
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: cortex-backend:0.3.0
+              command: ["python", "/app/scripts/backup.py"]
+              env:
+                - name: POSTGRES_HOST
+                  value: "cortex-postgres"
+                - name: POSTGRES_PORT
+                  value: "5432"
+                - name: POSTGRES_USER
+                  value: "postgres"
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: cortex-pg-credentials
+                      key: password
+                - name: POSTGRES_DB
+                  value: "cortex"
+                - name: BACKUP_DIR
+                  value: "/backups"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: cortex-pg-backups
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cortex-pg-backups
+  namespace: cortex
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
