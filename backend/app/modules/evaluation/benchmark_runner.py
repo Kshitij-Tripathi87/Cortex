@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -193,7 +195,6 @@ class BenchmarkRunner:
         from app.modules.disruption.engines.types import OrderData
         orders = []
         for row in self._read_csv("orders.csv"):
-            prod = None
             # Find product for unit_price
             prod_row = next(
                 (p for p in self._read_csv("products.csv") if p["sku"] == row["product_sku"]),
@@ -225,14 +226,14 @@ class BenchmarkRunner:
     def run_benchmark(self, engine_type: str = "deterministic") -> dict:
         """Run benchmark on all scenarios in ground truth."""
         gt = self.ground_truth
-        disruptions = gt.get("disruptions", [])
+        gt.get("disruptions", [])
 
         results = []
         start_time = time.time()
 
         for disruption in gt.get("disruptions", []):
             scenario_start = time.time()
-            scenario_id = disruption.get("scenario_id", "")
+            disruption.get("scenario_id", "")
             supplier_name = disruption.get("supplier_name", "")
 
             # Find supplier ID
@@ -380,7 +381,7 @@ class BenchmarkRunner:
         if not valid:
             return {"error": "No valid scenarios"}
 
-        n = len(valid)
+        len(valid)
 
         def avg(key):
             return sum(r.get(key, 0.0) for r in valid) / len(valid)

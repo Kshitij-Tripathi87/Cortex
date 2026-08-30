@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from app.common.ids import uuid7
 
 
-class ExperimentStatus(str, Enum):
+class ExperimentStatus(StrEnum):
     """Experiment lifecycle status."""
 
     CREATED = "created"
@@ -23,7 +23,7 @@ class ExperimentStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-class ExperimentType(str, Enum):
+class ExperimentType(StrEnum):
     """Types of experiments."""
 
     TRAINING = "training"

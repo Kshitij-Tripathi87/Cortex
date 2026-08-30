@@ -22,9 +22,7 @@ modes directly against the engine. No network calls.
 
 from __future__ import annotations
 
-import asyncio
 import json
-from typing import Any
 
 import pytest
 
@@ -35,7 +33,6 @@ from app.modules.data_intelligence.graph_delta_engine import (
 from app.modules.data_intelligence.operational_graph import (
     OperationalGraphEngine,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -73,7 +70,7 @@ class TestDeltaSeqContract:
     def test_seq_is_monotonic(self, engine: GraphDeltaEngine):
         seqs = [_apply(engine).seq for _ in range(10)]
         # Each subsequent seq must be strictly greater.
-        for prev, curr in zip(seqs, seqs[1:]):
+        for prev, curr in zip(seqs, seqs[1:], strict=False):
             assert curr > prev, f"seq went backwards: {prev} -> {curr}"
 
     def test_seq_first_value_matches_engine_counter(self, engine: GraphDeltaEngine):
@@ -184,15 +181,15 @@ class TestMinKnownSeqContract:
         assert min_seq == 2  # first delta's seq
         # Boundary condition as the SSE handler evaluates it:
         # since_seq = 0 → 0 < 1 → resync required
-        assert 0 < (min_seq - 1)
+        assert (min_seq - 1) > 0
         # since_seq = 1 → 1 < 1 is False → replay allowed (returns the
         # delta with seq=2)
-        assert not (1 < (min_seq - 1))
+        assert not ((min_seq - 1) > 1)
         # since_seq = 2 (the head of the oldest) → not less than
         # min_seq-1, replay allowed (returns [] because nothing
         # is newer than seq=2 from the client's perspective after
         # they've already seen it)
-        assert not (2 < (min_seq - 1))
+        assert not ((min_seq - 1) > 2)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

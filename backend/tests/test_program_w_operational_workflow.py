@@ -106,7 +106,7 @@ def test_program_w_realtime_delta_reconciliation(workspace):
     """W8: Verifies incremental graph delta reconciliation."""
     v_start = f"graph_v{workspace.delta_engine.current_version_counter}"
 
-    delta = workspace.append_stream_event(
+    workspace.append_stream_event(
         event_type="ORDER_SHIPPED",
         payload={"order_id": "ord_9901", "carrier": "Correios"},
     )

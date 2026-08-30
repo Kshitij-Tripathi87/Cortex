@@ -173,7 +173,7 @@ class GraphDeltaEngine:
 
             # 1. Order Node
             is_new_order = order_id not in self.graph_engine.nodes
-            order_node = self.graph_engine.add_node(order_id, "ORDER", payload)
+            self.graph_engine.add_node(order_id, "ORDER", payload)
             if is_new_order:
                 delta.added_nodes.append(NodeDelta(order_id, "ADDED", "ORDER", payload))
             else:

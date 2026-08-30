@@ -8,9 +8,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.common.ids import uuid7
+
+if TYPE_CHECKING:
+    from app.modules.data_intelligence.operational_graph import (
+        GraphAnalyticsSummary,
+        OperationalGraphEngine,
+    )
 
 
 @dataclass
@@ -114,8 +120,8 @@ class OperationalSignalEngine:
 
     def evaluate_from_graph(
         self,
-        graph_engine: "OperationalGraphEngine",
-        analytics: "GraphAnalyticsSummary",
+        graph_engine: OperationalGraphEngine,
+        analytics: GraphAnalyticsSummary,
     ) -> list[OperationalSignal]:
         """Detect signals from graph topology and analytics (real, not hardcoded).
 
@@ -124,10 +130,6 @@ class OperationalSignalEngine:
         - Route congestion (critical routes with many active orders)
         - Supplier concentration (high Gini coefficient)
         """
-        from app.modules.data_intelligence.operational_graph import (
-            GraphAnalyticsSummary,
-            OperationalGraphEngine,
-        )
 
         signals: list[OperationalSignal] = []
         n = max(1, len(graph_engine.nodes))
@@ -152,7 +154,7 @@ class OperationalSignalEngine:
                     evidence=[
                         f"pagerank={node.pagerank:.6f}",
                         f"degree={len(graph_engine.adjacency.get(spof_id, set()))}",
-                        f"is_spof=True",
+                        "is_spof=True",
                     ],
                 )
                 signals.append(sig)

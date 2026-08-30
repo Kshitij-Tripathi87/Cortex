@@ -46,7 +46,7 @@ def pytest_configure(config):
     from opentelemetry import trace as _otel_trace
     from opentelemetry.sdk.trace import TracerProvider as _SDKTP
     _sdk_provider = _SDKTP()
-    try:
+    try:  # noqa: SIM105
         _otel_trace.set_tracer_provider(_sdk_provider)
     except Exception:
         # Already set by an earlier session; ignore — the

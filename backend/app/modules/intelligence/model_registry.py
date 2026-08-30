@@ -274,7 +274,7 @@ class ModelRegistry:
     def list_models(self, org_id: str, model_type: ModelType | None = None) -> list[ModelRegistration]:
         results = []
         for reg in self._registrations.values():
-            if reg.organization_id == org_id:
+            if reg.organization_id == org_id:  # noqa: SIM102
                 if model_type is None or reg.model_type == model_type:
                     results.append(reg)
         return results

@@ -54,7 +54,7 @@ class CapacityBookingAgent:
         lanes = cap_res.data.get("matched_lanes", [])
 
         # Best lane: Air cargo corridor if urgent SLA protection needed
-        air_lane = next((l for l in lanes if l.get("mode") == "AIR_CARGO"), lanes[0] if lanes else None)
+        air_lane = next((lane for lane in lanes if lane.get("mode") == "AIR_CARGO"), lanes[0] if lanes else None)
 
         carrier_id = air_lane["carrier_id"] if air_lane else "carrier_air_latam_cargo"
         lane_str = air_lane["corridor"] if air_lane else "VCP-SDU"

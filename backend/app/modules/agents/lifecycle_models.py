@@ -65,11 +65,11 @@ class SignedCapabilityManifest:
     signature: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
-    def compute_signature(self, secret: str = "cortex_capability_master_2026") -> str:
+    def compute_signature(self, secret: str = "cortex_capability_master_2026") -> str:  # noqa: S107 - shared capability-secret default; wire to env (SEC-106)
         payload = f"{self.agent_id}:{self.version}:{sorted(self.allowed_capabilities)}:{sorted(self.allowed_tools)}:{self.policy_id}:{secret}"
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def verify(self, secret: str = "cortex_capability_master_2026") -> bool:
+    def verify(self, secret: str = "cortex_capability_master_2026") -> bool:  # noqa: S107 - shared capability-secret default; wire to env (SEC-106)
         return self.signature == self.compute_signature(secret)
 
     def to_dict(self) -> dict[str, Any]:

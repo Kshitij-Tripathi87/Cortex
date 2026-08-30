@@ -22,15 +22,13 @@ Invariants (A1/A2/A3):
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.modules.nexus_spine.canonical_schema import (
         CanonicalDataset,
-        CanonicalTable,
         EntityType,
     )
 
@@ -276,7 +274,7 @@ class OperationalGraphEngine:
 
     def build_graph(
         self,
-        canonical_dataset: "CanonicalDataset",
+        canonical_dataset: CanonicalDataset,
         *,
         workspace_id: str = "",
         world_state_version: int = 0,
@@ -288,7 +286,6 @@ class OperationalGraphEngine:
         reference other entity tables. No invented nodes: only entities and
         relationships the data substantiates are created.
         """
-        from app.modules.nexus_spine.canonical_schema import EntityType as _ET
 
         # Phase 1: Create nodes for each entity in each table
         id_fields = self._detect_id_fields(canonical_dataset)
@@ -366,7 +363,7 @@ class OperationalGraphEngine:
         d = 0.85
         for _ in range(8):
             new_pr = {nid: (1.0 - d) / n for nid in self.nodes}
-            for nid, node in self.nodes.items():
+            for nid in self.nodes:
                 neighbors = self.adjacency.get(nid, set())
                 deg = len(neighbors)
                 if deg > 0:
@@ -445,8 +442,8 @@ class OperationalGraphEngine:
         return f"{entity_type.lower()}_{raw_id}"
 
     def _detect_id_fields(
-        self, canonical_dataset: "CanonicalDataset"
-    ) -> dict["EntityType", str]:
+        self, canonical_dataset: CanonicalDataset
+    ) -> dict[EntityType, str]:
         """Detect the primary ID column for each table.
 
         Candidates are ``*_id`` columns ranked by cardinality (a primary key
@@ -456,7 +453,7 @@ class OperationalGraphEngine:
         table's identity when the conventionally-named column uses a short
         form (e.g. ``item_id``).
         """
-        result: dict["EntityType", str] = {}
+        result: dict[EntityType, str] = {}
         for entity_type, table in canonical_dataset.tables.items():
             if not table.rows:
                 continue
@@ -470,9 +467,9 @@ class OperationalGraphEngine:
             if not candidates:
                 continue
 
-            def uniqueness(col: str) -> float:
-                distinct = {str(row.get(col)) for row in table.rows}
-                return len(distinct) / len(table.rows)
+            def uniqueness(col: str, rows: Any = table.rows) -> float:
+                distinct = {str(row.get(col)) for row in rows}
+                return len(distinct) / len(rows)
 
             best = max(
                 candidates,
@@ -487,8 +484,8 @@ class OperationalGraphEngine:
 
     def _build_fk_edges(
         self,
-        canonical_dataset: "CanonicalDataset",
-        id_fields: dict["EntityType", str],
+        canonical_dataset: CanonicalDataset,
+        id_fields: dict[EntityType, str],
     ) -> None:
         """Create edges for every canonical FK field that references another table."""
         # Build a lookup: (target_entity_type_upper, raw_id) → node_id
@@ -544,8 +541,8 @@ class OperationalGraphEngine:
 
     def _derive_locations_and_routes(
         self,
-        canonical_dataset: "CanonicalDataset",
-        id_fields: dict["EntityType", str],
+        canonical_dataset: CanonicalDataset,
+        id_fields: dict[EntityType, str],
     ) -> None:
         """Derive LOCATION nodes from ``state`` attributes and ROUTE nodes
         from supplier→customer state pairs on orders.
@@ -624,8 +621,8 @@ class OperationalGraphEngine:
     def _find_supplier_state_for_order(
         self,
         order_id: str,
-        canonical_dataset: "CanonicalDataset",
-        id_fields: dict["EntityType", str],
+        canonical_dataset: CanonicalDataset,
+        id_fields: dict[EntityType, str],
     ) -> str:
         """Look up the supplier state for an order via ORDER_ITEM → SUPPLIER."""
         from app.modules.nexus_spine.canonical_schema import EntityType as _ET

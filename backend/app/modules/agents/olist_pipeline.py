@@ -99,7 +99,7 @@ class OlistLogisticsPipeline:
                         last_scan_at=datetime.now(UTC),
                     )
                     telemetry_list.append(telemetry)
-                except Exception:
+                except Exception:  # noqa: S112 - skip malformed telemetry rows, best-effort
                     continue
 
         return telemetry_list

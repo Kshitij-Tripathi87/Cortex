@@ -24,7 +24,6 @@ suite.
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from typing import Any
 
 import pytest
@@ -114,7 +113,6 @@ class TestRateLimitFailClosed:
     ):
         # Wire a Redis client that always raises. `get_redis_client`
         # is a sync factory, so the fake is sync too.
-        from app.infrastructure import redis_client
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -154,7 +152,6 @@ class TestRateLimitFailClosed:
         # An explicit opt-out preserves the legacy behavior. This
         # protects callers that genuinely need fail-open (e.g. a
         # metrics endpoint that should not 503 on cache outage).
-        from app.infrastructure import redis_client
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -195,7 +192,6 @@ class TestRateLimitFailClosed:
         # Sanity: when Redis is up, the rate limit does its job
         # (counts and returns True while under the limit, False once
         # over it). The fail-closed code path is bypassed.
-        from app.infrastructure import redis_client
         import json
 
         underlying = _FakeRedisOk()
@@ -252,7 +248,6 @@ class TestRedisAvailabilityProbe:
     async def test_probe_true_when_redis_ok(
         self, cache, monkeypatch: pytest.MonkeyPatch
     ):
-        from app.infrastructure import redis_client
 
         class _OkClient:
             _redis = _FakeRedisOk()
@@ -270,7 +265,6 @@ class TestRedisAvailabilityProbe:
     async def test_probe_false_when_redis_down(
         self, cache, monkeypatch: pytest.MonkeyPatch
     ):
-        from app.infrastructure import redis_client
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -290,7 +284,6 @@ class TestRedisAvailabilityProbe:
     ):
         # The factory may return None in a degraded env (no config).
         # Probe must handle that without raising.
-        from app.infrastructure import redis_client
 
         def _fake_get_redis_client():
             return None
@@ -306,7 +299,6 @@ class TestRedisAvailabilityProbe:
         self, cache, monkeypatch: pytest.MonkeyPatch
     ):
         # Even a factory that itself raises must not propagate.
-        from app.infrastructure import redis_client
 
         def _exploding():
             raise RuntimeError("factory exploded")
@@ -332,7 +324,6 @@ class TestLockFailClosed:
     async def test_fail_closed_lock_refuses_on_redis_outage(
         self, cache, monkeypatch: pytest.MonkeyPatch
     ):
-        from app.infrastructure import redis_client
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -364,7 +355,6 @@ class TestLockFailClosed:
         # The legacy behavior is preserved for callers that explicitly
         # opt out (e.g. a per-process idempotency check that does not
         # need cross-replica mutual exclusion).
-        from app.infrastructure import redis_client
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -407,7 +397,6 @@ class TestFailClosedStats:
     async def test_counter_increments_on_denial(
         self, cache, monkeypatch: pytest.MonkeyPatch
     ):
-        from app.infrastructure import redis_client
 
         class _DownClient:
             _redis = _FakeRedisDown()

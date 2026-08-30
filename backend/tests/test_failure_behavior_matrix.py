@@ -17,7 +17,6 @@ contract; status codes are derived from the wire envelope.
 
 from __future__ import annotations
 
-import asyncio
 import os
 
 os.environ.setdefault("CORTEX_ENV", "dev")
@@ -38,7 +37,6 @@ from app.common.errors import (
 )
 from app.common.ids import uuid7
 from app.infrastructure.security import AuthContext, require_workspace_access
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Error envelope wire contract — every error has a frozen code + http

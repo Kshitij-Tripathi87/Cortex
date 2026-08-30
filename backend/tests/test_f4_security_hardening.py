@@ -24,10 +24,11 @@ Security properties tested:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.infrastructure.tenant import (
     TenantContext,
@@ -35,7 +36,6 @@ from app.infrastructure.tenant import (
     set_tenant_context,
     with_tenant_context,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. TenantContext value object contract
@@ -195,7 +195,7 @@ class TestWithTenantContext:
         ctx_outer = TenantContext(tenant_id="org_1", workspace_id="ws_1")
         ctx_inner = TenantContext(tenant_id="org_2", workspace_id="ws_2")
 
-        async with with_tenant_context(session, ctx_outer):
+        async with with_tenant_context(session, ctx_outer):  # noqa: SIM117 - nesting is the contract under test
             async with with_tenant_context(session, ctx_inner):
                 pass
 
@@ -220,7 +220,7 @@ class TestTenantContextSQLiteIntegration:
 
     @pytest.fixture
     async def sqlite_session(self):
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
         from sqlalchemy.pool import StaticPool
 
         engine = create_async_engine(

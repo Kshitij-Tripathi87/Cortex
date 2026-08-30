@@ -53,9 +53,7 @@ class ConnectionSession:
 
     def can_subscribe(self, target_workspace_id: str, channel: str) -> bool:
         """Enforce that client can only subscribe to their authorized workspace."""
-        if target_workspace_id != self.workspace_id:
-            return False
-        return True
+        return target_workspace_id == self.workspace_id
 
 
 class RealtimeGateway:
@@ -66,6 +64,40 @@ class RealtimeGateway:
         self._sessions: dict[str, ConnectionSession] = {}
         self._lock = asyncio.Lock()
         self._cluster_channel = "cortex:realtime:cluster_events"
+        # Step 4: track fire-and-forget cluster-publish tasks so the
+        # asyncio runtime does not warn "Task was destroyed but it is
+        # pending" when a publish outlives the caller's coroutine.
+        self._fanout_tasks: set[asyncio.Task[Any]] = set()
+        # Step 4: observability for silent-failure surfaces. The cluster
+        # fanout is best-effort, but a failure must be countable so a
+        # persistent outage shows up in metrics instead of vanishing.
+        self.cluster_fanout_failures: int = 0
+
+    def _spawn_fanout(self, coro: Any) -> None:
+        """Schedule a bounded cluster-publish task and track it."""
+        task = asyncio.create_task(coro)
+        self._fanout_tasks.add(task)
+        task.add_done_callback(self._fanout_tasks.discard)
+
+    async def _cluster_fanout(self, message_data: str) -> None:
+        """Best-effort cross-node cluster publish.
+
+        Runs off the caller's hot path (``broadcast`` spawns it), so a
+        dead or slow Redis never blocks the real-time state pipeline.
+        Failures are swallowed — a cluster fanout miss only means a
+        remote node doesn't get the event, which is a latency/consistency
+        regression on that node, not a data-integrity failure.
+        """
+        try:
+            redis = get_redis_client()
+            if redis:
+                await redis.publish(self._cluster_channel, message_data)
+        except Exception:
+            # Best-effort fanout: a dead Redis means remote nodes miss this
+            # event (a cross-node latency regression, not a data-integrity
+            # failure). We do not raise, but we DO count it so a sustained
+            # outage is observable instead of silent.
+            self.cluster_fanout_failures += 1
 
     async def connect(
         self,
@@ -131,14 +163,14 @@ class RealtimeGateway:
         # 1. Local node fanout
         recipient_count = await self._dispatch_local(tenant_id, workspace_id, channel_name, message_data)
 
-        # 2. Clustered Redis pub/sub fanout to peer nodes (if not arriving from remote peer)
+        # 2. Clustered Redis pub/sub fanout to peer nodes (if not arriving from remote peer).
+        # Step 4: fire-and-forget — the cluster publish is best-effort
+        # and bounded by the Redis client's socket timeouts. Awaiting it
+        # here would block the real-time pipeline on a dead Redis, which
+        # was exactly the latency regression fixed in Step 2. The task is
+        # tracked so a pending publish can never leak past the caller.
         if origin_node_id is None:
-            try:
-                redis = await get_redis_client()
-                if redis:
-                    await redis.publish(self._cluster_channel, message_data)
-            except Exception:
-                pass  # Fallback gracefully to local-only delivery
+            self._spawn_fanout(self._cluster_fanout(message_data))
 
         return recipient_count
 
@@ -180,7 +212,7 @@ class RealtimeGateway:
             channel_name = msg.get("channel", "")
 
             await self._dispatch_local(tenant_id, workspace_id, channel_name, raw_message)
-        except Exception:
+        except Exception:  # noqa: S110 - best-effort cluster message dispatch
             pass
 
     def get_active_connection_count(self) -> int:

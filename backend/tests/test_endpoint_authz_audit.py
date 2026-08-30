@@ -284,11 +284,12 @@ class TestGatedRoutesAreValid:
     downgrade a route. The next test catches that.)"""
 
     def test_gated_count_is_stable(self, all_routes):
-        # The baseline gated count is 109. A drop of more than 0 means
+        # The baseline gated count is 108. A drop of more than 0 means
         # an auth helper was removed without compensating for the gate.
+        # Note: was 109 before removal of duplicate get_twin_results (5bc2b69).
         gated_count = sum(1 for r in all_routes if r.gated)
-        assert gated_count >= 109, (
+        assert gated_count >= 108, (
             f"Gated route count dropped: got {gated_count}, expected "
-            f"at least 109. An auth helper may have been removed or "
+            f"at least 108. An auth helper may have been removed or "
             f"renamed; check AUTH_HELPERS and the affected routers."
         )

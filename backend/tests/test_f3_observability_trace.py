@@ -35,10 +35,10 @@ exporter. It uses the OTel ``InMemorySpanExporter`` from
 
 from __future__ import annotations
 
+import contextlib
 import re
 
 import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -88,10 +88,8 @@ def in_memory_tracer():
         # so it can be GC'd. Clearing the exporter alone
         # is not enough — the SDK keeps a reference via
         # the processor.
-        try:
+        with contextlib.suppress(Exception):
             processor.shutdown()
-        except Exception:
-            pass
         exporter.clear()
 
 
@@ -161,7 +159,7 @@ class TestBuildEnvelope:
             current_trace_id_hex,
         )
         tracer, exporter = in_memory_tracer
-        with tracer.start_as_current_span("http_request") as root:
+        with tracer.start_as_current_span("http_request"):
             envelope = build_envelope({"job_kind": "twin", "id": "j_1"})
             http_trace_id = current_trace_id_hex()
         assert http_trace_id is not None
@@ -368,8 +366,8 @@ class TestEndToEndRoundTrip:
     def test_http_queue_worker_one_trace(self, in_memory_tracer):
         from app.infrastructure.trace_context import (
             build_envelope,
-            current_trace_id_hex,
             current_span_id_hex,
+            current_trace_id_hex,
             detach_context,
             restore_from_envelope,
         )
@@ -436,9 +434,8 @@ class TestTracedSection:
     def test_section_opens_named_span(self, in_memory_tracer):
         from app.infrastructure.trace_context import traced_section
         tracer, exporter = in_memory_tracer
-        with tracer.start_as_current_span("worker_loop"):
-            with traced_section("process_job"):
-                pass
+        with tracer.start_as_current_span("worker_loop"), traced_section("process_job"):
+            pass
         spans = exporter.get_finished_spans()
         names = [s.name for s in spans]
         assert "process_job" in names
@@ -451,7 +448,7 @@ class TestTracedSection:
             "decision.id": "dec_abc",
             "tenant.id": "ws_1",
         }
-        with tracer.start_as_current_span("worker_loop"):
+        with tracer.start_as_current_span("worker_loop"):  # noqa: SIM117 - nested span hierarchy is the assertion
             with traced_section("process_job", attributes=attrs):
                 pass
         spans = exporter.get_finished_spans()
@@ -460,17 +457,18 @@ class TestTracedSection:
         # SDK may namespace the keys, so we check the
         # un-namespaced form).
         attr_dict = dict(job_span.attributes or {})
-        for k, v in attrs.items():
+        for k, _v in attrs.items():
             assert k in attr_dict or k.replace(".", "_") in attr_dict, (
                 f"Attribute {k!r} not on the span; without it, "
                 f"the trace view can't filter by job kind."
             )
 
     def test_section_sets_error_status_on_exception(self, in_memory_tracer):
-        from app.infrastructure.trace_context import traced_section
         from opentelemetry.trace import StatusCode
+
+        from app.infrastructure.trace_context import traced_section
         tracer, exporter = in_memory_tracer
-        with pytest.raises(RuntimeError, match="boom"):
+        with pytest.raises(RuntimeError, match="boom"):  # noqa: SIM117 - span tree must outlive the raise
             with tracer.start_as_current_span("worker_loop"):
                 with traced_section("process_job"):
                     raise RuntimeError("boom")
@@ -497,10 +495,9 @@ class TestTracedSection:
         # Even when the block raises, the span MUST be
         # ended (otherwise the SDK leaks it; repeated
         # leaks corrupt the trace graph).
-        with pytest.raises(RuntimeError):
-            with tracer.start_as_current_span("worker_loop"):
-                with traced_section("process_job"):
-                    raise RuntimeError("boom")
+        with pytest.raises(RuntimeError), tracer.start_as_current_span("worker_loop"):  # noqa: SIM117 - nested section is the assertion
+            with traced_section("process_job"):
+                raise RuntimeError("boom")
         # The span is in the captured set → it was ended.
         spans = exporter.get_finished_spans()
         names = [s.name for s in spans]
@@ -509,9 +506,8 @@ class TestTracedSection:
     def test_section_ends_span_on_clean_exit(self, in_memory_tracer):
         from app.infrastructure.trace_context import traced_section
         tracer, exporter = in_memory_tracer
-        with tracer.start_as_current_span("worker_loop"):
-            with traced_section("process_job"):
-                pass
+        with tracer.start_as_current_span("worker_loop"), traced_section("process_job"):
+            pass
         spans = exporter.get_finished_spans()
         names = [s.name for s in spans]
         assert "process_job" in names

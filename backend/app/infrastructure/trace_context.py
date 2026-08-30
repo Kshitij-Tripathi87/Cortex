@@ -57,7 +57,6 @@ from opentelemetry.trace import (
     Tracer,
 )
 
-
 # Frozen envelope key for the trace context. Workers MUST
 # look for this key when they pick up a job; if it's
 # missing, the worker starts a new trace (which is the
@@ -154,9 +153,9 @@ def detach_context(token: Any) -> None:
     ``restore_from_envelope``. Safe to call with ``None``."""
     if token is None:
         return
-    try:
+    try:  # noqa: SIM105
         detach(token)
-    except Exception:
+    except Exception:  # noqa: S110
         # The OTel detach can raise if the context was
         # already detached (e.g. by an earlier except
         # branch). The trace is still valid; we just lose

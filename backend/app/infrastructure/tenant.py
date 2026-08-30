@@ -41,9 +41,9 @@ Security properties:
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncGenerator, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,7 +107,7 @@ async def set_tenant_context(
 @asynccontextmanager
 async def with_tenant_context(
     session: AsyncSession,
-    ctx: Optional[TenantContext],
+    ctx: TenantContext | None,
 ) -> AsyncGenerator[None]:
     """Execute a block with the tenant context set.
 

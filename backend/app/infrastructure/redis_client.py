@@ -13,11 +13,29 @@ from app.config import Settings
 class RedisClient:
     """Async Redis client wrapper with JSON serialization."""
 
+    # Step 2 (Redis latency regression): every Redis attempt is bounded.
+    # Without these timeouts a dead `redis://localhost:6379` blocks for
+    # the OS default TCP timeout (seconds to minutes depending on the
+    # resolver) and turns the cache layer into a multi-second stop-the-
+    # world on every hot-path call. 200 ms connect / 500 ms command is
+    # generous for a healthy in-VPC Redis and lethal for a dead one:
+    # the worst-case single attempt is 700 ms and the caller already
+    # short-circuits on a cached `down` health signal.
+    _SOCKET_CONNECT_TIMEOUT_S: float = 0.2
+    _SOCKET_TIMEOUT_S: float = 0.5
+
     def __init__(self, settings: Settings) -> None:
         self._redis = redis.from_url(
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,
+            socket_connect_timeout=self._SOCKET_CONNECT_TIMEOUT_S,
+            socket_timeout=self._SOCKET_TIMEOUT_S,
+            # Do not retry timeouts: a 200 ms connect that times out is
+            # a real outage, not a transient blip. Retrying would
+            # multiply the latency by N backoff cycles and re-introduce
+            # the regression we are fixing.
+            retry_on_timeout=False,
         )
 
     async def get(self, key: str) -> Any | None:
@@ -39,6 +57,17 @@ class RedisClient:
     async def delete(self, key: str) -> None:
         """Delete a key from Redis."""
         await self._redis.delete(key)
+
+    async def publish(self, channel: str, message: str) -> None:
+        """Publish a message to a Redis Pub/Sub channel.
+
+        Used by the realtime gateway for cross-node cluster fanout
+        (see ``RealtimeGateway.broadcast``). Before this method
+        existed the gateway called ``redis.publish(...)`` on the
+        wrapper, which raised ``AttributeError`` — the raw client
+        is what actually exposes ``publish``.
+        """
+        await self._redis.publish(channel, message)
 
     async def scan_iter(self, match: str | None = None):
         """Iterate over keys matching a pattern."""

@@ -132,7 +132,7 @@ async def test_phase_e_f_i_shadow_and_progressive_canary():
     ctrl.register_artifact(art_v7)
     ctrl.register_artifact(art_v8)
 
-    reps_v7 = ctrl.deploy_replicas("shipment_tracking", "v7", "ws_austin", replica_count=2)
+    ctrl.deploy_replicas("shipment_tracking", "v7", "ws_austin", replica_count=2)
     reps_v8 = ctrl.deploy_replicas("shipment_tracking", "v8", "ws_austin", replica_count=2)
 
     # Progressive Canary: 5% -> 25% -> 100%

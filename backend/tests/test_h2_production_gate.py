@@ -38,14 +38,11 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
-import sys
-from datetime import timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from starlette.testclient import TestClient
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]  # backend/tests -> backend -> repo
 K8S_DIR = REPO_ROOT / "k8s"
@@ -116,7 +113,7 @@ class TestProductionGate:
         assert check_names == ["db", "redis", "object_storage", "audit_chain"]
 
         # AUDIT_CHAIN_MAX_AGE is exactly 24h (timedelta(days=1))
-        assert health.AUDIT_CHAIN_MAX_AGE == timedelta(days=1)
+        assert timedelta(days=1) == health.AUDIT_CHAIN_MAX_AGE
 
         # check_audit_chain is a callable that returns (bool, str)
         assert callable(health.check_audit_chain)
@@ -213,7 +210,7 @@ class TestProductionGate:
         import tests.test_f2_backup as f2_backup_test
         src_path = f2_backup_test.__file__
         assert src_path is not None
-        with open(src_path, "r", encoding="utf-8") as f:
+        with open(src_path, encoding="utf-8") as f:
             src = f.read()
 
         for tbl in expected_core:
@@ -237,9 +234,9 @@ class TestProductionGate:
         from app.infrastructure.trace_context import (
             ENVELOPE_TRACE_KEY,
             build_envelope,
-            restore_from_envelope,
             detach_context,
             get_tracer,
+            restore_from_envelope,
         )
 
         assert ENVELOPE_TRACE_KEY == "__trace_parent__"
@@ -294,11 +291,11 @@ class TestProductionGate:
 
     def test_07_f4a_tenant_isolation_rls(self):
         """F4a: TenantContext is frozen, SET LOCAL uses exact setting names."""
+
         from app.infrastructure.tenant import (
             TenantContext,
             make_tenant_context,
         )
-        from sqlalchemy import text
 
         # TenantContext is a frozen dataclass with tenant_id, workspace_id
         ctx = TenantContext(tenant_id="org_1", workspace_id="ws_1")
@@ -317,7 +314,7 @@ class TestProductionGate:
         # The exact SET LOCAL statements use these setting names
         # (pinned by the module's source — we check the SQL string pattern)
         import app.infrastructure.tenant as tmod
-        source = tmod.set_tenant_context.__wrapped__.__wrapped__.__self__.__module__ if hasattr(tmod.set_tenant_context, '__wrapped__') else None
+        tmod.set_tenant_context.__wrapped__.__wrapped__.__self__.__module__ if hasattr(tmod.set_tenant_context, '__wrapped__') else None
         # Instead just assert the module exposes the right names
         # (the test_f4_security_hardening.py already pins the exact SQL)
 
@@ -398,8 +395,9 @@ class TestProductionGate:
 
     def test_11_e3_redis_fail_closed(self):
         """E3: CacheManager.has_redis_available is async and returns strict bool."""
-        from app.infrastructure.cache_manager import CacheManager
         import inspect
+
+        from app.infrastructure.cache_manager import CacheManager
 
         # is_redis_available exists and is async
         assert hasattr(CacheManager, "is_redis_available")
@@ -509,15 +507,15 @@ class TestProductionGate:
 
     def test_15_c1_failure_behavior_matrix(self):
         """C1: Error taxonomy, idempotency conflict, version conflict exist."""
-        from app.common.errors import (
-            IdempotencyConflictError,
-            VersionConflictError,
-            AuthenticationError,
-            PermissionError,
-            CortexError,
-            ValidationError,
-        )
         from app.common.contracts import IdempotencyRecord
+        from app.common.errors import (
+            AuthenticationError,
+            CortexError,
+            IdempotencyConflictError,
+            PermissionError,
+            ValidationError,
+            VersionConflictError,
+        )
 
         # All key exceptions are CortexError subclasses (the unified
         # error taxonomy — every error in the platform inherits from
@@ -625,7 +623,6 @@ class TestProductionGate:
         assert WorldState is not None
 
         # Both are frozen dataclasses
-        import dataclasses
         ws_fields = {f.name for f in dataclasses.fields(WorldSnapshot)}
         assert "snapshot_id" in ws_fields
         wst_fields = {f.name for f in dataclasses.fields(WorldState)}
@@ -634,7 +631,6 @@ class TestProductionGate:
         # IsolationContext is a frozen dataclass — pinned by inspecting
         # the dataclass __dataclass_fields__ (no need to construct,
         # which would require valid WorldSnapshot/WorldState instances).
-        import dataclasses
         # All fields exist with concrete types
         for fname, ftype in fields.items():
             assert ftype is not type(None), (
@@ -643,8 +639,8 @@ class TestProductionGate:
 
         # Construct a real IsolationContext with real WorldSnapshot/WorldState
         # to verify the frozen contract at runtime.
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
+        from datetime import datetime
+        now = datetime.now(UTC)
         snap = WorldSnapshot(
             snapshot_id="snap_1",
             world_id="world_1",
@@ -718,12 +714,11 @@ class TestProductionGate:
     def test_19_j33_kpi_engine_contract(self):
         """J.3.3: KPIComputation has 14 contract floats + 4 provenance fields."""
         from app.modules.twin.kpi_engine import (
-            KPIComputation,
-            KPI_FORMULA_VERSION,
             CANONICAL_KPI_VERSION,
+            KPI_FORMULA_VERSION,
+            KPIComputation,
             compute_kpi_hash,
         )
-        import dataclasses
 
         # KPIComputation is a dataclass with the 14 contract fields
         field_names = {f.name for f in dataclasses.fields(KPIComputation)}
@@ -816,8 +811,8 @@ class TestProductionGate:
         patch the ``__defaults__`` tuple of ``check_dependencies``
         directly (this is what production code does too — the function
         takes the checks tuple as its default arg)."""
-        from app.main import create_app
         import app.infrastructure.health as h_mod
+        from app.main import create_app
 
         # Fake checks: db/redis/object_storage pass, audit_chain fails
         fake_checks = (
@@ -882,7 +877,7 @@ class TestProductionGate:
 
     def test_22_compliance_math_bounded(self):
         """Cross-block: compliance_from_buckets returns value in [0, 1], never NaN/negative."""
-        from app.infrastructure.slo import compliance_from_buckets, LATENCY_HISTOGRAM_BUCKETS
+        from app.infrastructure.slo import LATENCY_HISTOGRAM_BUCKETS, compliance_from_buckets
 
         # H1 invariant: never NaN, never None, never out of [0, 1].
         # Whether 0 observations → 0.0 or 1.0 is an SLO design choice

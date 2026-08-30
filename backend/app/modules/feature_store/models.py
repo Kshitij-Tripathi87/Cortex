@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from app.common.ids import uuid7
 
 
-class FeatureType(str, Enum):
+class FeatureType(StrEnum):
     """Types of features."""
 
     NUMERICAL = "numerical"
@@ -23,7 +23,7 @@ class FeatureType(str, Enum):
     GRAPH_STRUCTURAL = "graph_structural"
 
 
-class FeatureStatus(str, Enum):
+class FeatureStatus(StrEnum):
     """Feature lifecycle status."""
 
     DRAFT = "draft"
@@ -106,7 +106,7 @@ class FeatureDefinition(BaseModel):
                     return False
             except (ValueError, TypeError):
                 return False
-        elif self.dtype == "categorical" and self.allowed_categories:
+        elif self.dtype == "categorical" and self.allowed_categories:  # noqa: SIM102
             if str(value) not in self.allowed_categories:
                 return False
 

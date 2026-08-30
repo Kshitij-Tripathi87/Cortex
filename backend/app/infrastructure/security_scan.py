@@ -99,7 +99,7 @@ def run_scan(
     if requirements_file:
         cmd.extend(["-r", requirements_file])
 
-    proc = subprocess.run(
+    proc = subprocess.run(  # noqa: S603 - fixed argv list, no shell, only pip-audit + lockfile
         cmd,
         capture_output=True,
         text=True,

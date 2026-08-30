@@ -763,7 +763,7 @@ class TestTwinPersistence:
 
     async def test_destroy_is_idempotent(self, db_session) -> None:
         """Destroying a non-existent twin returns False (idempotent)."""
-        ws = f"ws_{uuid7()}"
+        f"ws_{uuid7()}"
         service = TwinService(db_session)
         assert await service.destroy("nonexistent_twin_id_xyz") is False
 

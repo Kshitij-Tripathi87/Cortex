@@ -294,6 +294,6 @@ class DatasetRegistry:
         )
 
 
-from sqlalchemy import func
+from sqlalchemy import func  # noqa: E402
 
 __all__ = ["DatasetRecord", "DatasetRegistry"]

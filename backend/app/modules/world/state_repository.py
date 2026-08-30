@@ -149,7 +149,7 @@ class WorldSnapshotDB(Base):
 
 class WorldVersionDB(Base):
     """Version lineage — tracks each new state version and its provenance.
-    
+
     Sequence number ensures monotonic ordering per (world_id, workspace_id).
     This prevents concurrent writes from creating duplicate or out-of-order versions.
     """
@@ -233,7 +233,7 @@ class StateRepository:
 
     async def get(self, world_id: str, workspace_id: str, version: int | None = None) -> WorldState | None:
         """Get world state by ID and optional version.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         if version is not None:
@@ -291,7 +291,7 @@ class StateRepository:
 
     async def list_versions(self, world_id: str, workspace_id: str) -> list[WorldState]:
         """List all versions of a world state, oldest first.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         stmt = (
@@ -396,7 +396,7 @@ class StateRepository:
 
     async def get_version_id(self, world_id: str, workspace_id: str, version: int) -> str | None:
         """Get the version_id (UUID) for a given world and version.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         stmt = select(WorldVersionDB.version_id).where(
@@ -409,7 +409,7 @@ class StateRepository:
 
     async def get_version_by_event_id(self, event_id: str, workspace_id: str) -> WorldVersionDB | None:
         """Get the version lineage record associated with a given event ID.
-        
+
         WORKSPACE ISOLATION: Query is scoped to workspace_id.
         """
         stmt = select(WorldVersionDB).where(
@@ -467,7 +467,7 @@ class StateRepository:
         limit: int | None = None,
     ) -> list[WorldStateEventDB]:
         """Get events for a world, ordered by occurred_at.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         stmt = (
@@ -493,7 +493,7 @@ class StateRepository:
 
     async def get_event(self, event_id: str, workspace_id: str) -> WorldStateEventDB | None:
         """Get a specific event by ID.
-        
+
         WORKSPACE ISOLATION: Query is scoped to workspace_id.
         """
         stmt = select(WorldStateEventDB).where(
@@ -510,7 +510,7 @@ class StateRepository:
         idempotency_key: str,
     ) -> WorldStateEventDB | None:
         """Find an event by its idempotency key within a specific world/workspace.
-        
+
         WORKSPACE ISOLATION: Idempotency lookup is scoped to both world_id and workspace_id,
         matching the UNIQUE constraint: (world_id, workspace_id, idempotency_key).
         This prevents cross-world idempotency key collisions.
@@ -544,7 +544,7 @@ class StateRepository:
 
     async def get_snapshot(self, snapshot_id: str, workspace_id: str) -> WorldSnapshot | None:
         """Get a specific snapshot.
-        
+
         WORKSPACE ISOLATION: Query is scoped to workspace_id.
         """
         stmt = select(WorldSnapshotDB).where(
@@ -559,7 +559,7 @@ class StateRepository:
         self, world_id: str, workspace_id: str, include_archive: bool = False
     ) -> WorldSnapshot | None:
         """Get the latest non-archive snapshot for a world.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         stmt = (
@@ -583,7 +583,7 @@ class StateRepository:
 
     async def get_version(self, world_id: str, workspace_id: str, version: int) -> WorldVersionDB | None:
         """Get a specific world version.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         stmt = select(WorldVersionDB).where(
@@ -596,7 +596,7 @@ class StateRepository:
 
     async def get_versions(self, world_id: str, workspace_id: str) -> list[WorldVersionDB]:
         """Get all versions for a world, oldest first.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         stmt = (
@@ -635,7 +635,7 @@ class StateRepository:
 
     async def get_metadata(self, world_id: str, workspace_id: str, version: int | None = None) -> StateMetadata | None:
         """Get world state metadata.
-        
+
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
         """
         if version is not None:

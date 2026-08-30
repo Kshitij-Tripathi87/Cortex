@@ -325,10 +325,10 @@ class FeatureRegistry:
 
     def _compute_numerical_stats(self, name: str, values: list, total: int, null_count: int) -> FeatureStatistics:
         import numpy as np
-        arr = np.array([float(v) for v in valid])
+        arr = np.array([float(v) for v in values])
         return FeatureStatistics(
             feature_name=name,
-            count=len(valid),
+            count=len(values),
             null_count=null_count,
             null_ratio=null_count / total if total > 0 else 0.0,
             mean=float(np.mean(arr)),

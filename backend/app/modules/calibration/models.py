@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -140,7 +141,7 @@ class CalibrationPlatform:
             return 0.0
 
         bins = [[] for _ in range(n_bins)]
-        for conf, label in zip(confidences, labels):
+        for conf, label in zip(confidences, labels, strict=False):
             bin_idx = min(int(conf * n_bins), n_bins - 1)
             bins[bin_idx].append((conf, label))
 
@@ -160,7 +161,7 @@ class CalibrationPlatform:
             return 0.0
 
         bins = [[] for _ in range(n_bins)]
-        for conf, label in zip(confidences, labels):
+        for conf, label in zip(confidences, labels, strict=False):
             bin_idx = min(int(conf * n_bins), n_bins - 1)
             bins[bin_idx].append((conf, label))
 
@@ -176,7 +177,7 @@ class CalibrationPlatform:
     def _brier_score(self, confidences: list[float], labels: list[int]) -> float:
         if not confidences or len(confidences) != len(labels):
             return 0.0
-        return sum((c - l) ** 2 for c, l in zip(confidences, labels)) / len(confidences)
+        return sum((c - label) ** 2 for c, label in zip(confidences, labels, strict=False)) / len(confidences)
 
 
 class Calibrator:
@@ -216,7 +217,7 @@ class PlattScalingCalibrator(Calibrator):
         for _ in range(1000):
             grad_a = 0.0
             grad_b = 0.0
-            for c, y in zip(confidences, labels):
+            for c, y in zip(confidences, labels, strict=False):
                 logit = self.a * c + self.b
                 p = sigmoid(logit)
                 error = p - y
@@ -248,12 +249,12 @@ class IsotonicCalibrator(Calibrator):
 
     def fit(self, confidences: list[float], labels: list[int]) -> None:
         # Simple isotonic regression using PAVA (Pool Adjacent Violators Algorithm)
-        pairs = sorted(zip(confidences, labels))
+        pairs = sorted(zip(confidences, labels, strict=False))
         n = len(pairs)
 
         # Initialize
         y = [p[1] for p in pairs]
-        x = [p[0] for p in pairs]
+        [p[0] for p in pairs]
 
         # PAVA
         blocks = []
@@ -316,9 +317,9 @@ class TemperatureScalingCalibrator(Calibrator):
         import math
 
         def softmax_with_temp(logits, T):
-            scaled = [l / T for l in logits]
+            scaled = [logit / T for logit in logits]
             max_logit = max(scaled)
-            exps = [math.exp(l - max_logit) for l in scaled]
+            exps = [math.exp(logit - max_logit) for logit in scaled]
             sum_exps = sum(exps)
             return [e / sum_exps for e in exps]
 
@@ -331,7 +332,7 @@ class TemperatureScalingCalibrator(Calibrator):
 
         for T in [0.1, 0.2, 0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0, 5.0, 10.0]:
             nll = 0.0
-            for logit, y in zip(logits, labels):
+            for logit, y in zip(logits, labels, strict=False):
                 probs = softmax_with_temp([logit], T)
                 p = probs[0]
                 nll -= y * math.log(p + 1e-9) + (1 - y) * math.log(1 - p + 1e-9)
@@ -403,13 +404,7 @@ def generate_calibration_report(
 
     needs_cal = ece > 0.05 or mce > 0.1
 
-    if needs_cal:
-        if ece > 0.1:
-            recommended = "isotonic"
-        else:
-            recommended = "platt"
-    else:
-        recommended = None
+    recommended = ("isotonic" if ece > 0.1 else "platt") if needs_cal else None
 
     return CalibrationReport(
         model_id=model_id,
@@ -427,16 +422,16 @@ def _compute_ece(confidences: list[float], labels: list[int], n_bins: int = 10) 
     if not confidences or len(confidences) != len(labels):
         return 0.0
     bins = [[] for _ in range(n_bins)]
-    for c, l in zip(confidences, labels):
+    for c, label in zip(confidences, labels, strict=False):
         idx = min(int(c * n_bins), n_bins - 1)
-        bins[idx].append((c, l))
+        bins[idx].append((c, label))
 
     ece = 0.0
     total = len(confidences)
     for bin_samples in bins:
         if not bin_samples:
             continue
-        acc = sum(l for _, l in bin_samples) / len(bin_samples)
+        acc = sum(label for _, label in bin_samples) / len(bin_samples)
         conf = sum(c for c, _ in bin_samples) / len(bin_samples)
         ece += (len(bin_samples) / total) * abs(acc - conf)
     return ece
@@ -446,15 +441,15 @@ def _compute_mce(confidences: list[float], labels: list[int], n_bins: int = 10) 
     if not confidences or len(confidences) != len(labels):
         return 0.0
     bins = [[] for _ in range(n_bins)]
-    for c, l in zip(confidences, labels):
+    for c, label in zip(confidences, labels, strict=False):
         idx = min(int(c * n_bins), n_bins - 1)
-        bins[idx].append((c, l))
+        bins[idx].append((c, label))
 
     max_err = 0.0
     for bin_samples in bins:
         if not bin_samples:
             continue
-        acc = sum(l for _, l in bin_samples) / len(bin_samples)
+        acc = sum(label for _, label in bin_samples) / len(bin_samples)
         conf = sum(c for c, _ in bin_samples) / len(bin_samples)
         max_err = max(max_err, abs(acc - conf))
     return max_err
@@ -463,7 +458,7 @@ def _compute_mce(confidences: list[float], labels: list[int], n_bins: int = 10) 
 def _brier_score(confidences: list[float], labels: list[int]) -> float:
     if not confidences or len(confidences) != len(labels):
         return 0.0
-    return sum((c - l) ** 2 for c, l in zip(confidences, labels)) / len(confidences)
+    return sum((c - label) ** 2 for c, label in zip(confidences, labels, strict=False)) / len(confidences)
 
 
 def _reliability_diagram(confidences: list[float], labels: list[int], n_bins: int = 10) -> list[dict]:
@@ -471,9 +466,9 @@ def _reliability_diagram(confidences: list[float], labels: list[int], n_bins: in
         return []
 
     bins = [[] for _ in range(n_bins)]
-    for c, l in zip(confidences, labels):
+    for c, label in zip(confidences, labels, strict=False):
         idx = min(int(c * n_bins), n_bins - 1)
-        bins[idx].append((c, l))
+        bins[idx].append((c, label))
 
     points = []
     for i, bin_samples in enumerate(bins):
@@ -487,7 +482,7 @@ def _reliability_diagram(confidences: list[float], labels: list[int], n_bins: in
             continue
 
         avg_conf = sum(c for c, _ in bin_samples) / len(bin_samples)
-        accuracy = sum(l for _, l in bin_samples) / len(bin_samples)
+        accuracy = sum(label for _, label in bin_samples) / len(bin_samples)
         points.append({
             "bin": i,
             "confidence": avg_conf,

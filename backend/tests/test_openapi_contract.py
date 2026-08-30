@@ -44,11 +44,11 @@ class TestOpenAPIDrift:
         # If either side is missing, the typechain is broken — the frontend
         # would have a hand-written or stale schema. Fail fast.
         assert BACKEND_OPENAPI.is_file(), (
-            f"backend/openapi.json is missing — run `python -m scripts.generate_openapi`"
+            "backend/openapi.json is missing — run `python -m scripts.generate_openapi`"
         )
         assert FRONTEND_OPENAPI.is_file(), (
-            f"frontend/src/types/openapi.json is missing — run "
-            f"`python -m scripts.generate_types` to refresh"
+            "frontend/src/types/openapi.json is missing — run "
+            "`python -m scripts.generate_types` to refresh"
         )
 
     def test_openapi_schemas_are_byte_identical(self):

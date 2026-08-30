@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 import networkx as nx
+from sqlalchemy import select
 
 from app.modules.supply_chain.models import (
     Component,
@@ -306,7 +307,7 @@ class FeatureExtractorOrchestrator:
     async def extract_all(self, db) -> dict[str, dict[str, float]]:
         """Extract all features for all entities."""
         # Build graph first
-        G = await self.graph_extractor.build_graph(db)
+        await self.graph_extractor.build_graph(db)
 
         all_features = {}
 

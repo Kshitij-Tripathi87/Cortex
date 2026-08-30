@@ -197,7 +197,7 @@ def test_full_pipeline_factory_fire_with_knowledge():
 def test_scenario_execution_with_metrics():
     """Scenario execution produces metrics and impact."""
     state = _create_world_state("ws_1", "world_1")
-    scenario = create_factory_fire_scenario(
+    create_factory_fire_scenario(
         scenario_id="scn_fire_1",
         factory_id="fac_001",
         capacity_pct=0.0,
@@ -562,8 +562,8 @@ def test_combined_scenario_factory_fire_plus_supplier_delay():
         ),
     })
 
-    fire_scenario = create_factory_fire_scenario("scn_1", "fac_001", capacity_pct=0.0)
-    supplier_scenario = create_supplier_failure_twin_scenario("scn_2", "sup_001", delay_days=14)
+    create_factory_fire_scenario("scn_1", "fac_001", capacity_pct=0.0)
+    create_supplier_failure_twin_scenario("scn_2", "sup_001", delay_days=14)
 
     events = [
         FactoryShutdown(
@@ -587,7 +587,7 @@ def test_combined_scenario_factory_fire_plus_supplier_delay():
 
 def test_demand_spike_plus_port_closure():
     """Combined: demand spike + port closure."""
-    state = _create_world_state("ws_1", "world_1")
+    _create_world_state("ws_1", "world_1")
 
     demand = create_demand_spike_twin_scenario("scn_d", "comp_042", demand_change=500)
     port = create_port_closure_scenario("scn_p", "route_001", delay_days=10)
@@ -599,7 +599,7 @@ def test_demand_spike_plus_port_closure():
 def test_cyber_attack_scenario():
     """Cyber attack scenario produces correct events."""
     state = _create_world_state("ws_1", "world_1")
-    scenario = create_cyber_attack_scenario(
+    create_cyber_attack_scenario(
         scenario_id="scn_cyber",
         factory_id="fac_001",
         capacity_pct=0.0,

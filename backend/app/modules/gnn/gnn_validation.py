@@ -61,7 +61,7 @@ class GNNResearchValidator:
         base_bundle = self.gnn.encode(graph_data)
 
         # 2. Construct perturbed graph
-        rng = random.Random(seed)
+        rng = random.Random(seed)  # noqa: S311 - seeded perturbation RNG, not crypto
         perturbed_edges = []
         for edge in graph_data.edges:
             if rng.random() > noise_ratio:

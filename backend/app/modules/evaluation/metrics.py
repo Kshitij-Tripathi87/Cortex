@@ -32,7 +32,7 @@ def mae(gt_values: list[float], pred_values: list[float]) -> float:
     """Mean Absolute Error."""
     if not gt_values or len(gt_values) != len(pred_values):
         return 0.0
-    return sum(abs(g - p) for g, p in zip(gt_values, pred_values)) / len(gt_values)
+    return sum(abs(g - p) for g, p in zip(gt_values, pred_values, strict=False)) / len(gt_values)
 
 
 def mape(gt_values: list[float], pred_values: list[float]) -> float:
@@ -41,7 +41,7 @@ def mape(gt_values: list[float], pred_values: list[float]) -> float:
         return 0.0
     total = 0.0
     count = 0
-    for g, p in zip(gt_values, pred_values):
+    for g, p in zip(gt_values, pred_values, strict=False):
         if g != 0:
             total += abs(g - p) / abs(g)
             count += 1
@@ -52,7 +52,7 @@ def rmse(gt_values: list[float], pred_values: list[float]) -> float:
     """Root Mean Square Error."""
     if not gt_values or len(gt_values) != len(pred_values):
         return 0.0
-    return math.sqrt(sum((g - p) ** 2 for g, p in zip(gt_values, pred_values)) / len(gt_values))
+    return math.sqrt(sum((g - p) ** 2 for g, p in zip(gt_values, pred_values, strict=False)) / len(gt_values))
 
 
 def calibration_ece(gt_probs: list[float], pred_probs: list[float], n_bins: int = 10) -> float:
@@ -61,7 +61,7 @@ def calibration_ece(gt_probs: list[float], pred_probs: list[float], n_bins: int 
         return 0.0
 
     bins = [[] for _ in range(n_bins)]
-    for gt, pred in zip(gt_probs, pred_probs):
+    for gt, pred in zip(gt_probs, pred_probs, strict=False):
         bin_idx = min(int(pred * n_bins), n_bins - 1)
         bins[bin_idx].append((gt, pred))
 
@@ -83,7 +83,7 @@ def mce(gt_probs: list[float], pred_probs: list[float], n_bins: int = 10) -> flo
         return 0.0
 
     bins = [[] for _ in range(n_bins)]
-    for gt, pred in zip(gt_probs, pred_probs):
+    for gt, pred in zip(gt_probs, pred_probs, strict=False):
         bin_idx = min(int(pred * n_bins), n_bins - 1)
         bins[bin_idx].append((gt, pred))
 
@@ -102,7 +102,7 @@ def brier_score(gt_probs: list[float], outcomes: list[int]) -> float:
     """Brier Score for probabilistic predictions."""
     if len(gt_probs) != len(outcomes) or not gt_probs:
         return 0.0
-    return sum((p - o) ** 2 for p, o in zip(gt_probs, outcomes)) / len(gt_probs)
+    return sum((p - o) ** 2 for p, o in zip(gt_probs, outcomes, strict=False)) / len(gt_probs)
 
 
 def reliability_diagram(gt_probs: list[float], outcomes: list[int], n_bins: int = 10) -> list[dict]:
@@ -111,7 +111,7 @@ def reliability_diagram(gt_probs: list[float], outcomes: list[int], n_bins: int 
         return []
 
     bins = [[] for _ in range(n_bins)]
-    for prob, outcome in zip(gt_probs, outcomes):
+    for prob, outcome in zip(gt_probs, outcomes, strict=False):
         bin_idx = min(int(prob * n_bins), n_bins - 1)
         bins[bin_idx].append((prob, outcome))
 
@@ -144,7 +144,7 @@ def ndcg_at_k(gt_relevance: list[float], pred_scores: list[float], k: int) -> fl
         return 0.0
 
     # Sort by predicted scores
-    pairs = sorted(zip(pred_scores, gt_relevance), key=lambda x: x[0], reverse=True)
+    pairs = sorted(zip(pred_scores, gt_relevance, strict=False), key=lambda x: x[0], reverse=True)
     dcg = 0.0
     for i, (_, rel) in enumerate(pairs[:k]):
         dcg += rel / math.log2(i + 2)
@@ -164,7 +164,7 @@ def mrr(gt_ranks: list[int], pred_ranks: list[int]) -> float:
         return 0.0
 
     reciprocal_ranks = []
-    for gt_rank, pred_rank in zip(gt_ranks, pred_ranks):
+    for _gt_rank, pred_rank in zip(gt_ranks, pred_ranks, strict=False):
         if pred_rank > 0:
             reciprocal_ranks.append(1.0 / pred_rank)
         else:
@@ -238,7 +238,7 @@ def mean_average_precision(gt_sets: list[set], pred_ranked_lists: list[list]) ->
     """Mean Average Precision across queries."""
     if not gt_sets or not pred_ranked_lists:
         return 0.0
-    return sum(average_precision(gt, pred) for gt, pred in zip(gt_sets, pred_ranked_lists)) / len(gt_sets)
+    return sum(average_precision(gt, pred) for gt, pred in zip(gt_sets, pred_ranked_lists, strict=False)) / len(gt_sets)
 
 
 def recommendation_rank_agreement(gt_ranking: list, pred_ranking: list) -> float:
@@ -288,7 +288,7 @@ def bootstrap_ci(data: list[float], n_bootstrap: int = 1000, confidence: float =
     import random
     bootstrapped = []
     for _ in range(n_bootstrap):
-        sample = [random.choice(data) for _ in data]
+        sample = [random.choice(data) for _ in data]  # noqa: S311 - bootstrap resampling, not crypto
         bootstrapped.append(sum(sample) / len(sample))
     bootstrapped.sort()
     alpha = (1 - confidence) / 2

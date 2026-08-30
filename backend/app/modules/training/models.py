@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.common.ids import uuid7
 
+try:
+    import torch  # type: ignore[import-not-found]
+except ImportError:  # torch is not a runtime dependency of the wedge (deferred ML)
+    torch = None  # type: ignore[assignment]
 
-class TrainingStatus(str, Enum):
+
+class TrainingStatus(StrEnum):
     """Training job status."""
 
     PENDING = "pending"
@@ -22,7 +28,7 @@ class TrainingStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class TrainingFramework(str, Enum):
+class TrainingFramework(StrEnum):
     """Training frameworks."""
 
     PYTORCH = "pytorch"
@@ -35,7 +41,7 @@ class TrainingFramework(str, Enum):
     CUSTOM = "custom"
 
 
-class OptimizerType(str, Enum):
+class OptimizerType(StrEnum):
     """Optimizer types."""
 
     SGD = "sgd"
@@ -45,7 +51,7 @@ class OptimizerType(str, Enum):
     ADAGRAD = "adagrad"
 
 
-class SchedulerType(str, Enum):
+class SchedulerType(StrEnum):
     """Learning rate scheduler types."""
 
     STEP = "step"
@@ -262,7 +268,7 @@ class Trainer:
     def _create_optimizer(self):
         import torch.optim as optim
 
-        params = self.model.parameters()
+        self.model.parameters()
         if self.config.optimizer.lower() == "adam":
             return optim.Adam(self.model.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
         elif self.config.optimizer.lower() == "adamw":

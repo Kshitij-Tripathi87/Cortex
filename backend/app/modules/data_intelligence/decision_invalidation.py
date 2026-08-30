@@ -72,7 +72,7 @@ class DecisionInvalidationEngine:
         invalidated_decisions: list[str] = []
 
         for dec_id, dep in self.decisions.items():
-            if dep.is_valid:
+            if dep.is_valid:  # noqa: SIM102
                 # Check entity collision
                 if mutated_entity_id in dep.dependent_entity_ids or mutation_type == "FORCE_MAJOR_DISRUPTION":
                     dep.is_valid = False

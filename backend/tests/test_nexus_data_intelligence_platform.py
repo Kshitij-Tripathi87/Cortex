@@ -199,10 +199,10 @@ def test_hermetic_data_path_default_is_repo_fixture():
     If this breaks, the regression suite is no longer reproducible.
     """
     # The fixture is always the default when the env var is unset.
-    assert OLIST_DATA_DIR == os.path.join(
+    assert os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "tests", "fixtures", "olist",
-    )
+    ) == OLIST_DATA_DIR
     assert os.path.isfile(os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv"))
     # The fixture must contain the real dataset (not an empty stub).
     with open(os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv"), encoding="utf-8") as fh:

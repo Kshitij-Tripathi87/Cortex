@@ -32,11 +32,8 @@ from app.modules.nexus_spine.pipeline_stages import (
     twin_simulation_fn,
 )
 from app.modules.nexus_spine.proposal_simulator import (
-    ProposalOption,
     ProposalSimulator,
-    SimulationResult,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -146,7 +143,7 @@ class TestProposalDeterminism:
 
         assert r1.simulation_hash == r2.simulation_hash
         assert len(r1.options) == len(r2.options)
-        for o1, o2 in zip(r1.options, r2.options):
+        for o1, o2 in zip(r1.options, r2.options, strict=False):
             assert o1.option_hash == o2.option_hash
 
     def test_simulation_hash_is_deterministic_across_instances(self):

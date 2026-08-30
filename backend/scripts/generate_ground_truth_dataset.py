@@ -25,6 +25,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Reuse base generator components
+import contextlib
+
 from generate_synthetic_dataset import (
     SIZES,
     write_bom,
@@ -121,7 +123,7 @@ class GroundTruthDataset:
 
 class GroundTruthCalculator:
     """Computes exact ground truth from a generated dataset.
-    
+
     This replicates the engine logic deterministically so that ground truth
     matches what the engines should produce.
     """
@@ -239,13 +241,12 @@ class GroundTruthCalculator:
 
         while queue:
             node, hop, exposure = queue.pop(0)
-            if node in visited:
-                if visited[node]["exposure"] >= exposure:
-                    continue
+            if node in visited and visited[node]["exposure"] >= exposure:
+                continue
             visited[node] = {"hop": hop, "exposure": exposure}
 
             if node in self.adj:
-                for neighbor, edge_type, weight in self.adj[node]:
+                for neighbor, _edge_type, weight in self.adj[node]:
                     attenuation = 0.5 * weight  # base 0.5 per hop, modulated by weight
                     new_exposure = exposure * attenuation
                     if new_exposure > 0.01:  # threshold
@@ -340,10 +341,8 @@ class GroundTruthCalculator:
                     qty_per_unit = 1.0
                 for order in self.data.get("orders", []):
                     if order["product_sku"] == prod_sku and order["status"] in ["pending", "confirmed"]:
-                        try:
+                        with contextlib.suppress(ValueError, TypeError):
                             total += int(order.get("quantity", 0)) * qty_per_unit
-                        except (ValueError, TypeError):
-                            pass
         return max(1, int(total // 30))  # rough monthly average
 
     def _get_affected_orders(self, propagation: dict, products: list[dict]) -> list[dict]:
@@ -391,9 +390,9 @@ class GroundTruthCalculator:
 
     def _compute_impact(self, components, products, warehouses, orders, events) -> dict:
         # Simplified impact calculation matching engine logic
-        total_components = len(components)
-        total_products = len(products)
-        total_orders = len(orders)
+        len(components)
+        len(products)
+        len(orders)
 
         # Revenue risk: sum of order values at risk
         revenue_risk = 0.0

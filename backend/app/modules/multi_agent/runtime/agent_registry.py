@@ -121,9 +121,8 @@ class AgentRegistry:
         for reg in self._agents.values():
             if reg.organization_id == org_id and (
                 workspace_id is None or reg.workspace_id == workspace_id
-            ):
-                if status is None or reg.status == status:
-                    res.append(reg)
+            ) and (status is None or reg.status == status):
+                res.append(reg)
         return res
 
     def update_health(self, agent_id: str, health: AgentHealth) -> None:

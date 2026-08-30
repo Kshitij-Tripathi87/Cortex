@@ -59,9 +59,9 @@ from typing import Any
 
 from app.common.ids import uuid7
 from app.modules.twin.kpi_engine import (
+    KPI_FORMULA_VERSION,
     KPIComputation,
     KPIEngine,
-    KPI_FORMULA_VERSION,
     compute_kpi_hash,
 )
 from app.modules.twin.twin_isolation import production_fingerprint
@@ -81,7 +81,6 @@ from app.modules.world.state_projection import (
 )
 from app.modules.world.state_repository import StateRepository
 from app.modules.world.world_models import StateVariable, StateVariableType
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test helpers
@@ -370,8 +369,8 @@ class TestKPITrajectoryBridge:
     def test_duration_days_estimate_is_pure_function_of_trajectory(self) -> None:
         """The duration_days estimate is a pure function of trajectory
         length — ceil((ticks-1)/24).days with a floor of 1."""
-        baseline = _baseline()
-        final = _final_state_with_changes()
+        _baseline()
+        _final_state_with_changes()
 
         # 24 ticks → 23/24 hours → ceil(23/24) → 1 day
         # 25 ticks → 24/24 hours → 1 day exactly
@@ -489,7 +488,7 @@ class TestKPILegacyCompat:
         """A legacy `TwinScenario` (event-list form) flows through
         `_convert_legacy_scenario` → J.3.2 `ScenarioRuntime` → J.3.3
         `KPIEngine`, producing the full KPI contract surface."""
-        from app.modules.twin.twin_models import ScenarioType, TwinScenario
+        from app.modules.twin.twin_models import TwinScenario
 
         ws = f"ws_{uuid7()}"
         world = f"world_{uuid7()}"

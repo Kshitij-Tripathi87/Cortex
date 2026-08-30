@@ -396,7 +396,7 @@ async def supplier_failure_brief(
                 scenario_id=scenario_id,
             )
         )
-    except Exception:
+    except Exception:  # noqa: S110 - shadow inference is best-effort, never break the wedge
         # Shadow inference failures must never affect the deterministic wedge
         pass
 

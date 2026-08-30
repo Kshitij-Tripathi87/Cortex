@@ -45,7 +45,6 @@ from app.modules.nexus_spine.models import (
 )
 from app.modules.nexus_spine.spine_orchestrator import RealDataSpine
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -206,7 +205,7 @@ class TestApprovalRecord:
             proposal_hash="ph", simulation_hash="sh",
             world_state_version=10,
         )
-        r2 = ApprovalRecord.create(
+        ApprovalRecord.create(
             decision_id="d1", operator_id="op1",
             proposal_hash="ph", simulation_hash="sh",
             world_state_version=10,
@@ -641,7 +640,7 @@ class TestEvidenceChainCompletion:
                                    parent_node_id=src.node_id)
         prop = g.add_evidence_step("PROPOSAL", "proposal", {"action": "x"},
                                     parent_node_id=sig.node_id)
-        out = g.add_evidence_step("OUTCOME", "outcome", {"result": "ok"},
+        g.add_evidence_step("OUTCOME", "outcome", {"result": "ok"},
                                    parent_node_id=prop.node_id)
         assert len(g.nodes) == 4
         assert len(g.edges) == 3

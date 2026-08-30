@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        try:
+        try:  # noqa: SIM105 - Windows lacks add_signal_handler; ignore gracefully
             loop.add_signal_handler(sig, _signal_handler, sig, None)
         except NotImplementedError:
             # Windows doesn't support add_signal_handler
@@ -61,12 +61,6 @@ async def lifespan(app: FastAPI):
             # Give in-flight requests time to complete
             await asyncio.sleep(2)
         await close_db()
-        # Stop metrics server
-        try:
-            # Prometheus client doesn't have a clean shutdown, but we can unregister
-            pass
-        except Exception:
-            pass
 
 
 def create_app() -> FastAPI:

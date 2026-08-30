@@ -26,8 +26,9 @@ states into ``app.infrastructure.health``.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 
 # Helper to import without triggering slow init paths
@@ -49,8 +50,8 @@ class TestHealthEndpoint:
     failure would create a cascading restart loop."""
 
     def test_healthz_is_200_on_ok_dependencies(self):
-        import fastapi
         from starlette.testclient import TestClient
+
         from app.main import create_app
         app = create_app()
         client = TestClient(app)
@@ -60,10 +61,9 @@ class TestHealthEndpoint:
 
     def test_healthz_is_200_on_bad_dependencies(self):
         # Even when dependencies are bad, healthz stays 200.
-        import fastapi
         from starlette.testclient import TestClient
+
         from app.main import create_app
-        from unittest.mock import patch
 
         app = create_app()
         client = TestClient(app)
@@ -90,8 +90,8 @@ class TestReadinessEndpoint:
     violation that breaks the on-call runbook parser."""
 
     def test_readyz_200_when_all_dependencies_ok(self):
-        import fastapi
         from starlette.testclient import TestClient
+
         from app.main import create_app
 
         app = create_app()
@@ -120,11 +120,9 @@ class TestReadinessEndpoint:
         # Inject a synthetic failure for one dependency; the
         # 503 response must mention the failing component by
         # name so the alert rule can key off it directly.
-        import app.infrastructure.health as h_mod
-        import fastapi
         from starlette.testclient import TestClient
-        from unittest.mock import patch
 
+        import app.infrastructure.health as h_mod
         from app.main import create_app
 
         async def _fake_check():
@@ -201,7 +199,7 @@ class TestDependencyContracts:
     def test_audit_chain_max_age_is_positive(self):
         import app.infrastructure.health as h_mod
         assert h_mod.AUDIT_CHAIN_MAX_AGE.total_seconds() == 86400.0  # 1d
-        assert h_mod.AUDIT_CHAIN_MAX_AGE > __import__("datetime").timedelta(0)
+        assert __import__("datetime").timedelta(0) < h_mod.AUDIT_CHAIN_MAX_AGE
 
 
 # ─────────────────────────────────────────────────────────────────────────────

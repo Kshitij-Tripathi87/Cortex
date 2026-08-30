@@ -189,7 +189,6 @@ class MessageBus:
     async def commit_offset(self, group_id: str, topic: NexusTopic | str, offset: int) -> None:
         """Commit consumer group read offset."""
         topic_name = topic.value if isinstance(topic, NexusTopic) else topic
-        key = f"{group_id}:{topic_name}"
         group = self.register_consumer_group(group_id, topic_name)
         group.committed_offset = max(group.committed_offset, offset)
         group.last_active = datetime.now(UTC)

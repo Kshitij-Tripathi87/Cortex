@@ -375,10 +375,10 @@ class OlistAdapter:
 
                     # Referential filter under sampling: drop dependent rows that
                     # reference entities outside the sampled order set.
-                    if sampled_order_ids is not None and entity_type == EntityType.ORDER_ITEM:
+                    if sampled_order_ids is not None and entity_type == EntityType.ORDER_ITEM:  # noqa: SIM102
                         if str(canonical_row.get("order_id", "")) not in sampled_order_ids:
                             continue
-                    if referenced_product_ids is not None and entity_type == EntityType.PRODUCT:
+                    if referenced_product_ids is not None and entity_type == EntityType.PRODUCT:  # noqa: SIM102
                         if str(canonical_row.get("product_id", "")) not in referenced_product_ids:
                             continue
 

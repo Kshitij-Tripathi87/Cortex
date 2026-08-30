@@ -85,7 +85,7 @@ async def test_load_state_pipeline_throughput():
 
     # Check that latency metrics were computed for all operations
     latencies = [r.latency_metrics.total_pipeline_latency_ms for r in results]
-    assert all(l >= 0.0 for l in latencies)
+    assert all(lat >= 0.0 for lat in latencies)
     avg_latency = sum(latencies) / len(latencies)
     assert avg_latency < 100.0  # Measured average pipeline latency under load < 100ms
 

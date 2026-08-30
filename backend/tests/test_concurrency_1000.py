@@ -29,7 +29,6 @@ pool is sized independently of the test's transient writers.
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 import pytest
@@ -40,7 +39,6 @@ from app.common.ids import uuid7
 from app.modules.events.event_models import InventoryChanged
 from app.modules.world.state_repository import StateRepository
 from app.modules.world.world_service import WorldStateService
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures — dedicated engine with NullPool so N writers don't share a pool

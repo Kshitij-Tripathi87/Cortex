@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.common.ids import uuid7
 
 
-class DatasetSize(str, Enum):
+class DatasetSize(StrEnum):
     """Predefined dataset sizes."""
 
     SMALL = "small"
@@ -21,7 +21,7 @@ class DatasetSize(str, Enum):
     CUSTOM = "custom"
 
 
-class ScenarioType(str, Enum):
+class ScenarioType(StrEnum):
     """Types of disruption scenarios."""
 
     SUPPLIER_FAILURE = "supplier_failure"
@@ -32,7 +32,7 @@ class ScenarioType(str, Enum):
     QUALITY_ISSUE = "quality_issue"
 
 
-class DatasetStatus(str, Enum):
+class DatasetStatus(StrEnum):
     """Lifecycle status of a dataset."""
 
     GENERATING = "generating"
@@ -42,7 +42,7 @@ class DatasetStatus(str, Enum):
     FAILED = "failed"
 
 
-class SchemaVersion(str, Enum):
+class SchemaVersion(StrEnum):
     """Supported schema versions."""
 
     V1 = "1.0"

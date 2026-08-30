@@ -52,14 +52,12 @@ from app.modules.nexus_spine.models import (
     SpineResult,
     SpineStageStatus,
     SpineStatus,
-    SwarmTask,
 )
 from app.modules.nexus_spine.pipeline_stages import (
     ExecutionGateError,
     execution_gate_fn,
 )
 from app.modules.nexus_spine.spine_orchestrator import RealDataSpine
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dataset builders

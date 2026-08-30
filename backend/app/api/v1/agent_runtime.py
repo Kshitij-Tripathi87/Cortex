@@ -12,6 +12,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -73,10 +74,8 @@ async def run_deliberation(
     )
 
     priority_enum = TaskPriority.NORMAL
-    try:
+    with contextlib.suppress(ValueError):
         priority_enum = TaskPriority(req.priority.upper())
-    except ValueError:
-        pass
 
     task = SupervisorTask(
         task_id=f"task_{uuid7()}",

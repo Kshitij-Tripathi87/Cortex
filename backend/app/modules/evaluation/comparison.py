@@ -64,7 +64,7 @@ class EngineComparator:
         candidate_metrics = candidate.get("aggregate_metrics", {})
 
         comparison = {}
-        all_keys = set(baseline_metrics.keys()) | set(candidate_metrics.keys())
+        set(baseline_metrics.keys()) | set(candidate_metrics.keys())
 
         wins = 0
         losses = 0
@@ -82,7 +82,7 @@ class EngineComparator:
                 }
                 continue
 
-            diff = candidate_metrics[key] - baseline_metrics[key]
+            candidate_metrics[key] - baseline_metrics[key]
 
             # Determine if higher is better (most metrics) or lower is better (error metrics)
             higher_is_better = not any(

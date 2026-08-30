@@ -249,36 +249,6 @@ async def run_scenario(
     )
 
 
-@router.get("/twin/{twin_id}/results")
-async def get_twin_results(
-    twin_id: str,
-    workspace_id: str = Query(...),
-    auth: AuthContext = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """Get all scenario run results for a twin."""
-    require_workspace_access(workspace_id, auth)
-
-    service = TwinService(db)
-    results = await service.get_results(twin_id)
-    return {
-        "twin_id": twin_id,
-        "results_count": len(results),
-        "results": [
-            {
-                "run_id": r.run_id,
-                "scenario_id": r.scenario_id,
-                "final_state_hash": r.final_state_hash,
-                "final_version": r.final_version,
-                "events_processed": r.events_processed,
-                "metrics": r.metrics,
-                "comparison": r.comparison,
-            }
-            for r in results
-        ],
-    }
-
-
 @router.post("/twin/fork", response_model=TwinResponse, status_code=201)
 async def fork_twin(
     body: ForkTwinRequest,

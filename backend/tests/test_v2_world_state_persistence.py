@@ -14,8 +14,6 @@ end-to-end with a real SQLite-backed WorldStateService:
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +27,6 @@ from app.modules.nexus_spine.canonical_schema import (
 from app.modules.nexus_spine.spine_orchestrator import RealDataSpine
 from app.modules.world.state_repository import StateRepository, WorldStateEventDB
 from app.modules.world.world_service import WorldStateService
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers

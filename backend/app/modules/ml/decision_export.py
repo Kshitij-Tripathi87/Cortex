@@ -362,13 +362,13 @@ async def export_decisions_for_training(
         # Lessons
         lesson_list = [
             {
-                "lesson_id": l.lesson_id,
-                "category": l.category,
-                "description": l.description,
-                "impact": l.impact,
-                "created_at": l.created_at.isoformat() if l.created_at else None,
+                "lesson_id": lesson.lesson_id,
+                "category": lesson.category,
+                "description": lesson.description,
+                "impact": lesson.impact,
+                "created_at": lesson.created_at.isoformat() if lesson.created_at else None,
             }
-            for l in lessons
+            for lesson in lessons
         ]
 
         # Backtest info

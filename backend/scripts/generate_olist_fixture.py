@@ -160,7 +160,7 @@ def main() -> None:
         )
 
         n_items = rng.choice([1, 1, 1, 2])
-        for k in range(n_items):
+        for _k in range(n_items):
             product = products[rng.randrange(N_PRODUCTS)]
             item_seq += 1
             items_rows.append(

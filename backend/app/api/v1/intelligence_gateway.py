@@ -54,7 +54,7 @@ async def execute_inference(
         raise HTTPException(
             status_code=400,
             detail=f"Invalid task '{req.task}'. Valid tasks: {[t.name for t in IntelligenceTask]}",
-        )
+        ) from None
 
     corr_id = x_correlation_id or str(uuid7())
     req_obj = IntelligenceRequest(
@@ -123,7 +123,7 @@ async def promote_model(
             "deployed_at": deployment.deployed_at.isoformat(),
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/models/{model_id}/rollback")
@@ -140,7 +140,7 @@ async def rollback_model(
             "status": deployment.status.name,
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/baselines")

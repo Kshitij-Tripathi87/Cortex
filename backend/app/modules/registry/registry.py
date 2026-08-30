@@ -398,7 +398,7 @@ class ModelRegistry:
 
     async def get_model_versions(self, model_id: UUID) -> list[dict]:
         """Get all versions of a model."""
-        result = await self.db.execute(
+        await self.db.execute(
             select(ModelRecord).where(ModelRecord.id == model_id)
         )
         # Actually, in this schema, each record is a different model.

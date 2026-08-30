@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import os
-import tempfile
 from typing import Any
 
 from fastapi import APIRouter, File, Form, UploadFile
@@ -25,13 +25,10 @@ from app.modules.nexus_spine.canonical_schema import (
     CanonicalTable,
     EntityType,
     OlistAdapter,
-    SchemaMapping,
 )
 from app.modules.nexus_spine.spine_orchestrator import RealDataSpine
 from app.modules.world.state_repository import StateRepository
 from app.modules.world.world_service import WorldStateService
-
-import logging
 
 logger = logging.getLogger(__name__)
 

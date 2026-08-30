@@ -124,7 +124,7 @@ class RealtimeStatePipeline:
             await self.message_bus.publish(NexusTopic.EVENTS, msg_envelope)
 
             # 2. Deterministic State Projection
-            t_pre_state = datetime.now(UTC)
+            datetime.now(UTC)
             new_state = apply_events(current_state, [event])
             t_state = datetime.now(UTC)
 

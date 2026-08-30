@@ -96,7 +96,6 @@ def test_canonical_message_schema_round_trip():
 async def test_message_bus_dlq_poison_isolation():
     """Verify poison messages failing 3 attempts are isolated in Dead Letter Queue."""
     bus = MessageBus(max_retries=3)
-    dlq_received: list[BusMessage] = []
 
     # Faulty handler that always raises
     async def faulty_handler(msg: BusMessage):
@@ -434,7 +433,7 @@ def test_enterprise_multi_user_collaboration_and_cli_tokens():
         full_name="Bob Logistics",
         role=OrgRole.MEMBER,
     )
-    charlie = identity.invite_user_to_org(
+    identity.invite_user_to_org(
         org_id=org.org_id,
         email="charlie@apexmobility.com",
         full_name="Charlie Procurement",

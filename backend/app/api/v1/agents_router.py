@@ -162,7 +162,7 @@ async def deploy_agent_replicas(req: DeployReplicasRequest):
             "replicas": [r.to_dict() for r in replicas],
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/canary")
@@ -177,7 +177,7 @@ async def configure_canary(req: ConfigureCanaryRequest):
         )
         return res
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/supervise")
@@ -229,8 +229,8 @@ class CreateTaskRequest(BaseModel):
     destination: str = Field(default="RJ", description="Destination hub / city")
 
 
-from app.modules.multi_agent.runtime.nexus_supervisor import NexusSwarmSupervisor
-from app.modules.multi_agent.tools.manifests import CAPABILITY_MANIFESTS
+from app.modules.multi_agent.runtime.nexus_supervisor import NexusSwarmSupervisor  # noqa: E402
+from app.modules.multi_agent.tools.manifests import CAPABILITY_MANIFESTS  # noqa: E402
 
 _swarm_supervisor = NexusSwarmSupervisor()
 

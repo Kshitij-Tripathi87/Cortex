@@ -14,6 +14,7 @@ Frozen metric catalog per docs/22-observability-model.md:
 
 from __future__ import annotations
 
+import contextlib
 from time import perf_counter
 from typing import Any
 
@@ -115,10 +116,8 @@ worker_jobs = Gauge(
 
 def start_metrics_server(port: int = 8001) -> None:
     """Start Prometheus metrics HTTP server."""
-    try:
+    with contextlib.suppress(Exception):
         start_http_server(port)
-    except Exception:
-        pass
 
 
 class MetricsMiddleware:

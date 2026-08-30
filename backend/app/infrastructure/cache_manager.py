@@ -13,12 +13,28 @@ E3 fail-closed policy (Phase 15 production gate):
     out-of-date cache is a perf regression, not a security hole.
   - `is_redis_available()` lets callers distinguish the two states
     without catching exceptions inline.
+
+Step 2 (Redis latency regression fix, 2026-08-28):
+  - The Redis client now has bounded `socket_connect_timeout=0.2` and
+    `socket_timeout=0.5` (see `redis_client.RedisClient`). A dead
+    Redis fails in well under a second instead of blocking on the
+    OS default TCP timeout.
+  - `CacheManager` caches the Redis health signal for 30 s when the
+    last attempt succeeded and 5 s when it failed. The auth path
+    (`is_redis_available` for rate limiter / fail-closed locks)
+    reads this cache and never blocks on a Redis probe under steady
+    state. The hot cache-write path (`_set`) skips the Redis write
+    entirely while the cache says `down`, so the real-time state
+    pipeline cannot be stopped by a Redis outage.
+  - The actual Redis write is fire-and-forget via a bounded
+    background task. The local cache update is synchronous and
+    authoritative for the caller's latency budget. The background
+    task has its own 1.0 s ceiling as a final guard.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -40,10 +56,26 @@ class CacheStats:
 class CacheManager:
     """Multi-tenant versioned cache and coordination manager."""
 
+    # Step 2: cached Redis health. Status is one of
+    # ``"unknown"``, ``"up"``, ``"down"``; the float is the
+    # ``time.monotonic()`` expiry. A health entry older than its
+    # expiry is treated as unknown and triggers a fresh probe.
+    _REDIS_HEALTH_TTL_UP_S: float = 30.0
+    _REDIS_HEALTH_TTL_DOWN_S: float = 5.0
+    # Hard ceiling on the background Redis write so a wedged
+    # connection can never leak past the caller's lifetime.
+    _REDIS_WRITE_TIMEOUT_S: float = 1.0
+
     def __init__(self) -> None:
         self._stats = CacheStats()
         self._local_cache: dict[str, tuple[float, Any]] = {}
         self._locks: set[str] = set()
+        # Step 2: cached Redis health — see ``is_redis_available``.
+        self._redis_health: tuple[str, float] = ("unknown", 0.0)
+        # Step 2: tracked background tasks so the asyncio runtime
+        # does not warn "Task was destroyed but it is pending" when
+        # a write outlives the caller's coroutine.
+        self._bg_tasks: set[asyncio.Task[Any]] = set()
 
     # ─────────────────────────────────────────────────────────────────────────
     # 1. Versioned Cache
@@ -132,6 +164,14 @@ class CacheManager:
                 return val
             del self._local_cache[key]
 
+        # Step 2: skip the Redis read while the cached health says
+        # Redis is down. A dead Redis then costs at most one slow
+        # read per down-window instead of one per call.
+        status, expires = self._redis_health
+        if status == "down" and time.monotonic() < expires:
+            self._stats.misses += 1
+            return None
+
         # Try Redis. `get_redis_client()` is a sync factory (it
         # returns a `RedisClient`); the previous `await` here was a
         # latent bug that raised `TypeError: object RedisClient
@@ -143,27 +183,45 @@ class CacheManager:
         try:
             client = get_redis_client()
             if client:
-                val = await client.get(key)
+                # RedisClient.get() already json-decodes the raw
+                # value (see redis_client.RedisClient.get), so `val`
+                # is the decoded object — return it as-is. The old
+                # `return json.loads(val)` double-decoded and would
+                # raise TypeError once the Redis path was live.
+                val = await asyncio.wait_for(
+                    client.get(key),
+                    timeout=self._REDIS_WRITE_TIMEOUT_S,
+                )
                 if val:
                     self._stats.hits += 1
-                    return json.loads(val)
+                    self._record_redis_health(True)
+                    return val
+                self._record_redis_health(True)
         except Exception:
-            pass
+            self._record_redis_health(False)
 
         self._stats.misses += 1
         return None
 
     async def _set(self, key: str, value: Any, ttl_seconds: int) -> None:
+        # Step 2: the local cache update is synchronous and
+        # authoritative for the caller's read-your-own-writes. The
+        # Redis mirror is fire-and-forget — see ``_redis_write`` —
+        # so the real-time state pipeline cannot be stopped by a
+        # dead Redis. If the cached health already says Redis is
+        # down we skip the background task entirely (no point
+        # spawning a doomed coroutine). The hot-path latency budget
+        # is the local dict assignment; the network round-trip does
+        # not count against the caller.
         now = time.time()
         self._local_cache[key] = (now + ttl_seconds, value)
         self._stats.writes += 1
 
-        try:
-            client = get_redis_client()
-            if client:
-                await client.set(key, json.dumps(value), ex=ttl_seconds)
-        except Exception:
-            pass
+        status, expires = self._redis_health
+        if status == "down" and time.monotonic() < expires:
+            return
+
+        self._spawn_bg(self._redis_write(key, value, ttl_seconds))
 
     async def invalidate(self, pattern_or_key: str) -> None:
         """Invalidate cache keys matching a pattern."""
@@ -173,35 +231,108 @@ class CacheManager:
         self._stats.invalidations += 1
 
     # ─────────────────────────────────────────────────────────────────────────
-    # 1b. Redis availability probe (E3)
+    # 1b. Redis availability probe (E3) + cached health (Step 2)
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _record_redis_health(self, ok: bool) -> None:
+        """Update the cached Redis health after a probe or write.
+
+        ``up`` is cached for ``_REDIS_HEALTH_TTL_UP_S`` (long: avoid
+        spamming a healthy Redis with pings); ``down`` is cached for
+        ``_REDIS_HEALTH_TTL_DOWN_S`` (short: recover quickly when Redis
+        comes back, but long enough to avoid hammering a dead Redis).
+        """
+        now = time.monotonic()
+        if ok:
+            self._redis_health = ("up", now + self._REDIS_HEALTH_TTL_UP_S)
+        else:
+            self._redis_health = ("down", now + self._REDIS_HEALTH_TTL_DOWN_S)
+
+    def _spawn_bg(self, coro: Any) -> asyncio.Task[Any]:
+        """Schedule a fire-and-forget coroutine and track it.
+
+        Without tracking, the asyncio runtime warns
+        ``Task was destroyed but it is pending`` if the test/event
+        loop ends before the background work finishes. The
+        ``done_callback`` removes the reference once the task settles,
+        so the set never grows unbounded.
+        """
+        task = asyncio.create_task(coro)
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+        return task
+
     async def is_redis_available(self) -> bool:
-        """E3: probe Redis with a cheap PING. Callers on the auth path
+        """E3 + Step 2: report Redis health for auth-path decisions.
+
+        Callers on the auth path (rate limiter, fail-closed locks)
         MUST use this to distinguish "Redis down" from "Redis OK" and
         apply their own fail-closed policy. Never use the return of
-        `_get` / `_set` (which is None on error) to infer Redis state
-        for an auth decision — that conflates cache miss with outage.
+        ``_get`` / ``_set`` (which is None on error) to infer Redis
+        state for an auth decision — that conflates cache miss with
+        outage.
 
-        Note: ``get_redis_client`` is a synchronous factory that
-        returns a ``RedisClient`` (not a coroutine). It must NOT be
-        awaited — the existing call site at
-        ``realtime_gateway.py:137`` has a latent bug where ``await
-        get_redis_client()`` would raise ``TypeError: object
-        RedisClient can't be used in 'await' expression`` on any
-        real call. This probe avoids that mistake."""
+        The result is cached: a healthy Redis is treated as up for
+        30 s (avoid ping spam); a failed probe marks Redis down for
+        5 s (avoid hammering while still recovering quickly). Only
+        when the cache is unknown / expired do we issue a fresh PING,
+        and that PING is itself bounded by a hard ``asyncio.wait_for``
+        ceiling on top of the client's ``socket_connect_timeout``.
+        """
+        now = time.monotonic()
+        status, expires = self._redis_health
+        if status == "up" and now < expires:
+            return True
+        if status == "down" and now < expires:
+            return False
+
         try:
             client = get_redis_client()
             if client is None:
+                self._record_redis_health(False)
                 return False
-            # The wrapped client exposes the raw client via private attr
-            # (matches the codebase's existing pattern in workflow_state.py
-            # and workflow_executor.py). Send a PING to verify the
-            # connection is live, not just instantiated.
-            await client._redis.ping()  # noqa: SLF001
-            return True
+            # The wrapped client exposes the raw client via private
+            # attr (matches the codebase's existing pattern in
+            # workflow_state.py and workflow_executor.py). Send a
+            # PING to verify the connection is live, not just
+            # instantiated. The ``asyncio.wait_for`` ceiling is the
+            # final guard — the client's ``socket_connect_timeout``
+            # should fire first on a dead Redis.
+            await asyncio.wait_for(
+                client._redis.ping(),  # noqa: SLF001
+                timeout=self._REDIS_WRITE_TIMEOUT_S,
+            )
         except Exception:
+            self._record_redis_health(False)
             return False
+        else:
+            self._record_redis_health(True)
+            return True
+
+    async def _redis_write(self, key: str, value: Any, ttl_seconds: int) -> None:
+        """Background Redis write used by ``_set``.
+
+        Runs off the caller's hot path so a dead Redis cannot block
+        the real-time state pipeline. The local cache update in
+        ``_set`` is synchronous and authoritative; this coroutine
+        only mirrors the value into Redis when Redis is reachable.
+        Exceptions are swallowed (best-effort cross-instance cache)
+        and update the cached health so subsequent writes skip
+        Redis until the down-cache expires.
+        """
+        try:
+            client = get_redis_client()
+            if client is None:
+                self._record_redis_health(False)
+                return
+            await asyncio.wait_for(
+                client.set(key, value, ex=ttl_seconds),
+                timeout=self._REDIS_WRITE_TIMEOUT_S,
+            )
+        except Exception:
+            self._record_redis_health(False)
+            return
+        self._record_redis_health(True)
 
     # ─────────────────────────────────────────────────────────────────────────
     # 2. Distributed Locks

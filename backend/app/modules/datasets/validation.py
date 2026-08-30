@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.modules.datasets.models import SchemaVersion
 
@@ -188,7 +189,7 @@ class DatasetValidator:
                     if filename.endswith(".csv"):
                         with open(self.dataset_path / filename) as f:
                             reader = csv.reader(f)
-                            header = next(reader, None)
+                            next(reader, None)
                             row_count = sum(1 for _ in reader)
                             self.result.total_rows[filename] = row_count
                     elif filename.endswith(".json"):
@@ -546,7 +547,7 @@ class DatasetValidator:
                         i,
                         "from_ref",
                     )
-                elif from_type == "component" and from_ref not in component_skus:
+                elif from_type == "component" and from_ref not in components:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown component: {from_ref}",
@@ -554,7 +555,7 @@ class DatasetValidator:
                         i,
                         "from_ref",
                     )
-                elif from_type == "warehouse" and from_ref not in warehouse_codes:
+                elif from_type == "warehouse" and from_ref not in warehouses:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown warehouse: {from_ref}",
@@ -562,7 +563,7 @@ class DatasetValidator:
                         i,
                         "from_ref",
                     )
-                elif from_type == "factory" and from_ref not in factory_codes:
+                elif from_type == "factory" and from_ref not in factories:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown factory: {from_ref}",
@@ -570,7 +571,7 @@ class DatasetValidator:
                         i,
                         "from_ref",
                     )
-                elif from_type == "customer" and from_ref not in customer_names:
+                elif from_type == "customer" and from_ref not in customers:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown customer: {from_ref}",
@@ -579,7 +580,7 @@ class DatasetValidator:
                         "from_ref",
                     )
 
-                if to_type == "component" and to_ref not in component_skus:
+                if to_type == "component" and to_ref not in components:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown component: {to_ref}",
@@ -587,7 +588,7 @@ class DatasetValidator:
                         i,
                         "to_ref",
                     )
-                elif to_type == "warehouse" and to_ref not in warehouse_codes:
+                elif to_type == "warehouse" and to_ref not in warehouses:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown warehouse: {to_ref}",
@@ -595,7 +596,7 @@ class DatasetValidator:
                         i,
                         "to_ref",
                     )
-                elif to_type == "product" and to_ref not in product_skus:
+                elif to_type == "product" and to_ref not in products:
                     self._add_issue(
                         "INVALID_EDGE_REF",
                         f"Edge references unknown product: {to_ref}",

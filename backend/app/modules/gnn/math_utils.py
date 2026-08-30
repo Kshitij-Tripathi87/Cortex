@@ -96,7 +96,7 @@ def random_matrix(
     std: float = 0.1,
 ) -> list[list[float]]:
     """Generate a deterministic pseudo-random weight matrix (Xavier-like initialization)."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 - deterministic weight init, not crypto
     return [[rng.gauss(0.0, std) for _ in range(cols)] for _ in range(rows)]
 
 
@@ -106,5 +106,5 @@ def random_vector(
     std: float = 0.1,
 ) -> list[float]:
     """Generate a deterministic pseudo-random vector."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 - deterministic weight init, not crypto
     return [rng.gauss(0.0, std) for _ in range(dim)]

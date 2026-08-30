@@ -116,7 +116,6 @@ class StatisticsComputer:
         # For simplicity, just count total inventory by component
         tier_counts = Counter()
         for inv in self.data.get("inventory", []):
-            tier = "unknown"
             # Could map through BOM -> product -> factory -> supplier -> tier
             # For now just aggregate
             tier_counts["all"] = tier_counts.get("all", 0) + int(

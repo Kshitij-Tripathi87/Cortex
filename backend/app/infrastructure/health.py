@@ -40,10 +40,10 @@ default checks use the same code paths the real probe uses.
 from __future__ import annotations
 
 import os
+from collections.abc import Awaitable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Awaitable, Callable, Protocol
-
+from datetime import UTC, datetime, timedelta
+from typing import Protocol
 
 # Maximum acceptable age of the last successful audit chain
 # verification, per docs/22-observability-model.md §10.
@@ -68,7 +68,7 @@ class DependencyCheck(Protocol):
     """Pluggable check signature: sync or async callable that
     returns a (ok, detail) tuple."""
 
-    def __call__(self) -> "tuple[bool, str] | Awaitable[tuple[bool, str]]": ...
+    def __call__(self) -> tuple[bool, str] | Awaitable[tuple[bool, str]]: ...
 
 
 def check_db() -> tuple[bool, str]:
@@ -147,8 +147,8 @@ def check_audit_chain() -> tuple[bool, str]:
             raw = f.read().strip()
         last = datetime.fromisoformat(raw)
         if last.tzinfo is None:
-            last = last.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+            last = last.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
         age = now - last
         if age > AUDIT_CHAIN_MAX_AGE:
             return False, f"last_verified_age={age.total_seconds():.0f}s"
@@ -187,7 +187,6 @@ async def check_dependencies(
     which means callers can mix sync and async checks without
     special-casing.
     """
-    import asyncio
     import inspect
 
     statuses: list[ComponentStatus] = []

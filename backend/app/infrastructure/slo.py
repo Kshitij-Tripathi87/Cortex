@@ -35,7 +35,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 # Frozen route families. The first non-empty path segment after the
 # API version (i.e. /api/v1/<family>/...) is the family. Any path
 # that doesn't match returns "_unmatched" and is not subject to SLO

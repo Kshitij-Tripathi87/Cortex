@@ -45,9 +45,7 @@ class AgentSpecification:
 
     def validate_capability_privileges(self) -> bool:
         """Enforce privilege separation: Specialist domain agents must NOT have EXECUTE."""
-        if Capability.EXECUTE.value in self.allowed_capabilities and self.domain != AgentDomain.EXECUTIVE_COORDINATOR:
-            return False
-        return True
+        return not (Capability.EXECUTE.value in self.allowed_capabilities and self.domain != AgentDomain.EXECUTIVE_COORDINATOR)
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -28,7 +28,7 @@ from app.modules.agents.lifecycle_models import (
 class AgentPromotionGate:
     """Rigorous gate evaluating and certifying agent artifacts before deployment."""
 
-    def __init__(self, capability_secret: str = "cortex_capability_master_2026") -> None:
+    def __init__(self, capability_secret: str = "cortex_capability_master_2026") -> None:  # noqa: S107 - shared capability-secret default; wire to env (SEC-106)
         self.capability_secret = capability_secret
 
     async def evaluate_and_qualify(self, artifact: AgentArtifact) -> AgentEvaluationReport:

@@ -135,7 +135,7 @@ class ShadowInferenceEngine:
     ) -> ShadowComparison:
         """Run both production and shadow models and compare outputs."""
         # Run production model (would call actual production endpoint)
-        prod_start = time.time()
+        production_start = time.time()
         try:
             # This would call the actual production model
             production_output = {"placeholder": "production_output"}

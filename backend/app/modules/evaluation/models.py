@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from app.common.ids import uuid7
 
 
-class EngineType(str, Enum):
+class EngineType(StrEnum):
     """Type of engine being evaluated."""
 
     DETERMINISTIC = "deterministic"
@@ -21,7 +21,7 @@ class EngineType(str, Enum):
     HYBRID = "hybrid"
 
 
-class EvaluationStatus(str, Enum):
+class EvaluationStatus(StrEnum):
     """Status of an evaluation run."""
 
     PENDING = "pending"
@@ -30,7 +30,7 @@ class EvaluationStatus(str, Enum):
     FAILED = "failed"
 
 
-class MetricType(str, Enum):
+class MetricType(StrEnum):
     """Types of evaluation metrics."""
 
     # Classification metrics
@@ -64,87 +64,6 @@ class MetricType(str, Enum):
     LATENCY_P50 = "latency_p50"
     LATENCY_P95 = "latency_p95"
     LATENCY_P99 = "latency_p99"
-
-
-class ScenarioResult(BaseModel):
-    """Result for a single scenario evaluation."""
-
-    scenario_id: str
-    scenario_type: str
-    supplier_name: str
-
-    # Ground truth
-    gt_affected_components: list[dict] = []
-    gt_affected_products: list[dict] = []
-    gt_affected_warehouses: list[dict] = []
-    gt_affected_orders: list[dict] = []
-    gt_stockout_events: list[dict] = []
-    gt_revenue_risk: float = 0.0
-    gt_margin_risk: float = 0.0
-    gt_penalty_exposure: float = 0.0
-    gt_deadline_hours: float = 0.0
-    gt_recommendations: list[dict] = []
-
-    # Predictions
-    pred_affected_components: list[dict] = []
-    pred_affected_products: list[dict] = []
-    pred_affected_warehouses: list[dict] = []
-    pred_affected_orders: list[dict] = []
-    pred_stockout_events: list[dict] = []
-    pred_revenue_risk: float = 0.0
-    pred_margin_risk: float = 0.0
-    pred_penalty_exposure: float = 0.0
-    pred_deadline_hours: float = 0.0
-    pred_recommendations: list[dict] = []
-
-    # Confidence
-    gt_confidence: float = 0.0
-    pred_confidence: float = 0.0
-
-    # Computed metrics
-    component_precision: float | None = None
-    component_recall: float | None = None
-    component_f1: float | None = None
-    component_exact_match: bool | None = None
-
-    product_precision: float | None = None
-    product_recall: float | None = None
-    product_f1: float | None = None
-    product_exact_match: bool | None = None
-
-    warehouse_precision: float | None = None
-    warehouse_recall: float | None = None
-    warehouse_f1: float | None = None
-
-    order_precision: float | None = None
-    order_recall: float | None = None
-    order_f1: float | None = None
-
-    revenue_error: float | None = None
-    revenue_relative_error: float | None = None
-    margin_error: float | None = None
-    penalty_error: float | None = None
-    deadline_error: float | None = None
-
-    recommendation_rank_agreement: float | None = None
-    confidence_calibration_error: float | None = None
-
-    # Errors
-    error: str | None = None
-
-
-class MetricResult(BaseModel):
-    """Individual metric result."""
-
-    metric_type: str
-    name: str
-    value: float
-    dataset_id: str | None = None
-    scenario_id: str | None = None
-    engine_type: str
-    engine_version: str | None = None
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    metadata: dict = {}
 
 
 class ScenarioResult(BaseModel):

@@ -28,7 +28,6 @@ import pytest
 
 from app.infrastructure import metrics, slo
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Route classification — every family is reachable and the version
 #    prefix is stripped
@@ -177,7 +176,7 @@ class TestHistogramBucketSchema:
 
     def test_bucket_boundaries_are_strictly_ascending(self):
         buckets = slo.LATENCY_HISTOGRAM_BUCKETS
-        for prev, curr in zip(buckets, buckets[1:]):
+        for prev, curr in zip(buckets, buckets[1:], strict=False):
             assert curr > prev, (
                 f"Bucket boundaries must be strictly ascending: "
                 f"{prev} -> {curr}"

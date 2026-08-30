@@ -114,7 +114,7 @@ class AgentDeploymentController:
         canary_pct: float,
     ) -> dict[str, Any]:
         """Adjust traffic split between baseline and candidate version.
-        
+
         Guarantees strict 100% total traffic invariant:
         Total = sum(candidate_replicas) + sum(baseline_replicas) == 100%
         """
@@ -162,7 +162,7 @@ class AgentDeploymentController:
             # High lag -> Scale UP
             scale_by = 2
             active_version = reps[0].version if reps else "v1"
-            new_reps = self.deploy_replicas(agent_id, active_version, workspace_id, scale_by)
+            self.deploy_replicas(agent_id, active_version, workspace_id, scale_by)
             return {
                 "action": "SCALE_UP",
                 "previous_count": current_count,

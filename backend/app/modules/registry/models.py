@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from app.common.ids import uuid7
 
 
-class ModelType(str, Enum):
+class ModelType(StrEnum):
     """Types of ML models."""
 
     GNN = "gnn"
@@ -29,7 +29,7 @@ class ModelType(str, Enum):
     CUSTOM = "custom"
 
 
-class ModelStage(str, Enum):
+class ModelStage(StrEnum):
     """Model lifecycle stage."""
 
     DEVELOPMENT = "development"
@@ -39,7 +39,7 @@ class ModelStage(str, Enum):
     FAILED = "failed"
 
 
-class ModelFramework(str, Enum):
+class ModelFramework(StrEnum):
     """ML frameworks."""
 
     PYTORCH = "pytorch"

@@ -200,9 +200,8 @@ class ExecutionAuthorization:
                 failures.append("APPROVAL_HASH_MISSING")
 
         # Approval expiry
-        if self.approval_expiry is not None:
-            if datetime.now(UTC) > self.approval_expiry:
-                failures.append("APPROVAL_EXPIRED")
+        if self.approval_expiry is not None and datetime.now(UTC) > self.approval_expiry:
+            failures.append("APPROVAL_EXPIRED")
 
         # Agent
         if not self.agent_identity:

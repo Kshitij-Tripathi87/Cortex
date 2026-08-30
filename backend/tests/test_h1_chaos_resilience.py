@@ -46,13 +46,9 @@ Why this matters:
 from __future__ import annotations
 
 import inspect
-import json
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from starlette.testclient import TestClient
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Redis fail-closed: authorization denies when Redis is down
@@ -84,7 +80,6 @@ class TestRedisFailClosed:
         3. Asserting that the result type is preserved
            when Redis is forcibly unreachable.
         """
-        import inspect
         from app.infrastructure.cache_manager import (
             CacheManager,
             get_cache_manager,
@@ -98,7 +93,7 @@ class TestRedisFailClosed:
         )
 
         # 2. It's async and returns a bool.
-        sig = inspect.signature(CacheManager.is_redis_available)
+        inspect.signature(CacheManager.is_redis_available)
         # iscoroutinefunction is the right check.
         assert inspect.iscoroutinefunction(
             CacheManager.is_redis_available
@@ -154,7 +149,6 @@ class TestPostgresTransactionRollback:
         - It must take the event + current_state + context
           (so the bus envelope carries all IDs the audit
           log needs to attribute the event)."""
-        import inspect
         from app.infrastructure.state_pipeline import (
             RealtimeStatePipeline,
         )
@@ -203,7 +197,6 @@ class TestPostgresTransactionRollback:
         3. The result type exposes a ``success`` field
            that the caller checks before reporting
            success to the client."""
-        import inspect
         from app.infrastructure import state_pipeline
         from app.infrastructure.state_pipeline import (
             PipelineProcessingResult,
@@ -258,7 +251,6 @@ class TestReadyzAuditChainContract:
         )
         # Patch the default argument tuple in the function
         # object directly.
-        orig_func = h_mod.check_dependencies
         monkeypatch.setattr(
             h_mod.check_dependencies, "__defaults__", (fake_checks,)
         )
@@ -291,8 +283,6 @@ class TestTraceContextCorruptionResilience:
 
     def test_malformed_traceparent_starts_new_trace(self):
         from app.infrastructure.trace_context import (
-            build_envelope,
-            current_trace_id_hex,
             detach_context,
             restore_from_envelope,
         )
@@ -338,8 +328,8 @@ class TestTraceContextCorruptionResilience:
         # programmer error (the envelope is supposed to
         # be a dict), but the function should not crash
         # the worker with a TypeError.
-        try:
-            token = restore_from_envelope(None)  # type: ignore[arg-type]
+        try:  # noqa: SIM105 - asserting None-envelope raises, not suppressing ignorantly
+            restore_from_envelope(None)  # type: ignore[arg-type]
         except (TypeError, AttributeError):
             # Acceptable: a None envelope is a contract
             # violation; raising TypeError is correct
@@ -393,8 +383,8 @@ class TestSLOComplianceMath:
 
     def test_compliance_is_bounded_zero_to_one(self):
         from app.infrastructure.slo import (
-            LATENCY_TARGETS,
             LATENCY_HISTOGRAM_BUCKETS,
+            LATENCY_TARGETS,
             compliance_from_buckets,
         )
         # All observations within P99 → compliance = 1.0.

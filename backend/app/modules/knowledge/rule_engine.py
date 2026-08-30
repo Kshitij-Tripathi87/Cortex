@@ -180,7 +180,7 @@ class RuleEngine:
         all_rules = list(rules or [])
         all_constraints = list(constraints or [])
         all_slas = list(slas or [])
-        all_playbooks = list(playbooks or [])
+        list(playbooks or [])
 
         # Expand policies into their components
         for policy in policies or []:
@@ -326,7 +326,7 @@ class RuleEngine:
         elif op == "eq":
             if constraint.min_value is not None and value != constraint.min_value:
                 violated = True
-        elif op == "ne":
+        elif op == "ne":  # noqa: SIM102
             if constraint.min_value is not None and value == constraint.min_value:
                 violated = True
 
@@ -435,7 +435,7 @@ class RuleEngine:
             return actual in (condition.value if isinstance(condition.value, list) else [condition.value])
         if condition.operator == "contains":
             return condition.value in str(actual)
-        if condition.operator == "between":
+        if condition.operator == "between":  # noqa: SIM102
             if isinstance(condition.value, (list, tuple)) and len(condition.value) == 2:
                 return isinstance(actual, (int, float)) and condition.value[0] <= actual <= condition.value[1]
 
