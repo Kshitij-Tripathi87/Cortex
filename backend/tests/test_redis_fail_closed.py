@@ -24,6 +24,9 @@ suite.
 
 from __future__ import annotations
 
+import asyncio
+import json
+import time
 from typing import Any
 
 import pytest
@@ -420,3 +423,143 @@ class TestFailClosedStats:
         await cache.check_rate_limit(tenant_id="t", resource="r")
 
         assert cache.get_stats()["redis_fail_closed_denies"] == 2
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Recovery — Redis outage must not be permanent
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class _FlippableClient:
+    """A fake RedisClient whose underlying ``_redis`` can flip up/down.
+
+    Mimics the ``RedisClient`` json boundary on top of the raw
+    ``redis.asyncio.Redis`` equivalent: ``set`` json-serialises the value
+    into the store, ``get`` json-deserialises it back out. ``_redis`` is
+    the thing ``is_redis_available`` pings.
+    """
+
+    def __init__(self) -> None:
+        self._redis = _FakeRedisOk()
+
+    async def set(self, key: str, value: Any, ex: int | None = None) -> None:
+        await self._redis.set(key, json.dumps(value, default=str), ex=ex)
+
+    async def get(self, key: str) -> Any:
+        raw = await self._redis.get(key)
+        return json.loads(raw) if raw else None
+
+    def make_down(self) -> None:
+        self._redis = _FakeRedisDown()
+
+    def make_up(self) -> None:
+        self._redis = _FakeRedisOk()
+
+
+class TestRedisRecovery:
+    """An outage is a transient state, not a silent permanent degradation.
+
+    The fail-closed policy (deny on outage) is only safe if the cache
+    actually *recovers* when Redis comes back. These tests pin the
+    recovery semantics so a permanent-degradation bug is caught."""
+
+    @pytest.mark.asyncio
+    async def test_probe_recovers_after_redis_comes_back(
+        self, cache, monkeypatch: pytest.MonkeyPatch
+    ):
+        client = _FlippableClient()
+        monkeypatch.setattr(
+            "app.infrastructure.cache_manager.get_redis_client",
+            lambda: client,
+        )
+
+        # 1. Redis up on a fresh manager → probe reports True.
+        assert await cache.is_redis_available() is True
+        assert cache._redis_health[0] == "up"
+
+        # 2. Redis drops and the up-cache TTL has elapsed.
+        client.make_down()
+        cache._redis_health = ("up", 0.0)  # expire the cached health
+        assert await cache.is_redis_available() is False
+        assert cache._redis_health[0] == "down"
+
+        # 3. Redis comes back; expire the down-cache to force a re-probe.
+        client.make_up()
+        cache._redis_health = ("down", 0.0)  # expired
+        assert await cache.is_redis_available() is True
+        assert cache._redis_health[0] == "up"
+
+    @pytest.mark.asyncio
+    async def test_set_skips_redis_while_known_down_but_keeps_local(
+        self, cache, monkeypatch: pytest.MonkeyPatch
+    ):
+        client = _FlippableClient()
+        client.make_down()
+        monkeypatch.setattr(
+            "app.infrastructure.cache_manager.get_redis_client",
+            lambda: client,
+        )
+
+        # Set health to a FRESH down state so _set skips the doomed Redis call.
+        cache._redis_health = ("down", time.monotonic() + 60.0)
+
+        await cache._set("sk_key", {"a": 1}, ttl_seconds=60)
+        if cache._bg_tasks:
+            await asyncio.gather(*list(cache._bg_tasks), return_exceptions=True)
+
+        # Local cache holds the value (best-effort availability).
+        assert "sk_key" in cache._local_cache
+        # No `_redis_write` background task was spawned — the fresh
+        # "down" health made `_set` skip the doomed Redis call entirely.
+        assert len(cache._bg_tasks) == 0, (
+            "with a known-down Redis, _set must not attempt a background write"
+        )
+
+    @pytest.mark.asyncio
+    async def test_set_resumes_redis_write_after_recovery(
+        self, cache, monkeypatch: pytest.MonkeyPatch
+    ):
+        client = _FlippableClient()
+        monkeypatch.setattr(
+            "app.infrastructure.cache_manager.get_redis_client",
+            lambda: client,
+        )
+
+        # Simulate: previously down, but TTL elapsed AND Redis is back.
+        cache._redis_health = ("down", 0.0)  # expired down-cache
+
+        await cache._set("rec_key", {"a": 1}, ttl_seconds=60)
+        # Flush the background write so the fake store reflects it.
+        if cache._bg_tasks:
+            await asyncio.gather(*list(cache._bg_tasks), return_exceptions=True)
+
+        # The _redis_write task must have pushed the value into Redis.
+        assert "rec_key" in client._redis.store, (
+            "after recovery the background _set must mirror into Redis"
+        )
+        # And the successful write flipped the health to up.
+        assert cache._redis_health[0] == "up"
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_graduates_from_fail_closed_to_allow_after_recovery(
+        self, cache, monkeypatch: pytest.MonkeyPatch
+    ):
+        client = _FlippableClient()
+
+        # Phase 1: Redis down — rate limiter must DENY (fail-closed).
+        client.make_down()
+        monkeypatch.setattr(
+            "app.infrastructure.cache_manager.get_redis_client",
+            lambda: client,
+        )
+        denied = await cache.check_rate_limit(tenant_id="t_rec", resource="r")
+        assert denied is False, "during the outage the limiter must deny"
+
+        # Phase 2: Redis recovers; expire the down-cache so the next
+        # call probes again and graduates back to fail-open behaviour.
+        client.make_up()
+        cache._redis_health = ("down", 0.0)  # expired
+        allowed = await cache.check_rate_limit(
+            tenant_id="t_rec", resource="r", max_requests=5
+        )
+        assert allowed is True, "after recovery the limiter must allow again"
