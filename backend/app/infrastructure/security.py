@@ -53,6 +53,7 @@ __all__ = [
     "AuthContext",
     "get_current_user",
     "require_workspace_access",
+    "require_role",
     "SecurityHeadersMiddleware",
     "RateLimitHeadersMiddleware",
     "CircuitBreakerMiddleware",
@@ -179,7 +180,30 @@ def require_workspace_access(workspace_id: str, auth: AuthContext) -> None:
     )
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def require_role(role: str, auth: AuthContext) -> None:
+    """Enforce that ``auth`` holds the specified ``role`` (or higher).
+
+    Raises:
+        HTTPException(403): the principal lacks the required role.
+    """
+    if role in auth.roles:
+        return
+    if "system_admin" in auth.roles:
+        # system_admin is the highest role and implicitly has all roles
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "error": "forbidden",
+            "message": f"Role '{role}' required",
+            "user_id": auth.user_id,
+            "required_role": role,
+            "principal_roles": auth.roles,
+        },
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════════
 # Security headers middleware
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

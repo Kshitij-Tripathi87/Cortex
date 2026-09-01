@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.agents.autonomous_replacement import AgentHealthSupervisor
 from app.modules.agents.deployment_controller import AgentDeploymentController
 from app.modules.agents.evaluation_gate import AgentPromotionGate
@@ -43,11 +44,13 @@ class TrainAgentRequest(BaseModel):
     dataset_version: str = "ds_logistics_2026_08"
     epochs: int = 10
     max_compute_budget_usd: float = 25.0
+    workspace_id: str
 
 
 class EvaluateAgentRequest(BaseModel):
     agent_id: str
     version: str
+    workspace_id: str
 
 
 class DeployReplicasRequest(BaseModel):
@@ -62,6 +65,7 @@ class ConfigureCanaryRequest(BaseModel):
     candidate_version: str
     baseline_version: str
     canary_pct: float = Field(ge=0.0, le=100.0, default=10.0)
+    workspace_id: str
 
 
 class InjectDegradationRequest(BaseModel):
@@ -69,14 +73,19 @@ class InjectDegradationRequest(BaseModel):
     agent_id: str
     prediction_drift_score: float = 0.65
     error_rate_pct: float = 0.0
+    workspace_id: str
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/fleet")
-async def get_agent_fleet(workspace_id: str | None = None):
+async def get_agent_fleet(
+    workspace_id: str = Query(..., description="Workspace ID for authorization"),
+    auth: AuthContext = Depends(get_current_user),
+):
     """Retrieve full agent fleet topology, artifacts, and running replicas."""
+    require_workspace_access(workspace_id, auth)
     artifacts = _deployment_controller.list_artifacts()
     replicas = _deployment_controller.list_replicas(workspace_id=workspace_id)
     incidents = _health_supervisor.list_incidents()
@@ -103,8 +112,12 @@ async def get_agent_fleet(workspace_id: str | None = None):
 
 
 @router.post("/train")
-async def train_agent(req: TrainAgentRequest):
+async def train_agent(
+    req: TrainAgentRequest,
+    auth: AuthContext = Depends(get_current_user),
+):
     """Launch centralized CTDE training run with Central Critic evaluation."""
+    require_workspace_access(req.workspace_id, auth)
     cfg = TrainingRunConfig(
         agent_id=req.agent_id,
         target_domain=req.target_domain,
@@ -129,8 +142,12 @@ async def train_agent(req: TrainAgentRequest):
 
 
 @router.post("/evaluate")
-async def evaluate_agent(req: EvaluateAgentRequest):
+async def evaluate_agent(
+    req: EvaluateAgentRequest,
+    auth: AuthContext = Depends(get_current_user),
+):
     """Run 10-phase behavioral and safety promotion gate on trained artifact."""
+    require_workspace_access(req.workspace_id, auth)
     artifact = _deployment_controller.get_artifact(req.agent_id, req.version)
     if not artifact:
         raise HTTPException(status_code=404, detail=f"Artifact {req.agent_id}:{req.version} not found.")
@@ -145,8 +162,12 @@ async def evaluate_agent(req: EvaluateAgentRequest):
 
 
 @router.post("/deploy")
-async def deploy_agent_replicas(req: DeployReplicasRequest):
+async def deploy_agent_replicas(
+    req: DeployReplicasRequest,
+    auth: AuthContext = Depends(get_current_user),
+):
     """Deploy and scale decentralized agent replicas across worker nodes."""
+    require_workspace_access(req.workspace_id, auth)
     try:
         replicas = _deployment_controller.deploy_replicas(
             agent_id=req.agent_id,
@@ -166,8 +187,12 @@ async def deploy_agent_replicas(req: DeployReplicasRequest):
 
 
 @router.post("/canary")
-async def configure_canary(req: ConfigureCanaryRequest):
+async def configure_canary(
+    req: ConfigureCanaryRequest,
+    auth: AuthContext = Depends(get_current_user),
+):
     """Configure progressive canary traffic split between baseline and candidate version."""
+    require_workspace_access(req.workspace_id, auth)
     try:
         res = _deployment_controller.configure_canary(
             agent_id=req.agent_id,
@@ -181,8 +206,13 @@ async def configure_canary(req: ConfigureCanaryRequest):
 
 
 @router.post("/supervise")
-async def run_supervision_cycle(agent_id: str, workspace_id: str = "ws_default"):
+async def run_supervision_cycle(
+    agent_id: str,
+    workspace_id: str = Query(..., description="Workspace ID for authorization"),
+    auth: AuthContext = Depends(get_current_user),
+):
     """Trigger autonomous supervisory cycle to detect and hot-replace degraded replicas."""
+    require_workspace_access(workspace_id, auth)
     incidents = await _health_supervisor.run_supervisory_cycle(agent_id, workspace_id)
     return {
         "status": "SUPERVISION_CYCLE_COMPLETED",
@@ -201,8 +231,12 @@ async def run_supervision_cycle(agent_id: str, workspace_id: str = "ws_default")
 
 
 @router.post("/inject-degradation")
-async def inject_simulated_degradation(req: InjectDegradationRequest):
+async def inject_simulated_degradation(
+    req: InjectDegradationRequest,
+    auth: AuthContext = Depends(get_current_user),
+):
     """Inject simulated behavioral drift or infra faults into a replica for chaos testing."""
+    require_workspace_access(req.workspace_id, auth)
     reps = _deployment_controller.list_replicas(req.agent_id)
     target = next((r for r in reps if r.replica_id == req.replica_id), None)
     if not target:
@@ -227,6 +261,7 @@ class CreateTaskRequest(BaseModel):
     world_state_version: int = Field(default=101, description="Authoritative world state version")
     origin: str = Field(default="SP", description="Origin hub / city")
     destination: str = Field(default="RJ", description="Destination hub / city")
+    workspace_id: str
 
 
 from app.modules.multi_agent.runtime.nexus_supervisor import NexusSwarmSupervisor  # noqa: E402
@@ -236,8 +271,12 @@ _swarm_supervisor = NexusSwarmSupervisor()
 
 
 @router.post("/tasks")
-async def create_and_execute_task(req: CreateTaskRequest) -> dict[str, Any]:
+async def create_and_execute_task(
+    req: CreateTaskRequest,
+    auth: AuthContext = Depends(get_current_user),
+):
     """Executes a complete 4-family multi-agent task graph on the Nexus Multi-Agent OS."""
+    require_workspace_access(req.workspace_id, auth)
     summary = _swarm_supervisor.execute_swarm_task(
         incident_entity_id=req.incident_entity_id,
         world_state_version=req.world_state_version,
@@ -253,8 +292,13 @@ async def create_and_execute_task(req: CreateTaskRequest) -> dict[str, Any]:
 
 
 @router.get("/tasks/{task_id}")
-async def get_task_graph(task_id: str) -> dict[str, Any]:
+async def get_task_graph(
+    task_id: str,
+    workspace_id: str = Query(..., description="Workspace ID for authorization"),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
     """Returns details and step execution trace of a specific task graph."""
+    require_workspace_access(workspace_id, auth)
     task = _swarm_supervisor.active_tasks.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail=f"Task graph {task_id} not found.")
@@ -262,7 +306,9 @@ async def get_task_graph(task_id: str) -> dict[str, Any]:
 
 
 @router.get("/manifests")
-async def get_agent_capability_manifests() -> dict[str, Any]:
+async def get_agent_capability_manifests(
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
     """Returns capability manifests and permission scopes for all 17 specialist agents."""
     return {
         "status": "SUCCESS",

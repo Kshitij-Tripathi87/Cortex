@@ -184,8 +184,21 @@ def test_intelligence_gateway_endpoints(client):
     assert "models" in models_resp.json()
 
 
-def test_realtime_stats_endpoint(client):
-    """GET /api/v1/realtime/stats returns connection channels and status."""
+def test_realtime_stats_endpoint():
+    """GET /api/v1/realtime/stats returns connection channels and status (operator role required)."""
+    from app.infrastructure.security import AuthContext, get_current_user
+
+    test_app = FastAPI()
+    test_app.include_router(api_router, prefix="/api/v1")
+    test_app.dependency_overrides[get_current_user] = lambda: AuthContext(
+        user_id="operator_01",
+        email="operator@cortex.internal",
+        roles=["operator"],
+        workspace_ids=["ws_test"],
+        is_anonymous=False,
+    )
+
+    client = TestClient(test_app)
     resp = client.get("/api/v1/realtime/stats")
     assert resp.status_code == 200
     data = resp.json()

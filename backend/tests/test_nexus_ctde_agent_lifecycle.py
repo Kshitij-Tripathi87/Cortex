@@ -440,6 +440,7 @@ def test_ctde_rest_api_fleet_and_lifecycle(client):
             "target_version": "v4",
             "dataset_version": "ds_logistics_2026",
             "epochs": 3,
+            "workspace_id": "ws_austin",
         },
     )
     assert train_res.status_code == 200
@@ -448,7 +449,7 @@ def test_ctde_rest_api_fleet_and_lifecycle(client):
     # 2. Evaluate agent
     eval_res = client.post(
         "/api/v1/agents/evaluate",
-        json={"agent_id": "logistics_agent", "version": "v4"},
+        json={"agent_id": "logistics_agent", "version": "v4", "workspace_id": "ws_austin"},
     )
     assert eval_res.status_code == 200
     assert eval_res.json()["eligible_for_canary"] is True
@@ -467,7 +468,7 @@ def test_ctde_rest_api_fleet_and_lifecycle(client):
     assert deploy_res.json()["deployed_count"] == 2
 
     # 4. Check fleet overview
-    fleet_res = client.get("/api/v1/agents/fleet")
+    fleet_res = client.get("/api/v1/agents/fleet?workspace_id=ws_austin")
     assert fleet_res.status_code == 200
     data = fleet_res.json()
     assert data["total_artifacts"] >= 1

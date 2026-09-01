@@ -452,8 +452,8 @@ class TestProductionGate:
         # The invariant is: KNOWN_DEBT is non-empty and the audit
         # structure (classes) exists. Exact count is not frozen
         # because D3a-D3f follow-ups will reduce it.
-        assert len(known_debt) >= 30, (
-            f"Expected at least 30 known-debt routes, got {len(known_debt)}"
+        assert len(known_debt) >= 27, (
+            f"Expected at least 27 known-debt routes, got {len(known_debt)}"
         )
 
         # The classification is enforced by these test classes

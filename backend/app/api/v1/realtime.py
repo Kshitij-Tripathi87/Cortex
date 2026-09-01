@@ -12,11 +12,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 from app.common.ids import uuid7
 from app.config import get_settings
 from app.infrastructure.realtime_gateway import get_realtime_gateway
+from app.infrastructure.security import AuthContext, get_current_user, require_role
 from app.modules.identity.jwt_auth import verify_token
 
 router = APIRouter(prefix="/realtime", tags=["Real-Time Streaming"])
@@ -148,8 +149,11 @@ async def realtime_websocket_endpoint(
 
 
 @router.get("/stats")
-async def get_realtime_stats() -> dict[str, Any]:
-    """Retrieve real-time gateway connection statistics."""
+async def get_realtime_stats(
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Retrieve real-time gateway connection statistics (operator role required)."""
+    require_role("operator", auth)
     return {
         "active_connections": _gateway.get_active_connection_count(),
         "channels": [

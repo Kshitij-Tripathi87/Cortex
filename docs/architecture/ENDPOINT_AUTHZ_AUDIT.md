@@ -26,9 +26,9 @@ endpoint that touches tenant data.
 | Metric | Count |
 |---|---|
 | Total routes | 150 |
-| Gated | 109 |
+| Gated | 120 |
 | Ungateable (legitimate public) | 1 |
-| Need investigation / fix | 40 |
+| Need investigation / fix | 29 |
 
 The single confirmed-public route is `GET /workflo/health` (the
 workflo CLI liveness probe). All other 40 routes are listed below.
@@ -41,7 +41,7 @@ workflo CLI liveness probe). All other 40 routes are listed below.
 
 ## Needs investigation
 
-These 40 routes do not currently call an authorization helper. Per
+These 30 routes do not currently call an authorization helper. Per
 "no silent fixes to frozen surfaces" and the V2.3 freeze rule, the
 fixes are deferred to dedicated change sets. The regression test
 `tests/test_endpoint_authz_audit.py::TestAuthZGate::test_no_new_ungated_routes`
@@ -51,23 +51,13 @@ grow — it can only be paid down.
 | File | Method | Path | Function | Risk |
 |---|---|---|---|---|
 | agent_runtime.py | GET | /registry | list_agents | Cross-workspace data leak |
-| agents_router.py | GET | /fleet | get_agent_fleet | Workspace ID is optional, not enforced |
-| agents_router.py | POST | /train | train_agent | Mutating; any caller can launch training |
-| agents_router.py | POST | /evaluate | evaluate_agent | Mutating; any caller can run eval |
-| agents_router.py | POST | /deploy | deploy_agent_replicas | Mutating; deployment is auth-critical |
-| agents_router.py | POST | /canary | configure_canary | Mutating; canary routing is auth-critical |
-| agents_router.py | POST | /supervise | run_supervision_cycle | Mutating |
-| agents_router.py | POST | /inject-degradation | inject_simulated_degradation | Chaos; must be admin-only |
-| agents_router.py | POST | /tasks | create_and_execute_task | Mutating |
-| agents_router.py | GET | /tasks/{task_id} | get_task_graph | Reads task graph |
-| agents_router.py | GET | /manifests | get_agent_capability_manifests | Capability manifest leak |
 | graph.py | GET | /snapshots/{snapshot_id} | get_snapshot_detail | Snapshot content |
 | graph.py | GET | /recommendations/taxonomy | get_recommendation_taxonomy | Closed taxonomy, not tenant-scoped |
 | graph.py | GET | /recommendations/types | list_recommendation_types | Closed taxonomy |
 | graph.py | GET | /decisions/taxonomy | get_decision_taxonomy | Closed taxonomy |
 | intelligence_gateway.py | GET | /baselines | list_baselines | Operational config |
-| realtime.py | WEBSOCKET | /ws | realtime_websocket_endpoint | WS auth; token must be checked in handshake |
 | realtime.py | GET | /stats | get_realtime_stats | Operational stats |
+| realtime.py | WEBSOCKET | /ws | realtime_websocket_endpoint | WS auth; token must be checked in handshake |
 | spine.py | POST | /run | run_spine | Mutating; uploads files |
 | workflo.py | POST | /workflo/sandboxes | create_sandbox | Creates user-owned sandbox |
 | workflo.py | GET | /workflo/sandboxes/{sandbox_id} | inspect_sandbox | Reads sandbox |
@@ -127,8 +117,7 @@ grow — it can only be paid down.
 - **D3e — Closed taxonomies**: either move to `/v1/public/taxonomies/*`
   with explicit public marker, or add a lightweight `AuthContext`
   that just confirms the request is authenticated (no workspace check).
-- **D3f — `realtime.py::get_realtime_stats`**: this returns
-  `active_connections`; treat as operational, require `role: "operator"`.
+- **D3f — `realtime.py::get_realtime_stats`**: COMPLETED. Now requires `role: "operator"` via `require_role`. Verified by `test_realtime_stats_endpoint`.
 
 ## Verification
 
@@ -139,3 +128,10 @@ grow — it can only be paid down.
 - The full 1,337-test suite continues to be the regression gate for
   every fix; fixes land in their own PRs (not bundled with V2.4 or
   any frozen-surface change).
+
+- **D3a — `agents_router.py`**: COMPLETED. All 10 routes now have
+  `AuthContext` + `require_workspace_access` (where workspace_id exists).
+  The optional `workspace_id` query param is now required; callers must
+  be a member of that workspace. 10 routes moved from KNOWN_DEBT to
+  gated. Gated count increased from 109 to 119; KNOWN_DEBT reduced
+  from 40 to 30.
