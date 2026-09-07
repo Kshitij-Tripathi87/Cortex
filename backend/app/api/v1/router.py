@@ -2,32 +2,8 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import (
-    agent_runtime,
-    agents_router,
-    audit,
-    auth,
-    briefs,
-    execution,
-    gnn,
-    governance,
-    graph,
-    ingestion,
-    intelligence_gateway,
-    knowledge,
-    multi_agent,
-    readiness,
-    realtime,
-    rl,
-    simulation,
-    sources,
-    spine,
-    twin,
-    validation,
-    workflo,
-    workspace,
-    world,
-)
+from product.workflo_api import router as workflo_router
+from app.api.v1 import nexus as nexus_v1
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -65,4 +41,6 @@ api_router.include_router(workspace.router, prefix="", tags=["Live Data Intellig
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 # Workflo — Sandboxed QA & Runtime Execution Control Plane
 api_router.include_router(workflo.router, prefix="", tags=["Workflo"])
+# Nexus Decision Intelligence — Operational Decision System (Phase A-F)
+api_router.include_router(nexus_v1.router, prefix="/nexus", tags=["Nexus Decision Intelligence"])
 

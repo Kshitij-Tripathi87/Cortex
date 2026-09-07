@@ -67,7 +67,7 @@ class DecisionEvidenceGraph:
     ) -> EvidenceNode:
         raw_json = json.dumps(payload, sort_keys=True, default=str)
         checksum = hashlib.sha256(raw_json.encode("utf-8")).hexdigest()
-        node_id = f"ev_{node_type.lower()}_{uuid7()[:8]}"
+        node_id = f"ev_{node_type.lower()}_{uuid7()}"
 
         node = EvidenceNode(
             node_id=node_id,

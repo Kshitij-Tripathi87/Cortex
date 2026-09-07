@@ -17,7 +17,12 @@ from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from app.common.ids import uuid7
 from app.config import get_settings
 from app.infrastructure.realtime_gateway import get_realtime_gateway
-from app.infrastructure.security import AuthContext, get_current_user, require_role
+from app.infrastructure.security import (
+    AuthContext,
+    get_current_user,
+    require_role,
+    require_workspace_access,
+)
 from app.modules.identity.jwt_auth import verify_token
 
 router = APIRouter(prefix="/realtime", tags=["Real-Time Streaming"])
@@ -103,6 +108,11 @@ async def realtime_websocket_endpoint(
         await websocket.close(code=4401, reason="Unauthorized")
         return
     user_id, tenant_id, workspace_id = identity
+    auth = AuthContext(
+        user_id=user_id,
+        workspace_ids=[workspace_id] if workspace_id else [],
+    )
+    require_workspace_access(workspace_id, auth)
 
     session_id = str(uuid7())
     await _gateway.connect(

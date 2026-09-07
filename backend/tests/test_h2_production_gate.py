@@ -443,17 +443,12 @@ class TestProductionGate:
         import tests.test_endpoint_authz_audit as test_mod
 
         # The audit classifies routes as GATED / PUBLIC / KNOWN_DEBT.
-        # KNOWN_DEBT is the set of currently-ungated routes (the
-        # D3 register tracks ~40 known-debt routes; the exact count
-        # may vary as fixes land in dedicated follow-up PRs).
+        # All legacy debt routes have been paid down and gated (0 remaining debt).
         assert hasattr(test_mod, "KNOWN_DEBT")
         known_debt = test_mod.KNOWN_DEBT
-        # As of this commit, the audit documents ~40 routes.
-        # The invariant is: KNOWN_DEBT is non-empty and the audit
-        # structure (classes) exists. Exact count is not frozen
-        # because D3a-D3f follow-ups will reduce it.
-        assert len(known_debt) >= 27, (
-            f"Expected at least 27 known-debt routes, got {len(known_debt)}"
+        assert isinstance(known_debt, (set, frozenset))
+        assert len(known_debt) == 0, (
+            f"Expected 0 known-debt routes (all debt paid down), got {len(known_debt)}"
         )
 
         # The classification is enforced by these test classes

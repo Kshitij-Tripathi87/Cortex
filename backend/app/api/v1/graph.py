@@ -285,11 +285,13 @@ async def list_workspace_snapshots(
 async def get_snapshot_detail(
     snapshot_id: str,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> SnapshotResponse:
     """Get a single graph snapshot by ID."""
     snap = await get_snapshot(db, snapshot_id)
     if not snap:
         raise HTTPException(status_code=404, detail="Snapshot not found")
+    require_workspace_access(snap.workspace_id, auth)
     return SnapshotResponse(
         snapshot_id=snap.snapshot_id,
         version=snap.version,
@@ -1615,7 +1617,9 @@ async def generate_recommendations(
 
 
 @router.get("/recommendations/taxonomy", response_model=dict[str, Any])
-async def get_recommendation_taxonomy() -> dict[str, Any]:
+async def get_recommendation_taxonomy(
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
     """Get the closed taxonomy of recommendation types.
 
     Returns all supported recommendation types with their specifications.
@@ -1629,7 +1633,9 @@ async def get_recommendation_taxonomy() -> dict[str, Any]:
 
 
 @router.get("/recommendations/types", response_model=list[dict[str, str]])
-async def list_recommendation_types() -> list[dict[str, str]]:
+async def list_recommendation_types(
+    auth: AuthContext = Depends(get_current_user),
+) -> list[dict[str, str]]:
     """List all recommendation types."""
     from app.modules.graph.recommendation_rules import RECOMMENDATION_TAXONOMY
 
@@ -2292,7 +2298,9 @@ async def export_decision(
 
 
 @router.get("/decisions/taxonomy", response_model=dict[str, Any])
-async def get_decision_taxonomy() -> dict[str, Any]:
+async def get_decision_taxonomy(
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
     """Get the closed taxonomy of decision types.
 
     Returns all supported decision types with their specifications:

@@ -144,7 +144,9 @@ async def rollback_model(
 
 
 @router.get("/baselines")
-async def list_baselines() -> dict[str, Any]:
+async def list_baselines(
+    principal: UserPrincipal = Depends(get_current_user),
+) -> dict[str, Any]:
     """List registered deterministic baselines used for high-availability fallbacks."""
     return {
         "baselines": [

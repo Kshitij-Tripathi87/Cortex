@@ -13,15 +13,19 @@ from pathlib import Path
 
 import pytest
 
-from app.modules.workflo.agent import build_plan, diagnose, discover_surfaces
-from app.modules.workflo.orchestrator import (
+# Add product folder to path for moved workflo modules
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'product'))
+
+from product.workflo_backend.agent import build_plan, diagnose, discover_surfaces
+from product.workflo_backend.orchestrator import (
     SandboxNotFound,
     SandboxOrchestrator,
     get_orchestrator,
     reset_orchestrator,
 )
-from app.modules.workflo.policy import PolicyViolation, SandboxPolicy
-from app.modules.workflo.runs import RunStore
+from product.workflo_backend.policy import PolicyViolation, SandboxPolicy
+from product.workflo_backend.runs import RunStore
 
 
 @pytest.fixture()

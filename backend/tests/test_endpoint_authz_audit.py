@@ -55,35 +55,8 @@ PUBLIC_PATHS: frozenset[str] = frozenset({
 # above and fixed in a dedicated, non-bundled PR. The list is
 # authoritative — if a path is here, the audit doc has it; if a
 # path is in the audit doc but not here, the doc needs updating.
-KNOWN_DEBT: frozenset[str] = frozenset({
-    "/registry",
-    "/snapshots/{snapshot_id}",
-    "/recommendations/taxonomy",
-    "/recommendations/types",
-    "/decisions/taxonomy",
-    "/baselines",
-    "/ws",
-    "/run",
-    "/workflo/sandboxes",
-    "/workflo/sandboxes/{sandbox_id}",
-    "/workflo/sandboxes/{sandbox_id}/files",
-    "/workflo/sandboxes/{sandbox_id}/files/content",
-    "/workflo/sandboxes/{sandbox_id}/execute",
-    "/workflo/agent/plan",
-    "/workflo/agent/continue",
-    "/workflo/runs",
-    "/workflo/runs/{run_id}",
-    "/workflo/runs/{run_id}/artifacts",
-    "/workflo/runs/{run_id}/events",
-    "/workflow/start",
-    "/workflow/{instance_id}",
-    "/workflow/{instance_id}/cancel",
-    "/workflow/{instance_id}/retry",
-    "/workflow/{instance_id}/resume",
-    "/workflow/{instance_id}/approve",
-    "/workflow/{instance_id}/timeline",
-    "/workflow/templates",
-})
+# All 29 legacy debt routes have been paid down and gated (0 remaining debt).
+KNOWN_DEBT: frozenset[str] = frozenset()
 
 
 class RouteInfo(NamedTuple):
@@ -273,12 +246,10 @@ class TestGatedRoutesAreValid:
     downgrade a route. The next test catches that.)"""
 
     def test_gated_count_is_stable(self, all_routes):
-        # The baseline gated count is 108. A drop of more than 0 means
-        # an auth helper was removed without compensating for the gate.
-        # Note: was 109 before removal of duplicate get_twin_results (5bc2b69).
+        # All 148 non-public routes are gated (0 debt routes).
         gated_count = sum(1 for r in all_routes if r.gated)
-        assert gated_count >= 108, (
+        assert gated_count >= 148, (
             f"Gated route count dropped: got {gated_count}, expected "
-            f"at least 108. An auth helper may have been removed or "
+            f"at least 148. An auth helper may have been removed or "
             f"renamed; check AUTH_HELPERS and the affected routers."
         )

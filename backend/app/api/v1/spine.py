@@ -16,10 +16,15 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel, Field
 
 from app.infrastructure.database import get_session
+from app.infrastructure.security import (
+    AuthContext,
+    get_current_user,
+    require_workspace_access,
+)
 from app.modules.nexus_spine.canonical_schema import (
     CanonicalDataset,
     CanonicalTable,
@@ -108,6 +113,7 @@ async def run_spine(
     files: list[UploadFile] = File(default=[]),
     use_olist_adapter: bool = Form(default=False),
     olist_data_dir: str = Form(default=""),
+    auth: AuthContext = Depends(get_current_user),
 ) -> SpineRunResponse:
     """Run the full Real Data Spine on uploaded CSV files.
 
@@ -119,6 +125,7 @@ async def run_spine(
     agent proposals, twin comparison, decision card, execution result,
     and evidence DAG.
     """
+    require_workspace_access(workspace_id or "default", auth)
     dataset = CanonicalDataset(
         workspace_id=workspace_id or f"ws_{workspace_id or 'default'}",
         organization_id=organization_id or f"org_{organization_id or 'default'}",

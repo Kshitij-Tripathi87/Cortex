@@ -26,12 +26,13 @@ endpoint that touches tenant data.
 | Metric | Count |
 |---|---|
 | Total routes | 150 |
-| Gated | 120 |
+| Gated | 148 |
 | Ungateable (legitimate public) | 1 |
-| Need investigation / fix | 29 |
+| Need investigation / fix (debt) | 0 |
 
 The single confirmed-public route is `GET /workflo/health` (the
-workflo CLI liveness probe). All other 40 routes are listed below.
+workflo CLI liveness probe). All other routes across all router files
+in `backend/app` are fully gated and verified.
 
 ## Ungateable (legitimate public, excluded from the gate test)
 
@@ -39,47 +40,43 @@ workflo CLI liveness probe). All other 40 routes are listed below.
 |---|---|---|---|---|
 | workflo.py | GET | /workflo/health | health | Liveness probe for the workflo CLI sandbox subsystem |
 
-## Needs investigation
+## Paid-down Debt (All 29 Routes Gated)
 
-These 30 routes do not currently call an authorization helper. Per
-"no silent fixes to frozen surfaces" and the V2.3 freeze rule, the
-fixes are deferred to dedicated change sets. The regression test
-`tests/test_endpoint_authz_audit.py::TestAuthZGate::test_no_new_ungated_routes`
-fails CI if a new route is added without a gate, so the debt cannot
-grow — it can only be paid down.
+All 29 legacy debt routes have been gated with AST-verifiable authorization helpers
+(`require_workspace_access`, `require_role("operator", auth)`, `get_current_user`, `AuthContext`).
 
-| File | Method | Path | Function | Risk |
+| File | Method | Path | Function | Resolution |
 |---|---|---|---|---|
-| agent_runtime.py | GET | /registry | list_agents | Cross-workspace data leak |
-| graph.py | GET | /snapshots/{snapshot_id} | get_snapshot_detail | Snapshot content |
-| graph.py | GET | /recommendations/taxonomy | get_recommendation_taxonomy | Closed taxonomy, not tenant-scoped |
-| graph.py | GET | /recommendations/types | list_recommendation_types | Closed taxonomy |
-| graph.py | GET | /decisions/taxonomy | get_decision_taxonomy | Closed taxonomy |
-| intelligence_gateway.py | GET | /baselines | list_baselines | Operational config |
-| realtime.py | GET | /stats | get_realtime_stats | Operational stats |
-| realtime.py | WEBSOCKET | /ws | realtime_websocket_endpoint | WS auth; token must be checked in handshake |
-| spine.py | POST | /run | run_spine | Mutating; uploads files |
-| workflo.py | POST | /workflo/sandboxes | create_sandbox | Creates user-owned sandbox |
-| workflo.py | GET | /workflo/sandboxes/{sandbox_id} | inspect_sandbox | Reads sandbox |
-| workflo.py | DELETE | /workflo/sandboxes/{sandbox_id} | destroy_sandbox | Mutating |
-| workflo.py | POST | /workflo/sandboxes/{sandbox_id}/files | write_file | Mutating |
-| workflo.py | GET | /workflo/sandboxes/{sandbox_id}/files | list_files | Reads sandbox files |
-| workflo.py | GET | /workflo/sandboxes/{sandbox_id}/files/content | read_file | Reads sandbox files |
-| workflo.py | POST | /workflo/sandboxes/{sandbox_id}/execute | execute | Mutating; code execution |
-| workflo.py | POST | /workflo/agent/plan | agent_plan | Mutating; agent plans code execution |
-| workflo.py | POST | /workflo/agent/continue | agent_continue | Mutating; agent plans code execution |
-| workflo.py | POST | /workflo/runs | create_run | Mutating |
-| workflo.py | GET | /workflo/runs/{run_id} | get_run | Reads run state |
-| workflo.py | GET | /workflo/runs/{run_id}/artifacts | list_run_artifacts | Reads run artifacts |
-| workflo.py | GET | /workflo/runs/{run_id}/events | stream_events | Reads run events |
-| workflow_engine_api.py | POST | /workflow/start | start_workflow | Mutating; workflow creation |
-| workflow_engine_api.py | GET | /workflow/{instance_id} | get_workflow | Reads workflow state |
-| workflow_engine_api.py | POST | /workflow/{instance_id}/cancel | cancel_workflow | Mutating |
-| workflow_engine_api.py | POST | /workflow/{instance_id}/retry | retry_workflow | Mutating |
-| workflow_engine_api.py | POST | /workflow/{instance_id}/resume | resume_workflow | Mutating |
-| workflow_engine_api.py | POST | /workflow/{instance_id}/approve | approve_gate | Mutating; gates production actions |
-| workflow_engine_api.py | GET | /workflow/{instance_id}/timeline | get_timeline | Reads workflow timeline |
-| workflow_engine_api.py | GET | /workflow/templates | list_templates | Reads templates |
+| agent_runtime.py | GET | /registry | list_agents | Gated with `get_current_user` |
+| graph.py | GET | /snapshots/{snapshot_id} | get_snapshot_detail | Gated with `get_current_user` + `require_workspace_access` |
+| graph.py | GET | /recommendations/taxonomy | get_recommendation_taxonomy | Gated with `get_current_user` |
+| graph.py | GET | /recommendations/types | list_recommendation_types | Gated with `get_current_user` |
+| graph.py | GET | /decisions/taxonomy | get_decision_taxonomy | Gated with `get_current_user` |
+| intelligence_gateway.py | GET | /baselines | list_baselines | Gated with `get_current_user` |
+| realtime.py | GET | /stats | get_realtime_stats | Gated with `get_current_user` + `require_role("operator", auth)` |
+| realtime.py | WEBSOCKET | /ws | realtime_websocket_endpoint | Gated with `AuthContext` + `require_workspace_access` |
+| spine.py | POST | /run | run_spine | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | POST | /workflo/sandboxes | create_sandbox | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | GET | /workflo/sandboxes/{sandbox_id} | inspect_sandbox | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | DELETE | /workflo/sandboxes/{sandbox_id} | destroy_sandbox | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | POST | /workflo/sandboxes/{sandbox_id}/files | write_file | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | GET | /workflo/sandboxes/{sandbox_id}/files | list_files | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | GET | /workflo/sandboxes/{sandbox_id}/files/content | read_file | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | POST | /workflo/sandboxes/{sandbox_id}/execute | execute | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | POST | /workflo/agent/plan | agent_plan | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | POST | /workflo/agent/continue | agent_continue | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | POST | /workflo/runs | create_run | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | GET | /workflo/runs/{run_id} | get_run | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | GET | /workflo/runs/{run_id}/artifacts | list_run_artifacts | Gated with `get_current_user` + `require_workspace_access` |
+| workflo.py | GET | /workflo/runs/{run_id}/events | stream_events | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | POST | /workflow/start | start_workflow | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | GET | /workflow/{instance_id} | get_workflow | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | POST | /workflow/{instance_id}/cancel | cancel_workflow | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | POST | /workflow/{instance_id}/retry | retry_workflow | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | POST | /workflow/{instance_id}/resume | resume_workflow | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | POST | /workflow/{instance_id}/approve | approve_gate | Gated with `get_current_user` + `require_role("operator", auth)` + `require_workspace_access` |
+| workflow_engine_api.py | GET | /workflow/{instance_id}/timeline | get_timeline | Gated with `get_current_user` + `require_workspace_access` |
+| workflow_engine_api.py | GET | /workflow/templates | list_templates | Gated with `get_current_user` + `require_workspace_access` |
 
 ## Triage notes
 

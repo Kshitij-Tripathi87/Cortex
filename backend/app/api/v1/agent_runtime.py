@@ -23,7 +23,7 @@ from app.common.context import ExecutionContext
 from app.common.ids import uuid7
 from app.infrastructure.message_bus import NexusTopic, get_message_bus
 from app.infrastructure.realtime_gateway import RealtimeChannel, get_realtime_gateway
-from app.infrastructure.security import get_current_user
+from app.infrastructure.security import AuthContext, get_current_user
 from app.modules.identity.models import UserPrincipal
 from app.modules.multi_agent.runtime.builtin_tools import create_default_tool_registry
 from app.modules.multi_agent.runtime.conversation_store import (
@@ -127,7 +127,9 @@ async def run_deliberation(
 
 
 @router.get("/registry")
-async def list_agents() -> dict[str, Any]:
+async def list_agents(
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
     """List all registered specialist agents and their functional roles."""
     return {
         "agents": [

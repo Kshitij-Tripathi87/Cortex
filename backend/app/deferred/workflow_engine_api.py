@@ -23,6 +23,12 @@ from app.deferred.workflow_engine.workflow_models import WorkflowInstance
 from app.deferred.workflow_engine.workflow_registry import WorkflowRegistry
 from app.deferred.workflow_engine.workflow_service import WorkflowService
 from app.infrastructure.database import get_db
+from app.infrastructure.security import (
+    AuthContext,
+    get_current_user,
+    require_role,
+    require_workspace_access,
+)
 
 router = APIRouter()
 
@@ -75,8 +81,10 @@ class WorkflowTemplateResponse(BaseModel):
 async def start_workflow(
     body: StartWorkflowRequest,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> WorkflowStatusResponse:
     """Start a new workflow instance."""
+    require_workspace_access(body.workspace_id, auth)
     svc = _get_service(db)
     try:
         instance = await svc.start(
@@ -97,12 +105,14 @@ async def start_workflow(
 async def get_workflow(
     instance_id: str,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> WorkflowStatusResponse:
     """Get the current status of a workflow instance."""
     svc = _get_service(db)
     instance = await svc.get_instance(db, instance_id)
     if instance is None:
         raise HTTPException(status_code=404, detail="Workflow instance not found")
+    require_workspace_access(instance.workspace_id, auth)
     return _instance_to_response(instance)
 
 
@@ -110,9 +120,14 @@ async def get_workflow(
 async def cancel_workflow(
     instance_id: str,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> WorkflowStatusResponse:
     """Cancel a running workflow instance."""
     svc = _get_service(db)
+    instance = await svc.get_instance(db, instance_id)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    require_workspace_access(instance.workspace_id, auth)
     try:
         instance = await svc.cancel(db, instance_id)
     except ValueError as e:
@@ -124,9 +139,14 @@ async def cancel_workflow(
 async def retry_workflow(
     instance_id: str,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> WorkflowStatusResponse:
     """Retry a failed workflow instance (creates a new one from the same input)."""
     svc = _get_service(db)
+    instance = await svc.get_instance(db, instance_id)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    require_workspace_access(instance.workspace_id, auth)
     try:
         instance = await svc.retry(db, instance_id)
     except ValueError as e:
@@ -138,9 +158,14 @@ async def retry_workflow(
 async def resume_workflow(
     instance_id: str,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> WorkflowStatusResponse:
     """Resume a workflow that is awaiting approval."""
     svc = _get_service(db)
+    instance = await svc.get_instance(db, instance_id)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    require_workspace_access(instance.workspace_id, auth)
     try:
         instance = await svc.resume(db, instance_id)
     except ValueError as e:
@@ -153,9 +178,15 @@ async def approve_gate(
     instance_id: str,
     body: GateApprovalRequest,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> WorkflowStatusResponse:
     """Approve or reject a gate stage in a workflow."""
+    require_role("operator", auth)
     svc = _get_service(db)
+    instance = await svc.get_instance(db, instance_id)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    require_workspace_access(instance.workspace_id, auth)
     try:
         instance = await svc.approve_gate(
             db,
@@ -173,12 +204,14 @@ async def approve_gate(
 async def get_timeline(
     instance_id: str,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     """Get the step-by-step timeline of a workflow instance."""
     svc = _get_service(db)
     instance = await svc.get_instance(db, instance_id)
     if instance is None:
         raise HTTPException(status_code=404, detail="Workflow instance not found")
+    require_workspace_access(instance.workspace_id, auth)
 
     timeline: list[dict[str, Any]] = []
     for stage in instance.stages:
@@ -201,7 +234,9 @@ async def get_timeline(
 
 
 @router.get("/workflow/templates", response_model=list[WorkflowTemplateResponse])
-async def list_templates() -> list[WorkflowTemplateResponse]:
+async def list_templates(
+    auth: AuthContext = Depends(get_current_user),
+) -> list[WorkflowTemplateResponse]:
     """List all available workflow templates."""
     templates = registry.list_templates()
     result: list[WorkflowTemplateResponse] = []
