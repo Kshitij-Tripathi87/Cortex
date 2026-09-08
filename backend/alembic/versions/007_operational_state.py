@@ -3,6 +3,7 @@
 Revision ID: 007
 Revises: 006
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -28,8 +29,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("record_id"),
         sa.UniqueConstraint("workspace_id", "node_id", name="uq_operational_state_workspace_node"),
     )
-    op.create_index("ix_operational_state_records_workspace_id", "operational_state_records", ["workspace_id"])
-    op.create_index("ix_operational_state_records_node_id", "operational_state_records", ["node_id"])
+    op.create_index(
+        "ix_operational_state_records_workspace_id", "operational_state_records", ["workspace_id"]
+    )
+    op.create_index(
+        "ix_operational_state_records_node_id", "operational_state_records", ["node_id"]
+    )
 
 
 def downgrade() -> None:

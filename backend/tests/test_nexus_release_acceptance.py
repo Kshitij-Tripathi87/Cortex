@@ -60,8 +60,7 @@ def enterprise_fixture():
         "ord_9903,cust_3,seller_bb99112233,80.0,15.0\n"
     )
     routes_csv = (
-        "route_id,origin,destination,corridor,base_delay_days\n"
-        "route_SP_to_RJ,SP,RJ,BR-116,1.4\n"
+        "route_id,origin,destination,corridor,base_delay_days\nroute_SP_to_RJ,SP,RJ,BR-116,1.4\n"
     )
 
     ws.ingest_csv_content("sellers", sellers_csv)
@@ -189,7 +188,9 @@ async def test_canonical_nexus_release_acceptance_26_steps(enterprise_fixture):
     # STEP 24: Fault Injection & Graceful Fallback
     # ---------------------------------------------------------
     # Query with non-existent or corrupted node falls back gracefully without crash
-    corrupt_query = ws.ask_natural_language_question("What is the status of non_existent_node_99999?")
+    corrupt_query = ws.ask_natural_language_question(
+        "What is the status of non_existent_node_99999?"
+    )
     assert corrupt_query["readiness_report"] is not None
     assert "answer" in corrupt_query
 

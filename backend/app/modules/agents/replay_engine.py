@@ -60,7 +60,9 @@ class AgentReplayEngine:
 
         for telem in historical_telemetry:
             # Ground truth: if port congestion > 0.4 or elapsed > planned, it was delayed
-            actual_delayed = telem.port_congestion_index > 0.4 or telem.elapsed_days > telem.planned_eta_days
+            actual_delayed = (
+                telem.port_congestion_index > 0.4 or telem.elapsed_days > telem.planned_eta_days
+            )
 
             cand_res = await candidate_agent.evaluate_shipment(telem, context)
             base_res = await baseline_agent.evaluate_shipment(telem, context)
@@ -74,9 +76,13 @@ class AgentReplayEngine:
                 base_correct += 1
 
             if cand_res.recommended_action:
-                cand_protected_rev += cand_res.recommended_action.get("revenue_protected", 0.0) - cand_res.recommended_action.get("cost_usd", 0.0)
+                cand_protected_rev += cand_res.recommended_action.get(
+                    "revenue_protected", 0.0
+                ) - cand_res.recommended_action.get("cost_usd", 0.0)
             if base_res.recommended_action:
-                base_protected_rev += base_res.recommended_action.get("revenue_protected", 0.0) - base_res.recommended_action.get("cost_usd", 0.0)
+                base_protected_rev += base_res.recommended_action.get(
+                    "revenue_protected", 0.0
+                ) - base_res.recommended_action.get("cost_usd", 0.0)
 
         total = max(1, len(historical_telemetry))
         cand_acc = cand_correct / total
@@ -95,6 +101,7 @@ class AgentReplayEngine:
             roi_improvement_usd=round(cand_protected_rev - base_protected_rev, 2),
             candidate_avg_latency_ms=4.1,
             baseline_avg_latency_ms=4.8,
-            is_candidate_superior=cand_acc >= base_acc and (cand_protected_rev >= base_protected_rev),
+            is_candidate_superior=cand_acc >= base_acc
+            and (cand_protected_rev >= base_protected_rev),
             replayed_at=datetime.now(UTC),
         )

@@ -184,7 +184,11 @@ class DemandEngine:
         """
         now = now or _utc_now()
         drivers_list = list(drivers or [])
-        history = list(history_for_sku if history_for_sku is not None else [p for p in self._history if p.sku == sku])
+        history = list(
+            history_for_sku
+            if history_for_sku is not None
+            else [p for p in self._history if p.sku == sku]
+        )
 
         baseline = self._compute_baseline(history, horizon_days)
         adjusted = self._apply_drivers(baseline, drivers_list)
@@ -192,7 +196,11 @@ class DemandEngine:
         confidence = self._compute_confidence(history, drivers_list, now)
         volatility = self._volatility_coefficient(history)
         wape = self._backtest_wape(history)
-        freshness = (now - max((p.timestamp for p in history), default=now)).total_seconds() if history else 0.0
+        freshness = (
+            (now - max((p.timestamp for p in history), default=now)).total_seconds()
+            if history
+            else 0.0
+        )
 
         return ProbabilisticForecast(
             forecast_id=forecast_id or f"fc_{now.strftime('%Y%m%d%H%M%S')}_{sku}",
@@ -222,9 +230,7 @@ class DemandEngine:
         negative = over-predicted.
         """
         absolute_error = actual.actual_quantity - forecast.p50
-        percentage_error = (
-            absolute_error / forecast.p50 if forecast.p50 != 0 else 0.0
-        )
+        percentage_error = absolute_error / forecast.p50 if forecast.p50 != 0 else 0.0
         return ForecastEvaluation(
             forecast_id=forecast.forecast_id,
             sku=forecast.sku,
@@ -254,7 +260,9 @@ class DemandEngine:
         total_qty = sum(p.quantity for p in recent)
         # Use total_seconds for sub-day precision — .days truncates toward
         # zero and can drop a whole day when the span is just under N days.
-        span_seconds = (max(p.timestamp for p in recent) - min(p.timestamp for p in recent)).total_seconds()
+        span_seconds = (
+            max(p.timestamp for p in recent) - min(p.timestamp for p in recent)
+        ).total_seconds()
         days = max(span_seconds / 86400.0, 1.0)
         daily_rate = total_qty / days
         return daily_rate * horizon_days
@@ -300,10 +308,7 @@ class DemandEngine:
         freshness_days = (now - max(p.timestamp for p in history)).total_seconds() / 86400.0
         freshness_conf = max(0.0, 1.0 - freshness_days / 14.0) * 0.3
         # Driver confidence (weighted average)
-        if drivers:
-            driver_conf = sum(d.confidence for d in drivers) / len(drivers) * 0.3
-        else:
-            driver_conf = 0.0
+        driver_conf = sum(d.confidence for d in drivers) / len(drivers) * 0.3 if drivers else 0.0
         return round(min(sample_conf + freshness_conf + driver_conf, 1.0), 4)
 
     def _volatility_coefficient(

@@ -1,5 +1,4 @@
-"""Load Planning & Route Optimization Agents — Groups C1 & C2.
-"""
+"""Load Planning & Route Optimization Agents — Groups C1 & C2."""
 
 from __future__ import annotations
 
@@ -40,7 +39,9 @@ class LoadPlanningAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def plan_load(self, orders: list[dict[str, Any]], equipment_capacity_m3: float = 12.0) -> LoadPlanProposal:
+    def plan_load(
+        self, orders: list[dict[str, Any]], equipment_capacity_m3: float = 12.0
+    ) -> LoadPlanProposal:
         res = DomainToolRegistry.calculate_3d_cube_utilization(orders, equipment_capacity_m3)
         data = res.data
 
@@ -63,7 +64,9 @@ class RouteOptimizationAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def optimize_route(self, origin: str, destination: str, congestion_factor: float = 1.9) -> dict[str, Any]:
+    def optimize_route(
+        self, origin: str, destination: str, congestion_factor: float = 1.9
+    ) -> dict[str, Any]:
         res = DomainToolRegistry.compute_dijkstra_delay_cost(origin, destination, congestion_factor)
         return {
             "agent_id": self.agent_id,

@@ -7,6 +7,7 @@ Revises: 003_operational_graph
 Create Date: 2026-07-19
 
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

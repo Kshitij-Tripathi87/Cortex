@@ -16,6 +16,7 @@ def _utc_now() -> datetime:
 @dataclass
 class Recommendation:
     """A recommendation with predicted and (later) actual KPIs."""
+
     recommendation_id: str
     decision_id: str | None
     tenant_id: str
@@ -44,7 +45,9 @@ class Recommendation:
     created_at: datetime = field(default_factory=_utc_now)
     evaluated_at: datetime | None = None
 
-    def evaluate(self, *, actual_nev: float, actual_sla: float, actual_cost: float, outcome: str) -> None:
+    def evaluate(
+        self, *, actual_nev: float, actual_sla: float, actual_cost: float, outcome: str
+    ) -> None:
         """Close the loop: record actual outcomes and compute metrics."""
         self.actual_nev = actual_nev
         self.actual_sla = actual_sla
@@ -53,7 +56,9 @@ class Recommendation:
 
         # Accuracy: how close was NEV prediction?
         if abs(self.predicted_nev) > 0.001:
-            self.recommendation_accuracy = max(0.0, 1.0 - abs(actual_nev - self.predicted_nev) / abs(self.predicted_nev))
+            self.recommendation_accuracy = max(
+                0.0, 1.0 - abs(actual_nev - self.predicted_nev) / abs(self.predicted_nev)
+            )
         else:
             self.recommendation_accuracy = 1.0 if abs(actual_nev) < 0.001 else 0.0
 
@@ -83,9 +88,15 @@ class Recommendation:
             "actual_sla": round(self.actual_sla, 4) if self.actual_sla is not None else None,
             "actual_cost": round(self.actual_cost, 2) if self.actual_cost is not None else None,
             "outcome": self.outcome,
-            "recommendation_accuracy": round(self.recommendation_accuracy, 4) if self.recommendation_accuracy is not None else None,
-            "recommendation_regret": round(self.recommendation_regret, 2) if self.recommendation_regret is not None else None,
-            "simulation_error": round(self.simulation_error, 4) if self.simulation_error is not None else None,
+            "recommendation_accuracy": round(self.recommendation_accuracy, 4)
+            if self.recommendation_accuracy is not None
+            else None,
+            "recommendation_regret": round(self.recommendation_regret, 2)
+            if self.recommendation_regret is not None
+            else None,
+            "simulation_error": round(self.simulation_error, 4)
+            if self.simulation_error is not None
+            else None,
             "scenario_id": self.scenario_id,
             "evidence_root_id": self.evidence_root_id,
             "created_at": self.created_at.isoformat(),
@@ -160,10 +171,13 @@ class RecommendationEvaluator:
         with self._lock:
             return self._recommendations.get(recommendation_id)
 
-    def list_by_workspace(self, tenant_id: str, workspace_id: str, limit: int = 100) -> list[Recommendation]:
+    def list_by_workspace(
+        self, tenant_id: str, workspace_id: str, limit: int = 100
+    ) -> list[Recommendation]:
         with self._lock:
             recs = [
-                r for r in self._recommendations.values()
+                r
+                for r in self._recommendations.values()
                 if r.tenant_id == tenant_id and r.workspace_id == workspace_id
             ]
             recs.sort(key=lambda r: r.created_at, reverse=True)
@@ -173,7 +187,8 @@ class RecommendationEvaluator:
         """Aggregate performance metrics — answers: 'how good are our recommendations?'."""
         with self._lock:
             recs = [
-                r for r in self._recommendations.values()
+                r
+                for r in self._recommendations.values()
                 if r.tenant_id == tenant_id and r.workspace_id == workspace_id
             ]
             evaluated = [r for r in recs if r.outcome is not None]

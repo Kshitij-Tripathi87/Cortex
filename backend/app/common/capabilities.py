@@ -10,6 +10,7 @@ from app.common.errors import PermissionError
 
 class Capability(StrEnum):
     """Execution capabilities within the system."""
+
     READ = "read"
     ANALYZE = "analyze"
     PROPOSE = "propose"
@@ -28,48 +29,56 @@ class CapabilitySet:
     def for_specialist_agent() -> CapabilitySet:
         """Capabilities for specialist AI agents."""
         return CapabilitySet(
-            frozenset({
-                Capability.READ,
-                Capability.ANALYZE,
-                Capability.PROPOSE,
-                Capability.SIMULATE,
-            })
+            frozenset(
+                {
+                    Capability.READ,
+                    Capability.ANALYZE,
+                    Capability.PROPOSE,
+                    Capability.SIMULATE,
+                }
+            )
         )
 
     @staticmethod
     def for_supervisor() -> CapabilitySet:
         """Capabilities for supervisor/orchestrator AI agents."""
         return CapabilitySet(
-            frozenset({
-                Capability.READ,
-                Capability.ANALYZE,
-                Capability.PROPOSE,
-                Capability.SIMULATE,
-            })
+            frozenset(
+                {
+                    Capability.READ,
+                    Capability.ANALYZE,
+                    Capability.PROPOSE,
+                    Capability.SIMULATE,
+                }
+            )
         )
 
     @staticmethod
     def for_execution_service() -> CapabilitySet:
         """Capabilities for non-AI backend execution services."""
         return CapabilitySet(
-            frozenset({
-                Capability.READ,
-                Capability.EXECUTE,
-            })
+            frozenset(
+                {
+                    Capability.READ,
+                    Capability.EXECUTE,
+                }
+            )
         )
 
     @staticmethod
     def for_human_operator() -> CapabilitySet:
         """Capabilities for a human operator accessing the platform."""
         return CapabilitySet(
-            frozenset({
-                Capability.READ,
-                Capability.ANALYZE,
-                Capability.PROPOSE,
-                Capability.SIMULATE,
-                Capability.APPROVE,
-                Capability.EXECUTE,
-            })
+            frozenset(
+                {
+                    Capability.READ,
+                    Capability.ANALYZE,
+                    Capability.PROPOSE,
+                    Capability.SIMULATE,
+                    Capability.APPROVE,
+                    Capability.EXECUTE,
+                }
+            )
         )
 
     def has(self, cap: Capability) -> bool:

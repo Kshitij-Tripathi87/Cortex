@@ -95,6 +95,7 @@ def compute_business_impact(
 
 # ── individual calculations ──
 
+
 def _calc_revenue(
     orders: tuple[AffectedOrder, ...],
     product_by_id: dict[UUID, ProductData],

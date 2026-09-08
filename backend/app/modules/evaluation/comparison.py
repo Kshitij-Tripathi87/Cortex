@@ -35,12 +35,17 @@ class EngineComparator:
 
         comparison_results = {}
         for candidate in candidate_engines:
-            if candidate["engine_type"] == baseline_engine and candidate.get("version") == baseline_version:
+            if (
+                candidate["engine_type"] == baseline_engine
+                and candidate.get("version") == baseline_version
+            ):
                 continue
 
             cand_results = candidate.get("results", {})
             comparison = self._compare_results(baseline_results, cand_results, candidate)
-            comparison_results[candidate["engine_type"] + "_" + (candidate.get("version", "latest"))] = comparison
+            comparison_results[
+                candidate["engine_type"] + "_" + (candidate.get("version", "latest"))
+            ] = comparison
 
         # Determine winner
         winner = self._determine_winner(baseline_results, candidate_engines)
@@ -49,7 +54,10 @@ class EngineComparator:
             comparison_id=uuid4(),
             baseline_engine=baseline_engine,
             baseline_version=baseline_version,
-            candidate_engines=[{"engine_type": c["engine_type"], "version": c.get("version")} for c in candidate_engines],
+            candidate_engines=[
+                {"engine_type": c["engine_type"], "version": c.get("version")}
+                for c in candidate_engines
+            ],
             dataset_id="",  # filled by caller
             dataset_version=dataset_version,
             results=comparison_results,
@@ -90,9 +98,13 @@ class EngineComparator:
             )
 
             if higher_is_better:
-                better = "candidate" if candidate_metrics[key] > baseline_metrics[key] else "baseline"
+                better = (
+                    "candidate" if candidate_metrics[key] > baseline_metrics[key] else "baseline"
+                )
             else:
-                better = "candidate" if candidate_metrics[key] < baseline_metrics[key] else "baseline"
+                better = (
+                    "candidate" if candidate_metrics[key] < baseline_metrics[key] else "baseline"
+                )
 
             if better == "candidate":
                 wins += 1
@@ -105,8 +117,11 @@ class EngineComparator:
                 "baseline": baseline_metrics[key],
                 "candidate": candidate_metrics[key],
                 "difference": candidate_metrics[key] - baseline_metrics[key],
-                "percent_change": ((candidate_metrics[key] - baseline_metrics[key]) / baseline_metrics[key] * 100)
-                if baseline_metrics[key] != 0 else float('inf'),
+                "percent_change": (
+                    (candidate_metrics[key] - baseline_metrics[key]) / baseline_metrics[key] * 100
+                )
+                if baseline_metrics[key] != 0
+                else float("inf"),
                 "better": better,
             }
 
@@ -124,10 +139,18 @@ class EngineComparator:
         # Key metrics where higher is better
         positive_metrics = ["component_f1", "product_f1", "recommendation_rank_agreement"]
         # Key metrics where lower is better
-        negative_metrics = ["revenue_mae", "revenue_mape", "deadline_mae", "calibration_ece", "brier_score"]
+        negative_metrics = [
+            "revenue_mae",
+            "revenue_mape",
+            "deadline_mae",
+            "calibration_ece",
+            "brier_score",
+        ]
 
         scores = {}
-        for cand in [{"engine_type": "baseline", "version": "baseline", "results": baseline}] + candidates:
+        for cand in [
+            {"engine_type": "baseline", "version": "baseline", "results": baseline}
+        ] + candidates:
             key = cand["engine_type"] + "_" + cand.get("version", "latest")
             score = 0
             results = cand.get("results", {})
@@ -162,7 +185,9 @@ def generate_comparison_report(comparison: dict) -> dict:
 
         lines.append(f"\nCandidate: {comp.get('candidate_engine', 'Unknown')}")
         lines.append(f"Version: {comp.get('candidate_version', 'Unknown')}")
-        lines.append(f"Wins: {comp.get('wins', 0)}, Losses: {comp.get('losses', 0)}, Ties: {comp.get('ties', 0)}")
+        lines.append(
+            f"Wins: {comp.get('wins', 0)}, Losses: {comp.get('losses', 0)}, Ties: {comp.get('ties', 0)}"
+        )
         lines.append("-" * 40)
 
         for metric, details in comp.get("metrics_comparison", {}).items():
@@ -189,6 +214,7 @@ def statistical_significance(
     """Compute statistical significance using t-test (requires scipy)."""
     try:
         from scipy import stats
+
         stat, p_value = stats.ttest_ind(candidate_samples, baseline_samples, equal_var=False)
         return {
             "t_statistic": stat,
@@ -211,6 +237,7 @@ def paired_significance(
     """Paired t-test for paired samples (same scenarios)."""
     try:
         from scipy import stats
+
         stat, p_value = stats.ttest_rel(candidate_samples, baseline_samples)
         return {
             "t_statistic": stat,
@@ -225,10 +252,13 @@ def paired_significance(
         }
 
 
-def wilcoxon_test(baseline_samples: list[float], candidate_samples: list[float], alpha: float = 0.05) -> dict:
+def wilcoxon_test(
+    baseline_samples: list[float], candidate_samples: list[float], alpha: float = 0.05
+) -> dict:
     """Wilcoxon signed-rank test (non-parametric alternative to paired t-test)."""
     try:
         from scipy import stats
+
         stat, p_value = stats.wilcoxon(candidate_samples, baseline_samples, alternative="greater")
         return {
             "statistic": stat,

@@ -25,11 +25,9 @@ This gives us:
 
 from __future__ import annotations
 
-import json
-import threading
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy import (
     JSON,
@@ -41,7 +39,6 @@ from sqlalchemy import (
     Text,
     delete,
     select,
-    update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,11 +89,19 @@ class NexusEntityDB(Base):
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     confidence_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[dict[str, Any]] = mapped_column(JSON_VARIANT, nullable=False, default=dict)
-    state_history: Mapped[list[dict[str, Any]]] = mapped_column(JSON_VARIANT, nullable=False, default=list)
-    provenance: Mapped[list[dict[str, Any]]] = mapped_column(JSON_VARIANT, nullable=False, default=list)
-    permissions: Mapped[list[dict[str, Any]]] = mapped_column(JSON_VARIANT, nullable=False, default=list)
+    state_history: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON_VARIANT, nullable=False, default=list
+    )
+    provenance: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON_VARIANT, nullable=False, default=list
+    )
+    permissions: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON_VARIANT, nullable=False, default=list
+    )
     tags: Mapped[list[str]] = mapped_column(JSON_VARIANT, nullable=False, default=list)
-    extra: Mapped[dict[str, Any]] = mapped_column("metadata", JSON_VARIANT, nullable=False, default=dict)
+    extra: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON_VARIANT, nullable=False, default=dict
+    )
     world_state_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utc_now
@@ -317,9 +322,7 @@ class OntologyStore:
         """Insert or update an entity. Returns the persisted entity."""
         row_data = entity_to_row(entity)
         existing = await self.db.execute(
-            select(NexusEntityDB).where(
-                NexusEntityDB.entity_id == row_data["entity_id"]
-            )
+            select(NexusEntityDB).where(NexusEntityDB.entity_id == row_data["entity_id"])
         )
         row = existing.scalar_one_or_none()
         if row is None:
@@ -358,9 +361,7 @@ class OntologyStore:
         row = result.scalar_one_or_none()
         return row_to_entity(row) if row else None
 
-    async def delete_entity(
-        self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID
-    ) -> bool:
+    async def delete_entity(self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID) -> bool:
         result = await self.db.execute(
             delete(NexusEntityDB).where(
                 NexusEntityDB.tenant_id == str(tenant_id),
@@ -418,12 +419,16 @@ class OntologyStore:
 
     # ── Relationships ─────────────────────────────────────────────────────
 
-    async def add_relationship(self, edge: RelationshipEdge, tenant_id: UUID, workspace_id: UUID) -> RelationshipEdge:
+    async def add_relationship(
+        self, edge: RelationshipEdge, tenant_id: UUID, workspace_id: UUID
+    ) -> RelationshipEdge:
         self.db.add(NexusRelationshipDB(**edge_to_row(edge, tenant_id, workspace_id)))
         await self.db.flush()
         return edge
 
-    async def list_out_edges(self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID) -> list[RelationshipEdge]:
+    async def list_out_edges(
+        self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID
+    ) -> list[RelationshipEdge]:
         result = await self.db.execute(
             select(NexusRelationshipDB).where(
                 NexusRelationshipDB.tenant_id == str(tenant_id),
@@ -433,7 +438,9 @@ class OntologyStore:
         )
         return [row_to_edge(row) for row in result.scalars().all()]
 
-    async def list_in_edges(self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID) -> list[RelationshipEdge]:
+    async def list_in_edges(
+        self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID
+    ) -> list[RelationshipEdge]:
         result = await self.db.execute(
             select(NexusRelationshipDB).where(
                 NexusRelationshipDB.tenant_id == str(tenant_id),

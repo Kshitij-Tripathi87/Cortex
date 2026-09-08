@@ -22,6 +22,7 @@ def main():
     # generated from a stale source. This sync is the single source of
     # truth: backend/openapi.json is canonical, everything else is a copy.
     import shutil
+
     frontend_root = backend_root.parent / "frontend"
     fe_openapi = frontend_root / "src" / "types" / "openapi.json"
     shutil.copy2(backend_root / "openapi.json", fe_openapi)

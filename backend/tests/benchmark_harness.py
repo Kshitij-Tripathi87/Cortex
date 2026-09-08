@@ -114,6 +114,7 @@ async def run_load_benchmark(
                 failed_ops += 1
                 if first_error is None:
                     import traceback
+
                     first_error = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
                 t1 = time.perf_counter()
                 latencies_ms.append((t1 - t0) * 1000.0)

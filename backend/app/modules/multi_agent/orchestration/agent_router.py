@@ -56,7 +56,11 @@ class DynamicAgentRouter:
             DomainRelevanceAssessment(
                 domain_group="COMPLIANCE",
                 relevance_score=compliance_score,
-                activated_specialists=["compliance_agent", "finance_validation_agent", "audit_agent"],
+                activated_specialists=[
+                    "compliance_agent",
+                    "finance_validation_agent",
+                    "audit_agent",
+                ],
                 activation_rationale="Mandatory control plane audit to enforce vendor validation, spend budget, and Merkle provenance DAG.",
             )
         )
@@ -67,7 +71,11 @@ class DynamicAgentRouter:
             DomainRelevanceAssessment(
                 domain_group="OPTIMIZATION",
                 relevance_score=optimization_score,
-                activated_specialists=["load_planning_agent", "route_optimization_agent", "consolidation_agent"],
+                activated_specialists=[
+                    "load_planning_agent",
+                    "route_optimization_agent",
+                    "consolidation_agent",
+                ],
                 activation_rationale="Volumetric 3D cubing and co-loading consolidation required to package 12 exposed orders.",
             )
         )
@@ -78,7 +86,11 @@ class DynamicAgentRouter:
             DomainRelevanceAssessment(
                 domain_group="PROCUREMENT",
                 relevance_score=procurement_score,
-                activated_specialists=["supplier_discovery_agent", "supplier_evaluation_agent", "strategic_sourcing_agent"],
+                activated_specialists=[
+                    "supplier_discovery_agent",
+                    "supplier_evaluation_agent",
+                    "strategic_sourcing_agent",
+                ],
                 activation_rationale="GNN supplier similarity required to evaluate alternate qualified sellers and safety stock transfers.",
             )
         )

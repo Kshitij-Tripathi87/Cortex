@@ -1,4 +1,17 @@
-"""Nexus Decision Intelligence API — Stable /v1/* Surface.
+"""Nexus Decision Intelligence API — LEGACY v0.7 (in-memory) surface.
+
+⚠️  LEGACY — NOT AUTHORITATIVE (v0.8.2 routing flip, 2026-09).
+
+This router keeps the v0.7 in-memory implementation (process-local
+WorldModel / DecisionMemory / DecisionLifecycleManager / TruthLoop
+singletons). Since the v0.8.2 routing flip it is demoted to the explicit
+``/api/v1/v07-legacy/nexus/*`` namespace and is only mounted when
+``CORTEX_NEXUS_V07_LEGACY_ROUTES`` is explicitly enabled — it exists for
+unit tests, explicit migration tooling, and historical v0.7 demos.
+
+The canonical production surface is the persistent PostgreSQL-backed
+router in ``app/api/v1/nexus_persistent.py`` (mounted at ``/api/v1/nexus/*``).
+Do NOT add new endpoints here.
 
 Stable API surface for the Nexus operational decision system:
 
@@ -28,7 +41,6 @@ Architecture: Ontology (WorldModel) → Risk Engine → Scenario Studio →
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -42,7 +54,13 @@ from app.infrastructure.security import (
     get_current_user,
     require_workspace_access,
 )
-from app.modules.nexus_spine.demand import get_demand_engine, get_truth_loop
+from app.modules.nexus_spine.demand import get_truth_loop
+from app.modules.nexus_spine.governance import (
+    ALLOWED_TRANSITIONS,
+    DecisionLifecycle,
+    DecisionPhase,
+    get_decision_lifecycle_manager,
+)
 from app.modules.nexus_spine.memory import (
     DecisionRecord,
     get_decision_memory,
@@ -53,21 +71,8 @@ from app.modules.nexus_spine.ontology import (
     EntityQuery,
     get_world_model,
 )
-from app.modules.nexus_spine.ontology.core_types import (
-    EntityDomain,
-    domain_of,
-)
-from app.modules.nexus_spine.governance import (
-    ALLOWED_TRANSITIONS,
-    DecisionLifecycle,
-    DecisionLifecycleManager,
-    DecisionPhase,
-    get_decision_lifecycle_manager,
-    validate_world_state_consistent,
-)
+from app.modules.nexus_spine.ontology.core_types import EntityDomain
 from app.modules.nexus_spine.vanessa import (
-    VanessaAnswer,
-    VanessaOrchestrator,
     VanessaQuery,
     get_vanessa,
 )
@@ -92,7 +97,9 @@ class ApiEnvelope(BaseModel):
     data: dict[str, Any]
 
 
-def _envelope(request: Request, data: dict[str, Any], correlation_id: str | None = None) -> ApiEnvelope:
+def _envelope(
+    request: Request, data: dict[str, Any], correlation_id: str | None = None
+) -> ApiEnvelope:
     request_id = getattr(request.state, "request_id", None) or uuid7()
     return ApiEnvelope(
         request_id=request_id,
@@ -118,16 +125,13 @@ async def get_world_state(
     try:
         ws_uuid = UUID(workspace_id)
         t_uuid = UUID(str(tenant_id))
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     return _envelope(
         request,
         {
             "world_state_version": wm.world_state_version,
-            "entity_counts": {
-                kind.value: wm.count(t_uuid, ws_uuid, kind)
-                for kind in EntityKind
-            },
+            "entity_counts": {kind.value: wm.count(t_uuid, ws_uuid, kind) for kind in EntityKind},
             "tenant_id": str(t_uuid),
             "workspace_id": workspace_id,
         },
@@ -194,11 +198,11 @@ async def upsert_entity(
         ws_uuid = UUID(body.workspace_id)
         kind = EntityKind(body.kind)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"invalid input: {exc}")
+        raise HTTPException(status_code=400, detail=f"invalid input: {exc}") from exc
     try:
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
     except ValueError:
-        t_uuid = uuid7()
+        t_uuid = UUID(uuid7())
 
     entity = Entity(
         tenant_id=t_uuid,
@@ -215,7 +219,10 @@ async def upsert_entity(
     saved, world_state_version = get_world_model().upsert(entity, actor=auth.user_id or "api")
     return _envelope(
         request,
-        {"entity": _entity_to_response(saved).model_dump(), "world_state_version": world_state_version},
+        {
+            "entity": _entity_to_response(saved).model_dump(),
+            "world_state_version": world_state_version,
+        },
     )
 
 
@@ -234,22 +241,22 @@ async def query_entities(
     require_workspace_access(workspace_id, auth)
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
 
     kind_enums = None
     if kinds:
         try:
             kind_enums = [EntityKind(k) for k in kinds]
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=f"invalid kinds: {exc}")
+            raise HTTPException(status_code=400, detail=f"invalid kinds: {exc}") from exc
     domain_enum = None
     if domain:
         try:
             domain_enum = EntityDomain(domain)
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=f"invalid domain: {exc}")
+            raise HTTPException(status_code=400, detail=f"invalid domain: {exc}") from exc
 
     page = get_world_model().query(
         EntityQuery(
@@ -285,10 +292,10 @@ async def get_entity(
     require_workspace_access(workspace_id, auth)
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
         e_uuid = UUID(entity_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid identifier")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid identifier") from exc
     entity = get_world_model().get(t_uuid, ws_uuid, e_uuid)
     if entity is None:
         raise HTTPException(status_code=404, detail="entity not found")
@@ -316,11 +323,12 @@ async def blast_radius(
 ) -> ApiEnvelope:
     require_workspace_access(body.workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import GetBlastRadiusTool
+
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = GetBlastRadiusTool()
@@ -338,7 +346,9 @@ async def blast_radius(
     result = tool.invoke(call)
     if not result.ok:
         raise HTTPException(status_code=400, detail=result.error)
-    return _envelope(request, result.payload, correlation_id=request.headers.get("X-Correlation-Id"))
+    return _envelope(
+        request, result.payload, correlation_id=request.headers.get("X-Correlation-Id")
+    )
 
 
 class TraverseRequest(BaseModel):
@@ -357,11 +367,12 @@ async def traverse_graph(
 ) -> ApiEnvelope:
     require_workspace_access(body.workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import TraverseGraphTool
+
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = TraverseGraphTool()
@@ -397,11 +408,12 @@ async def list_signals(
 ) -> ApiEnvelope:
     require_workspace_access(workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import GetSignalTool
+
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = GetSignalTool()
@@ -433,11 +445,12 @@ async def supplier_risk(
 ) -> ApiEnvelope:
     require_workspace_access(workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import GetSupplierRiskTool
+
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = GetSupplierRiskTool()
@@ -464,11 +477,12 @@ async def orders_at_risk(
 ) -> ApiEnvelope:
     require_workspace_access(workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import GetOrdersAtRiskTool
+
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = GetOrdersAtRiskTool()
@@ -507,11 +521,12 @@ async def produce_forecast(
 ) -> ApiEnvelope:
     require_workspace_access(body.workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import GetForecastTool
+
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = GetForecastTool()
@@ -590,11 +605,12 @@ async def get_calibration(
 ) -> ApiEnvelope:
     require_workspace_access(workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import CompareForecastActualTool
+
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = CompareForecastActualTool()
@@ -659,7 +675,6 @@ async def record_decision(
 
     # Also create the governance lifecycle for governance tracking
     from app.modules.nexus_spine.governance import (
-        DecisionLifecycle,
         get_decision_lifecycle_manager,
     )
     from app.modules.nexus_spine.ontology.repository import canonical_state_hash
@@ -668,7 +683,7 @@ async def record_decision(
     entities_for_hash = [
         {"entity_id": str(e.entity_id), "state": dict(e.state)}
         for e in wm.iter_entities(
-            tenant_id=UUID(auth.user_id) if auth.user_id else uuid7(),
+            tenant_id=UUID(auth.user_id) if auth.user_id else UUID(uuid7()),
             workspace_id=UUID(body.workspace_id),
         )
     ]
@@ -692,17 +707,6 @@ async def record_decision(
         "phase": lifecycle.phase,
     }
     return _envelope(request, {"decision": data})
-
-
-class DecisionOutcomeUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    workspace_id: str
-    decision_id: str
-    outcome_status: str | None = None
-    financial_impact: float | None = None
-    actual_result: str | None = None
-    human_feedback: str | None = None
 
 
 class DecisionOutcomeUpdate(BaseModel):
@@ -752,11 +756,12 @@ async def find_analogous_decisions(
 ) -> ApiEnvelope:
     require_workspace_access(body.workspace_id, auth)
     from app.modules.nexus_spine.vanessa.builtin_tools import FindAnalogousDecisionsTool
+
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     from app.modules.nexus_spine.vanessa.tools import ToolCall
 
     tool = FindAnalogousDecisionsTool()
@@ -796,9 +801,9 @@ async def vanessa_ask(
     require_workspace_access(body.workspace_id, auth)
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     query = VanessaQuery(
         query=body.query,
         requester_id=auth.user_id or "api",
@@ -808,7 +813,9 @@ async def vanessa_ask(
         arguments=body.arguments,
     )
     answer = get_vanessa().ask(query)
-    return _envelope(request, answer.to_dict(), correlation_id=request.headers.get("X-Correlation-Id"))
+    return _envelope(
+        request, answer.to_dict(), correlation_id=request.headers.get("X-Correlation-Id")
+    )
 
 
 @router.get("/vanessa/tools")
@@ -832,18 +839,19 @@ async def list_computed_risks(
     auth: AuthContext = Depends(get_current_user),
 ) -> ApiEnvelope:
     """Compute the risk registry from live world state (Phase C).
-    
+
     Aggregates signals, blast radius, and exposure into ranked
     RiskAssessments. Every response is deterministic given identical world
     state.
     """
     require_workspace_access(workspace_id, auth)
     from app.modules.nexus_spine.risk import get_risk_engine
+
     try:
         ws_uuid = UUID(workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
     risks = get_risk_engine().compute(t_uuid, ws_uuid)
     return _envelope(
         request,
@@ -892,9 +900,9 @@ async def run_scenario(
     require_workspace_access(body.workspace_id, auth)
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
 
     from app.modules.nexus_spine.scenarios import (
         MutationKind,
@@ -937,9 +945,9 @@ async def compare_scenarios(
     require_workspace_access(body.workspace_id, auth)
     try:
         ws_uuid = UUID(body.workspace_id)
-        t_uuid = UUID(auth.user_id) if auth.user_id else uuid7()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid workspace_id")
+        t_uuid = UUID(auth.user_id) if auth.user_id else UUID(uuid7())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid workspace_id") from exc
 
     from app.modules.nexus_spine.scenarios import (
         MutationKind,
@@ -971,7 +979,6 @@ async def compare_scenarios(
     studio = get_scenario_studio()
     comparison = studio.compare(baseline_def, candidate_defs)
     return _envelope(request, comparison)
-
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1017,13 +1024,15 @@ async def advance_decision(
 
     try:
         target = DecisionPhase(body.target_phase)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"invalid target_phase: {body.target_phase}")
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"invalid target_phase: {body.target_phase}"
+        ) from exc
 
     try:
         transition = lifecycle.advance(target, actor=body.actor_id, reason=body.reason)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _envelope(
         request,
         {
@@ -1048,7 +1057,11 @@ async def approve_decision(
     if lc is None:
         raise HTTPException(status_code=404, detail="decision not found")
 
-    valid_for_approval = {DecisionPhase.AWAITING_APPROVAL, DecisionPhase.SIMULATED, DecisionPhase.POLICY_CHECKED}
+    valid_for_approval = {
+        DecisionPhase.AWAITING_APPROVAL,
+        DecisionPhase.SIMULATED,
+        DecisionPhase.POLICY_CHECKED,
+    }
     if lc.phase not in valid_for_approval:
         raise HTTPException(status_code=409, detail=f"Cannot approve in phase {lc.phase.value}")
 

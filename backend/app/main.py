@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import signal
 from contextlib import asynccontextmanager
 
@@ -47,11 +48,12 @@ async def lifespan(app: FastAPI):
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        try:  # noqa: SIM105 - Windows lacks add_signal_handler; ignore gracefully
+        # Windows lacks add_signal_handler (NotImplementedError), and a
+        # non-main thread cannot install signal handlers (ValueError) — e.g.
+        # the SSE contract test runs uvicorn in a worker thread. Installing
+        # handlers is best-effort in both cases.
+        with contextlib.suppress(NotImplementedError, ValueError):
             loop.add_signal_handler(sig, _signal_handler, sig, None)
-        except NotImplementedError:
-            # Windows doesn't support add_signal_handler
-            pass
 
     try:
         yield

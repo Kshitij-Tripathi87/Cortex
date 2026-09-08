@@ -145,7 +145,7 @@ class DecisionService:
 
         except Exception as e:
             return DecisionServiceResult(
-                decision=None,  # type: ignore
+                decision=None,
                 success=False,
                 warnings=warnings,
                 error=str(e),
@@ -177,7 +177,7 @@ class DecisionService:
             decision_exists = await self._verify_decision_exists(decision_id, workspace_id)
             if not decision_exists:
                 return OutcomeServiceResult(
-                    outcome=None,  # type: ignore
+                    outcome=None,
                     success=False,
                     warnings=["Decision not found"],
                 )
@@ -208,7 +208,7 @@ class DecisionService:
 
         except Exception as e:
             return OutcomeServiceResult(
-                outcome=None,  # type: ignore
+                outcome=None,
                 success=False,
                 warnings=warnings + [str(e)],
             )
@@ -241,7 +241,7 @@ class DecisionService:
             decision_exists = await self._verify_decision_exists(decision_id, workspace_id)
             if not decision_exists:
                 return LessonServiceResult(
-                    lesson=None,  # type: ignore
+                    lesson=None,
                     success=False,
                     warnings=["Decision not found"],
                 )
@@ -274,7 +274,7 @@ class DecisionService:
 
         except Exception as e:
             return LessonServiceResult(
-                lesson=None,  # type: ignore
+                lesson=None,
                 success=False,
                 warnings=warnings + [str(e)],
             )

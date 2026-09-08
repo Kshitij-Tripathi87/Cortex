@@ -1,5 +1,4 @@
-"""Strategic Sourcing & Purchase Reorder Agents — Groups D3 & D4.
-"""
+"""Strategic Sourcing & Purchase Reorder Agents — Groups D3 & D4."""
 
 from __future__ import annotations
 
@@ -63,7 +62,9 @@ class PurchaseReorderAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def draft_reorder(self, supplier_id: str, quantity: int = 50, unit_price_usd: float = 42.0) -> dict[str, Any]:
+    def draft_reorder(
+        self, supplier_id: str, quantity: int = 50, unit_price_usd: float = 42.0
+    ) -> dict[str, Any]:
         total_amount = quantity * unit_price_usd
         return {
             "agent_id": self.agent_id,

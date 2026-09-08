@@ -16,7 +16,7 @@ list/get/delete surface.
 
 from __future__ import annotations
 
-from typing import TypeVar
+from typing import Generic, TypeVar
 from uuid import UUID
 
 from sqlalchemy import select
@@ -39,7 +39,10 @@ from app.modules.supply_chain.models import (
 ModelT = TypeVar("ModelT")
 
 
-class WorkspaceScopedRepository[ModelT]:
+# Generic[ModelT] instead of PEP 695 `class X[ModelT]:` so the module
+# also parses on Python 3.11 (kept 3.11-compatible for local test runs;
+# semantically identical to the type-parameter form).
+class WorkspaceScopedRepository(Generic[ModelT]):  # noqa: UP046
     """Base class — every query automatically filters by current workspace_id."""
 
     _model: type[ModelT]

@@ -47,16 +47,52 @@ AUTH_HELPERS = (
 
 # Paths that are explicitly PUBLIC. Adding a new entry requires an
 # audit note in `docs/architecture/ENDPOINT_AUTHZ_AUDIT.md`.
-PUBLIC_PATHS: frozenset[str] = frozenset({
-    "/workflo/health",
-})
+PUBLIC_PATHS: frozenset[str] = frozenset(
+    {
+        "/workflo/health",
+        # app/api/v1/auth.py — MVP login: issues the bearer token itself, so
+        # it cannot require one. Authenticates email+password against the
+        # user table before issuing a short-lived HS256 token. Invisible to
+        # earlier audit runs because auth.py carried a UTF-8 BOM that made
+        # ast.parse raise SyntaxError (silently skipped); the BOM was removed
+        # during the 2026-09 lint paydown. Audit note: D3h.
+        "/login",
+    }
+)
 
 # Paths that are KNOWN_DEBT. Each must be tracked in the audit doc
 # above and fixed in a dedicated, non-bundled PR. The list is
 # authoritative — if a path is here, the audit doc has it; if a
 # path is in the audit doc but not here, the doc needs updating.
 # All 29 legacy debt routes have been paid down and gated (0 remaining debt).
-KNOWN_DEBT: frozenset[str] = frozenset()
+#
+# 2026-09 (v0.8.2 routing flip): pinned the 15 Program S "Live Data
+# Intelligence Workspace" demo routes (app/api/v1/workspace.py). They run
+# an in-memory demo workspace with no auth gate by design. They were
+# invisible to earlier audit runs because workspace.py could not be
+# parsed by the AST scanner on Python 3.11 (PEP 701 f-strings; since
+# made 3.11-compatible). Gating them is a product decision tracked as
+# follow-up D3g in docs/architecture/ENDPOINT_AUTHZ_AUDIT.md.
+KNOWN_DEBT: frozenset[str] = frozenset(
+    {
+        # app/api/v1/workspace.py — Program S demo workspace (D3g)
+        "/append-stream",
+        "/decisions/evidence",
+        "/decisions/validity",
+        "/deliberate",
+        "/demo/load",
+        "/graph/critical-nodes",
+        "/graph/delta",
+        "/graph/subgraph",
+        "/ingest-raw",
+        "/query/ask",
+        "/query/readiness",
+        "/signals",
+        "/state",
+        "/stream",
+        "/upload",
+    }
+)
 
 
 class RouteInfo(NamedTuple):
@@ -113,9 +149,7 @@ def _enumerate_routes() -> list[RouteInfo]:
                         else "?"
                     )
                     method = dec.func.attr.upper()
-                    func_text = "\n".join(
-                        lines[node.lineno - 1 : node.end_lineno]
-                    )
+                    func_text = "\n".join(lines[node.lineno - 1 : node.end_lineno])
                     gated = any(h in func_text for h in AUTH_HELPERS)
                     routes.append(
                         RouteInfo(
@@ -137,6 +171,7 @@ def all_routes() -> list[RouteInfo]:
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Sanity — the audit actually scans the real codebase
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestAuditCoverage:
     """The audit must scan every router file and find a non-trivial
@@ -171,6 +206,7 @@ class TestAuditCoverage:
 # 2. Known-debt state is pinned — current ungated set must not change
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestKnownDebtIsPinned:
     """The set of KNOWN_DEBT paths is the audited list of ungated
     routes. It MUST match what the codebase actually contains — if a
@@ -204,6 +240,7 @@ class TestKnownDebtIsPinned:
 #    paths may be ungated
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPublicSurfaceIsExact:
     def test_public_set_is_nonempty(self):
         # If a future cleanup empties the public set, the test would
@@ -228,14 +265,13 @@ class TestPublicSurfaceIsExact:
         # A path that is both PUBLIC and KNOWN_DEBT would be a logical
         # bug — pick one.
         overlap = PUBLIC_PATHS & KNOWN_DEBT
-        assert not overlap, (
-            f"These paths are in both PUBLIC and KNOWN_DEBT: {sorted(overlap)}"
-        )
+        assert not overlap, f"These paths are in both PUBLIC and KNOWN_DEBT: {sorted(overlap)}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Gated routes really do reference an auth helper
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestGatedRoutesAreValid:
     """If a route is marked GATED, the function body MUST reference one

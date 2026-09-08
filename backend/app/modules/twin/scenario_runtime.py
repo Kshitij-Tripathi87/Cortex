@@ -151,7 +151,9 @@ class ScenarioEventGenerator:
                     event_type="supplier_delayed",
                     payload={
                         "delay_days": delay_days,
-                        "disruption_type": self.scenario.parameters.get("disruption_type", "factory_fire"),
+                        "disruption_type": self.scenario.parameters.get(
+                            "disruption_type", "factory_fire"
+                        ),
                     },
                 )
             )
@@ -164,7 +166,9 @@ class ScenarioEventGenerator:
                     event_type="supplier_capacity_changed",
                     payload={
                         "capacity_pct": capacity_pct,
-                        "disruption_type": self.scenario.parameters.get("disruption_type", "factory_fire"),
+                        "disruption_type": self.scenario.parameters.get(
+                            "disruption_type", "factory_fire"
+                        ),
                     },
                 )
             )
@@ -521,7 +525,10 @@ class PropagationEngine:
                         entity_type="shipment",
                         entity_id=var.entity_id,
                         event_type="transit_time_changed",
-                        payload={"delay_hours": delay_hours, "reason": f"route_{route_id}_disruption"},
+                        payload={
+                            "delay_hours": delay_hours,
+                            "reason": f"route_{route_id}_disruption",
+                        },
                         occurred_at=event.occurred_at + timedelta(hours=1),
                     )
                 )
@@ -636,7 +643,9 @@ class TrajectoryRecorder:
         import hashlib
         import json
 
-        canonical = json.dumps(self.snapshots, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        canonical = json.dumps(self.snapshots, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
         return hashlib.sha256(canonical).hexdigest()
 
 
@@ -767,7 +776,9 @@ class ScenarioRuntime:
             )
             raise
 
-    async def _get_twin_current_state(self, twin: DigitalTwin, snapshot: WorldSnapshot) -> WorldState:
+    async def _get_twin_current_state(
+        self, twin: DigitalTwin, snapshot: WorldSnapshot
+    ) -> WorldState:
         """Get the twin's current state (latest run or snapshot)."""
         latest_run = await self.repo.get_latest_run(twin.twin_id, twin.workspace_id)
         if latest_run is not None:
@@ -782,9 +793,7 @@ class ScenarioRuntime:
             raise IsolationError(f"Parent world state version {snapshot.version} not found")
         return state
 
-    def _state_from_run(
-        self, twin: DigitalTwin, snapshot: WorldSnapshot, run: Any
-    ) -> WorldState:
+    def _state_from_run(self, twin: DigitalTwin, snapshot: WorldSnapshot, run: Any) -> WorldState:
         """Reconstruct a WorldState from a persisted twin run's final variables."""
         variables: dict[str, StateVariable] = {}
         for vid, vdata in (run.final_variables or {}).items():
@@ -812,9 +821,7 @@ class ScenarioRuntime:
             state, metadata={"state_hash": run.final_state_hash or compute_state_hash(state)}
         )
 
-    def _to_fake_event(
-        self, event: ScenarioEvent, world_id: str, workspace_id: str
-    ) -> Any:
+    def _to_fake_event(self, event: ScenarioEvent, world_id: str, workspace_id: str) -> Any:
         """Convert ScenarioEvent to FakeEvent for projection."""
         from app.modules.twin.twin_validation_helpers import make_fake_event
 

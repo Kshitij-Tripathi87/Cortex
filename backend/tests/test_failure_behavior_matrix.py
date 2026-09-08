@@ -42,6 +42,7 @@ from app.infrastructure.security import AuthContext, require_workspace_access
 # 1. Error envelope wire contract — every error has a frozen code + http
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestErrorEnvelopeContract:
     """The wire envelope is a contract: every error has a frozen code,
     a HTTP status, and a deterministic shape. Frontend depends on this
@@ -90,6 +91,7 @@ class TestErrorEnvelopeContract:
 # 2. Idempotency record / conflict — the wire contract
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestIdempotencyContract:
     """An IdempotencyRecord is the canonical form; IdempotencyConflictError
     is what gets raised on concurrent key reuse."""
@@ -121,6 +123,7 @@ class TestIdempotencyContract:
 # 3. AuthN / AuthZ — fail-closed, server-side
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestAuthNContract:
     """AuthContext is the principal; require_workspace_access is the
     gate. The contract: a missing workspace is 403, never a silent
@@ -138,6 +141,7 @@ class TestAuthNContract:
 
     def test_require_workspace_access_raises_403(self):
         from fastapi import HTTPException
+
         auth = AuthContext(user_id="u1", workspace_ids=["ws_A"], roles=["analyst"])
         with pytest.raises(HTTPException) as exc_info:
             require_workspace_access(workspace_id="ws_B", auth=auth)
@@ -152,6 +156,7 @@ class TestAuthNContract:
 
     def test_require_workspace_access_empty_id_raises_404(self):
         from fastapi import HTTPException
+
         auth = AuthContext(user_id="u1", workspace_ids=["ws_A"], roles=["analyst"])
         with pytest.raises(HTTPException) as exc_info:
             require_workspace_access(workspace_id="", auth=auth)
@@ -167,14 +172,13 @@ class TestAuthNContract:
 # 4. World-state version conflict — VersionConflictError is the contract
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestWorldStateVersionConflict:
     """A write referencing an old `world_state_version` MUST be rejected
     with VersionConflictError. No silent merge."""
 
     def test_version_conflict_error_is_a_409(self):
-        e = VersionConflictError(
-            "stale world state version: expected 2, got 1"
-        )
+        e = VersionConflictError("stale world state version: expected 2, got 1")
         assert e.http_status == 409
         assert "stale" in e.message or "version" in e.message.lower()
 
@@ -182,6 +186,7 @@ class TestWorldStateVersionConflict:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Concurrency — 10 concurrent writers don't corrupt the world state
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestConcurrencyContract:
     """10 concurrent writers against the same world must all either
@@ -214,6 +219,7 @@ class TestConcurrencyContract:
 # 6. Correlation / request IDs propagate end-to-end
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRequestIDPropagation:
     """A request_id supplied to the API must be visible in the response
     and in the error envelope, so logs and traces stitch together."""
@@ -234,6 +240,7 @@ class TestRequestIDPropagation:
         assert len(rid) == 36
         # All hex chars in the four groups, separated by hyphens at 8/13/18/23.
         import re
+
         assert re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", rid)
 
     def test_request_id_round_trips_through_validation_error(self):

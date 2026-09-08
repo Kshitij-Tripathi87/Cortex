@@ -81,7 +81,9 @@ class OlistLogisticsPipeline:
 
                     planned_days = max(1.0, (estimated_dt - purchase_dt).total_seconds() / 86400.0)
                     elapsed_days = max(0.1, (customer_dt - purchase_dt).total_seconds() / 86400.0)
-                    dispatch_delay_days = max(0.0, (carrier_dt - purchase_dt).total_seconds() / 86400.0)
+                    dispatch_delay_days = max(
+                        0.0, (carrier_dt - purchase_dt).total_seconds() / 86400.0
+                    )
 
                     # Estimate congestion index from dispatch delay
                     congestion_idx = min(1.0, dispatch_delay_days / 7.0)

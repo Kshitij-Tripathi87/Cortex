@@ -8,12 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
-
-# Copy application code
+# Copy application code first: an editable install needs the `app` package
+# present or setuptools fails with "package directory 'app' does not exist".
+# (Copying only pyproject.toml before `pip install -e` broke every build.)
 COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -e ".[dev]"
 
 # Expose port
 EXPOSE 8000

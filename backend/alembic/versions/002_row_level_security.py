@@ -66,12 +66,8 @@ def upgrade() -> None:
     )
     # 1. Add tenant_id column (nullable for backfill; FORCEd RLS still gates access)
     for table in _TENANT_WORKSPACE_TABLES + _TENANT_ONLY_TABLES:
-        op.execute(
-            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(36)"
-        )
-        op.execute(
-            f"CREATE INDEX IF NOT EXISTS ix_{table}_tenant_id ON {table} (tenant_id)"
-        )
+        op.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(36)")
+        op.execute(f"CREATE INDEX IF NOT EXISTS ix_{table}_tenant_id ON {table} (tenant_id)")
 
     # 2. Enable RLS on every tenant-scoped table
     for table in _TENANT_WORKSPACE_TABLES + _TENANT_ONLY_TABLES:

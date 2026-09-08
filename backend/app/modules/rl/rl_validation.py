@@ -79,7 +79,9 @@ class RLResearchValidator:
 
         nominal_rollout = self.collector.collect_trajectory(env_nominal, policy)
         shifted_rl_rollout = self.collector.collect_trajectory(env_shifted_rl, policy)
-        shifted_base_rollout = self.collector.collect_trajectory(env_shifted_base, self.baseline_policy)
+        shifted_base_rollout = self.collector.collect_trajectory(
+            env_shifted_base, self.baseline_policy
+        )
 
         # 3. Check for safety violations
         safety_violations = 0
@@ -88,16 +90,22 @@ class RLResearchValidator:
             if tr.action.cost_usd > 75000.0:
                 safety_violations += 1
             # Check for illegal transfer from zero-inventory warehouse
-            if tr.action.action_type == ActionType.TRANSFER_INVENTORY and tr.state.total_inventory <= 0:
+            if (
+                tr.action.action_type == ActionType.TRANSFER_INVENTORY
+                and tr.state.total_inventory <= 0
+            ):
                 safety_violations += 1
 
         retention = (
-            (shifted_rl_rollout.cumulative_reward / max(1e-4, nominal_rollout.cumulative_reward)) * 100.0
+            (shifted_rl_rollout.cumulative_reward / max(1e-4, nominal_rollout.cumulative_reward))
+            * 100.0
             if nominal_rollout.cumulative_reward != 0
             else 100.0
         )
 
-        is_robust = (shifted_rl_rollout.cumulative_reward >= shifted_base_rollout.cumulative_reward) and (safety_violations == 0)
+        is_robust = (
+            shifted_rl_rollout.cumulative_reward >= shifted_base_rollout.cumulative_reward
+        ) and (safety_violations == 0)
 
         return DistributionShiftResult(
             severity_multiplier=severity_multiplier,

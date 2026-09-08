@@ -163,17 +163,19 @@ class ProposalSimulator:
                 baseline_hash,
             )
 
-            options.append(ProposalOption(
-                agent_id=proposal.agent_id,
-                agent_family=proposal.agent_family,
-                action=proposal.action,
-                cost_usd=cost,
-                delay_days=delay,
-                risk_score=risk,
-                nev_usd=round(nev, 2),
-                sla_breach_pct=round(risk * 100, 1),
-                option_hash=option_hash,
-            ))
+            options.append(
+                ProposalOption(
+                    agent_id=proposal.agent_id,
+                    agent_family=proposal.agent_family,
+                    action=proposal.action,
+                    cost_usd=cost,
+                    delay_days=delay,
+                    risk_score=risk,
+                    nev_usd=round(nev, 2),
+                    sla_breach_pct=round(risk * 100, 1),
+                    option_hash=option_hash,
+                )
+            )
 
         # Sort by NEV descending (deterministic — same inputs → same order)
         options.sort(key=lambda o: (-o.nev_usd, o.agent_id))

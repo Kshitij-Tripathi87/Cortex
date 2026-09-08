@@ -7,11 +7,9 @@ nothing renders without a supporting tool result and evidence trail.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Literal
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 

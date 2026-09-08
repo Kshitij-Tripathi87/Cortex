@@ -1,5 +1,4 @@
-"""Finance Validation, Documentation & Audit Agents — Groups B1, B3, B4.
-"""
+"""Finance Validation, Documentation & Audit Agents — Groups B1, B3, B4."""
 
 from __future__ import annotations
 
@@ -40,7 +39,9 @@ class FinanceValidationAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def validate_budget(self, amount_usd: float, cost_center: str = "LOGISTICS_EXPEDITE") -> FinanceVerdict:
+    def validate_budget(
+        self, amount_usd: float, cost_center: str = "LOGISTICS_EXPEDITE"
+    ) -> FinanceVerdict:
         budget_res = DomainToolRegistry.check_spend_budget(amount_usd, cost_center)
         is_ok = budget_res.status == "SUCCESS"
 

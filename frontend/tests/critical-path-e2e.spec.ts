@@ -66,11 +66,15 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
   test('nexus console renders operational graph + signal panel', async ({ page }) => {
     await page.goto(`${BASE_URL}/nexus`);
     await expect(page.locator('h1, h2').first()).toBeVisible();
-    // Either the graph is rendered OR an empty/error state is shown
-    // — never an unhandled error or blank page.
-    const hasGraph = await page.locator('.graph-svg, [data-testid="graph-canvas"]').count();
-    const hasStateText = await page.locator('text=/loading|error|empty|workspace/i').count();
-    expect(hasGraph + hasStateText).toBeGreaterThan(0);
+    // The console always renders its section tabs (Overview, Data,
+    // World, Signals, ...). The operational graph itself
+    // (svg[aria-label="Operational graph"]) only renders when the
+    // workspace has nodes — an empty workspace must still show the
+    // console shell, never a blank page.
+    const tabs = page.locator('nav button, aside button, button');
+    for (const tab of ['Overview', 'Data', 'World', 'Signals', 'Decisions']) {
+      await expect(tabs.filter({ hasText: tab }).first()).toBeVisible({ timeout: 10_000 });
+    }
   });
 });
 
@@ -138,16 +142,19 @@ test.describe('Live stack smoke (skipped without backend)', () => {
 
   test('live /healthz is 200', async () => {
     const res: APIResponse = await fetch(`${BACKEND}/healthz`) as unknown as APIResponse;
-    expect(res.status).toBe(200);
+    // The second argument surfaces the response body in the failure
+    // message (visible in CI annotations) — essential for /readyz, whose
+    // 503 payload lists the degraded component.
+    expect(res.status, `healthz body: ${await res.text()}`).toBe(200);
   });
 
   test('live /readyz is 200', async () => {
     const res: APIResponse = await fetch(`${BACKEND}/readyz`) as unknown as APIResponse;
-    expect(res.status).toBe(200);
+    expect(res.status, `readyz body: ${await res.text()}`).toBe(200);
   });
 
   test('live /metrics is 200', async () => {
     const res: APIResponse = await fetch(`${BACKEND}/metrics`) as unknown as APIResponse;
-    expect(res.status).toBe(200);
+    expect(res.status, `metrics body (first 200): ${(await res.text()).slice(0, 200)}`).toBe(200);
   });
 });

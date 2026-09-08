@@ -65,7 +65,9 @@ class Experiment(BaseModel):
     status: str = "created"
 
     # Results
-    metrics: dict[str, list[dict]] = {}  # metric_name -> [{"step": int, "value": float, "epoch": int}]
+    metrics: dict[
+        str, list[dict]
+    ] = {}  # metric_name -> [{"step": int, "value": float, "epoch": int}]
     best_metrics: dict[str, float] = {}
     best_epoch: int = 0
 
@@ -245,12 +247,14 @@ class ExperimentManager:
 
         if metric_name not in exp["metrics"]:
             exp["metrics"][metric_name] = []
-        exp["metrics"][metric_name].append({
-            "step": step,
-            "value": value,
-            "epoch": epoch,
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
+        exp["metrics"][metric_name].append(
+            {
+                "step": step,
+                "value": value,
+                "epoch": epoch,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
 
         # Update best metrics
         if metric_name not in exp["best_metrics"] or value > exp["best_metrics"][metric_name]:
@@ -272,19 +276,23 @@ class ExperimentManager:
         if not exp:
             return False
 
-        exp["artifacts"].append({
-            "name": name,
-            "type": artifact_type,
-            "path": path,
-            "size_bytes": size_bytes,
-            "checksum": checksum,
-            "content_type": content_type,
-            "metadata": metadata or {},
-            "uploaded_at": datetime.now(UTC).isoformat(),
-        })
+        exp["artifacts"].append(
+            {
+                "name": name,
+                "type": artifact_type,
+                "path": path,
+                "size_bytes": size_bytes,
+                "checksum": checksum,
+                "content_type": content_type,
+                "metadata": metadata or {},
+                "uploaded_at": datetime.now(UTC).isoformat(),
+            }
+        )
         return True
 
-    def complete_experiment(self, experiment_id: UUID, status: str = "completed", error: str | None = None) -> bool:
+    def complete_experiment(
+        self, experiment_id: UUID, status: str = "completed", error: str | None = None
+    ) -> bool:
         exp = self.experiments.get(str(experiment_id))
         if not exp:
             return False
@@ -318,7 +326,7 @@ class ExperimentManager:
             experiments = [e for e in experiments if any(t in e["tags"] for t in tags)]
 
         experiments.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        return experiments[offset:offset + limit]
+        return experiments[offset : offset + limit]
 
     def compare_experiments(
         self,
@@ -333,23 +341,25 @@ class ExperimentManager:
             if not exp:
                 continue
             metric_val = exp["best_metrics"].get(primary_metric)
-            experiments.append({
-                "experiment_id": str(exp["experiment_id"]),
-                "name": exp["name"],
-                "metric_value": metric_val,
-                "best_metrics": exp["best_metrics"],
-            })
+            experiments.append(
+                {
+                    "experiment_id": str(exp["experiment_id"]),
+                    "name": exp["name"],
+                    "metric_value": metric_val,
+                    "best_metrics": exp["best_metrics"],
+                }
+            )
 
         if not experiments:
             return {"error": "No valid experiments found"}
 
         # Rank
         reverse = higher_is_better
-        experiments.sort(key=lambda x: x["metric_value"] or -float('inf'), reverse=reverse)
+        experiments.sort(key=lambda x: x["metric_value"] or -float("inf"), reverse=reverse)
 
         for i, exp in enumerate(experiments):
             exp["rank"] = i + 1
-            exp["is_best"] = (i == 0)
+            exp["is_best"] = i == 0
 
         best_id = experiments[0]["experiment_id"] if experiments else None
 
@@ -388,31 +398,38 @@ class MLflowIntegration:
 
     def connect(self):
         import mlflow
+
         mlflow.set_tracking_uri(self.tracking_uri)
         self.client = mlflow.tracking.MlflowClient()
 
     def create_experiment(self, name: str) -> str:
         import mlflow
+
         return mlflow.create_experiment(name)
 
     def start_run(self, experiment_id: str, run_name: str | None = None):
         import mlflow
+
         return mlflow.start_run(experiment_id=experiment_id, run_name=run_name)
 
     def log_param(self, key: str, value: Any):
         import mlflow
+
         mlflow.log_param(key, value)
 
     def log_metric(self, key: str, value: float, step: int | None = None):
         import mlflow
+
         mlflow.log_metric(key, value, step=step)
 
     def log_artifact(self, path: str, artifact_path: str | None = None):
         import mlflow
+
         mlflow.log_artifact(path, artifact_path)
 
     def end_run(self, status: str = "FINISHED"):
         import mlflow
+
         mlflow.end_run(status=status)
 
 

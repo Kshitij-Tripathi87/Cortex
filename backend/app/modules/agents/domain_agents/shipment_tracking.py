@@ -50,11 +50,17 @@ class ShipmentTrackingAgent:
     def __init__(self, version: str = "v8", model_uri: str | None = None) -> None:
         self.agent_id = "shipment_tracking_agent"
         self.version = version
-        self.model_uri = model_uri or f"s3://cortex-models/agents/{self.agent_id}/{version}/model.pt"
+        self.model_uri = (
+            model_uri or f"s3://cortex-models/agents/{self.agent_id}/{version}/model.pt"
+        )
         self.capability_manifest = SignedCapabilityManifest(
             agent_id=self.agent_id,
             version=self.version,
-            allowed_capabilities=[Capability.READ.value, Capability.PROPOSE.value, Capability.SIMULATE.value],
+            allowed_capabilities=[
+                Capability.READ.value,
+                Capability.PROPOSE.value,
+                Capability.SIMULATE.value,
+            ],
             allowed_tools=["get_shipment_telemetry", "get_port_congestion", "simulate_eta"],
             policy_id=f"policy_{self.agent_id}_{version}",
         )
@@ -66,15 +72,21 @@ class ShipmentTrackingAgent:
         """Analyze shipment trajectory and evaluate delay probability."""
         # 1. Enforce capability verification
         if not self.capability_manifest.verify():
-            raise PermissionError("Tampered or invalid capability manifest in ShipmentTrackingAgent.")
+            raise PermissionError(
+                "Tampered or invalid capability manifest in ShipmentTrackingAgent."
+            )
 
         # 2. Risk scoring calculation (Learned weights with fallback)
         base_progress = telemetry.elapsed_days / max(1.0, telemetry.planned_eta_days)
         congestion_penalty = telemetry.port_congestion_index * 4.0
         weather_penalty = telemetry.weather_severity * 2.5
 
-        predicted_delay = max(0.0, (congestion_penalty + weather_penalty) - (1.0 - base_progress) * 2.0)
-        risk_score = min(1.0, max(0.0, (predicted_delay / 5.0) * 0.8 + (telemetry.port_congestion_index * 0.2)))
+        predicted_delay = max(
+            0.0, (congestion_penalty + weather_penalty) - (1.0 - base_progress) * 2.0
+        )
+        risk_score = min(
+            1.0, max(0.0, (predicted_delay / 5.0) * 0.8 + (telemetry.port_congestion_index * 0.2))
+        )
 
         if risk_score > 0.65:
             status = "CRITICAL_DELAY"

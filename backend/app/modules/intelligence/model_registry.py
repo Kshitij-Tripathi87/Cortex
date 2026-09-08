@@ -16,6 +16,7 @@ from app.common.ids import uuid7
 
 class ModelType(StrEnum):
     """Supported model types."""
+
     GNN = "GNN"
     RL = "RL"
     RANKING = "RANKING"
@@ -25,6 +26,7 @@ class ModelType(StrEnum):
 
 class ModelStatus(StrEnum):
     """Model registration lifecycle status."""
+
     REGISTERED = "REGISTERED"
     VALIDATING = "VALIDATING"
     VALIDATED = "VALIDATED"
@@ -40,6 +42,7 @@ class ModelStatus(StrEnum):
 
 class DeploymentStatus(StrEnum):
     """Status of a deployed model."""
+
     DEPLOYING = "DEPLOYING"
     ACTIVE = "ACTIVE"
     SHADOW = "SHADOW"
@@ -49,6 +52,7 @@ class DeploymentStatus(StrEnum):
 
 class ModelHealth(StrEnum):
     """Health status of a model deployment."""
+
     HEALTHY = "HEALTHY"
     DEGRADED = "DEGRADED"
     UNHEALTHY = "UNHEALTHY"
@@ -152,7 +156,7 @@ class ModelRegistry:
             passed=True,
             metrics={"accuracy": 0.95, "f1_score": 0.94},
             baseline_comparison={"improvement": 0.05},
-            issues=[]
+            issues=[],
         )
 
         registration.validation_results = result
@@ -170,7 +174,7 @@ class ModelRegistry:
         result = CalibrationResult(
             calibration_score=0.98,
             reliability_diagram={"bins": 10, "ece": 0.02},
-            adjustments_applied={"temperature": 1.5}
+            adjustments_applied={"temperature": 1.5},
         )
 
         registration.calibration_results = result
@@ -194,7 +198,12 @@ class ModelRegistry:
             endpoint=target.endpoint,
             deployed_at=datetime.now(UTC),
             health=ModelHealth.HEALTHY,
-            metrics={"latency_p50_ms": 0.0, "latency_p99_ms": 0.0, "error_rate": 0.0, "inference_count": 0.0}
+            metrics={
+                "latency_p50_ms": 0.0,
+                "latency_p99_ms": 0.0,
+                "error_rate": 0.0,
+                "inference_count": 0.0,
+            },
         )
 
         self._deployments[deployment_id] = deployment
@@ -219,7 +228,11 @@ class ModelRegistry:
         # Demote current active models of the same type for this organization
         # Simplified: Demote all active models of this type
         for d in self._deployments.values():
-            if d.model_type == registration.model_type and d.status == DeploymentStatus.ACTIVE and d.deployment_id != deployment.deployment_id:
+            if (
+                d.model_type == registration.model_type
+                and d.status == DeploymentStatus.ACTIVE
+                and d.deployment_id != deployment.deployment_id
+            ):
                 d.status = DeploymentStatus.DRAINING
                 if d.model_id in self._registrations:
                     self._registrations[d.model_id].status = ModelStatus.DEPRECATED
@@ -271,7 +284,9 @@ class ModelRegistry:
     def get_deployment(self, model_id: str) -> ModelDeployment | None:
         return next((d for d in self._deployments.values() if d.model_id == model_id), None)
 
-    def list_models(self, org_id: str, model_type: ModelType | None = None) -> list[ModelRegistration]:
+    def list_models(
+        self, org_id: str, model_type: ModelType | None = None
+    ) -> list[ModelRegistration]:
         results = []
         for reg in self._registrations.values():
             if reg.organization_id == org_id:  # noqa: SIM102

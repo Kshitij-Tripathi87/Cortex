@@ -19,6 +19,7 @@ fabric and downstream consumers (signals engine, graph, UI) can react.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import threading
@@ -29,7 +30,6 @@ from uuid import UUID
 
 from app.modules.nexus_spine.ontology.core_types import (
     ENTITY_KIND_TO_DOMAIN,
-    EntityDomain,
     EntityKind,
     RelationshipKind,
 )
@@ -135,8 +135,12 @@ class WorldModelRepository:
 
             entity.updated_at = entity.updated_at or entity.created_at
             self._entities[key] = entity
-            self._by_natural_key[(entity.tenant_id, entity.workspace_id, entity.natural_key)] = entity.entity_id
-            self._by_kind[(entity.tenant_id, entity.workspace_id, entity.kind)].add(entity.entity_id)
+            self._by_natural_key[(entity.tenant_id, entity.workspace_id, entity.natural_key)] = (
+                entity.entity_id
+            )
+            self._by_kind[(entity.tenant_id, entity.workspace_id, entity.kind)].add(
+                entity.entity_id
+            )
             for tag in entity.tags:
                 self._by_tag[(entity.tenant_id, entity.workspace_id, tag)].add(entity.entity_id)
 
@@ -171,7 +175,9 @@ class WorldModelRepository:
                 return None
             return self._entities.get((tenant_id, workspace_id, entity_id))
 
-    def delete(self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID, *, actor: str = "system") -> bool:
+    def delete(
+        self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID, *, actor: str = "system"
+    ) -> bool:
         with self._lock:
             key = (tenant_id, workspace_id, entity_id)
             entity = self._entities.pop(key, None)
@@ -200,14 +206,22 @@ class WorldModelRepository:
             if q.kinds:
                 candidate_ids: set[UUID] = set()
                 for kind in q.kinds:
-                    candidate_ids.update(self._by_kind.get((q.tenant_id, q.workspace_id, kind), set()))
-                candidates = [self._entities[(q.tenant_id, q.workspace_id, eid)] for eid in candidate_ids]
+                    candidate_ids.update(
+                        self._by_kind.get((q.tenant_id, q.workspace_id, kind), set())
+                    )
+                candidates = [
+                    self._entities[(q.tenant_id, q.workspace_id, eid)] for eid in candidate_ids
+                ]
             elif q.domain:
                 candidate_ids: set[UUID] = set()
                 for kind, dom in ENTITY_KIND_TO_DOMAIN.items():
                     if dom == q.domain:
-                        candidate_ids.update(self._by_kind.get((q.tenant_id, q.workspace_id, kind), set()))
-                candidates = [self._entities[(q.tenant_id, q.workspace_id, eid)] for eid in candidate_ids]
+                        candidate_ids.update(
+                            self._by_kind.get((q.tenant_id, q.workspace_id, kind), set())
+                        )
+                candidates = [
+                    self._entities[(q.tenant_id, q.workspace_id, eid)] for eid in candidate_ids
+                ]
             elif q.natural_keys:
                 candidates = []
                 for nk in q.natural_keys:
@@ -218,7 +232,9 @@ class WorldModelRepository:
                             candidates.append(ent)
             else:
                 candidates = [
-                    e for (t, w, _), e in self._entities.items() if t == q.tenant_id and w == q.workspace_id
+                    e
+                    for (t, w, _), e in self._entities.items()
+                    if t == q.tenant_id and w == q.workspace_id
                 ]
 
             items = list(candidates)
@@ -230,8 +246,7 @@ class WorldModelRepository:
             if q.text_search:
                 needle = q.text_search.lower()
                 items = [
-                    e for e in items
-                    if needle in e.name.lower() or needle in e.description.lower()
+                    e for e in items if needle in e.name.lower() or needle in e.description.lower()
                 ]
             total = len(items)
             page = items[q.offset : q.offset + q.limit]
@@ -252,9 +267,7 @@ class WorldModelRepository:
         with self._lock:
             if kind is not None:
                 return len(self._by_kind.get((tenant_id, workspace_id, kind), set()))
-            return sum(
-                1 for (t, w, _) in self._entities if t == tenant_id and w == workspace_id
-            )
+            return sum(1 for (t, w, _) in self._entities if t == tenant_id and w == workspace_id)
 
     # ── Relationships ──────────────────────────────────────────────────────
 
@@ -305,7 +318,8 @@ class WorldModelRepository:
                 if depth >= max_depth:
                     continue
                 edges = (
-                    self._out_edges.get(current, []) if direction in ("out", "both")
+                    self._out_edges.get(current, [])
+                    if direction in ("out", "both")
                     else self._in_edges.get(current, [])
                 )
                 if direction == "both":
@@ -362,12 +376,18 @@ class WorldModelRepository:
     # ── Internals ──────────────────────────────────────────────────────────
 
     def _publish_event(self, **payload: Any) -> None:
-        event = {"timestamp": __import__("datetime").datetime.now(__import__("datetime").UTC).isoformat(), **payload}
+        event = {
+            "timestamp": __import__("datetime")
+            .datetime.now(__import__("datetime").UTC)
+            .isoformat(),
+            **payload,
+        }
         self._published_events.append(event)
         for callback in self._change_subscribers:
-            try:
+            # Subscriber errors must not affect the world model — fail open
+            # at the subscription boundary but never corrupt the source of truth.
+            with contextlib.suppress(Exception):
                 callback(event)
-            except Exception:
                 # Subscriber errors must not affect the world model — fail open
                 # at the subscription boundary but never corrupt the source of
                 # truth.

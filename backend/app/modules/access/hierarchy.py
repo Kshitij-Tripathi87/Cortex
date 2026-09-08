@@ -117,9 +117,7 @@ class DeviceToken:
     device_name: str
     token_hash: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime = field(
-        default_factory=lambda: datetime.now(UTC) + timedelta(days=90)
-    )
+    expires_at: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=90))
     capabilities: list[str] = field(default_factory=list)
 
 
@@ -134,7 +132,9 @@ class EnterpriseIdentityStore:
         self._tokens: dict[str, DeviceToken] = {}  # token_hash -> DeviceToken
         self._user_workspaces: dict[str, set[str]] = {}  # user_id -> set(workspace_ids)
 
-    def create_organization(self, name: str, slug: str, owner_email: str) -> tuple[Organization, EnterpriseUser]:
+    def create_organization(
+        self, name: str, slug: str, owner_email: str
+    ) -> tuple[Organization, EnterpriseUser]:
         """Create a new tenant organization with an initial owner user."""
         org_id = f"org_{uuid7()}"
         user_id = f"usr_{uuid7()}"
@@ -174,7 +174,9 @@ class EnterpriseIdentityStore:
         self._users[user_id] = user
         return user
 
-    def create_project(self, org_id: str, name: str, description: str, creator_user_id: str) -> Project:
+    def create_project(
+        self, org_id: str, name: str, description: str, creator_user_id: str
+    ) -> Project:
         """Create a project within the organization."""
         if org_id not in self._orgs:
             raise ValueError(f"Organization '{org_id}' does not exist")

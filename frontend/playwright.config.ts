@@ -8,6 +8,11 @@ export default defineConfig({
   },
   retries: 0,
   workers: process.env.CI ? 1 : undefined,
+  // CI: list (console) + json (machine-readable, for the workflow's
+  // annotation step) + html (uploaded as an artifact). Local: list only.
+  reporter: process.env.CI
+    ? [['list'], ['json', { outputFile: '/tmp/pw.json' }], ['html', { open: 'never' }]]
+    : 'list',
 
   use: {
     headless: true,

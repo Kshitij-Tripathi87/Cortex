@@ -46,7 +46,9 @@ class IntelligenceGateway:
             if request.enable_shadow:
                 shadow_model = self.router.get_shadow_model(request.task)
                 if shadow_model:
-                    shadow_comp = await self._execute_shadow(model, shadow_model, request.input_data)
+                    shadow_comp = await self._execute_shadow(
+                        model, shadow_model, request.input_data
+                    )
 
             duration = (time.time() - start_time) * 1000
 
@@ -109,7 +111,9 @@ class IntelligenceGateway:
             if request.enable_shadow:
                 shadow_model = self.router.get_shadow_model(request.task)
                 if shadow_model:
-                    shadow_comp = await self._execute_shadow(model, shadow_model, request.input_data)
+                    shadow_comp = await self._execute_shadow(
+                        model, shadow_model, request.input_data
+                    )
 
             duration = (time.time() - start_time) * 1000
 
@@ -197,7 +201,9 @@ class IntelligenceGateway:
         except Exception as e:
             return {"error": str(e)}
 
-    def _record_telemetry(self, request: IntelligenceRequest, response: IntelligenceResponse) -> None:
+    def _record_telemetry(
+        self, request: IntelligenceRequest, response: IntelligenceResponse
+    ) -> None:
         pass
 
     def _check_calibration(self, model_id: str, output: dict[str, Any]) -> float:

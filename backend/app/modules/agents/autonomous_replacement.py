@@ -44,10 +44,16 @@ class AgentHealthSupervisor:
     def evaluate_replica_health(self, replica: AgentReplica) -> tuple[bool, str | None]:
         """Perform dual-track health evaluation across infra and behavioral signals."""
         if not replica.infra_metrics.is_infra_healthy:
-            return False, f"Infrastructure failure: Error rate {replica.infra_metrics.error_rate_pct}% or CPU {replica.infra_metrics.cpu_utilization_pct}%"
+            return (
+                False,
+                f"Infrastructure failure: Error rate {replica.infra_metrics.error_rate_pct}% or CPU {replica.infra_metrics.cpu_utilization_pct}%",
+            )
 
         if not replica.behavioral_metrics.is_behaviorally_healthy:
-            return False, f"Behavioral drift detected: Drift score {replica.behavioral_metrics.prediction_drift_score} or calibration error {replica.behavioral_metrics.calibration_error}"
+            return (
+                False,
+                f"Behavioral drift detected: Drift score {replica.behavioral_metrics.prediction_drift_score} or calibration error {replica.behavioral_metrics.calibration_error}",
+            )
 
         return True, None
 
@@ -61,7 +67,9 @@ class AgentHealthSupervisor:
         for rep in replicas:
             is_healthy, reason = self.evaluate_replica_health(rep)
             if not is_healthy:
-                degraded_count_by_version[rep.version] = degraded_count_by_version.get(rep.version, 0) + 1
+                degraded_count_by_version[rep.version] = (
+                    degraded_count_by_version.get(rep.version, 0) + 1
+                )
                 incident = await self._execute_hot_replacement(rep, reason or "Degraded health")
                 incidents.append(incident)
                 self._incidents.append(incident)
@@ -74,13 +82,17 @@ class AgentHealthSupervisor:
         for ver, deg_count in degraded_count_by_version.items():
             if deg_count >= 2 and (deg_count / total_by_version.get(ver, 1)) >= 0.5:
                 # Trigger cluster-wide version rollback
-                rollback_incident = await self._execute_version_rollback(agent_id, ver, workspace_id)
+                rollback_incident = await self._execute_version_rollback(
+                    agent_id, ver, workspace_id
+                )
                 incidents.append(rollback_incident)
                 self._incidents.append(rollback_incident)
 
         return incidents
 
-    async def _execute_hot_replacement(self, faulty_replica: AgentReplica, reason: str) -> HealthIncident:
+    async def _execute_hot_replacement(
+        self, faulty_replica: AgentReplica, reason: str
+    ) -> HealthIncident:
         """Execute autonomous hot replacement workflow:
         1. Quarantine degraded replica (stop traffic)
         2. Provision new replacement replica

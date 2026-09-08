@@ -225,6 +225,7 @@ class _WorldStateTracker:
         """
         if self._service is not None:
             from app.modules.events.event_models import EntityIngested
+
             event = EntityIngested(
                 event_id=f"evt_ingest_{uuid7()}",
                 world_id=self._w_id,
@@ -236,14 +237,18 @@ class _WorldStateTracker:
             )
             idem_key = f"{self._ws_id}.{entity_type}.{entity_id}"
             result = await self._service.submit_event(
-                event, idempotency_key=idem_key,
+                event,
+                idempotency_key=idem_key,
             )
             self._version = result.version
             return None
         else:
             assert self._memory is not None
             return self._memory.submit_entity_event(
-                entity_type, entity_id, event_type, payload,
+                entity_type,
+                entity_id,
+                event_type,
+                payload,
             )
 
     async def submit_outcome_event(
@@ -253,6 +258,7 @@ class _WorldStateTracker:
         """Submit an execution outcome event."""
         if self._service is not None:
             from app.modules.events.event_models import ExecutionOutcome
+
             event = ExecutionOutcome(
                 event_id=f"evt_outcome_{uuid7()}",
                 world_id=self._w_id,
@@ -285,6 +291,7 @@ ExecutionFn = Callable[[AgentProposal, dict[str, Any]], dict[str, Any]]
 def _default_supervisor(task: SwarmTask) -> list[AgentProposal]:
     """Real supervisor that reads context from SwarmTask (A5/A6/A7)."""
     from app.modules.nexus_spine.pipeline_stages import real_supervisor_fn
+
     return real_supervisor_fn(task)
 
 
@@ -296,8 +303,11 @@ def _default_twin_simulation(
 ) -> dict[str, Any]:
     """Real twin counterfactual simulator (A9 / V2.2)."""
     from app.modules.nexus_spine.pipeline_stages import twin_simulation_fn
+
     return twin_simulation_fn(
-        proposals, world, world_state_version=world_state_version,
+        proposals,
+        world,
+        world_state_version=world_state_version,
     )
 
 
@@ -306,12 +316,11 @@ def _default_policy_gate(
 ) -> dict[str, Any]:
     """Real policy gate (A8 partial)."""
     from app.modules.nexus_spine.pipeline_stages import policy_gate_fn
+
     return policy_gate_fn(proposals, twin_result)
 
 
-def _default_execution(
-    proposal: AgentProposal, approval: dict[str, Any]
-) -> dict[str, Any]:
+def _default_execution(proposal: AgentProposal, approval: dict[str, Any]) -> dict[str, Any]:
     """Real execution gate with hard rejection reasons (A8 / V2.2).
 
     Reads V2.2 context from the ``approval`` dict (injected by the
@@ -319,6 +328,7 @@ def _default_execution(
     ``_workspace_id``, ``_current_world_version``.
     """
     from app.modules.nexus_spine.pipeline_stages import execution_gate_fn
+
     return execution_gate_fn(
         proposal,
         approval,
@@ -429,14 +439,16 @@ class RealDataSpine:
             world_state_version=0,
             actor="spine.source_profiler",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="schema_discovery_and_profiling",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output=profile,
-            evidence_node_id=source_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="schema_discovery_and_profiling",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output=profile,
+                evidence_node_id=source_node.node_id,
+            )
+        )
 
         # ── Stage 3: Entity resolution ─────────────────────────────────
         started = datetime.now(UTC)
@@ -444,7 +456,10 @@ class RealDataSpine:
         entity_node = evidence.add_evidence_step(
             node_type="ENTITY",
             label=f"Resolved {entity_count} entities",
-            payload={"entity_count": entity_count, "types": [et.value for et in canonical_dataset.entity_types()]},
+            payload={
+                "entity_count": entity_count,
+                "types": [et.value for et in canonical_dataset.entity_types()],
+            },
             parent_node_id=last_evidence_node,
             relation="GROUNDED_IN",
         )
@@ -462,14 +477,16 @@ class RealDataSpine:
             world_state_version=0,
             actor="spine.entity_resolver",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="entity_resolution",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output={"entity_count": entity_count},
-            evidence_node_id=entity_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="entity_resolution",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output={"entity_count": entity_count},
+                evidence_node_id=entity_node.node_id,
+            )
+        )
 
         # ── Stage 4-5: Operational graph + metrics ─────────────────────
         started = datetime.now(UTC)
@@ -503,14 +520,16 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.graph_engine",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="operational_graph",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output=coverage.to_dict(),
-            evidence_node_id=graph_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="operational_graph",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output=coverage.to_dict(),
+                evidence_node_id=graph_node.node_id,
+            )
+        )
 
         # ── Stage 6: World State — write events for each entity ────────
         started = datetime.now(UTC)
@@ -538,14 +557,16 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.world_tracker",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="world_state",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output={"world_state_version": tracker.version, "events_written": events_written},
-            evidence_node_id=ws_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="world_state",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output={"world_state_version": tracker.version, "events_written": events_written},
+                evidence_node_id=ws_node.node_id,
+            )
+        )
 
         # ── Stage 7: Signal detection ──────────────────────────────────
         started = datetime.now(UTC)
@@ -574,14 +595,16 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.signal_detector",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="signal_detection",
-            status=signal_status,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output={"signal_count": len(signals)},
-            evidence_node_id=signal_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="signal_detection",
+                status=signal_status,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output={"signal_count": len(signals)},
+                evidence_node_id=signal_node.node_id,
+            )
+        )
 
         # ── Stage 8: Blast radius / RCA ────────────────────────────────
         started = datetime.now(UTC)
@@ -609,14 +632,16 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.rca_engine",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="blast_radius_rca",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output=blast_radius,
-            evidence_node_id=rca_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="blast_radius_rca",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output=blast_radius,
+                evidence_node_id=rca_node.node_id,
+            )
+        )
 
         # ── Stage 9-10: Agent selection + authorized context ───────────
         started = datetime.now(UTC)
@@ -631,7 +656,9 @@ class RealDataSpine:
             world_state_hash=ws_hash,
             graph_version=coverage.graph_version,
             incident_entity_id=incident_id,
-            incident_entity_type=EntityType(incident_type) if incident_type in EntityType.__members__ else EntityType.SUPPLIER,
+            incident_entity_type=EntityType(incident_type)
+            if incident_type in EntityType.__members__
+            else EntityType.SUPPLIER,
             affected_entity_ids=blast_radius.get("affected_entity_ids", []),
             signals=signals,
             blast_radius=blast_radius,
@@ -685,14 +712,16 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.supervisor",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="agent_selection_and_context",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output={"task_id": task.task_id, "signal_type": signal_type},
-            evidence_node_id=context_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="agent_selection_and_context",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output={"task_id": task.task_id, "signal_type": signal_type},
+                evidence_node_id=context_node.node_id,
+            )
+        )
 
         # ── Stage 11: Agent proposals ──────────────────────────────────
         started = datetime.now(UTC)
@@ -708,10 +737,7 @@ class RealDataSpine:
             for p in raw_proposals
         ]
         # Compute deterministic hash over canonical fields (now includes version)
-        proposals = [
-            replace(p, proposal_hash=compute_proposal_hash(p))
-            for p in proposals
-        ]
+        proposals = [replace(p, proposal_hash=compute_proposal_hash(p)) for p in proposals]
         result.agent_proposals = proposals
 
         proposal_node = evidence.add_evidence_step(
@@ -740,14 +766,16 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.agents",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="agent_proposals",
-            status=SpineStageStatus.SUCCESS if proposals else SpineStageStatus.SKIPPED,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output={"proposal_count": len(proposals)},
-            evidence_node_id=proposal_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="agent_proposals",
+                status=SpineStageStatus.SUCCESS if proposals else SpineStageStatus.SKIPPED,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output={"proposal_count": len(proposals)},
+                evidence_node_id=proposal_node.node_id,
+            )
+        )
 
         # ── Stage 12-13: Twin simulation + counterfactual ──────────────
         started = datetime.now(UTC)
@@ -786,18 +814,24 @@ class RealDataSpine:
             world_state_version=tracker.version,
             actor="spine.twin",
         )
-        result.stages.append(SpineStageResult(
-            stage_name="twin_simulation",
-            status=SpineStageStatus.SUCCESS if twin_result else SpineStageStatus.SKIPPED,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output=twin_result,
-            evidence_node_id=twin_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="twin_simulation",
+                status=SpineStageStatus.SUCCESS if twin_result else SpineStageStatus.SKIPPED,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output=twin_result,
+                evidence_node_id=twin_node.node_id,
+            )
+        )
 
         # ── Stage 14: Policy gate ──────────────────────────────────────────
         started = datetime.now(UTC)
-        policy_result = self._policy_fn(proposals, twin_result) if proposals else {"approved": False, "reason": "NO_PROPOSALS"}
+        policy_result = (
+            self._policy_fn(proposals, twin_result)
+            if proposals
+            else {"approved": False, "reason": "NO_PROPOSALS"}
+        )
 
         policy_node = evidence.add_evidence_step(
             node_type="DECISION",
@@ -872,17 +906,19 @@ class RealDataSpine:
             "approval_record": approval_record.to_dict(),
         }
 
-        result.stages.append(SpineStageResult(
-            stage_name="policy_gate_and_approval",
-            status=SpineStageStatus.SUCCESS,
-            started_at=started,
-            completed_at=datetime.now(UTC),
-            output={
-                "approved": policy_result.get("approved", False),
-                "approval_record": approval_record.to_dict(),
-            },
-            evidence_node_id=policy_node.node_id,
-        ))
+        result.stages.append(
+            SpineStageResult(
+                stage_name="policy_gate_and_approval",
+                status=SpineStageStatus.SUCCESS,
+                started_at=started,
+                completed_at=datetime.now(UTC),
+                output={
+                    "approved": policy_result.get("approved", False),
+                    "approval_record": approval_record.to_dict(),
+                },
+                evidence_node_id=policy_node.node_id,
+            )
+        )
 
         # ── Stage 16: Governed execution (V2.3) ────────────────────────────
         started = datetime.now(UTC)
@@ -958,14 +994,16 @@ class RealDataSpine:
                     relation="RESULTED_IN",
                 )
                 last_evidence_node = exec_node.node_id
-                result.stages.append(SpineStageResult(
-                    stage_name="execution",
-                    status=SpineStageStatus.SUCCESS,
-                    started_at=started,
-                    completed_at=datetime.now(UTC),
-                    output=execution_outcome.to_dict(),
-                    evidence_node_id=exec_node.node_id,
-                ))
+                result.stages.append(
+                    SpineStageResult(
+                        stage_name="execution",
+                        status=SpineStageStatus.SUCCESS,
+                        started_at=started,
+                        completed_at=datetime.now(UTC),
+                        output=execution_outcome.to_dict(),
+                        evidence_node_id=exec_node.node_id,
+                    )
+                )
             except GovernedExecutionError as exc:
                 # V2.4: AUTHORIZATION node records the denial (failure cause)
                 # even when execution is blocked — that's exactly the audit
@@ -995,29 +1033,41 @@ class RealDataSpine:
                     relation="RESULTED_IN",
                 )
                 last_evidence_node = exec_node.node_id
-                result.stages.append(SpineStageResult(
+                result.stages.append(
+                    SpineStageResult(
+                        stage_name="execution",
+                        status=SpineStageStatus.FAILED,
+                        started_at=started,
+                        completed_at=datetime.now(UTC),
+                        output={"blocked": True, "reason": exc.reason, "failures": exc.failures},
+                        error=str(exc),
+                        evidence_node_id=exec_node.node_id,
+                    )
+                )
+        else:
+            result.stages.append(
+                SpineStageResult(
                     stage_name="execution",
-                    status=SpineStageStatus.FAILED,
+                    status=SpineStageStatus.SKIPPED,
                     started_at=started,
                     completed_at=datetime.now(UTC),
-                    output={"blocked": True, "reason": exc.reason, "failures": exc.failures},
-                    error=str(exc),
-                    evidence_node_id=exec_node.node_id,
-                ))
-        else:
-            result.stages.append(SpineStageResult(
-                stage_name="execution",
-                status=SpineStageStatus.SKIPPED,
-                started_at=started,
-                completed_at=datetime.now(UTC),
-                output={"reason": "NOT_APPROVED" if not policy_result.get("approved") else "NO_PROPOSALS"},
-            ))
+                    output={
+                        "reason": "NOT_APPROVED"
+                        if not policy_result.get("approved")
+                        else "NO_PROPOSALS"
+                    },
+                )
+            )
 
         # ── Stage 17: Record outcome → World State event ───────────────────
         if execution_outcome is not None:
             outcome_dict = execution_outcome.to_dict()
             outcome_event = await tracker.submit_outcome_event(outcome_dict)
-            outcome_event_id = outcome_event.event_id if outcome_event else f"evt_outcome_{execution_outcome.execution_id}"
+            outcome_event_id = (
+                outcome_event.event_id
+                if outcome_event
+                else f"evt_outcome_{execution_outcome.execution_id}"
+            )
 
             # V2.4: OUTCOME evidence node (carries outcome_hash + provenance).
             last_v24_id = self._emit_v24(
@@ -1071,14 +1121,19 @@ class RealDataSpine:
                 "world_state_version": tracker.version,
                 "execution_outcome": outcome_dict,
             }
-            result.stages.append(SpineStageResult(
-                stage_name="outcome_recorded",
-                status=SpineStageStatus.SUCCESS,
-                started_at=datetime.now(UTC),
-                completed_at=datetime.now(UTC),
-                output={"event_id": outcome_event_id, "outcome_hash": execution_outcome.outcome_hash},
-                evidence_node_id=outcome_node.node_id,
-            ))
+            result.stages.append(
+                SpineStageResult(
+                    stage_name="outcome_recorded",
+                    status=SpineStageStatus.SUCCESS,
+                    started_at=datetime.now(UTC),
+                    completed_at=datetime.now(UTC),
+                    output={
+                        "event_id": outcome_event_id,
+                        "outcome_hash": execution_outcome.outcome_hash,
+                    },
+                    evidence_node_id=outcome_node.node_id,
+                )
+            )
 
         # ── V2.4: Evidence chain root replaces V2.3 chain hash.
         # V2.3 contract preserved: 64-char SHA-256 hex string. V2.4 adds
@@ -1092,9 +1147,7 @@ class RealDataSpine:
             "failures": v24_failures,
         }
         if not v24_ok:
-            raise RuntimeError(
-                f"V2.4 evidence chain failed self-verification: {v24_failures}"
-            )
+            raise RuntimeError(f"V2.4 evidence chain failed self-verification: {v24_failures}")
 
         # ── Finalize ───────────────────────────────────────────────────
         result.world_state_version = tracker.version
@@ -1128,9 +1181,7 @@ class RealDataSpine:
         return dataset.total_rows()
 
     @staticmethod
-    async def _write_world_events(
-        dataset: CanonicalDataset, tracker: _WorldStateTracker
-    ) -> int:
+    async def _write_world_events(dataset: CanonicalDataset, tracker: _WorldStateTracker) -> int:
         """Stage 6: write a WorldEvent for each entity in each table."""
         count = 0
         for entity_type, table in dataset.tables.items():
@@ -1167,56 +1218,67 @@ class RealDataSpine:
         for spof_id in analytics.high_dependency_spofs:
             node = graph_engine.nodes.get(spof_id)
             if node and node.node_type in ("SUPPLIER", "SELLER"):
-                signals.append({
-                    "signal_id": f"sig_{uuid7()[:8]}",
-                    "entity_id": spof_id,
-                    "entity_type": node.node_type,
-                    "signal_type": "SUPPLIER_DEGRADATION",
-                    "severity": "HIGH" if node.pagerank > (2.0 / len(graph_engine.nodes)) else "MEDIUM",
-                    "confidence": min(1.0, node.pagerank * len(graph_engine.nodes)),
-                    "metric_value": round(node.pagerank, 6),
-                    "baseline_threshold": 1.0 / max(1, len(graph_engine.nodes)),
-                    "deviation_pct": round(
-                        (node.pagerank - 1.0 / max(1, len(graph_engine.nodes)))
-                        / max(0.001, 1.0 / max(1, len(graph_engine.nodes)))
-                        * 100,
-                        1,
-                    ),
-                    "evidence": [f"pagerank={node.pagerank:.6f}", f"degree={len(graph_engine.adjacency.get(spof_id, set()))}"],
-                })
+                signals.append(
+                    {
+                        "signal_id": f"sig_{uuid7()[:8]}",
+                        "entity_id": spof_id,
+                        "entity_type": node.node_type,
+                        "signal_type": "SUPPLIER_DEGRADATION",
+                        "severity": "HIGH"
+                        if node.pagerank > (2.0 / len(graph_engine.nodes))
+                        else "MEDIUM",
+                        "confidence": min(1.0, node.pagerank * len(graph_engine.nodes)),
+                        "metric_value": round(node.pagerank, 6),
+                        "baseline_threshold": 1.0 / max(1, len(graph_engine.nodes)),
+                        "deviation_pct": round(
+                            (node.pagerank - 1.0 / max(1, len(graph_engine.nodes)))
+                            / max(0.001, 1.0 / max(1, len(graph_engine.nodes)))
+                            * 100,
+                            1,
+                        ),
+                        "evidence": [
+                            f"pagerank={node.pagerank:.6f}",
+                            f"degree={len(graph_engine.adjacency.get(spof_id, set()))}",
+                        ],
+                    }
+                )
 
         # Route congestion signal from critical routes
         for route_info in analytics.top_critical_routes[:3]:
             route_id = route_info["route_id"]
-            signals.append({
-                "signal_id": f"sig_{uuid7()[:8]}",
-                "entity_id": route_id,
-                "entity_type": "ROUTE",
-                "signal_type": "ROUTE_CONGESTION",
-                "severity": "HIGH" if route_info["active_orders"] > 10 else "MEDIUM",
-                "confidence": 0.85,
-                "metric_value": route_info["active_orders"],
-                "baseline_threshold": 5,
-                "deviation_pct": round((route_info["active_orders"] - 5) / max(1, 5) * 100, 1),
-                "evidence": [f"active_orders={route_info['active_orders']}"],
-            })
+            signals.append(
+                {
+                    "signal_id": f"sig_{uuid7()[:8]}",
+                    "entity_id": route_id,
+                    "entity_type": "ROUTE",
+                    "signal_type": "ROUTE_CONGESTION",
+                    "severity": "HIGH" if route_info["active_orders"] > 10 else "MEDIUM",
+                    "confidence": 0.85,
+                    "metric_value": route_info["active_orders"],
+                    "baseline_threshold": 5,
+                    "deviation_pct": round((route_info["active_orders"] - 5) / max(1, 5) * 100, 1),
+                    "evidence": [f"active_orders={route_info['active_orders']}"],
+                }
+            )
 
         # Concentration signal if gini is high
         if analytics.supplier_concentration_gini > 0.5:
-            signals.append({
-                "signal_id": f"sig_{uuid7()[:8]}",
-                "entity_id": "WORKSPACE",
-                "entity_type": "WORKSPACE",
-                "signal_type": "SUPPLIER_CONCENTRATION",
-                "severity": "HIGH" if analytics.supplier_concentration_gini > 0.7 else "MEDIUM",
-                "confidence": 0.90,
-                "metric_value": analytics.supplier_concentration_gini,
-                "baseline_threshold": 0.4,
-                "deviation_pct": round(
-                    (analytics.supplier_concentration_gini - 0.4) / 0.4 * 100, 1
-                ),
-                "evidence": [f"gini={analytics.supplier_concentration_gini:.3f}"],
-            })
+            signals.append(
+                {
+                    "signal_id": f"sig_{uuid7()[:8]}",
+                    "entity_id": "WORKSPACE",
+                    "entity_type": "WORKSPACE",
+                    "signal_type": "SUPPLIER_CONCENTRATION",
+                    "severity": "HIGH" if analytics.supplier_concentration_gini > 0.7 else "MEDIUM",
+                    "confidence": 0.90,
+                    "metric_value": analytics.supplier_concentration_gini,
+                    "baseline_threshold": 0.4,
+                    "deviation_pct": round(
+                        (analytics.supplier_concentration_gini - 0.4) / 0.4 * 100, 1
+                    ),
+                    "evidence": [f"gini={analytics.supplier_concentration_gini:.3f}"],
+                }
+            )
 
         return signals
 

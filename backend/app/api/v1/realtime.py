@@ -127,12 +127,14 @@ async def realtime_websocket_endpoint(
         # Default subscribe to all channels within authorized workspace
         await _gateway.subscribe(session_id, workspace_id, "*")
         await websocket.send_text(
-            json.dumps({
-                "type": "connection_established",
-                "session_id": session_id,
-                "workspace_id": workspace_id,
-                "tenant_id": tenant_id,
-            })
+            json.dumps(
+                {
+                    "type": "connection_established",
+                    "session_id": session_id,
+                    "workspace_id": workspace_id,
+                    "tenant_id": tenant_id,
+                }
+            )
         )
 
         while True:

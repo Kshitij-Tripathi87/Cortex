@@ -6,6 +6,38 @@ singletons with authoritative PostgreSQL-backed services, real multi-worker
 realtime via Redis Pub/Sub, a real AuthZ layer, and a structured Vanessa
 LLM pipeline.
 
+## v0.8.2 Closeout — Routing Flip & Dual-Path Removal (2026-09)
+
+The persistent PostgreSQL-backed router (`app/api/v1/nexus_persistent.py`)
+is the **only production authority** for the Nexus namespace. The v0.7
+in-memory routers were demoted to an explicit legacy namespace:
+
+```
+/api/v1/nexus/*              → canonical: persistent router
+                               (AsyncSession → PostgreSQL → Authoritative* services;
+                                NO fallback to v0.7 in-memory singletons)
+
+/api/v1/v07-legacy/nexus/*   → v0.7 in-memory routers, mounted ONLY when
+                               CORTEX_NEXUS_V07_LEGACY_ROUTES is explicitly
+                               enabled (unit tests, migration tooling,
+                               historical v0.7 demos). Default: not mounted.
+```
+
+Enforced by `tests/test_nexus_v082_routing_flip.py`:
+- the canonical surface is exactly the 14 persistent-router operations;
+- the old in-memory authoritative ops are gone from `/api/v1/nexus/*`;
+- a full HTTP lifecycle runs under legacy-singleton tripwires — the
+  legacy `DecisionLifecycleManager` / `DecisionMemory` / `TruthLoop` /
+  `ObservationStore` MUST NOT BE CALLED, and all state lands in the DB;
+- envelopes, status codes, error envelopes, and workspace authorization
+  are unchanged (only the backing implementation changed).
+
+The real-PostgreSQL `FOR UPDATE` guarantee (exactly one winner, exactly
+one 409, no duplicate audit transition, no corruption — at both service
+and HTTP level) is covered by `tests/test_nexus_v082_pg_concurrency.py`.
+
+Known follow-up (v0.9): remove the `/v07-legacy/*` mounts entirely.
+
 ## Core Invariant
 
 > **ONE AUTHORITATIVE WORLD, ONE TRACE, ONE GOVERNED DECISION LOOP, ONE EVIDENCE CHAIN.**

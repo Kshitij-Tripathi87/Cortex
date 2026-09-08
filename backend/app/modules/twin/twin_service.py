@@ -395,9 +395,7 @@ class TwinService:
         baseline_snapshot = await self.world_repo.get_snapshot(twin.snapshot_id, ws)
         if baseline_snapshot is None:
             raise IsolationError(f"Snapshot {twin.snapshot_id} not found for baseline state")
-        base_state = await self._validated_parent_state(
-            ws, twin.parent_world_id, baseline_snapshot
-        )
+        base_state = await self._validated_parent_state(ws, twin.parent_world_id, baseline_snapshot)
         kpi = self._compute_kpi(
             base_state,
             final_state,

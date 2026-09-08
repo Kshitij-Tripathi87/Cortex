@@ -119,9 +119,11 @@ class AgentRegistry:
         """List agents matching criteria."""
         res = []
         for reg in self._agents.values():
-            if reg.organization_id == org_id and (
-                workspace_id is None or reg.workspace_id == workspace_id
-            ) and (status is None or reg.status == status):
+            if (
+                reg.organization_id == org_id
+                and (workspace_id is None or reg.workspace_id == workspace_id)
+                and (status is None or reg.status == status)
+            ):
                 res.append(reg)
         return res
 
@@ -141,7 +143,7 @@ class AgentRegistry:
         reg = self.get(agent_id)
         if not reg:
             return False
-        return (
-            reg.status == AgentStatus.ACTIVE
-            and reg.health in {AgentHealth.HEALTHY, AgentHealth.DEGRADED}
-        )
+        return reg.status == AgentStatus.ACTIVE and reg.health in {
+            AgentHealth.HEALTHY,
+            AgentHealth.DEGRADED,
+        }

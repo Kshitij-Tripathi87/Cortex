@@ -134,6 +134,16 @@ class RealtimeBus:
         self._lock = threading.RLock()
         self._redis_tasks: dict[str, asyncio.Task[None]] = {}
         self._redis_client: Any = None  # RedisClient | False | None
+        # Seq-source stickiness: the workspace whose first allocation fell
+        # back to the local counter stays on the local counter for the
+        # process lifetime. Mixing the Redis sequence space (1..N) with the
+        # local fallback space (1e9+n) WITHIN one workspace breaks the
+        # documented per-workspace monotonicity contract the moment a
+        # single Redis INCR hiccups (e.g. a cold-connect timeout on the
+        # first command). Pinned by
+        # tests/test_realtime_bus_seq_fallback.py; the real cross-process
+        # fix is the v0.8.3 outbox (DB-backed monotonic seq).
+        self._local_seq_workspaces: set[str] = set()
 
     def _get_redis(self) -> Any:
         if self._redis_client is False:
@@ -250,7 +260,7 @@ class RealtimeBus:
     ) -> Event:
         """Publish an event. Allocates a monotonic seq per workspace."""
         # Allocate sequence number (Redis if available, else local counter)
-        r = self._get_redis()
+        r = None if workspace_id in self._local_seq_workspaces else self._get_redis()
         seq_key = SEQ_KEY_PREFIX + workspace_id
         seq = None
         if r is not None:
@@ -259,6 +269,7 @@ class RealtimeBus:
             except Exception:
                 seq = None
         if seq is None:
+            self._local_seq_workspaces.add(workspace_id)
             seq = _local_seq(workspace_id)
 
         event = Event(

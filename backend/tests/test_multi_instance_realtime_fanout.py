@@ -29,6 +29,7 @@ from app.modules.data_intelligence.operational_graph import (
 # Test Doubles & Clustered Redis Bus Emulator
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class MockWebSocket:
     """Async WebSocket test double capturing received messages and state."""
 
@@ -75,8 +76,7 @@ class ClusteredRedisPubSubEmulator:
         self.published_messages.append(message)
         # Fanout to all peer nodes asynchronously
         delivery_tasks = [
-            asyncio.create_task(node.handle_cluster_message(message))
-            for node in self.nodes
+            asyncio.create_task(node.handle_cluster_message(message)) for node in self.nodes
         ]
         if delivery_tasks:
             await asyncio.gather(*delivery_tasks, return_exceptions=True)
@@ -86,6 +86,7 @@ class ClusteredRedisPubSubEmulator:
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Multi-Node Clustered Fanout & Cross-Node Broadcast
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestClusteredRealtimeFanout:
     """Verifies that events broadcast on Node A propagate via Redis to clients on Node B and C."""
@@ -151,22 +152,27 @@ class TestClusteredRealtimeFanout:
         await node_1.subscribe("s1", "ws1", "*")
 
         # Simulate cluster echo of its own message
-        echo_message = json.dumps({
-            "channel": "world-state",
-            "event_type": "TEST",
-            "workspace_id": "ws1",
-            "tenant_id": "t1",
-            "origin_node": "node_alpha",  # Same as node_1.node_id
-            "payload": {"test": True},
-        })
+        echo_message = json.dumps(
+            {
+                "channel": "world-state",
+                "event_type": "TEST",
+                "workspace_id": "ws1",
+                "tenant_id": "t1",
+                "origin_node": "node_alpha",  # Same as node_1.node_id
+                "payload": {"test": True},
+            }
+        )
 
         await node_1.handle_cluster_message(echo_message)
-        assert len(ws.received_messages) == 0, "Node must not process cluster message originating from itself"
+        assert len(ws.received_messages) == 0, (
+            "Node must not process cluster message originating from itself"
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Multi-Tenant & Multi-Workspace Isolation Across Nodes
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestClusteredTenantAndWorkspaceIsolation:
     """Verifies strict negative isolation across multiple cluster instances."""
@@ -203,7 +209,9 @@ class TestClusteredTenantAndWorkspaceIsolation:
         await asyncio.sleep(0.05)
 
         assert len(ws_tenant_a.received_messages) == 1
-        assert len(ws_tenant_b.received_messages) == 0, "Tenant B must NOT receive Tenant A cluster events"
+        assert len(ws_tenant_b.received_messages) == 0, (
+            "Tenant B must NOT receive Tenant A cluster events"
+        )
 
     @pytest.mark.asyncio
     async def test_cross_workspace_isolation_across_cluster(self) -> None:
@@ -235,12 +243,15 @@ class TestClusteredTenantAndWorkspaceIsolation:
         await asyncio.sleep(0.05)
 
         assert len(ws_ws1.received_messages) == 1
-        assert len(ws_ws2.received_messages) == 0, "ws_engineering must NOT receive ws_finance events"
+        assert len(ws_ws2.received_messages) == 0, (
+            "ws_engineering must NOT receive ws_finance events"
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Channel Subscription Matrix
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestChannelSubscriptionFiltering:
     """Verifies that channel filtering is strictly respected locally and across nodes."""
@@ -292,6 +303,7 @@ class TestChannelSubscriptionFiltering:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Monotonic Sequence Ordering & Client Resync Verification
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestMonotonicSequenceOrderingAndResync:
     """Verifies monotonic sequence stream deltas and gap recovery under multi-client loads."""
@@ -349,6 +361,7 @@ class TestMonotonicSequenceOrderingAndResync:
 # 5. Zero Message Loss Under High-Concurrency Multi-Node Fanout
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHighConcurrencyClusteredFanout:
     """Verifies zero message loss across 4 cluster nodes with 200 concurrent WebSocket clients."""
 
@@ -395,6 +408,7 @@ class TestHighConcurrencyClusteredFanout:
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Dead Session Pruning & Fault Tolerance
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestRealtimeGatewayFaultTolerance:
     """Verifies gateway resilience to failed WebSockets and Redis broker outages."""

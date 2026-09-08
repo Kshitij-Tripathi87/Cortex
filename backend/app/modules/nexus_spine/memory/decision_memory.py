@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import re
 import threading
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -141,9 +140,15 @@ class DecisionMemory:
                 approval_id=existing.approval_id,
                 executed_at=existing.executed_at,
                 outcome_status=outcome_status or existing.outcome_status,
-                financial_impact=financial_impact if financial_impact is not None else existing.financial_impact,
-                actual_result=actual_result if actual_result is not None else existing.actual_result,
-                human_feedback=human_feedback if human_feedback is not None else existing.human_feedback,
+                financial_impact=financial_impact
+                if financial_impact is not None
+                else existing.financial_impact,
+                actual_result=actual_result
+                if actual_result is not None
+                else existing.actual_result,
+                human_feedback=human_feedback
+                if human_feedback is not None
+                else existing.human_feedback,
                 tags=existing.tags,
             )
             self._records[decision_id] = updated
@@ -207,7 +212,8 @@ class DecisionMemory:
     ) -> list[DecisionRecord]:
         with self._lock:
             filtered = [
-                r for r in self._records.values()
+                r
+                for r in self._records.values()
                 if r.tenant_id == tenant_id and r.workspace_id == workspace_id
             ]
             filtered.sort(key=lambda r: r.executed_at, reverse=True)

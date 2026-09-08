@@ -83,7 +83,9 @@ class NexusAnswerBuilder:
             "impacted_entities": impacted_entities,
             "recommended_action": recommended_action,
         }
-        checksum = hashlib.sha256(json.dumps(raw_payload, sort_keys=True).encode("utf-8")).hexdigest()
+        checksum = hashlib.sha256(
+            json.dumps(raw_payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
 
         return EvidenceBackedAnswer(
             answer_id=f"ans_{checksum[:8]}",

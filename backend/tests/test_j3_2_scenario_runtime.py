@@ -324,12 +324,15 @@ class TestDemandSpikeGenerator:
         state: Any | None = None,
         run_id: str = "r",
     ) -> ScenarioEvent:
-        snapshot = _make_snapshot(state or create_initial_state(
-            workspace_id="ws_test",
-            world_id="world_test",
-            graph_version=1,
-            initial_variables={},
-        ))
+        snapshot = _make_snapshot(
+            state
+            or create_initial_state(
+                workspace_id="ws_test",
+                world_id="world_test",
+                graph_version=1,
+                initial_variables={},
+            )
+        )
         events = ScenarioEventGenerator(run_id, scenario, snapshot, state=state).generate()
         assert len(events) == 1
         return events[0]
@@ -652,9 +655,7 @@ class TestScenarioRuntimeExitGate:
         # Event counts are identical.
         assert r_a.events_processed == r_b.events_processed
 
-    async def test_different_seed_yields_different_trajectory_hash(
-        self, db_session
-    ) -> None:
+    async def test_different_seed_yields_different_trajectory_hash(self, db_session) -> None:
         """Different seed ⇒ different `trajectory_hash` (or, at minimum,
         different final_state_hash). This is the non-vacuous converse of
         the reproducibility invariant: the runtime is sensitive to seed."""
@@ -685,15 +686,11 @@ class TestScenarioRuntimeExitGate:
             or r_a.final_state_hash != r_b.final_state_hash
         )
 
-    async def test_different_scenario_yields_different_trajectory_hash(
-        self, db_session
-    ) -> None:
+    async def test_different_scenario_yields_different_trajectory_hash(self, db_session) -> None:
         """Different scenario (same seed) ⇒ trajectory diverges."""
         ws = f"ws_{uuid7()}"
         world = f"world_{uuid7()}"
-        _, snapshot = await _seed_production_world(
-            db_session, ws, world, with_demand=True
-        )
+        _, snapshot = await _seed_production_world(db_session, ws, world, with_demand=True)
 
         service = TwinService(db_session)
         twin_a = await service.create(

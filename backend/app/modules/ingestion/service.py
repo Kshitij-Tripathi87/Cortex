@@ -189,7 +189,7 @@ async def ingest_csv(
                     message="strict mode: validation failed",
                     error_log=error_log,
                 )
-                return await log_repo.get(log.id)  # type: ignore[return-value]
+                return await log_repo.get(log.id)
             continue
 
         try:
@@ -221,7 +221,7 @@ async def ingest_csv(
                     message="strict mode: insert failed",
                     error_log=error_log,
                 )
-                return await log_repo.get(log.id)  # type: ignore[return-value]
+                return await log_repo.get(log.id)
 
     final_status = "completed" if rows_rejected == 0 else "partial"
     await log_repo.finalize(
@@ -234,7 +234,7 @@ async def ingest_csv(
         message=None if rows_rejected == 0 else f"{rows_rejected} rows rejected",
         error_log=error_log,
     )
-    return await log_repo.get(log.id)  # type: ignore[return-value]
+    return await log_repo.get(log.id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -350,6 +350,7 @@ async def ingest_csv_streaming(
 
         # Now parse from temp file
         tmp.seek(0)
+
         # Create a mock UploadFile-like object for parsing
         class TempFileWrapper:
             def __init__(self, file):
@@ -449,7 +450,10 @@ def _parse_csv_from_tempfile(path: str) -> list[dict[str, str]]:
         reader = csv.DictReader(f)
         for raw in reader:
             out.append(
-                {(k or "").strip(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items()}
+                {
+                    (k or "").strip(): (v.strip() if isinstance(v, str) else v)
+                    for k, v in raw.items()
+                }
             )
     return out
 

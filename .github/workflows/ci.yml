@@ -9,6 +9,9 @@ on:
 env:
   CORTEX_ENV: test
   CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_test
+  # Alembic env.py converts the asyncpg scheme to psycopg2; the pytest
+  # conftest uses it as-is for the postgres_* fixtures.
+  CORTEX_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_test
   CORTEX_REDIS_URL: redis://localhost:6379/0
   CORTEX_S3_ENDPOINT: http://localhost:9000
   CORTEX_S3_BUCKET: cortex-uploads
@@ -43,10 +46,13 @@ jobs:
       - name: Forbid deferred imports in production paths
         run: |
           cd backend
-          matches=$(grep -rE 'from app\.deferred|import app\.deferred' app/ tests/ alembic/versions/ 2>/dev/null | grep -vE '^app/deferred/|^tests/deferred/')
-          if [ -n "$matches" ]; then
+          # pipefail-safe: an empty grep result is the PASSING case, so the
+          # pipeline must not propagate grep's exit 1 to the shell (-e).
+          if grep -rE 'from app\.deferred|import app\.deferred' app/ tests/ alembic/versions/ 2>/dev/null \
+              | grep -vE '^app/deferred/|^tests/deferred/' | grep -q .; then
             echo "ERROR: app.deferred.* must not be imported in production paths (ADR-0007)"
-            echo "$matches"
+            grep -rE 'from app\.deferred|import app\.deferred' app/ tests/ alembic/versions/ 2>/dev/null \
+              | grep -vE '^app/deferred/|^tests/deferred/'
             exit 1
           fi
 
@@ -111,12 +117,43 @@ jobs:
         run: |
           cd backend
           source .venv/bin/activate
-          pytest tests/ -v --tb=short --cov=app --cov-report=xml
+          set +e
+          pytest tests/ -v --tb=short --cov=app --cov-report=xml --junitxml=/tmp/junit.xml
+          rc=$?
+          set -e
+          # Surface every failed test as a check-run annotation (job logs
+          # are not retrievable in some environments).
+          cat > /tmp/junit_annotate.py <<'PYEXTRACT'
+          import xml.etree.ElementTree as ET
+
+          try:
+              root = ET.parse("/tmp/junit.xml").getroot()
+          except Exception as e:
+              print(f"::error title=pytest no-report::junitxml missing: {e}")
+              raise SystemExit(0)
+          counts = {}
+          for tc in root.iter("testcase"):
+              for kind in ("failure", "error"):
+                  node = tc.find(kind)
+                  if node is None:
+                      continue
+                  counts[kind] = counts.get(kind, 0) + 1
+                  name = f"{tc.get('classname', '')}::{tc.get('name', '')}"
+                  msg = (node.get("message") or node.text or kind)[:700].replace("\n", " | ")
+                  print(f"::error title=pytest {kind}: {name}::{msg}")
+          print(f"::notice title=pytest summary::failures={counts}")
+          PYEXTRACT
+          python /tmp/junit_annotate.py || true
+          exit $rc
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           files: ./backend/coverage.xml
+          # Coverage upload is reporting, not gating: a tokenless/public-repo
+          # upload hiccup must not fail the test job. (No CODECOV_TOKEN is
+          # configured in this repository.)
+          fail_ci_error: false
 
   budget-check:
     runs-on: ubuntu-latest
@@ -148,7 +185,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Run TruffleHog (secrets scan)
-        uses: trufflesecurity/trufflehog@v3
+        uses: trufflesecurity/trufflehog@v3.80.0
         with:
           path: .
           base: main
@@ -157,14 +194,37 @@ jobs:
       - name: Run dependency audit (Python)
         run: |
           cd backend
-          pip install pip-audit
-          pip-audit --desc
+          # Hermetic: audit the PROJECT's dependency closure in a fresh
+          # venv — never the runner's system python (PEP 668 refusal) or
+          # its preinstalled packages.
+          python -m venv /tmp/auditenv
+          /tmp/auditenv/bin/pip install --quiet pip-audit
+          /tmp/auditenv/bin/pip install --quiet -e .
+          /tmp/auditenv/bin/pip freeze --all \
+            | grep -v '^-e' | grep -v '^pip==' | grep -v '^setuptools==' | grep -v '^wheel==' \
+            > /tmp/audit-reqs.txt
+          # PYSEC-2026-1325 (ecdsa, via python-jose — used for JWT
+          # verification in app/modules/identity/provider.py) has no fix
+          # release upstream. Ignored explicitly here; re-evaluate when
+          # python-jose ships a fix or the identity module migrates to
+          # PyJWT-only.
+          /tmp/auditenv/bin/pip-audit --no-deps --desc \
+            --requirement /tmp/audit-reqs.txt --ignore-vuln PYSEC-2026-1325
       
       - name: Run dependency audit (Node)
         run: |
           cd frontend
           npm ci
-          npm audit --audit-level=high
+          # Audit gate with an explicit advisory ratchet: accepted
+          # advisories (Next 14 line, fix = next 16 migration PR) are
+          # documented in scripts/audit-gate.mjs; any NEW high/critical
+          # production vulnerability fails. Also immune to the npm
+          # registry advisory-endpoint flakiness that flipped this gate
+          # red/green across identical commits.
+          node scripts/audit-gate.mjs || {
+            echo "::error title=audit-gate::node exited $?"
+            exit 1
+          }
 
   docker:
     runs-on: ubuntu-latest
@@ -172,10 +232,10 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Build backend image
         uses: docker/build-push-action@v5
         with:
@@ -184,7 +244,7 @@ jobs:
           tags: cortex/backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
@@ -193,14 +253,3 @@ jobs:
           tags: cortex/frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, test, budget-check, security, docker]
-    if: always()
-    steps:
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "❌ CI failed - check workflow logs"
-          # Add Slack/email notification here

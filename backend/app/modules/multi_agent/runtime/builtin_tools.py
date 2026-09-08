@@ -233,7 +233,10 @@ def create_default_tool_registry() -> ToolRegistry:
             name="find_alternatives",
             description="Discover alternative suppliers using graph intelligence",
             required_capability=Capability.ANALYZE.value,
-            input_schema={"type": "object", "properties": {"primary_supplier_id": {"type": "string"}}},
+            input_schema={
+                "type": "object",
+                "properties": {"primary_supplier_id": {"type": "string"}},
+            },
             output_schema={"type": "object"},
             audit_event_type="agent.tool.alternatives.analyze",
             handler=_handler_find_alternatives,
@@ -246,7 +249,10 @@ def create_default_tool_registry() -> ToolRegistry:
             name="calculate_impact",
             description="Calculate financial revenue at risk, margin impact, and ROI",
             required_capability=Capability.ANALYZE.value,
-            input_schema={"type": "object", "properties": {"disruption_duration_days": {"type": "number"}}},
+            input_schema={
+                "type": "object",
+                "properties": {"disruption_duration_days": {"type": "number"}},
+            },
             output_schema={"type": "object"},
             audit_event_type="agent.tool.impact.calculate",
             handler=_handler_calculate_impact,

@@ -45,7 +45,9 @@ async def test_program_w_unified_incident_cockpit_bundle(workspace):
     ctx = ExecutionContext.create_system_context()
 
     # 1. Ask reasoning question for incident entity
-    res = workspace.ask_natural_language_question("Investigate SLA risk and blast radius for seller_01a00b8e99")
+    res = workspace.ask_natural_language_question(
+        "Investigate SLA risk and blast radius for seller_01a00b8e99"
+    )
     assert res["readiness_report"]["is_answerable"] is True
     assert res["answer"] is not None
     assert len(res["answer"]["key_reasons"]) >= 3

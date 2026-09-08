@@ -53,6 +53,7 @@ class _FakeRedisDown:
         async def _empty():
             if False:
                 yield None
+
         return _empty()
 
     async def close(self) -> None:
@@ -82,6 +83,7 @@ class _FakeRedisOk:
             for k in self.store:
                 if match is None or match in k:
                     yield k
+
         return _iter()
 
     async def close(self) -> None:
@@ -104,6 +106,7 @@ def cache():
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. check_rate_limit — fail-closed default
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestRateLimitFailClosed:
     """The rate limiter must DENY on Redis outage by default. The legacy
@@ -135,9 +138,7 @@ class TestRateLimitFailClosed:
         )
 
         # The new default must DENY.
-        allowed = await cache.check_rate_limit(
-            tenant_id="t_fail_closed", resource="auth_login"
-        )
+        allowed = await cache.check_rate_limit(tenant_id="t_fail_closed", resource="auth_login")
         assert allowed is False, (
             "check_rate_limit() must fail-closed by default; got True on Redis outage"
         )
@@ -242,15 +243,14 @@ class TestRateLimitFailClosed:
 # 2. is_redis_available — the probe
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRedisAvailabilityProbe:
     """`is_redis_available()` is the primitive the rate limiter and
     fail-closed lock use. It must return True on a healthy Redis and
     False on outage — and crucially, must never raise."""
 
     @pytest.mark.asyncio
-    async def test_probe_true_when_redis_ok(
-        self, cache, monkeypatch: pytest.MonkeyPatch
-    ):
+    async def test_probe_true_when_redis_ok(self, cache, monkeypatch: pytest.MonkeyPatch):
 
         class _OkClient:
             _redis = _FakeRedisOk()
@@ -265,9 +265,7 @@ class TestRedisAvailabilityProbe:
         assert await cache.is_redis_available() is True
 
     @pytest.mark.asyncio
-    async def test_probe_false_when_redis_down(
-        self, cache, monkeypatch: pytest.MonkeyPatch
-    ):
+    async def test_probe_false_when_redis_down(self, cache, monkeypatch: pytest.MonkeyPatch):
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -298,9 +296,7 @@ class TestRedisAvailabilityProbe:
         assert await cache.is_redis_available() is False
 
     @pytest.mark.asyncio
-    async def test_probe_never_raises(
-        self, cache, monkeypatch: pytest.MonkeyPatch
-    ):
+    async def test_probe_never_raises(self, cache, monkeypatch: pytest.MonkeyPatch):
         # Even a factory that itself raises must not propagate.
 
         def _exploding():
@@ -317,6 +313,7 @@ class TestRedisAvailabilityProbe:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. lock(fail_closed=True) — cross-process mutual exclusion guarantee
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestLockFailClosed:
     """A cross-process lock that degrades to a single-process lock on
@@ -344,9 +341,7 @@ class TestLockFailClosed:
             fail_closed=True,
             timeout_seconds=0.5,
         ) as acquired:
-            assert acquired is False, (
-                "fail-closed lock must refuse to acquire when Redis is down"
-            )
+            assert acquired is False, "fail-closed lock must refuse to acquire when Redis is down"
 
         stats = cache.get_stats()
         assert stats["redis_fail_closed_denies"] >= 1
@@ -374,14 +369,13 @@ class TestLockFailClosed:
             resource="local:counter",
             fail_closed=False,
         ) as acquired:
-            assert acquired is True, (
-                "non-fail-closed lock should still acquire locally"
-            )
+            assert acquired is True, "non-fail-closed lock should still acquire locally"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Stats — observability for SLO alerting
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestFailClosedStats:
     """`redis_fail_closed_denies` is the SLO signal for the fail-closed
@@ -397,9 +391,7 @@ class TestFailClosedStats:
         assert stats["redis_fail_closed_denies"] == 0
 
     @pytest.mark.asyncio
-    async def test_counter_increments_on_denial(
-        self, cache, monkeypatch: pytest.MonkeyPatch
-    ):
+    async def test_counter_increments_on_denial(self, cache, monkeypatch: pytest.MonkeyPatch):
 
         class _DownClient:
             _redis = _FakeRedisDown()
@@ -559,7 +551,5 @@ class TestRedisRecovery:
         # call probes again and graduates back to fail-open behaviour.
         client.make_up()
         cache._redis_health = ("down", 0.0)  # expired
-        allowed = await cache.check_rate_limit(
-            tenant_id="t_rec", resource="r", max_requests=5
-        )
+        allowed = await cache.check_rate_limit(tenant_id="t_rec", resource="r", max_requests=5)
         assert allowed is True, "after recovery the limiter must allow again"

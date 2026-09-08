@@ -33,7 +33,9 @@ class EvidenceEdge:
     edge_id: str
     source_node_id: str
     target_node_id: str
-    relation: str  # "GROUNDED_IN" | "GENERATED_BY" | "HYPOTHESIZES" | "EVALUATED_IN" | "RESULTED_IN"
+    relation: (
+        str  # "GROUNDED_IN" | "GENERATED_BY" | "HYPOTHESIZES" | "EVALUATED_IN" | "RESULTED_IN"
+    )
 
 
 @dataclass

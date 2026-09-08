@@ -171,9 +171,7 @@ class RootCauseImpactEngine:
             f"Primary Factor: {signal_type} on {entity_id}",
         ]
         if primary_signal.get("evidence"):
-            causal_chain.append(
-                f"Contributing Factor: {primary_signal['evidence'][0]}"
-            )
+            causal_chain.append(f"Contributing Factor: {primary_signal['evidence'][0]}")
         causal_chain.append(
             f"Downstream Consequence: {order_count} orders, "
             f"{customer_count} customers, {len(affected_regions)} regions affected"

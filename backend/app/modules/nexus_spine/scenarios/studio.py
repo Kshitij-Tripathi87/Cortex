@@ -31,8 +31,6 @@ identical results, so operators can trust scenario outputs.
 from __future__ import annotations
 
 import copy
-import hashlib
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
@@ -40,7 +38,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.nexus_spine.ontology import EntityKind, EntityQuery, get_world_model
+from app.modules.nexus_spine.ontology import EntityKind, get_world_model
 from app.modules.nexus_spine.ontology.entities import Entity
 
 
@@ -96,7 +94,7 @@ class KPIMetrics(BaseModel):
 
     net_expected_value: float = 0.0  # NEV in ₹
     revenue_at_risk: float = 0.0
-    sla_breach_pct: float = 0.0      # weighted SLA risk
+    sla_breach_pct: float = 0.0  # weighted SLA risk
     stockout_probability: float = 0.0
     recovery_days: float = 0.0
     increment_cost: float = 0.0
@@ -264,7 +262,9 @@ class DigitalTwin:
         )
 
         if baseline_kpis is not None:
-            kpis.margin_impact = round(kpis.net_expected_value - baseline_kpis.net_expected_value, 2)
+            kpis.margin_impact = round(
+                kpis.net_expected_value - baseline_kpis.net_expected_value, 2
+            )
             kpis.working_capital_impact = round(revenue_at_risk - baseline_kpis.revenue_at_risk, 2)
 
         return kpis
@@ -337,7 +337,10 @@ class ScenarioStudio:
         baseline = self.run(baseline_scenario)
         results = [self.run(c) for c in candidate_scenarios]
 
-        rows = [row for row in [self._result_to_row(baseline)] + [self._result_to_row(r) for r in results]]
+        rows = [
+            row
+            for row in [self._result_to_row(baseline)] + [self._result_to_row(r) for r in results]
+        ]
         return {
             "baseline": rows[0],
             "candidates": rows[1:],

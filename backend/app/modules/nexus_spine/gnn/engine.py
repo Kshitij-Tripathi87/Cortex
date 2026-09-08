@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 import threading
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -39,6 +39,7 @@ def _utc_now() -> datetime:
 @dataclass
 class HiddenDependency:
     """A multi-hop chain the traditional risk engine would miss."""
+
     source_entity_id: str
     path: list[str]
     path_relation_types: list[str]
@@ -62,6 +63,7 @@ class HiddenDependency:
 @dataclass
 class RiskPropagationPath:
     """How risk propagates from a failing node through the graph."""
+
     origin_entity_id: str
     affected_entities: list[dict[str, Any]]
     propagation_depth: int
@@ -83,8 +85,11 @@ class RiskPropagationPath:
 @dataclass
 class SupplierSimilarity:
     """Similar suppliers for alternative sourcing recommendations."""
+
     supplier_id: str
-    similar_suppliers: list[dict[str, Any]]  # [{supplier_id, similarity_score, shared_skus, shared_regions}]
+    similar_suppliers: list[
+        dict[str, Any]
+    ]  # [{supplier_id, similarity_score, shared_skus, shared_regions}]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -105,6 +110,7 @@ class SupplierSimilarity:
 @dataclass
 class GNNRiskAugmentation:
     """GNN-augmented risk score for an entity."""
+
     entity_id: str
     entity_kind: str
     traditional_risk_score: float
@@ -164,7 +170,11 @@ class GNNEngine:
             for edge in wm.iter_relationships():
                 src = edge.source_id if hasattr(edge, "source_id") else edge.from_id
                 dst = edge.target_id if hasattr(edge, "target_id") else edge.to_id
-                rel_type = edge.relationship_kind.value if hasattr(edge.relationship_kind, "value") else str(edge.relationship_kind)
+                rel_type = (
+                    edge.relationship_kind.value
+                    if hasattr(edge.relationship_kind, "value")
+                    else str(edge.relationship_kind)
+                )
                 adj[src].append((dst, rel_type))
                 adj[dst].append((src, rel_type))  # undirected for propagation
         self._adjacency = adj
@@ -192,7 +202,7 @@ class GNNEngine:
                 neighbors = self._adjacency.get(node, [])
                 if neighbors:
                     share = damping * pr[node] / len(neighbors)
-                    for (neighbor, _) in neighbors:
+                    for neighbor, _ in neighbors:
                         if neighbor in new_pr:
                             new_pr[neighbor] += share
                 else:
@@ -225,11 +235,9 @@ class GNNEngine:
             # Hidden dependencies
             hidden = self._find_hidden_dependencies(entity_id, max_depth)
             # Critical node probability: combination of centrality, bottleneck, current risk
-            critical_prob = min(1.0, (
-                norm_centrality * 0.4 +
-                bottleneck * 0.3 +
-                traditional_risk * 0.3
-            ))
+            critical_prob = min(
+                1.0, (norm_centrality * 0.4 + bottleneck * 0.3 + traditional_risk * 0.3)
+            )
             # GNN risk score uplifts traditional risk with graph signals
             uplift = norm_centrality * 0.15 + bottleneck * 0.1 + len(hidden) * 0.03
             gnn_score = min(1.0, traditional_risk + uplift)
@@ -265,7 +273,7 @@ class GNNEngine:
             if node in reachable:
                 continue
             reachable.add(node)
-            for (neighbor, _) in self._adjacency.get(node, []):
+            for neighbor, _ in self._adjacency.get(node, []):
                 if neighbor not in reachable:
                     queue.append((neighbor, depth + 1))
         # Bottleneck is roughly the betweenness: nodes that, when removed, disconnect parts
@@ -282,7 +290,7 @@ class GNNEngine:
         # BFS for paths of length >= 2 where intermediate nodes have low individual risk
         visited = {entity_id}
         queue: deque[tuple[UUID, list[UUID], list[str], int]] = deque()
-        for (neighbor, rel_type) in self._adjacency.get(entity_id, []):
+        for neighbor, rel_type in self._adjacency.get(entity_id, []):
             queue.append((neighbor, [entity_id, neighbor], [rel_type], 1))
         while queue:
             node, path, rels, depth = queue.popleft()
@@ -300,16 +308,18 @@ class GNNEngine:
                     downstream = self._count_reachable_by_kind(node, "order", 2)
                     if downstream > 0:
                         risk_contrib = min(0.3, 0.05 * downstream / 10)
-                        hidden.append(HiddenDependency(
-                            source_entity_id=str(entity_id),
-                            path=[str(p) for p in path],
-                            path_relation_types=rels,
-                            target_entity_id=str(node),
-                            risk_contribution=risk_contrib,
-                            downstream_order_count=downstream,
-                            description=f"{src_kind or 'entity'} → {' → '.join(self._node_metadata.get(p, {}).get('kind', '?') for p in path[1:-1])} → {node_kind or 'entity'}",
-                        ))
-            for (neighbor, rel_type) in self._adjacency.get(node, []):
+                        hidden.append(
+                            HiddenDependency(
+                                source_entity_id=str(entity_id),
+                                path=[str(p) for p in path],
+                                path_relation_types=rels,
+                                target_entity_id=str(node),
+                                risk_contribution=risk_contrib,
+                                downstream_order_count=downstream,
+                                description=f"{src_kind or 'entity'} → {' → '.join(self._node_metadata.get(p, {}).get('kind', '?') for p in path[1:-1])} → {node_kind or 'entity'}",
+                            )
+                        )
+            for neighbor, rel_type in self._adjacency.get(node, []):
                 if neighbor not in path:
                     queue.append((neighbor, path + [neighbor], rels + [rel_type], depth + 1))
         return hidden[:5]  # Top 5 hidden dependencies
@@ -328,7 +338,7 @@ class GNNEngine:
             node_kind = self._node_metadata.get(node, {}).get("kind", "").lower()
             if kind.lower() in node_kind and depth > 0:
                 count += 1
-            for (neighbor, _) in self._adjacency.get(node, []):
+            for neighbor, _ in self._adjacency.get(node, []):
                 if neighbor not in visited:
                     queue.append((neighbor, depth + 1))
         return count
@@ -354,16 +364,18 @@ class GNNEngine:
                 meta = self._node_metadata.get(node, {})
                 state = meta.get("state", {})
                 revenue = float(state.get("revenue", state.get("order_value", 0)))
-                affected.append({
-                    "entity_id": str(node),
-                    "entity_kind": meta.get("kind", "unknown"),
-                    "depth": depth,
-                    "impact_decay": round(decay, 4),
-                    "revenue_at_risk": round(revenue * decay, 2),
-                })
+                affected.append(
+                    {
+                        "entity_id": str(node),
+                        "entity_kind": meta.get("kind", "unknown"),
+                        "depth": depth,
+                        "impact_decay": round(decay, 4),
+                        "revenue_at_risk": round(revenue * decay, 2),
+                    }
+                )
                 revenue_total += revenue * decay
                 decays.append(decay)
-            for (neighbor, _) in self._adjacency.get(node, []):
+            for neighbor, _ in self._adjacency.get(node, []):
                 if neighbor not in visited:
                     visited.add(neighbor)
                     queue.append((neighbor, depth + 1))
@@ -403,21 +415,25 @@ class GNNEngine:
             # Structural similarity: shared neighbors
             their_neighbors = set(n for n, _ in self._adjacency.get(nid, []))
             neighbor_union = neighbors | their_neighbors
-            struct_sim = len(neighbors & their_neighbors) / len(neighbor_union) if neighbor_union else 0
+            struct_sim = (
+                len(neighbors & their_neighbors) / len(neighbor_union) if neighbor_union else 0
+            )
             region_bonus = 0.2 if our_region and their_region == our_region else 0.0
             # Capacity
             our_capacity = float(supp_state.get("capacity", 100))
             their_capacity = float(n_state.get("capacity", 0))
             capacity_ratio = min(1.0, their_capacity / max(1, our_capacity * 0.5))
             score = sku_sim * 0.5 + struct_sim * 0.3 + region_bonus + capacity_ratio * 0.2
-            candidates.append({
-                "supplier_id": str(nid),
-                "similarity_score": min(1.0, score),
-                "shared_skus": list(our_skus & their_skus)[:10],
-                "shared_regions": our_region == their_region if our_region else False,
-                "can_absorb_pct": capacity_ratio,
-                "name": meta.get("name", str(nid)),
-            })
+            candidates.append(
+                {
+                    "supplier_id": str(nid),
+                    "similarity_score": min(1.0, score),
+                    "shared_skus": list(our_skus & their_skus)[:10],
+                    "shared_regions": our_region == their_region if our_region else False,
+                    "can_absorb_pct": capacity_ratio,
+                    "name": meta.get("name", str(nid)),
+                }
+            )
         candidates.sort(key=lambda c: c["similarity_score"], reverse=True)
         return SupplierSimilarity(
             supplier_id=str(supplier_id),
@@ -430,13 +446,15 @@ class GNNEngine:
         results = []
         for nid, score in ranked[:top_k]:
             meta = self._node_metadata.get(nid, {})
-            results.append({
-                "entity_id": str(nid),
-                "entity_kind": meta.get("kind", "unknown"),
-                "name": meta.get("name", str(nid)),
-                "pagerank": round(score, 6),
-                "centrality_score": round(score / max((s for _, s in ranked), default=1.0), 4),
-            })
+            results.append(
+                {
+                    "entity_id": str(nid),
+                    "entity_kind": meta.get("kind", "unknown"),
+                    "name": meta.get("name", str(nid)),
+                    "pagerank": round(score, 6),
+                    "centrality_score": round(score / max((s for _, s in ranked), default=1.0), 4),
+                }
+            )
         return results
 
     def refresh(self, wm: Any) -> None:

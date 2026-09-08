@@ -152,9 +152,7 @@ class DatasetValidator:
     def __init__(self, dataset_path: Path, schema_version: SchemaVersion = SchemaVersion.V2):
         self.dataset_path = Path(dataset_path)
         self.schema_version = schema_version
-        self.result = ValidationResult(
-            valid=True, schema_version=schema_version
-        )
+        self.result = ValidationResult(valid=True, schema_version=schema_version)
 
     def validate(self) -> ValidationResult:
         """Run all validation checks."""
@@ -526,7 +524,9 @@ class DatasetValidator:
         # Validate products references
         self._validate_product_refs(factory_codes)
 
-    def _validate_edge_refs(self, suppliers, components, warehouses, factories, products, customers):
+    def _validate_edge_refs(
+        self, suppliers, components, warehouses, factories, products, customers
+    ):
         filepath = self.dataset_path / "edges.csv"
         if not filepath.exists():
             return

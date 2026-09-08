@@ -50,16 +50,31 @@ def _comp(cid=C1) -> ComponentData:
 
 
 def _prod() -> ProductData:
-    return ProductData(id=P1, sku="SKU-P", name="Product A", factory_id=None,
-                       unit_price=80.0, margin_pct=0.30, lead_time_days=7)
+    return ProductData(
+        id=P1,
+        sku="SKU-P",
+        name="Product A",
+        factory_id=None,
+        unit_price=80.0,
+        margin_pct=0.30,
+        lead_time_days=7,
+    )
 
 
 def _snap(**kw) -> SupplyChainSnapshot:
     d = {
-        "workspace_id": WS, "as_of": NOW,
-        "suppliers": (), "components": (), "products": (),
-        "edges": (), "warehouses": (), "factories": (),
-        "inventory": (), "bom": (), "orders": (), "customers": (),
+        "workspace_id": WS,
+        "as_of": NOW,
+        "suppliers": (),
+        "components": (),
+        "products": (),
+        "edges": (),
+        "warehouses": (),
+        "factories": (),
+        "inventory": (),
+        "bom": (),
+        "orders": (),
+        "customers": (),
     }
     d.update(kw)
     return SupplyChainSnapshot(**d)
@@ -67,15 +82,25 @@ def _snap(**kw) -> SupplyChainSnapshot:
 
 def _scenario() -> DisruptionScenario:
     return DisruptionScenario(
-        workspace_id=WS, supplier_id=SID, kind=DisruptionKind.FAILURE,
-        severity="critical", started_at=NOW, delay_hours=0,
+        workspace_id=WS,
+        supplier_id=SID,
+        kind=DisruptionKind.FAILURE,
+        severity="critical",
+        started_at=NOW,
+        delay_hours=0,
     )
 
 
 def _pr(**ov) -> PropagationResult:
-    a = {"source_supplier_id": SID, "affected_components": (), "affected_products": (),
-         "affected_warehouses": (), "open_orders_at_risk": (),
-         "max_hop": 0, "traversed_edge_types": ()}
+    a = {
+        "source_supplier_id": SID,
+        "affected_components": (),
+        "affected_products": (),
+        "affected_warehouses": (),
+        "open_orders_at_risk": (),
+        "max_hop": 0,
+        "traversed_edge_types": (),
+    }
     a.update(ov)
     return PropagationResult(**a)
 
@@ -92,19 +117,37 @@ class TestPropagation:
 
     def test_warehouse(self):
         wh = WarehouseData(id=W1, code="WH", name="W")
-        inv = InventoryData(warehouse_id=W1, component_id=C1, quantity=100,
-                            safety_stock=20, daily_usage=5, last_updated_at=NOW)
+        inv = InventoryData(
+            warehouse_id=W1,
+            component_id=C1,
+            quantity=100,
+            safety_stock=20,
+            daily_usage=5,
+            last_updated_at=NOW,
+        )
         ed_s = EdgeData("supplier", SID, "component", C1, "supplies")
         ed_w = EdgeData("component", C1, "warehouse", W1, "stored_in")
-        r = propagate(_snap(suppliers=[_supp()], components=[_comp()],
-                            warehouses=[wh], inventory=[inv], edges=[ed_s, ed_w]), SID)
+        r = propagate(
+            _snap(
+                suppliers=[_supp()],
+                components=[_comp()],
+                warehouses=[wh],
+                inventory=[inv],
+                edges=[ed_s, ed_w],
+            ),
+            SID,
+        )
         assert len(r.affected_warehouses) == 1
 
     def test_bom_product(self):
         e = EdgeData("supplier", SID, "component", C1, "supplies")
         b = BomData(P1, C1, 1.0)
-        result = propagate(_snap(suppliers=[_supp()], components=[_comp()],
-                                products=[_prod()], edges=[e], bom=[b]), SID)
+        result = propagate(
+            _snap(
+                suppliers=[_supp()], components=[_comp()], products=[_prod()], edges=[e], bom=[b]
+            ),
+            SID,
+        )
         assert any(p.product_id == P1 for p in result.affected_products)
 
 
@@ -183,21 +226,31 @@ class TestBacktest:
         now = datetime(2026, 3, 15, 8, 1, 0)
         r1 = run_backtest(
             workspace_id=s1.workspace_id,
-            events=[BacktestEvent(
-                event_id=UUID("eeeeeee1-0000-0000-0000-000000000001"),
-                workspace_id=s1.workspace_id,
-                snapshot=s1, scenario=sc1, actual_labels=l1,
-            )],
-            started_at=now, ended_at=now,
+            events=[
+                BacktestEvent(
+                    event_id=UUID("eeeeeee1-0000-0000-0000-000000000001"),
+                    workspace_id=s1.workspace_id,
+                    snapshot=s1,
+                    scenario=sc1,
+                    actual_labels=l1,
+                )
+            ],
+            started_at=now,
+            ended_at=now,
         )
         r2 = run_backtest(
             workspace_id=s2.workspace_id,
-            events=[BacktestEvent(
-                event_id=UUID("eeeeeee1-0000-0000-0000-000000000001"),
-                workspace_id=s2.workspace_id,
-                snapshot=s2, scenario=sc2, actual_labels=l2,
-            )],
-            started_at=now, ended_at=now,
+            events=[
+                BacktestEvent(
+                    event_id=UUID("eeeeeee1-0000-0000-0000-000000000001"),
+                    workspace_id=s2.workspace_id,
+                    snapshot=s2,
+                    scenario=sc2,
+                    actual_labels=l2,
+                )
+            ],
+            started_at=now,
+            ended_at=now,
         )
         assert r1.accuracy == r2.accuracy
         assert r1.precision == r2.precision

@@ -159,7 +159,9 @@ class TrainingPipeline:
     def __init__(self):
         self.jobs: dict[str, TrainingJob] = {}
 
-    def create_job(self, name: str, config: TrainingConfig, created_by: str | None = None) -> TrainingJob:
+    def create_job(
+        self, name: str, config: TrainingConfig, created_by: str | None = None
+    ) -> TrainingJob:
         """Create a new training job."""
         job = TrainingJob(
             name=name,
@@ -263,20 +265,41 @@ class Trainer:
         self.scheduler = self._create_scheduler()
 
         # Mixed precision
-        self.scaler = torch.cuda.amp.GradScaler() if config.mixed_precision and "cuda" in config.device else None
+        self.scaler = (
+            torch.cuda.amp.GradScaler()
+            if config.mixed_precision and "cuda" in config.device
+            else None
+        )
 
     def _create_optimizer(self):
         import torch.optim as optim
 
         self.model.parameters()
         if self.config.optimizer.lower() == "adam":
-            return optim.Adam(self.model.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
+            return optim.Adam(
+                self.model.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
         elif self.config.optimizer.lower() == "adamw":
-            return optim.AdamW(self.model.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
+            return optim.AdamW(
+                self.model.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
         elif self.config.optimizer.lower() == "sgd":
-            return optim.SGD(self.model.parameters(), lr=self.config.learning_rate, momentum=0.9, weight_decay=self.config.weight_decay)
+            return optim.SGD(
+                self.model.parameters(),
+                lr=self.config.learning_rate,
+                momentum=0.9,
+                weight_decay=self.config.weight_decay,
+            )
         else:
-            return optim.AdamW(self.model.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
+            return optim.AdamW(
+                self.model.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
 
     def _create_scheduler(self):
         import torch.optim.lr_scheduler as lr_scheduler
@@ -288,7 +311,9 @@ class Trainer:
         elif self.config.scheduler == "reduce_on_plateau":
             return lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", patience=5)
         elif self.config.scheduler == "one_cycle":
-            return lr_scheduler.OneCycleLR(self.optimizer, max_lr=self.config.learning_rate, total_steps=1000)
+            return lr_scheduler.OneCycleLR(
+                self.optimizer, max_lr=self.config.learning_rate, total_steps=1000
+            )
         else:
             return lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda epoch: 1.0)
 
@@ -345,6 +370,7 @@ class Trainer:
     def compute_loss(self, outputs, targets):
         """Compute loss (to be overridden)."""
         import torch.nn.functional as F
+
         return F.cross_entropy(outputs, targets)
 
 

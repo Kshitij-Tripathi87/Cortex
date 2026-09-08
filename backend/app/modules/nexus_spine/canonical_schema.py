@@ -354,7 +354,11 @@ class OlistAdapter:
                         break
                     if entity_type == EntityType.ORDER_ITEM and item_count >= max_orders * 3:
                         break
-                    if entity_type == EntityType.PRODUCT and referenced_product_ids is None and row_idx >= max_orders * 2:
+                    if (
+                        entity_type == EntityType.PRODUCT
+                        and referenced_product_ids is None
+                        and row_idx >= max_orders * 2
+                    ):
                         break
 
                     # Type inference from first row

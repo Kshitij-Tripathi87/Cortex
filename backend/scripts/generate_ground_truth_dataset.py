@@ -49,6 +49,7 @@ from generate_synthetic_dataset import (
 @dataclass
 class GroundTruthDisruption:
     """Ground truth for a supplier disruption scenario."""
+
     scenario_id: str
     supplier_name: str
     disruption_type: str  # "failure", "delay", "quality"
@@ -89,6 +90,7 @@ class GroundTruthDisruption:
 @dataclass
 class GroundTruthDataset:
     """Complete ground truth for a generated dataset."""
+
     workspace_id: str
     size: str
     seed: int
@@ -120,6 +122,7 @@ class GroundTruthDataset:
 # ─────────────────────────────────────────────────────────────────────────────
 # Ground Truth Calculator
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class GroundTruthCalculator:
     """Computes exact ground truth from a generated dataset.
@@ -193,8 +196,11 @@ class GroundTruthCalculator:
 
         # 4. Compute business impact
         impact = self._compute_impact(
-            affected_components, affected_products, affected_warehouses,
-            affected_orders, stockout_events
+            affected_components,
+            affected_products,
+            affected_warehouses,
+            affected_orders,
+            stockout_events,
         )
 
         # 3. Generate expected recommendations
@@ -261,13 +267,15 @@ class GroundTruthCalculator:
                 sku = node_key.split(":", 1)[1]
                 comp = self.components.get(sku)
                 if comp:
-                    results.append({
-                        "component_id": sku,
-                        "sku": comp["sku"],
-                        "name": comp["name"],
-                        "hop": info["hop"],
-                        "attenuated_exposure": round(info["exposure"], 6),
-                    })
+                    results.append(
+                        {
+                            "component_id": sku,
+                            "sku": comp["sku"],
+                            "name": comp["name"],
+                            "hop": info["hop"],
+                            "attenuated_exposure": round(info["exposure"], 6),
+                        }
+                    )
         return sorted(results, key=lambda x: x["hop"])
 
     def _get_affected_products(self, propagation: dict, components: list[dict]) -> list[dict]:
@@ -286,14 +294,16 @@ class GroundTruthCalculator:
                             prod_hop = info["hop"]
                             break
 
-                    results.append({
-                        "product_id": prod["sku"],
-                        "sku": prod["sku"],
-                        "name": prod["name"],
-                        "component_id": bom["component_sku"],
-                        "qty_needed_per_unit": bom["quantity_per_unit"],
-                        "hop": prod_hop or 3,
-                    })
+                    results.append(
+                        {
+                            "product_id": prod["sku"],
+                            "sku": prod["sku"],
+                            "name": prod["name"],
+                            "component_id": bom["component_sku"],
+                            "qty_needed_per_unit": bom["quantity_per_unit"],
+                            "hop": prod_hop or 3,
+                        }
+                    )
 
         # Deduplicate by product
         seen = set()
@@ -319,14 +329,18 @@ class GroundTruthCalculator:
                     except (ValueError, TypeError):
                         quantity = 0
                     coverage = quantity / daily_usage if daily_usage > 0 else float("inf")
-                    results.append({
-                        "warehouse_id": wh["code"],
-                        "component_id": comp["sku"],
-                        "quantity": quantity,
-                        "safety_stock": int(inv.get("safety_stock", 0)),
-                        "daily_usage": daily_usage,
-                        "coverage_days": round(coverage, 1) if coverage != float("inf") else None,
-                    })
+                    results.append(
+                        {
+                            "warehouse_id": wh["code"],
+                            "component_id": comp["sku"],
+                            "quantity": quantity,
+                            "safety_stock": int(inv.get("safety_stock", 0)),
+                            "daily_usage": daily_usage,
+                            "coverage_days": round(coverage, 1)
+                            if coverage != float("inf")
+                            else None,
+                        }
+                    )
         return results
 
     def _estimate_daily_usage(self, component_sku: str) -> int:
@@ -340,7 +354,10 @@ class GroundTruthCalculator:
                 except (ValueError, TypeError):
                     qty_per_unit = 1.0
                 for order in self.data.get("orders", []):
-                    if order["product_sku"] == prod_sku and order["status"] in ["pending", "confirmed"]:
+                    if order["product_sku"] == prod_sku and order["status"] in [
+                        "pending",
+                        "confirmed",
+                    ]:
                         with contextlib.suppress(ValueError, TypeError):
                             total += int(order.get("quantity", 0)) * qty_per_unit
         return max(1, int(total // 30))  # rough monthly average
@@ -350,17 +367,25 @@ class GroundTruthCalculator:
         affected_product_skus = {p["product_id"] for p in products}
 
         for order in self.data.get("orders", []):
-            if order["product_sku"] in affected_product_skus and order["status"] in ["pending", "confirmed", "in_production"]:
-                results.append({
-                    "order_id": order.get("id", ""),
-                    "customer_id": order["customer_name"],
-                    "product_id": order["product_sku"],
-                    "quantity": order["quantity"],
-                    "status": order["status"],
-                })
+            if order["product_sku"] in affected_product_skus and order["status"] in [
+                "pending",
+                "confirmed",
+                "in_production",
+            ]:
+                results.append(
+                    {
+                        "order_id": order.get("id", ""),
+                        "customer_id": order["customer_name"],
+                        "product_id": order["product_sku"],
+                        "quantity": order["quantity"],
+                        "status": order["status"],
+                    }
+                )
         return results
 
-    def _compute_timeline(self, warehouses: list[dict], components: list[dict]) -> tuple[list[dict], float]:
+    def _compute_timeline(
+        self, warehouses: list[dict], components: list[dict]
+    ) -> tuple[list[dict], float]:
         events = []
         deadline = 0.0
 
@@ -379,12 +404,16 @@ class GroundTruthCalculator:
                 else:
                     status = "ok"
 
-                events.append({
-                    "hour": round(wh["coverage_days"] * 24) if wh["coverage_days"] else 0,
-                    "title": f"{wh['component_id']} at {wh['warehouse_id']}",
-                    "description": f"Coverage: {wh['coverage_days']:.1f} days" if wh["coverage_days"] else "Stocked out",
-                    "status": status,
-                })
+                events.append(
+                    {
+                        "hour": round(wh["coverage_days"] * 24) if wh["coverage_days"] else 0,
+                        "title": f"{wh['component_id']} at {wh['warehouse_id']}",
+                        "description": f"Coverage: {wh['coverage_days']:.1f} days"
+                        if wh["coverage_days"]
+                        else "Stocked out",
+                        "status": status,
+                    }
+                )
 
         return sorted(events, key=lambda x: x["hour"]), max(1.0, deadline)
 
@@ -408,20 +437,59 @@ class GroundTruthCalculator:
         return {
             "revenue_risk_usd": round(revenue_risk, 2),
             "margin_risk_usd": round(revenue_risk * 0.3, 2),
-            "penalty_exposure_usd": round(len([o for o in self.data.get("orders", []) if o["status"] in ["pending", "confirmed"]]) * 1000, 2),
-            "working_capital_impact_usd": round(sum(int(w.get("quantity", 0)) * 10 for w in self.data.get("inventory", [])), 2),
-            "customer_impact_score": min(100, len(set(o["customer_name"] for o in self.data.get("orders", []))) * 5),
+            "penalty_exposure_usd": round(
+                len(
+                    [
+                        o
+                        for o in self.data.get("orders", [])
+                        if o["status"] in ["pending", "confirmed"]
+                    ]
+                )
+                * 1000,
+                2,
+            ),
+            "working_capital_impact_usd": round(
+                sum(int(w.get("quantity", 0)) * 10 for w in self.data.get("inventory", [])), 2
+            ),
+            "customer_impact_score": min(
+                100, len(set(o["customer_name"] for o in self.data.get("orders", []))) * 5
+            ),
             "operational_impact_score": min(100, len(self.data.get("components", [])) * 2),
         }
 
     def _generate_recommendations(self, propagation, orders, events) -> list[dict]:
         # Generate standard recommendation types
         base_recs = [
-            {"action": "expedite_alternate_supplier", "name": "Expedite Alternate Supplier", "rank": 1, "net_benefit": 850000},
-            {"action": "expedite_shipment", "name": "Expedite Shipment from Alternate Source", "rank": 2, "net_benefit": 620000},
-            {"action": "reallocate_inventory", "name": "Reallocate Inventory from Other Warehouses", "rank": 3, "net_benefit": 450000},
-            {"action": "adjust_production_schedule", "name": "Adjust Production Schedule", "rank": 4, "net_benefit": 320000},
-            {"action": "negotiate_customer_delays", "name": "Negotiate Customer Delivery Delays", "rank": 5, "net_benefit": 180000},
+            {
+                "action": "expedite_alternate_supplier",
+                "name": "Expedite Alternate Supplier",
+                "rank": 1,
+                "net_benefit": 850000,
+            },
+            {
+                "action": "expedite_shipment",
+                "name": "Expedite Shipment from Alternate Source",
+                "rank": 2,
+                "net_benefit": 620000,
+            },
+            {
+                "action": "reallocate_inventory",
+                "name": "Reallocate Inventory from Other Warehouses",
+                "rank": 3,
+                "net_benefit": 450000,
+            },
+            {
+                "action": "adjust_production_schedule",
+                "name": "Adjust Production Schedule",
+                "rank": 4,
+                "net_benefit": 320000,
+            },
+            {
+                "action": "negotiate_customer_delays",
+                "name": "Negotiate Customer Delivery Delays",
+                "rank": 5,
+                "net_benefit": 180000,
+            },
         ]
         return base_recs[:3]  # top 3
 
@@ -488,8 +556,15 @@ def generate_dataset_with_ground_truth(
     customer_names = customers  # already list of name strings
 
     write_edges(
-        rng, out_path / "edges.csv", sizes["edges"],
-        supplier_names, component_skus, warehouse_codes, factory_codes, product_skus, customer_names
+        rng,
+        out_path / "edges.csv",
+        sizes["edges"],
+        supplier_names,
+        component_skus,
+        warehouse_codes,
+        factory_codes,
+        product_skus,
+        customer_names,
     )
     write_inventory(rng, out_path / "inventory.csv", sizes["inventory"], warehouses, components)
     write_bom(rng, out_path / "bom.csv", sizes["bom"], products, components)
@@ -540,7 +615,9 @@ def generate_dataset_with_ground_truth(
         print(f"  ground_truth.json: {len(disruptions)} disruption scenarios")
 
     total = sum(sizes.values())
-    print(f"\nWrote 10 CSV files to {out_path.resolve()} ({total} total rows, seed={seed}, size={size})")
+    print(
+        f"\nWrote 10 CSV files to {out_path.resolve()} ({total} total rows, seed={seed}, size={size})"
+    )
     if ground_truth:
         print(f"Wrote ground_truth.json with {len(ground_truth['disruptions'])} scenarios")
 
@@ -581,8 +658,12 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--size", choices=list(SIZES.keys()), default="medium")
     parser.add_argument("--out", default="./datasets", help="Output directory")
-    parser.add_argument("--no-ground-truth", action="store_true", help="Skip ground truth generation")
-    parser.add_argument("--num-scenarios", type=int, default=3, help="Number of disruption scenarios")
+    parser.add_argument(
+        "--no-ground-truth", action="store_true", help="Skip ground truth generation"
+    )
+    parser.add_argument(
+        "--num-scenarios", type=int, default=3, help="Number of disruption scenarios"
+    )
     args = parser.parse_args()
 
     generate_dataset_with_ground_truth(

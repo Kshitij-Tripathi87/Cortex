@@ -65,101 +65,126 @@ class BenchmarkRunner:
 
     def _load_suppliers(self):
         from app.modules.disruption.engines.types import SupplierData
+
         suppliers = []
         for row in self._read_csv("suppliers.csv"):
-            suppliers.append(SupplierData(
-                id=row["id"] if "id" in row else f"sup-{row['name']}",
-                name=row["name"],
-                country=row["country"],
-                tier=row["tier"],
-                lead_time_days=int(row["lead_time_days"]),
-            ))
+            suppliers.append(
+                SupplierData(
+                    id=row["id"] if "id" in row else f"sup-{row['name']}",
+                    name=row["name"],
+                    country=row["country"],
+                    tier=row["tier"],
+                    lead_time_days=int(row["lead_time_days"]),
+                )
+            )
         return suppliers
 
     def _load_components(self):
         from app.modules.disruption.engines.types import ComponentData
+
         components = []
         for row in self._read_csv("components.csv"):
-            components.append(ComponentData(
-                id=row["id"] if "id" in row else row["sku"],
-                sku=row["sku"],
-                name=row["name"],
-                category=row.get("category", ""),
-                unit_of_measure=row.get("unit_of_measure", "EA"),
-            ))
+            components.append(
+                ComponentData(
+                    id=row["id"] if "id" in row else row["sku"],
+                    sku=row["sku"],
+                    name=row["name"],
+                    category=row.get("category", ""),
+                    unit_of_measure=row.get("unit_of_measure", "EA"),
+                )
+            )
         return components
 
     def _load_warehouses(self):
         from app.modules.disruption.engines.types import WarehouseData
+
         warehouses = []
         for row in self._read_csv("warehouses.csv"):
-            warehouses.append(WarehouseData(
-                id=row["id"] if "id" in row else row["code"],
-                code=row["code"],
-                name=row["name"],
-            ))
+            warehouses.append(
+                WarehouseData(
+                    id=row["id"] if "id" in row else row["code"],
+                    code=row["code"],
+                    name=row["name"],
+                )
+            )
         return warehouses
 
     def _load_factories(self):
         from app.modules.disruption.engines.types import FactoryData
+
         factories = []
         for row in self._read_csv("factories.csv"):
-            factories.append(FactoryData(
-                id=row["id"] if "id" in row else row["code"],
-                code=row["code"],
-                name=row["name"],
-                throughput_per_day=int(row.get("throughput_per_day", 0)),
-            ))
+            factories.append(
+                FactoryData(
+                    id=row["id"] if "id" in row else row["code"],
+                    code=row["code"],
+                    name=row["name"],
+                    throughput_per_day=int(row.get("throughput_per_day", 0)),
+                )
+            )
         return factories
 
     def _load_products(self):
         from app.modules.disruption.engines.types import ProductData
+
         products = []
         for row in self._read_csv("products.csv"):
-            products.append(ProductData(
-                id=row["id"] if "id" in row else row["sku"],
-                sku=row["sku"],
-                name=row["name"],
-                factory_id=row.get("factory_code") or None,
-                unit_price=float(row.get("unit_price", 0)) if row.get("unit_price") else None,
-                lead_time_days=int(row.get("lead_time_days", 7)),
-            ))
+            products.append(
+                ProductData(
+                    id=row["id"] if "id" in row else row["sku"],
+                    sku=row["sku"],
+                    name=row["name"],
+                    factory_id=row.get("factory_code") or None,
+                    unit_price=float(row.get("unit_price", 0)) if row.get("unit_price") else None,
+                    lead_time_days=int(row.get("lead_time_days", 7)),
+                )
+            )
         return products
 
     def _load_customers(self):
         from app.modules.disruption.engines.types import CustomerData
+
         customers = []
         for row in self._read_csv("customers.csv"):
-            customers.append(CustomerData(
-                id=row["id"] if "id" in row else row["name"],
-                name=row["name"],
-                country=row["country"],
-                tier=row.get("tier", ""),
-                contract_value_annual=float(row.get("contract_value_annual", 0)) if row.get("contract_value_annual") else None,
-            ))
+            customers.append(
+                CustomerData(
+                    id=row["id"] if "id" in row else row["name"],
+                    name=row["name"],
+                    country=row["country"],
+                    tier=row.get("tier", ""),
+                    contract_value_annual=float(row.get("contract_value_annual", 0))
+                    if row.get("contract_value_annual")
+                    else None,
+                )
+            )
         return customers
 
     def _load_edges(self):
         from app.modules.disruption.engines.types import EdgeData
+
         edges = []
         for row in self._read_csv("edges.csv"):
-            edges.append(EdgeData(
-                from_type=row["from_type"],
-                from_id=row["from_ref"],
-                to_type=row["to_type"],
-                to_id=row["to_ref"],
-                edge_type=row["edge_type"],
-                weight=float(row.get("weight", 1.0)),
-            ))
+            edges.append(
+                EdgeData(
+                    from_type=row["from_type"],
+                    from_id=row["from_ref"],
+                    to_type=row["to_type"],
+                    to_id=row["to_ref"],
+                    edge_type=row["edge_type"],
+                    weight=float(row.get("weight", 1.0)),
+                )
+            )
         return edges
 
     def _load_inventory(self):
         from app.modules.disruption.engines.types import InventoryData
+
         inventory = []
         for row in self._read_csv("inventory.csv"):
             last_updated = row.get("last_updated_at")
             if last_updated:
                 from datetime import UTC, datetime
+
                 try:
                     last_updated = datetime.fromisoformat(last_updated)
                     if last_updated.tzinfo is None:
@@ -168,51 +193,61 @@ class BenchmarkRunner:
                     last_updated = datetime.now(UTC)
             else:
                 from datetime import UTC, datetime
+
                 last_updated = datetime.now(UTC)
 
-            inventory.append(InventoryData(
-                warehouse_id=row["warehouse_code"],
-                component_id=row["component_sku"],
-                quantity=int(row.get("quantity", 0)),
-                safety_stock=int(row.get("safety_stock", 0)),
-                daily_usage=int(row.get("daily_usage", 0)),
-                last_updated_at=last_updated,
-            ))
+            inventory.append(
+                InventoryData(
+                    warehouse_id=row["warehouse_code"],
+                    component_id=row["component_sku"],
+                    quantity=int(row.get("quantity", 0)),
+                    safety_stock=int(row.get("safety_stock", 0)),
+                    daily_usage=int(row.get("daily_usage", 0)),
+                    last_updated_at=last_updated,
+                )
+            )
         return inventory
 
     def _load_boms(self):
         from app.modules.disruption.engines.types import BomData
+
         boms = []
         for row in self._read_csv("bom.csv"):
-            boms.append(BomData(
-                product_id=row["product_sku"],
-                component_id=row["component_sku"],
-                quantity_per_unit=float(row.get("quantity_per_unit", 1)),
-            ))
+            boms.append(
+                BomData(
+                    product_id=row["product_sku"],
+                    component_id=row["component_sku"],
+                    quantity_per_unit=float(row.get("quantity_per_unit", 1)),
+                )
+            )
         return boms
 
     def _load_orders(self):
         from app.modules.disruption.engines.types import OrderData
+
         orders = []
         for row in self._read_csv("orders.csv"):
             # Find product for unit_price
             prod_row = next(
-                (p for p in self._read_csv("products.csv") if p["sku"] == row["product_sku"]),
-                None
+                (p for p in self._read_csv("products.csv") if p["sku"] == row["product_sku"]), None
             )
-            unit_price = float(prod_row["unit_price"]) if prod_row and prod_row.get("unit_price") else None
+            unit_price = (
+                float(prod_row["unit_price"]) if prod_row and prod_row.get("unit_price") else None
+            )
 
-            orders.append(OrderData(
-                id=row["id"] if "id" in row else row.get("id", ""),
-                customer_id=row["customer_name"],
-                product_id=row["product_sku"],
-                quantity=int(row.get("quantity", 0)),
-                status=row.get("status", "pending"),
-                order_date=row.get("order_date", ""),
-                requested_delivery_date=row.get("requested_delivery_date", ""),
-                actual_delivery_date=row.get("actual_delivery_date") or None,
-                unit_price=unit_price,
-            ))
+            orders.append(
+                OrderData(
+                    id=row["id"] if "id" in row else row.get("id", ""),
+                    customer_id=row["customer_name"],
+                    product_id=row["product_sku"],
+                    quantity=int(row.get("quantity", 0)),
+                    status=row.get("status", "pending"),
+                    order_date=row.get("order_date", ""),
+                    requested_delivery_date=row.get("requested_delivery_date", ""),
+                    actual_delivery_date=row.get("actual_delivery_date") or None,
+                    unit_price=unit_price,
+                )
+            )
         return orders
 
     def _read_csv(self, filename: str) -> list[dict]:
@@ -238,8 +273,7 @@ class BenchmarkRunner:
 
             # Find supplier ID
             supplier_row = next(
-                (s for s in self._read_csv("suppliers.csv") if s["name"] == supplier_name),
-                None
+                (s for s in self._read_csv("suppliers.csv") if s["name"] == supplier_name), None
             )
             if not supplier_row:
                 continue
@@ -267,19 +301,19 @@ class BenchmarkRunner:
                 scenario_time = time.time() - scenario_start
 
                 # Compare with ground truth
-                scenario_result = self._compare_with_ground_truth(
-                    disruption, brief, scenario_time
-                )
+                scenario_result = self._compare_with_ground_truth(disruption, brief, scenario_time)
                 results.append(scenario_result)
 
             except Exception as e:
                 # Record error
-                results.append({
-                    "scenario_id": disruption.get("scenario_id", ""),
-                    "supplier_name": supplier_name,
-                    "error": str(e),
-                    "latency_seconds": time.time() - scenario_start,
-                })
+                results.append(
+                    {
+                        "scenario_id": disruption.get("scenario_id", ""),
+                        "supplier_name": supplier_name,
+                        "error": str(e),
+                        "latency_seconds": time.time() - scenario_start,
+                    }
+                )
 
         total_time = time.time() - start_time
 
@@ -367,8 +401,12 @@ class BenchmarkRunner:
             "order_f1": ord_f1,
             "revenue_error": rev_error,
             "revenue_relative_error": rev_rel,
-            "margin_error": abs(brief.business_impact.margin_risk_usd - gt.get("margin_risk_usd", 0.0)),
-            "penalty_error": abs(brief.business_impact.penalty_exposure_usd - gt.get("penalty_exposure_usd", 0.0)),
+            "margin_error": abs(
+                brief.business_impact.margin_risk_usd - gt.get("margin_risk_usd", 0.0)
+            ),
+            "penalty_error": abs(
+                brief.business_impact.penalty_exposure_usd - gt.get("penalty_exposure_usd", 0.0)
+            ),
             "deadline_error": deadline_error,
             "confidence_calibration_error": conf_error,
             "gt_confidence": gt.get("confidence_overall", 0.0),
@@ -390,11 +428,13 @@ class BenchmarkRunner:
             "component_precision": avg("component_precision"),
             "component_recall": avg("component_recall"),
             "component_f1": avg("component_f1"),
-            "component_exact_match_rate": sum(1 for r in valid if r.get("component_exact_match")) / len(valid),
+            "component_exact_match_rate": sum(1 for r in valid if r.get("component_exact_match"))
+            / len(valid),
             "product_precision": avg("product_precision"),
             "product_recall": avg("product_recall"),
             "product_f1": avg("product_f1"),
-            "product_exact_match_rate": sum(1 for r in valid if r.get("product_exact_match")) / len(valid),
+            "product_exact_match_rate": sum(1 for r in valid if r.get("product_exact_match"))
+            / len(valid),
             "warehouse_precision": avg("warehouse_precision"),
             "warehouse_recall": avg("warehouse_recall"),
             "warehouse_f1": avg("warehouse_f1"),

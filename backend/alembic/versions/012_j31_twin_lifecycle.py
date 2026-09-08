@@ -72,7 +72,7 @@ def upgrade() -> None:
         unique=False,
     )
 
-op.create_table(
+    op.create_table(
         "twin_runs",
         sa.Column("run_id", sa.String(length=36), nullable=False),
         sa.Column("twin_id", sa.String(length=36), nullable=False),
@@ -93,7 +93,9 @@ op.create_table(
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
-        sa.Column("final_state_hash", sa.String(length=64), nullable=False, index=True),
+        sa.Column(
+            "final_state_hash", sa.String(length=64), nullable=False
+        ),  # index: explicit below
         sa.Column("final_version", sa.Integer(), nullable=False),
         sa.Column(
             "metrics",
@@ -169,7 +171,9 @@ op.create_table(
         sa.PrimaryKeyConstraint("version_id"),
     )
     op.create_index("ix_twin_versions_twin_id", "twin_versions", ["twin_id"], unique=False)
-    op.create_index("ix_twin_versions_workspace_id", "twin_versions", ["workspace_id"], unique=False)
+    op.create_index(
+        "ix_twin_versions_workspace_id", "twin_versions", ["workspace_id"], unique=False
+    )
 
     op.create_table(
         "twin_state",
@@ -238,14 +242,10 @@ op.create_table(
     op.create_index("ix_twin_results_run_id", "twin_results", ["run_id"], unique=True)
     op.create_index("ix_twin_results_twin_id", "twin_results", ["twin_id"], unique=False)
     op.create_index("ix_twin_results_workspace_id", "twin_results", ["workspace_id"], unique=False)
-    op.create_index("ix_twin_runs_twin_id", "twin_runs", ["twin_id"], unique=False)
-    op.create_index(
-        "ix_twin_runs_twin_ordered", "twin_runs", ["twin_id", "created_at"], unique=False
-    )
-    op.create_index("ix_twin_runs_workspace_id", "twin_runs", ["workspace_id"], unique=False)
-    op.create_index(
-        "ix_twin_runs_final_state_hash", "twin_runs", ["final_state_hash"], unique=False
-    )
+    # NOTE: the twin_runs indexes are created right after twin_runs above; a
+    # duplicated block here (copy-paste) made upgrade() fail with
+    # DuplicateObject on a fresh database. Never applied anywhere before the
+    # fix — the file has been syntactically broken since it was committed.
 
 
 def downgrade() -> None:

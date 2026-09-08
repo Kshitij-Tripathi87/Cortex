@@ -35,8 +35,16 @@ class InventoryAllocationAgent:
         self.capability_manifest = SignedCapabilityManifest(
             agent_id=self.agent_id,
             version=self.version,
-            allowed_capabilities=[Capability.READ.value, Capability.PROPOSE.value, Capability.SIMULATE.value],
-            allowed_tools=["get_warehouse_inventory", "simulate_safety_stock", "propose_stock_transfer"],
+            allowed_capabilities=[
+                Capability.READ.value,
+                Capability.PROPOSE.value,
+                Capability.SIMULATE.value,
+            ],
+            allowed_tools=[
+                "get_warehouse_inventory",
+                "simulate_safety_stock",
+                "propose_stock_transfer",
+            ],
             policy_id=f"policy_{self.agent_id}_{version}",
         )
         self.capability_manifest.signature = self.capability_manifest.compute_signature()

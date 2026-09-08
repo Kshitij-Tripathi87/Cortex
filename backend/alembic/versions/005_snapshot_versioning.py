@@ -7,6 +7,7 @@ Revises: 004
 Create Date: 2026-07-20
 
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -43,7 +44,7 @@ def upgrade() -> None:
     # This ensures existing workspaces continue from their current version
     op.execute("""
         INSERT INTO snapshot_sequences (sequence_id, workspace_id, snapshot_type, next_version, updated_at)
-        SELECT 
+        SELECT
             gen_random_uuid(),
             workspace_id,
             'graph',

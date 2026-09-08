@@ -28,9 +28,7 @@ class OperationalMemoryEngine:
         """Tenant-scoped live state update."""
         self._states[workspace_id] = world_state
 
-    def get_live_world_state(
-        self, tenant_id: str, workspace_id: str
-    ) -> WorldState | None:
+    def get_live_world_state(self, tenant_id: str, workspace_id: str) -> WorldState | None:
         """Tenant-scoped live state fetch."""
         return self._states.get(workspace_id)
 
@@ -38,9 +36,7 @@ class OperationalMemoryEngine:
         """Retrieve latest operational state for workspace."""
         return self._states.get(workspace_id)
 
-    def query_variable(
-        self, workspace_id: str, variable_id: str
-    ) -> StateVariable | None:
+    def query_variable(self, workspace_id: str, variable_id: str) -> StateVariable | None:
         """Fetch specific state variable."""
         state = self.get_state(workspace_id)
         if not state:

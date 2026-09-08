@@ -13,6 +13,7 @@ from typing import Any
 
 class ResponseStatus(StrEnum):
     """The outcome status of a service operation."""
+
     SUCCESS = "success"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
@@ -22,6 +23,7 @@ class ResponseStatus(StrEnum):
 @dataclass(frozen=True)
 class ServiceRequest:
     """Base standard structure for every service request."""
+
     request_id: str
     correlation_id: str
     causation_id: str
@@ -48,6 +50,7 @@ class ServiceRequest:
 @dataclass(frozen=True)
 class ServiceResponse:
     """Base standard structure for every service response."""
+
     request_id: str
     correlation_id: str
     status: ResponseStatus
@@ -70,6 +73,7 @@ class ServiceResponse:
 @dataclass(frozen=True)
 class ServiceError:
     """Standardized error output form within service responses."""
+
     code: str
     message: str
     details: list[dict[str, Any]] = field(default_factory=list)
@@ -88,6 +92,7 @@ class ServiceError:
 @dataclass(frozen=True)
 class PaginatedResponse:
     """Response envelope for paginated sets of items."""
+
     items: list[Any]
     cursor: str | None
     has_more: bool
@@ -96,10 +101,7 @@ class PaginatedResponse:
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary form."""
         return {
-            "items": [
-                item.to_dict() if hasattr(item, "to_dict") else item
-                for item in self.items
-            ],
+            "items": [item.to_dict() if hasattr(item, "to_dict") else item for item in self.items],
             "cursor": self.cursor,
             "has_more": self.has_more,
             "total_count": self.total_count,
@@ -109,6 +111,7 @@ class PaginatedResponse:
 @dataclass(frozen=True)
 class VersionedPayload:
     """Explicitly versioned payload wrapper for data contracts."""
+
     schema_version: str
     payload: dict[str, Any]
 
@@ -123,6 +126,7 @@ class VersionedPayload:
 @dataclass(frozen=True)
 class IdempotencyRecord:
     """Persisted outcome used for evaluating idempotent retries."""
+
     idempotency_key: str
     tenant_id: str
     workspace_id: str

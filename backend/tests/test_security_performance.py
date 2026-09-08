@@ -494,15 +494,17 @@ def test_cache_manager_all_stats():
 def test_cache_manager_clear_all():
     """Cache manager can clear all caches."""
     manager = CacheManager()
-    manager.snapshots.set(WorldSnapshot(
-        snapshot_id="snap_1",
-        world_id="world_1",
-        workspace_id="ws_1",
-        version=1,
-        graph_version=1,
-        state_hash="abc",
-        variable_count=0,
-    ))
+    manager.snapshots.set(
+        WorldSnapshot(
+            snapshot_id="snap_1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            version=1,
+            graph_version=1,
+            state_hash="abc",
+            variable_count=0,
+        )
+    )
     manager.clear_all()
     assert manager.snapshots.get("snap_1") is None
 

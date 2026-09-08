@@ -69,7 +69,9 @@ class TestIdempotency:
         assert result2.is_duplicate is True
         assert result2.version == 2  # Same version as first
         assert result2.event_id == result1.event_id  # Same event
-        assert result2.state.metadata.get("state_hash") == result1.state.metadata.get("state_hash")  # Same state
+        assert result2.state.metadata.get("state_hash") == result1.state.metadata.get(
+            "state_hash"
+        )  # Same state
 
         # Verify no new version was created
         final_state = await repo.get_latest(workspace_id, world_id)

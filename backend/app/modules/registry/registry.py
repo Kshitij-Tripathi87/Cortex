@@ -31,14 +31,14 @@ class ModelRecord(Base):
         {"schema": "analytics"},
     )
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     model_type: Mapped[str] = mapped_column(String(64), nullable=False)
     framework: Mapped[str] = mapped_column(String(64), nullable=False)
     version: Mapped[str] = mapped_column(String(32), nullable=False)
-    stage: Mapped[str] = mapped_column(String(32), nullable=False, default=ModelStage.DEVELOPMENT.value)
+    stage: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=ModelStage.DEVELOPMENT.value
+    )
 
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
@@ -55,15 +55,21 @@ class ModelRecord(Base):
 
     metrics: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     evaluation_dataset: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    evaluation_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    evaluation_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     deployment_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     deployment_endpoint: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    deployment_status: Mapped[str] = mapped_column(String(32), nullable=False, default="not_deployed")
+    deployment_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="not_deployed"
+    )
 
     drift_threshold: Mapped[float] = mapped_column(default=0.1)
     performance_threshold: Mapped[float] = mapped_column(default=0.9)
-    last_monitoring_check: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_monitoring_check: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
@@ -75,9 +81,7 @@ class ModelRecord(Base):
     approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    parent_model_id: Mapped[UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), nullable=True
-    )
+    parent_model_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     git_commit: Mapped[str | None] = mapped_column(String(128), nullable=True)
     git_branch: Mapped[str | None] = mapped_column(String(128), nullable=True)
     training_config_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -96,7 +100,9 @@ class ModelEvaluationRecord(Base):
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
     model_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("analytics.model_registry.id", ondelete="CASCADE"), nullable=False
+        PgUUID(as_uuid=True),
+        ForeignKey("analytics.model_registry.id", ondelete="CASCADE"),
+        nullable=False,
     )
     model_version: Mapped[str] = mapped_column(String(32), nullable=False)
     evaluation_name: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -128,7 +134,9 @@ class ModelDeploymentRecord(Base):
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
     model_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("analytics.model_registry.id", ondelete="CASCADE"), nullable=False
+        PgUUID(as_uuid=True),
+        ForeignKey("analytics.model_registry.id", ondelete="CASCADE"),
+        nullable=False,
     )
     model_version: Mapped[str] = mapped_column(String(32), nullable=False)
     environment: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -185,13 +193,13 @@ class ModelRegistry:
         return self._to_metadata(record)
 
     async def get_model(self, model_id: UUID) -> ModelMetadata | None:
-        result = await self.db.execute(
-            select(ModelRecord).where(ModelRecord.id == model_id)
-        )
+        result = await self.db.execute(select(ModelRecord).where(ModelRecord.id == model_id))
         record = result.scalar_one_or_none()
         return self._to_metadata(record) if record else None
 
-    async def get_model_by_name(self, name: str, version: str | None = None) -> ModelMetadata | None:
+    async def get_model_by_name(
+        self, name: str, version: str | None = None
+    ) -> ModelMetadata | None:
         stmt = select(ModelRecord).where(ModelRecord.name == name)
         if version:
             stmt = stmt.where(ModelRecord.version == version)
@@ -229,9 +237,7 @@ class ModelRegistry:
         return [self._to_metadata(r) for r in records]
 
     async def update_model(self, model_id: UUID, updates: dict) -> ModelMetadata | None:
-        result = await self.db.execute(
-            select(ModelRecord).where(ModelRecord.id == model_id)
-        )
+        result = await self.db.execute(select(ModelRecord).where(ModelRecord.id == model_id))
         record = result.scalar_one_or_none()
         if not record:
             return None
@@ -398,9 +404,7 @@ class ModelRegistry:
 
     async def get_model_versions(self, model_id: UUID) -> list[dict]:
         """Get all versions of a model."""
-        await self.db.execute(
-            select(ModelRecord).where(ModelRecord.id == model_id)
-        )
+        await self.db.execute(select(ModelRecord).where(ModelRecord.id == model_id))
         # Actually, in this schema, each record is a different model.
         # For versioning, we'd need a separate approach.
         # This is a simplified implementation.

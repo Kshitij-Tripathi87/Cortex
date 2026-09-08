@@ -89,12 +89,12 @@ class TestPostgresSequenceAllocation:
             events.append(event)
 
         # Submit concurrently — each task uses its own session (production pattern)
-        results = await asyncio.gather(*[
-            submit_in_own_session(
-                postgres_sessionmaker, event, idempotency_key=f"req_{i}"
-            )
-            for i, event in enumerate(events)
-        ])
+        results = await asyncio.gather(
+            *[
+                submit_in_own_session(postgres_sessionmaker, event, idempotency_key=f"req_{i}")
+                for i, event in enumerate(events)
+            ]
+        )
 
         # Verify all succeeded
         assert len(results) == 10
@@ -151,8 +151,7 @@ class TestPostgresSequenceAllocation:
                         metadata={},
                     )
                     result = await service.submit_event(
-                        event,
-                        idempotency_key=f"worker_{worker_id}_req_{event_num}"
+                        event, idempotency_key=f"worker_{worker_id}_req_{event_num}"
                     )
                     results.append(result)
                 await session.rollback()
@@ -298,12 +297,12 @@ class TestPostgresIdempotencyEnforcement:
         idempotency_key = "req_concurrent_123"
 
         # Submit 3 times concurrently with same idempotency_key (own session each)
-        results = await asyncio.gather(*[
-            submit_in_own_session(
-                postgres_sessionmaker, event, idempotency_key=idempotency_key
-            )
-            for _ in range(3)
-        ])
+        results = await asyncio.gather(
+            *[
+                submit_in_own_session(postgres_sessionmaker, event, idempotency_key=idempotency_key)
+                for _ in range(3)
+            ]
+        )
 
         # All should have same event_id and version_id
         event_ids = {r.event_id for r in results}
@@ -318,10 +317,7 @@ class TestPostgresIdempotencyEnforcement:
             workspace_id=workspace_id,
         )
 
-        idempotency_events = [
-            e for e in db_events
-            if e.idempotency_key == idempotency_key
-        ]
+        idempotency_events = [e for e in db_events if e.idempotency_key == idempotency_key]
         assert len(idempotency_events) == 1, "Only one event should exist for this key"
 
 
@@ -414,10 +410,7 @@ class TestPostgresReplayConsistency:
                 reason="receipt",
                 metadata={"sequence": i},
             )
-            result = await postgres_service.submit_event(
-                event,
-                idempotency_key=f"req_{i}"
-            )
+            result = await postgres_service.submit_event(event, idempotency_key=f"req_{i}")
             assert result.version == i + 2  # +2 because genesis is version 1
 
         # Get live state

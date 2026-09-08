@@ -25,10 +25,12 @@ WS = UUID("55555555-5555-5555-5555-555555555555")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backtest the supplier_delay MVP wedge scenario.")
-    parser.add_argument("--format", choices=["json", "markdown"],
-                        default="markdown", help="Output format")
-    parser.add_argument("--tolerance", type=float, default=0.70,
-                        help="Minimum acceptable accuracy (default 0.70)")
+    parser.add_argument(
+        "--format", choices=["json", "markdown"], default="markdown", help="Output format"
+    )
+    parser.add_argument(
+        "--tolerance", type=float, default=0.70, help="Minimum acceptable accuracy (default 0.70)"
+    )
     args = parser.parse_args()
 
     snapshot, scenario, labels = build()
@@ -73,7 +75,9 @@ def _print_markdown(report, tolerance: float) -> None:
     print(f"| Precision     | {report.precision:.4f} |")
     print(f"| Recall        | {report.recall:.4f} |")
     print(f"| F1 Score      | {report.f1:.4f} |")
-    print(f"| TP / FP / FN  | {report.true_positives} / {report.false_positives} / {report.false_negatives} |")
+    print(
+        f"| TP / FP / FN  | {report.true_positives} / {report.false_positives} / {report.false_negatives} |"
+    )
     print()
 
     if report.accuracy >= tolerance:
@@ -90,7 +94,9 @@ def _print_markdown(report, tolerance: float) -> None:
         print(f"- Predicted products: {len(event.predicted_product_ids)}")
         print(f"- Predicted orders: {len(event.predicted_order_ids)}")
         print(f"- Predicted warehouses: {len(event.predicted_warehouse_ids)}")
-        print(f"- TP={event.true_positives} FP={event.false_positives} FN={event.false_negatives} Total={event.total_predictions}")
+        print(
+            f"- TP={event.true_positives} FP={event.false_positives} FN={event.false_negatives} Total={event.total_predictions}"
+        )
         print()
 
 

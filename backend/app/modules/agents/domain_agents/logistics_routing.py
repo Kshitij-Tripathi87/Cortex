@@ -35,7 +35,11 @@ class LogisticsRoutingAgent:
         self.capability_manifest = SignedCapabilityManifest(
             agent_id=self.agent_id,
             version=self.version,
-            allowed_capabilities=[Capability.READ.value, Capability.PROPOSE.value, Capability.SIMULATE.value],
+            allowed_capabilities=[
+                Capability.READ.value,
+                Capability.PROPOSE.value,
+                Capability.SIMULATE.value,
+            ],
             allowed_tools=["get_carrier_rates", "simulate_transit_times", "calculate_emissions"],
             policy_id=f"policy_{self.agent_id}_{version}",
         )

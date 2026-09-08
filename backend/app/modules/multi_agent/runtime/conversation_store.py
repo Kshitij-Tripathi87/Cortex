@@ -63,13 +63,15 @@ class ConversationRecord:
         """Generate human-readable timeline for the Decision Room UI."""
         timeline: list[dict[str, Any]] = []
         for msg in self.messages:
-            timeline.append({
-                "timestamp": msg.occurred_at.strftime("%H:%M:%S"),
-                "agent": msg.agent_id.upper(),
-                "type": msg.message_type.value,
-                "summary": self._extract_summary(msg),
-                "payload": msg.payload,
-            })
+            timeline.append(
+                {
+                    "timestamp": msg.occurred_at.strftime("%H:%M:%S"),
+                    "agent": msg.agent_id.upper(),
+                    "type": msg.message_type.value,
+                    "summary": self._extract_summary(msg),
+                    "payload": msg.payload,
+                }
+            )
         return timeline
 
     def _extract_summary(self, msg: AgentMessageEnvelope) -> str:
@@ -99,23 +101,15 @@ class ConversationStore:
         """Retrieve conversation by ID."""
         return self._conversations.get(conversation_id)
 
-    def list_by_workspace(
-        self, workspace_id: str, limit: int = 50
-    ) -> list[ConversationRecord]:
+    def list_by_workspace(self, workspace_id: str, limit: int = 50) -> list[ConversationRecord]:
         """List conversations for a given workspace ordered by start time descending."""
-        records = [
-            c for c in self._conversations.values() if c.workspace_id == workspace_id
-        ]
+        records = [c for c in self._conversations.values() if c.workspace_id == workspace_id]
         records.sort(key=lambda x: x.started_at, reverse=True)
         return records[:limit]
 
-    def list_by_tenant(
-        self, tenant_id: str, limit: int = 50
-    ) -> list[ConversationRecord]:
+    def list_by_tenant(self, tenant_id: str, limit: int = 50) -> list[ConversationRecord]:
         """List conversations for a given tenant ordered by start time descending."""
-        records = [
-            c for c in self._conversations.values() if c.tenant_id == tenant_id
-        ]
+        records = [c for c in self._conversations.values() if c.tenant_id == tenant_id]
         records.sort(key=lambda x: x.started_at, reverse=True)
         return records[:limit]
 

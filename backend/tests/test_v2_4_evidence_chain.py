@@ -106,8 +106,13 @@ def _build_dataset() -> CanonicalDataset:
     ds.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": f"S{i}", "state": "SP", "city": "Sao Paulo",
-             "_source_file": "suppliers.csv", "_source_row": i}
+            {
+                "supplier_id": f"S{i}",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "suppliers.csv",
+                "_source_row": i,
+            }
             for i in range(1, 5)
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
@@ -116,10 +121,20 @@ def _build_dataset() -> CanonicalDataset:
     ds.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": "C1", "state": "SP", "city": "Sao Paulo",
-             "_source_file": "customers.csv", "_source_row": 1},
-            {"customer_id": "C2", "state": "RJ", "city": "Rio",
-             "_source_file": "customers.csv", "_source_row": 2},
+            {
+                "customer_id": "C1",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "customers.csv",
+                "_source_row": 1,
+            },
+            {
+                "customer_id": "C2",
+                "state": "RJ",
+                "city": "Rio",
+                "_source_file": "customers.csv",
+                "_source_row": 2,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="customers.csv",
@@ -127,32 +142,56 @@ def _build_dataset() -> CanonicalDataset:
     ds.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": f"O{i:03d}", "customer_id": f"C{(i % 2) + 1}",
-             "status": "processing", "price": 200.0 + i * 10,
-             "freight_value": 15.0, "_source_file": "orders.csv", "_source_row": i}
+            {
+                "order_id": f"O{i:03d}",
+                "customer_id": f"C{(i % 2) + 1}",
+                "status": "processing",
+                "price": 200.0 + i * 10,
+                "freight_value": 15.0,
+                "_source_file": "orders.csv",
+                "_source_row": i,
+            }
             for i in range(1, 7)
         ],
-        column_types={"order_id": "str", "customer_id": "str", "status": "str",
-                      "price": "float", "freight_value": "float"},
+        column_types={
+            "order_id": "str",
+            "customer_id": "str",
+            "status": "str",
+            "price": "float",
+            "freight_value": "float",
+        },
         source_file="orders.csv",
     )
     ds.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"order_item_id": f"OI{i}", "order_id": f"O{i:03d}",
-             "supplier_id": f"S{(i % 4) + 1}", "product_id": f"P{i}",
-             "_source_file": "order_items.csv", "_source_row": i}
+            {
+                "order_item_id": f"OI{i}",
+                "order_id": f"O{i:03d}",
+                "supplier_id": f"S{(i % 4) + 1}",
+                "product_id": f"P{i}",
+                "_source_file": "order_items.csv",
+                "_source_row": i,
+            }
             for i in range(1, 7)
         ],
-        column_types={"order_item_id": "str", "order_id": "str",
-                      "supplier_id": "str", "product_id": "str"},
+        column_types={
+            "order_item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+        },
         source_file="order_items.csv",
     )
     ds.tables[EntityType.PRODUCT] = CanonicalTable(
         entity_type=EntityType.PRODUCT,
         rows=[
-            {"product_id": f"P{i}", "category": f"cat_{i % 3}",
-             "_source_file": "products.csv", "_source_row": i}
+            {
+                "product_id": f"P{i}",
+                "category": f"cat_{i % 3}",
+                "_source_file": "products.csv",
+                "_source_row": i,
+            }
             for i in range(1, 7)
         ],
         column_types={"product_id": "str", "category": "str"},
@@ -168,76 +207,173 @@ def _full_chain(include_execution: bool = True) -> EvidenceChain:
     matches the spine's non-approved execution path.
     """
     ch = _chain()
-    n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                causation_id="", actor="src", event_id="ev_v24_01",
-                input_payload={"x": 0}, output_payload={"dataset": "suppliers.csv"},
-                timestamp=FIXED_TIMESTAMP_1)
-    n1 = ch.add(node_type="CANONICAL_ENTITY", parent_id=n0.event_id, world_state_version=0,
-                causation_id=n0.event_id, actor="resolver", event_id="ev_v24_02",
-                input_payload={"from": n0.event_id}, output_payload={"entities": 12},
-                timestamp=FIXED_TIMESTAMP_1)
-    n2 = ch.add(node_type="GRAPH", parent_id=n1.event_id, world_state_version=1,
-                causation_id=n1.event_id, actor="graph", event_id="ev_v24_03",
-                input_payload={"from": n1.event_id}, output_payload={"nodes": 20, "edges": 40},
-                timestamp=FIXED_TIMESTAMP_1)
-    n3 = ch.add(node_type="WORLD_STATE", parent_id=n2.event_id, world_state_version=3,
-                causation_id=n2.event_id, actor="world", event_id="ev_v24_04",
-                input_payload={"from": n2.event_id}, output_payload={"version": 3, "events": 12},
-                timestamp=FIXED_TIMESTAMP_1)
-    n4 = ch.add(node_type="SIGNAL", parent_id=n3.event_id, world_state_version=3,
-                causation_id=n3.event_id, actor="signals", event_id="ev_v24_05",
-                input_payload={"from": n3.event_id}, output_payload={"count": 1, "type": "SUPPLIER_DEGRADATION"},
-                timestamp=FIXED_TIMESTAMP_1)
-    n5 = ch.add(node_type="ROOT_CAUSE", parent_id=n4.event_id, world_state_version=3,
-                causation_id=n4.event_id, actor="rca", event_id="ev_v24_06",
-                input_payload={"from": n4.event_id}, output_payload={"affected": 4},
-                timestamp=FIXED_TIMESTAMP_1)
-    n6 = ch.add(node_type="AGENT_OBSERVATION", parent_id=n5.event_id, world_state_version=3,
-                causation_id=n5.event_id, actor="supervisor", event_id="ev_v24_07",
-                input_payload={"from": n5.event_id}, output_payload={"task_id": "TASK_001"},
-                timestamp=FIXED_TIMESTAMP_1)
-    n7 = ch.add(node_type="PROPOSAL", parent_id=n6.event_id, world_state_version=3,
-                causation_id=n6.event_id, actor="agents", event_id="ev_v24_08",
-                input_payload={"from": n6.event_id},
-                output_payload={"proposal_hashes": ["abc123"]},
-                timestamp=FIXED_TIMESTAMP_1)
-    n8 = ch.add(node_type="SIMULATION", parent_id=n7.event_id, world_state_version=3,
-                causation_id=n7.event_id, actor="twin", event_id="ev_v24_09",
-                input_payload={"from": n7.event_id},
-                output_payload={"simulation_hash": "sim_001"},
-                timestamp=FIXED_TIMESTAMP_1)
-    n9 = ch.add(node_type="POLICY", parent_id=n8.event_id, world_state_version=3,
-                causation_id=n8.event_id, actor="policy", event_id="ev_v24_10",
-                input_payload={"from": n8.event_id},
-                output_payload={"approved": True, "policy_version": "v1"},
-                timestamp=FIXED_TIMESTAMP_2)
-    n10 = ch.add(node_type="APPROVAL", parent_id=n9.event_id, world_state_version=3,
-                 causation_id=n9.event_id, actor="approval", event_id="ev_v24_11",
-                 input_payload={"from": n9.event_id},
-                 output_payload={"approval_hash": "appr_001"},
-                 timestamp=FIXED_TIMESTAMP_2)
+    n0 = ch.add(
+        node_type="SOURCE",
+        parent_id=ROOT_PARENT_ID,
+        world_state_version=0,
+        causation_id="",
+        actor="src",
+        event_id="ev_v24_01",
+        input_payload={"x": 0},
+        output_payload={"dataset": "suppliers.csv"},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n1 = ch.add(
+        node_type="CANONICAL_ENTITY",
+        parent_id=n0.event_id,
+        world_state_version=0,
+        causation_id=n0.event_id,
+        actor="resolver",
+        event_id="ev_v24_02",
+        input_payload={"from": n0.event_id},
+        output_payload={"entities": 12},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n2 = ch.add(
+        node_type="GRAPH",
+        parent_id=n1.event_id,
+        world_state_version=1,
+        causation_id=n1.event_id,
+        actor="graph",
+        event_id="ev_v24_03",
+        input_payload={"from": n1.event_id},
+        output_payload={"nodes": 20, "edges": 40},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n3 = ch.add(
+        node_type="WORLD_STATE",
+        parent_id=n2.event_id,
+        world_state_version=3,
+        causation_id=n2.event_id,
+        actor="world",
+        event_id="ev_v24_04",
+        input_payload={"from": n2.event_id},
+        output_payload={"version": 3, "events": 12},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n4 = ch.add(
+        node_type="SIGNAL",
+        parent_id=n3.event_id,
+        world_state_version=3,
+        causation_id=n3.event_id,
+        actor="signals",
+        event_id="ev_v24_05",
+        input_payload={"from": n3.event_id},
+        output_payload={"count": 1, "type": "SUPPLIER_DEGRADATION"},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n5 = ch.add(
+        node_type="ROOT_CAUSE",
+        parent_id=n4.event_id,
+        world_state_version=3,
+        causation_id=n4.event_id,
+        actor="rca",
+        event_id="ev_v24_06",
+        input_payload={"from": n4.event_id},
+        output_payload={"affected": 4},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n6 = ch.add(
+        node_type="AGENT_OBSERVATION",
+        parent_id=n5.event_id,
+        world_state_version=3,
+        causation_id=n5.event_id,
+        actor="supervisor",
+        event_id="ev_v24_07",
+        input_payload={"from": n5.event_id},
+        output_payload={"task_id": "TASK_001"},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n7 = ch.add(
+        node_type="PROPOSAL",
+        parent_id=n6.event_id,
+        world_state_version=3,
+        causation_id=n6.event_id,
+        actor="agents",
+        event_id="ev_v24_08",
+        input_payload={"from": n6.event_id},
+        output_payload={"proposal_hashes": ["abc123"]},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n8 = ch.add(
+        node_type="SIMULATION",
+        parent_id=n7.event_id,
+        world_state_version=3,
+        causation_id=n7.event_id,
+        actor="twin",
+        event_id="ev_v24_09",
+        input_payload={"from": n7.event_id},
+        output_payload={"simulation_hash": "sim_001"},
+        timestamp=FIXED_TIMESTAMP_1,
+    )
+    n9 = ch.add(
+        node_type="POLICY",
+        parent_id=n8.event_id,
+        world_state_version=3,
+        causation_id=n8.event_id,
+        actor="policy",
+        event_id="ev_v24_10",
+        input_payload={"from": n8.event_id},
+        output_payload={"approved": True, "policy_version": "v1"},
+        timestamp=FIXED_TIMESTAMP_2,
+    )
+    n10 = ch.add(
+        node_type="APPROVAL",
+        parent_id=n9.event_id,
+        world_state_version=3,
+        causation_id=n9.event_id,
+        actor="approval",
+        event_id="ev_v24_11",
+        input_payload={"from": n9.event_id},
+        output_payload={"approval_hash": "appr_001"},
+        timestamp=FIXED_TIMESTAMP_2,
+    )
     if not include_execution:
         return ch
-    n11 = ch.add(node_type="AUTHORIZATION", parent_id=n10.event_id, world_state_version=3,
-                 causation_id=n10.event_id, actor="ges", event_id="ev_v24_12",
-                 input_payload={"from": n10.event_id},
-                 output_payload={"authorization_hash": "auth_001"},
-                 timestamp=FIXED_TIMESTAMP_2)
-    n12 = ch.add(node_type="EXECUTION", parent_id=n11.event_id, world_state_version=3,
-                 causation_id=n11.event_id, actor="adapter", event_id="ev_v24_13",
-                 input_payload={"from": n11.event_id},
-                 output_payload={"execution_id": "exec_001"},
-                 timestamp=FIXED_TIMESTAMP_2)
-    n13 = ch.add(node_type="OUTCOME", parent_id=n12.event_id, world_state_version=4,
-                 causation_id=n12.event_id, actor="outcome", event_id="ev_v24_14",
-                 input_payload={"from": n12.event_id},
-                 output_payload={"outcome_hash": "out_001"},
-                 timestamp=FIXED_TIMESTAMP_2)
-    ch.add(node_type="WORLD_STATE_NEW", parent_id=n13.event_id, world_state_version=4,
-           causation_id=n13.event_id, actor="world", event_id="ev_v24_15",
-           input_payload={"from": n13.event_id},
-           output_payload={"version": 4},
-           timestamp=FIXED_TIMESTAMP_2)
+    n11 = ch.add(
+        node_type="AUTHORIZATION",
+        parent_id=n10.event_id,
+        world_state_version=3,
+        causation_id=n10.event_id,
+        actor="ges",
+        event_id="ev_v24_12",
+        input_payload={"from": n10.event_id},
+        output_payload={"authorization_hash": "auth_001"},
+        timestamp=FIXED_TIMESTAMP_2,
+    )
+    n12 = ch.add(
+        node_type="EXECUTION",
+        parent_id=n11.event_id,
+        world_state_version=3,
+        causation_id=n11.event_id,
+        actor="adapter",
+        event_id="ev_v24_13",
+        input_payload={"from": n11.event_id},
+        output_payload={"execution_id": "exec_001"},
+        timestamp=FIXED_TIMESTAMP_2,
+    )
+    n13 = ch.add(
+        node_type="OUTCOME",
+        parent_id=n12.event_id,
+        world_state_version=4,
+        causation_id=n12.event_id,
+        actor="outcome",
+        event_id="ev_v24_14",
+        input_payload={"from": n12.event_id},
+        output_payload={"outcome_hash": "out_001"},
+        timestamp=FIXED_TIMESTAMP_2,
+    )
+    ch.add(
+        node_type="WORLD_STATE_NEW",
+        parent_id=n13.event_id,
+        world_state_version=4,
+        causation_id=n13.event_id,
+        actor="world",
+        event_id="ev_v24_15",
+        input_payload={"from": n13.event_id},
+        output_payload={"version": 4},
+        timestamp=FIXED_TIMESTAMP_2,
+    )
     return ch
 
 
@@ -251,26 +387,47 @@ class TestEvidenceNodeContract:
 
     def test_node_has_all_11_fields(self):
         n = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="o", workspace_id="w",
-            world_state_version=0, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="o",
+            workspace_id="w",
+            world_state_version=0,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 2},
         )
         d = n.to_dict()
         for field in [
-            "event_id", "node_type", "parent_id", "organization_id",
-            "workspace_id", "world_state_version", "correlation_id",
-            "causation_id", "timestamp", "actor", "input_hash", "output_hash",
+            "event_id",
+            "node_type",
+            "parent_id",
+            "organization_id",
+            "workspace_id",
+            "world_state_version",
+            "correlation_id",
+            "causation_id",
+            "timestamp",
+            "actor",
+            "input_hash",
+            "output_hash",
             "node_hash",
         ]:
             assert field in d, f"missing field {field}"
 
     def test_node_hash_is_64_char_hex(self):
         n = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="o", workspace_id="w",
-            world_state_version=0, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="o",
+            workspace_id="w",
+            world_state_version=0,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 2},
         )
         assert len(n.node_hash) == 64
         int(n.node_hash, 16)  # hex-parseable
@@ -278,38 +435,63 @@ class TestEvidenceNodeContract:
     def test_node_hash_determinism(self):
         def build():
             return EvidenceNode.create(
-                node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-                organization_id="o", workspace_id="w",
-                world_state_version=1, correlation_id="c", causation_id="",
-                actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+                node_type="SOURCE",
+                parent_id=ROOT_PARENT_ID,
+                organization_id="o",
+                workspace_id="w",
+                world_state_version=1,
+                correlation_id="c",
+                causation_id="",
+                actor="x",
+                input_payload={"a": 1},
+                output_payload={"b": 2},
                 timestamp="2026-08-22T00:00:00+00:00",
                 event_id="ev_fixed_001",
             )
+
         assert build().node_hash == build().node_hash
 
     def test_node_hash_sensitivity_to_organization(self):
         n1 = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="orgA", workspace_id="w",
-            world_state_version=1, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="orgA",
+            workspace_id="w",
+            world_state_version=1,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 2},
             timestamp="2026-08-22T00:00:00+00:00",
         )
         n2 = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="orgB", workspace_id="w",
-            world_state_version=1, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="orgB",
+            workspace_id="w",
+            world_state_version=1,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 2},
             timestamp="2026-08-22T00:00:00+00:00",
         )
         assert n1.node_hash != n2.node_hash
 
     def test_node_hash_sensitivity_to_world_state_version(self):
         n1 = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="o", workspace_id="w",
-            world_state_version=1, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="o",
+            workspace_id="w",
+            world_state_version=1,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 2},
             timestamp="2026-08-22T00:00:00+00:00",
         )
         n2 = replace(n1, world_state_version=2)
@@ -317,18 +499,30 @@ class TestEvidenceNodeContract:
 
     def test_node_hash_sensitivity_to_output_payload(self):
         n1 = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="o", workspace_id="w",
-            world_state_version=1, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 2},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="o",
+            workspace_id="w",
+            world_state_version=1,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 2},
             timestamp="2026-08-22T00:00:00+00:00",
         )
         # Different output_payload → different output_hash → different node_hash.
         n2 = EvidenceNode.create(
-            node_type="SOURCE", parent_id=ROOT_PARENT_ID,
-            organization_id="o", workspace_id="w",
-            world_state_version=1, correlation_id="c", causation_id="",
-            actor="x", input_payload={"a": 1}, output_payload={"b": 3},
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            organization_id="o",
+            workspace_id="w",
+            world_state_version=1,
+            correlation_id="c",
+            causation_id="",
+            actor="x",
+            input_payload={"a": 1},
+            output_payload={"b": 3},
             timestamp="2026-08-22T00:00:00+00:00",
         )
         assert n1.node_hash != n2.node_hash
@@ -348,33 +542,72 @@ class TestEvidenceNodeContract:
     def test_unknown_node_type_rejected(self):
         ch = _chain()
         with pytest.raises(ValueError, match="UNKNOWN_NODE_TYPE"):
-            ch.add(node_type="FAKE_STAGE", parent_id=ROOT_PARENT_ID,
-                   world_state_version=0, causation_id="", actor="x",
-                   input_payload={}, output_payload={})
+            ch.add(
+                node_type="FAKE_STAGE",
+                parent_id=ROOT_PARENT_ID,
+                world_state_version=0,
+                causation_id="",
+                actor="x",
+                input_payload={},
+                output_payload={},
+            )
 
     def test_root_parent_only_on_first_node(self):
         ch = _chain()
-        n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                    causation_id="", actor="x", input_payload={}, output_payload={})
+        n0 = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={},
+        )
         with pytest.raises(ValueError, match="ROOT_PARENT_ID"):
-            ch.add(node_type="WORLD_STATE", parent_id=ROOT_PARENT_ID, world_state_version=1,
-                   causation_id=n0.event_id, actor="x", input_payload={}, output_payload={})
+            ch.add(
+                node_type="WORLD_STATE",
+                parent_id=ROOT_PARENT_ID,
+                world_state_version=1,
+                causation_id=n0.event_id,
+                actor="x",
+                input_payload={},
+                output_payload={},
+            )
 
     def test_unknown_parent_rejected(self):
         ch = _chain()
         with pytest.raises(ValueError, match="PARENT_NOT_FOUND"):
-            ch.add(node_type="WORLD_STATE", parent_id="ev_does_not_exist",
-                   world_state_version=1, causation_id="", actor="x",
-                   input_payload={}, output_payload={})
+            ch.add(
+                node_type="WORLD_STATE",
+                parent_id="ev_does_not_exist",
+                world_state_version=1,
+                causation_id="",
+                actor="x",
+                input_payload={},
+                output_payload={},
+            )
 
     def test_unknown_causation_rejected(self):
         ch = _chain()
-        n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                    causation_id="", actor="x", input_payload={}, output_payload={})
+        n0 = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={},
+        )
         with pytest.raises(ValueError, match="CAUSATION_NOT_FOUND"):
-            ch.add(node_type="WORLD_STATE", parent_id=n0.event_id, world_state_version=1,
-                   causation_id="ev_does_not_exist", actor="x",
-                   input_payload={}, output_payload={})
+            ch.add(
+                node_type="WORLD_STATE",
+                parent_id=n0.event_id,
+                world_state_version=1,
+                causation_id="ev_does_not_exist",
+                actor="x",
+                input_payload={},
+                output_payload={},
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -390,8 +623,15 @@ class TestChainRoot:
         # An empty chain makes no root claim yet.
         assert ch.chain_root == ""
         # First node materializes the root (64-char SHA-256 hex).
-        ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-               causation_id="", actor="x", input_payload={}, output_payload={})
+        ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={},
+        )
         assert ch.chain_root != ""
         assert len(ch.chain_root) == 64
 
@@ -430,12 +670,16 @@ class TestChainRoot:
         ch_a = _chain(org="orgA")
         ch_b = _chain(org="orgB")
         assert compute_chain_root(
-            organization_id=ch_a.organization_id, workspace_id=ch_a.workspace_id,
-            correlation_id=ch_a.correlation_id, decision_id=ch_a.decision_id,
+            organization_id=ch_a.organization_id,
+            workspace_id=ch_a.workspace_id,
+            correlation_id=ch_a.correlation_id,
+            decision_id=ch_a.decision_id,
             node_hashes=[],
         ) != compute_chain_root(
-            organization_id=ch_b.organization_id, workspace_id=ch_b.workspace_id,
-            correlation_id=ch_b.correlation_id, decision_id=ch_b.decision_id,
+            organization_id=ch_b.organization_id,
+            workspace_id=ch_b.workspace_id,
+            correlation_id=ch_b.correlation_id,
+            decision_id=ch_b.decision_id,
             node_hashes=[],
         )
 
@@ -450,30 +694,61 @@ class TestSourceToWorldState:
 
     def test_source_node_carries_dataset_metadata(self):
         ch = _chain()
-        n = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                   causation_id="", actor="src",
-                   input_payload={"workspace_id": "ws_v24"},
-                   output_payload={"table_count": 3, "tables": ["supplier", "order"]})
+        n = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="src",
+            input_payload={"workspace_id": "ws_v24"},
+            output_payload={"table_count": 3, "tables": ["supplier", "order"]},
+        )
         d = n.to_dict()
         assert d["node_type"] == "SOURCE"
         assert d["parent_id"] == ROOT_PARENT_ID
         assert d["input_hash"] != d["output_hash"]
-        assert d["output_hash"] == compute_output_hash({"table_count": 3, "tables": ["supplier", "order"]})
+        assert d["output_hash"] == compute_output_hash(
+            {"table_count": 3, "tables": ["supplier", "order"]}
+        )
 
     def test_chain_source_to_world_state(self):
         ch = _chain()
-        n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                    causation_id="", actor="x",
-                    input_payload={}, output_payload={"dataset": "x"})
-        n1 = ch.add(node_type="CANONICAL_ENTITY", parent_id=n0.event_id, world_state_version=0,
-                    causation_id=n0.event_id, actor="x",
-                    input_payload={}, output_payload={"count": 5})
-        n2 = ch.add(node_type="GRAPH", parent_id=n1.event_id, world_state_version=1,
-                    causation_id=n1.event_id, actor="x",
-                    input_payload={}, output_payload={"nodes": 5})
-        n3 = ch.add(node_type="WORLD_STATE", parent_id=n2.event_id, world_state_version=3,
-                    causation_id=n2.event_id, actor="x",
-                    input_payload={}, output_payload={"version": 3})
+        n0 = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={"dataset": "x"},
+        )
+        n1 = ch.add(
+            node_type="CANONICAL_ENTITY",
+            parent_id=n0.event_id,
+            world_state_version=0,
+            causation_id=n0.event_id,
+            actor="x",
+            input_payload={},
+            output_payload={"count": 5},
+        )
+        n2 = ch.add(
+            node_type="GRAPH",
+            parent_id=n1.event_id,
+            world_state_version=1,
+            causation_id=n1.event_id,
+            actor="x",
+            input_payload={},
+            output_payload={"nodes": 5},
+        )
+        n3 = ch.add(
+            node_type="WORLD_STATE",
+            parent_id=n2.event_id,
+            world_state_version=3,
+            causation_id=n2.event_id,
+            actor="x",
+            input_payload={},
+            output_payload={"version": 3},
+        )
         lineage = ch.lineage(n3.event_id)
         types = [n.node_type for n in lineage]
         assert types == ["SOURCE", "CANONICAL_ENTITY", "GRAPH", "WORLD_STATE"]
@@ -734,9 +1009,15 @@ class TestCrossWorkspaceIsolation:
         ch = _chain(org="orgA", ws="wsA")
         # Try to add a node with a different organization_id by patching
         # the node post-add. Detection must come from verify(), not add().
-        n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                    causation_id="", actor="x",
-                    input_payload={}, output_payload={})
+        n0 = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={},
+        )
         smuggled = replace(n0, organization_id="orgB")
         ch.nodes[0] = smuggled
         ok, failures = ch.verify()
@@ -745,9 +1026,15 @@ class TestCrossWorkspaceIsolation:
 
     def test_cross_workspace_node_rejected(self):
         ch = _chain(org="orgA", ws="wsA")
-        n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                    causation_id="", actor="x",
-                    input_payload={}, output_payload={})
+        n0 = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={},
+        )
         smuggled = replace(n0, workspace_id="wsB")
         ch.nodes[0] = smuggled
         ok, failures = ch.verify()
@@ -756,9 +1043,15 @@ class TestCrossWorkspaceIsolation:
 
     def test_correlation_drift_detected(self):
         ch = _chain(corr="task_001")
-        n0 = ch.add(node_type="SOURCE", parent_id=ROOT_PARENT_ID, world_state_version=0,
-                    causation_id="", actor="x",
-                    input_payload={}, output_payload={})
+        n0 = ch.add(
+            node_type="SOURCE",
+            parent_id=ROOT_PARENT_ID,
+            world_state_version=0,
+            causation_id="",
+            actor="x",
+            input_payload={},
+            output_payload={},
+        )
         # Inject a node from a different correlation.
         smuggled = replace(n0, correlation_id="task_999")
         ch.nodes[0] = smuggled
@@ -861,9 +1154,7 @@ class TestSpineIntegration:
 
     @pytest.mark.asyncio
     async def test_chain_node_count_matches(self, result: SpineResult):
-        assert result.evidence_chain_node_count == len(
-            result.evidence_chain_v24["nodes"]
-        )
+        assert result.evidence_chain_node_count == len(result.evidence_chain_v24["nodes"])
 
     @pytest.mark.asyncio
     async def test_chain_header_binds_to_tenant(self, result: SpineResult):
@@ -929,13 +1220,9 @@ class TestSpineIntegration:
 
     @pytest.mark.asyncio
     async def test_execution_outcome_hash_present_on_chain(self, result: SpineResult):
-        if not any(
-            n["node_type"] == "OUTCOME" for n in result.evidence_chain_v24["nodes"]
-        ):
+        if not any(n["node_type"] == "OUTCOME" for n in result.evidence_chain_v24["nodes"]):
             pytest.skip("no execution path in this spine run")
-        outcome = next(
-            n for n in result.evidence_chain_v24["nodes"] if n["node_type"] == "OUTCOME"
-        )
+        outcome = next(n for n in result.evidence_chain_v24["nodes"] if n["node_type"] == "OUTCOME")
         # The OUTCOME node's output_payload must reference outcome_hash.
         d = outcome["to_dict"]() if hasattr(outcome, "to_dict") else outcome
         # Output_hash is a digest; we cannot extract the underlying payload,

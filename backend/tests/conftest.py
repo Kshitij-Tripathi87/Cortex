@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
@@ -45,6 +46,7 @@ def pytest_configure(config):
     # this to capture the spans they assert on.
     from opentelemetry import trace as _otel_trace
     from opentelemetry.sdk.trace import TracerProvider as _SDKTP
+
     _sdk_provider = _SDKTP()
     try:  # noqa: SIM105
         _otel_trace.set_tracer_provider(_sdk_provider)
@@ -52,6 +54,7 @@ def pytest_configure(config):
         # Already set by an earlier session; ignore — the
         # already-installed provider is used.
         pass
+
 
 # Eagerly import access.models so `core.workspaces` and `core.users` register
 # in Base.metadata BEFORE any test imports another module with FK references
@@ -155,7 +158,9 @@ async def postgres_engine(request):
 
 
 @pytest.fixture
-async def postgres_sessionmaker(postgres_engine) -> AsyncGenerator[async_sessionmaker[AsyncSession]]:
+async def postgres_sessionmaker(
+    postgres_engine,
+) -> AsyncGenerator[async_sessionmaker[AsyncSession]]:
     """Create a sessionmaker bound to the PostgreSQL engine.
 
     Concurrent tests must open one session per concurrent task — mirroring
@@ -219,3 +224,54 @@ def submit_in_own_session() -> Any:
                 await session.rollback()
 
     return _submit
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Nexus v0.8 persistent-manager tests — file-based async SQLite
+# ─────────────────────────────────────────────────────────────────────
+
+_REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _REPO not in sys.path:
+    sys.path.insert(0, _REPO)
+
+
+@pytest.fixture(scope="session")
+def nexus_db_path(tmp_path_factory):
+    base = tmp_path_factory.mktemp("nexus-persistent")
+    return base / "nexus.sqlite3"
+
+
+@pytest.fixture(scope="session")
+async def nexus_db_engine(nexus_db_path):
+    import app.modules.nexus_spine.persistence.models  # noqa: F401
+    from app.infrastructure.database import Base
+
+    url = f"sqlite+aiosqlite:///{nexus_db_path}"
+    engine = create_async_engine(url, echo=False, future=True)
+
+    # Create ONLY the nexus_* tables. Their foreign keys are self-contained
+    # (nexus_* → nexus_*), so no other modules' tables are needed. Copying
+    # to a fresh MetaData keeps this fixture independent of whatever other
+    # model modules earlier tests in the session may have registered on
+    # Base.metadata — creating ALL of Base.metadata made the v0.8 suite
+    # order-dependent (e.g. schema-qualified tables from unrelated modules
+    # break SQLite create_all).
+    nexus_metadata = MetaData()
+    for table in Base.metadata.sorted_tables:
+        if table.name.startswith("nexus_"):
+            table.to_metadata(nexus_metadata)
+
+    # SQLite has no schemas — strip any schema qualifier defensively.
+    for table in nexus_metadata.tables.values():
+        table.schema = None
+        for col in table.columns:
+            for fk in list(col.foreign_keys):
+                if fk._colspec and fk._colspec.count(".") == 2:
+                    # schema.table.col → table.col
+                    parts = fk._colspec.split(".")
+                    fk._colspec = f"{parts[1]}.{parts[2]}"
+
+    async with engine.begin() as conn:
+        await conn.run_sync(nexus_metadata.create_all)
+    yield engine
+    await engine.dispose()

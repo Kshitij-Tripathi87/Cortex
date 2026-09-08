@@ -146,15 +146,41 @@ _PAYLOAD_SCHEMAS: dict[type[WorldEvent], tuple[FieldSpec, ...]] = {
 def _identity_issues(event: WorldEvent) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     if not event.event_id:
-        issues.append(ValidationIssue(ValidationSeverity.ERROR, "missing_event_id", "event_id is required", "event_id"))
+        issues.append(
+            ValidationIssue(
+                ValidationSeverity.ERROR, "missing_event_id", "event_id is required", "event_id"
+            )
+        )
     if not event.world_id:
-        issues.append(ValidationIssue(ValidationSeverity.ERROR, "missing_world_id", "world_id is required", "world_id"))
+        issues.append(
+            ValidationIssue(
+                ValidationSeverity.ERROR, "missing_world_id", "world_id is required", "world_id"
+            )
+        )
     if not event.workspace_id:
-        issues.append(ValidationIssue(ValidationSeverity.ERROR, "missing_workspace_id", "workspace_id is required", "workspace_id"))
+        issues.append(
+            ValidationIssue(
+                ValidationSeverity.ERROR,
+                "missing_workspace_id",
+                "workspace_id is required",
+                "workspace_id",
+            )
+        )
     if not event.entity_id:
-        issues.append(ValidationIssue(ValidationSeverity.ERROR, "missing_entity_id", "entity_id is required", "entity_id"))
+        issues.append(
+            ValidationIssue(
+                ValidationSeverity.ERROR, "missing_entity_id", "entity_id is required", "entity_id"
+            )
+        )
     if not event.entity_type:
-        issues.append(ValidationIssue(ValidationSeverity.ERROR, "missing_entity_type", "entity_type is required", "entity_type"))
+        issues.append(
+            ValidationIssue(
+                ValidationSeverity.ERROR,
+                "missing_entity_type",
+                "entity_type is required",
+                "entity_type",
+            )
+        )
     return issues
 
 

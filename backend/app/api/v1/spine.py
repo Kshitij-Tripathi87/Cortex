@@ -190,7 +190,8 @@ async def run_spine(
             )
         except Exception as exc:
             logger.error(
-                "Spine run failed: %s", exc,
+                "Spine run failed: %s",
+                exc,
                 extra={"workspace_id": dataset.workspace_id},
             )
             return SpineRunResponse(

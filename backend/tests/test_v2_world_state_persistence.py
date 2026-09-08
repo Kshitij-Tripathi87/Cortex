@@ -96,7 +96,13 @@ def _build_small_dataset() -> CanonicalDataset:
     ds.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": "O1", "customer_id": "C1", "price": 100.0, "_source_file": "orders.csv", "_source_row": 1},
+            {
+                "order_id": "O1",
+                "customer_id": "C1",
+                "price": 100.0,
+                "_source_file": "orders.csv",
+                "_source_row": 1,
+            },
         ],
         column_types={"order_id": "str", "customer_id": "str", "price": "float"},
         source_file="orders.csv",
@@ -104,7 +110,14 @@ def _build_small_dataset() -> CanonicalDataset:
     ds.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"item_id": "I1", "order_id": "O1", "supplier_id": "S1", "price": 100.0, "_source_file": "items.csv", "_source_row": 1},
+            {
+                "item_id": "I1",
+                "order_id": "O1",
+                "supplier_id": "S1",
+                "price": 100.0,
+                "_source_file": "items.csv",
+                "_source_row": 1,
+            },
         ],
         column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "price": "float"},
         source_file="items.csv",
@@ -157,7 +170,8 @@ class TestEntityIngestionPersistence:
 
         event = _make_entity_ingested("world_ingest", "ws_ingest")
         result = await service.submit_event(
-            event, idempotency_key="ws_ingest.SUPPLIER.S1",
+            event,
+            idempotency_key="ws_ingest.SUPPLIER.S1",
         )
 
         assert result.version == 2  # genesis=1, first event=2
@@ -191,11 +205,13 @@ class TestVersionMonotonicProgression:
         versions: list[int] = []
         for i in range(1, 6):
             event = _make_entity_ingested(
-                "world_mono", "ws_mono",
+                "world_mono",
+                "ws_mono",
                 entity_id=f"S{i}",
             )
             result = await service.submit_event(
-                event, idempotency_key=f"ws_mono.SUPPLIER.S{i}",
+                event,
+                idempotency_key=f"ws_mono.SUPPLIER.S{i}",
             )
             versions.append(result.version)
 
@@ -208,15 +224,18 @@ class TestVersionMonotonicProgression:
 
         for i in range(1, 4):
             event = _make_entity_ingested(
-                "world_latest", "ws_latest",
+                "world_latest",
+                "ws_latest",
                 entity_id=f"S{i}",
             )
             await service.submit_event(
-                event, idempotency_key=f"ws_latest.SUPPLIER.S{i}",
+                event,
+                idempotency_key=f"ws_latest.SUPPLIER.S{i}",
             )
 
         state = await service.get_current_state(
-            workspace_id="ws_latest", world_id="world_latest",
+            workspace_id="ws_latest",
+            world_id="world_latest",
         )
         assert state is not None
         assert state.version == 4  # genesis(1) + 3 events
@@ -366,7 +385,8 @@ class TestWorkspaceIsolation:
         for i in range(1, 4):
             event = _make_entity_ingested("world_A", "ws_A", entity_id=f"S{i}")
             await service.submit_event(
-                event, idempotency_key=f"ws_A.SUPPLIER.S{i}",
+                event,
+                idempotency_key=f"ws_A.SUPPLIER.S{i}",
             )
 
         # Submit one event to workspace B

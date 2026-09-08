@@ -19,19 +19,18 @@ the world model, and every number is traceable.
 from __future__ import annotations
 
 import hashlib
-import math
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.nexus_spine.ontology import (
     EntityKind,
     EntityQuery,
-    RelationshipKind,
     RelationshipEdge,
+    RelationshipKind,
     get_world_model,
 )
 
@@ -50,10 +49,10 @@ class Severity(StrEnum):
 
 # Exposure thresholds — derived from pilot data, configurable per workspace
 _SEVERITY_THRESHOLDS: dict[Severity, float] = {
-    Severity.CRITICAL: 5_00_000.0,   # ₹5L revenue exposure
-    Severity.HIGH: 1_00_000.0,       # ₹1L
-    Severity.MEDIUM: 50_000.0,       # ₹50k
-    Severity.LOW: 10_000.0,          # ₹10k
+    Severity.CRITICAL: 5_00_000.0,  # ₹5L revenue exposure
+    Severity.HIGH: 1_00_000.0,  # ₹1L
+    Severity.MEDIUM: 50_000.0,  # ₹50k
+    Severity.LOW: 10_000.0,  # ₹10k
 }
 
 
@@ -165,9 +164,7 @@ class RiskEngine:
                 continue
 
             # Blast radius: what does this seed reach?
-            paths = wm.traverse_supply_chain(
-                tenant_id, workspace_id, affected_uuid, max_depth=4
-            )
+            paths = wm.traverse_supply_chain(tenant_id, workspace_id, affected_uuid, max_depth=4)
 
             affected_entities: list[str] = []
             affected_orders = 0
@@ -175,7 +172,7 @@ class RiskEngine:
             revenue_at_risk = 0.0
             sla_values: list[float] = []
 
-            for target_id, edges in paths.items():
+            for target_id, _edges in paths.items():
                 target = wm.get(tenant_id, workspace_id, target_id)
                 if target is None:
                     continue
@@ -221,7 +218,8 @@ class RiskEngine:
         # Disruptions that don't map to a signal — still surfaces as risks
         for disruption in disruptions:
             affected_ids = [
-                UUID(x) for x in disruption.state.get("affected_entity_ids", [])
+                UUID(x)
+                for x in disruption.state.get("affected_entity_ids", [])
                 if isinstance(x, (str, UUID))
             ]
             if not affected_ids:
@@ -259,9 +257,7 @@ class RiskEngine:
 
     # ── Internals ──────────────────────────────────────────────────────────
 
-    def _load_signals(
-        self, wm: Any, tenant_id: UUID, workspace_id: UUID
-    ) -> list[Any]:
+    def _load_signals(self, wm: Any, tenant_id: UUID, workspace_id: UUID) -> list[Any]:
         page = wm.query(
             EntityQuery(
                 tenant_id=tenant_id,
@@ -272,9 +268,7 @@ class RiskEngine:
         )
         return page.items
 
-    def _load_disruptions(
-        self, wm: Any, tenant_id: UUID, workspace_id: UUID
-    ) -> list[Any]:
+    def _load_disruptions(self, wm: Any, tenant_id: UUID, workspace_id: UUID) -> list[Any]:
         page = wm.query(
             EntityQuery(
                 tenant_id=tenant_id,
@@ -385,7 +379,11 @@ class RiskEngine:
             if ent is None or source_id == seed_id:
                 continue
             for edge in edges:
-                if edge.kind not in (RelationshipKind.SUPPLIES, RelationshipKind.PRODUCES, RelationshipKind.TRAVELS_VIA):
+                if edge.kind not in (
+                    RelationshipKind.SUPPLIES,
+                    RelationshipKind.PRODUCES,
+                    RelationshipKind.TRAVELS_VIA,
+                ):
                     continue
                 if ent.kind in (EntityKind.SUPPLIER, EntityKind.PLANT, EntityKind.PORT):
                     candidates.append(

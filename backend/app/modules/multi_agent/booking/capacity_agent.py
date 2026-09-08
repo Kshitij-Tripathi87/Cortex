@@ -48,13 +48,17 @@ class CapacityBookingAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def evaluate_capacity(self, origin: str, destination: str, required_volume_m3: float = 5.0) -> CapacityBookingProposal:
+    def evaluate_capacity(
+        self, origin: str, destination: str, required_volume_m3: float = 5.0
+    ) -> CapacityBookingProposal:
         """Executes capacity search and rate evaluation to formulate booking proposals."""
         cap_res = DomainToolRegistry.search_capacity(origin, destination, required_volume_m3)
         lanes = cap_res.data.get("matched_lanes", [])
 
         # Best lane: Air cargo corridor if urgent SLA protection needed
-        air_lane = next((lane for lane in lanes if lane.get("mode") == "AIR_CARGO"), lanes[0] if lanes else None)
+        air_lane = next(
+            (lane for lane in lanes if lane.get("mode") == "AIR_CARGO"), lanes[0] if lanes else None
+        )
 
         carrier_id = air_lane["carrier_id"] if air_lane else "carrier_air_latam_cargo"
         lane_str = air_lane["corridor"] if air_lane else "VCP-SDU"

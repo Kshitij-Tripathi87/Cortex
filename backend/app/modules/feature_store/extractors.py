@@ -34,27 +34,39 @@ class GraphFeatureExtractor:
         G = nx.DiGraph()
 
         # Add nodes
-        suppliers = await db.execute(select(Supplier).where(Supplier.workspace_id == self.workspace_id))
+        suppliers = await db.execute(
+            select(Supplier).where(Supplier.workspace_id == self.workspace_id)
+        )
         for s in suppliers.scalars():
             G.add_node(f"supplier:{s.id}", type="supplier", name=s.name, tier=s.tier)
 
-        components = await db.execute(select(Component).where(Component.workspace_id == self.workspace_id))
+        components = await db.execute(
+            select(Component).where(Component.workspace_id == self.workspace_id)
+        )
         for c in components.scalars():
             G.add_node(f"component:{c.id}", type="component", sku=c.sku, name=c.name)
 
-        warehouses = await db.execute(select(Warehouse).where(Warehouse.workspace_id == self.workspace_id))
+        warehouses = await db.execute(
+            select(Warehouse).where(Warehouse.workspace_id == self.workspace_id)
+        )
         for w in warehouses.scalars():
             G.add_node(f"warehouse:{w.id}", type="warehouse", code=w.code, name=w.name)
 
-        factories = await db.execute(select(Factory).where(Factory.workspace_id == self.workspace_id))
+        factories = await db.execute(
+            select(Factory).where(Factory.workspace_id == self.workspace_id)
+        )
         for f in factories.scalars():
             G.add_node(f"factory:{f.id}", type="factory", code=f.code, name=f.name)
 
-        products = await db.execute(select(Product).where(Product.workspace_id == self.workspace_id))
+        products = await db.execute(
+            select(Product).where(Product.workspace_id == self.workspace_id)
+        )
         for p in products.scalars():
             G.add_node(f"product:{p.id}", type="product", sku=p.sku, name=p.name)
 
-        customers = await db.execute(select(Customer).where(Customer.workspace_id == self.workspace_id))
+        customers = await db.execute(
+            select(Customer).where(Customer.workspace_id == self.workspace_id)
+        )
         for c in customers.scalars():
             G.add_node(f"customer:{c.id}", type="customer", name=c.name)
 
@@ -103,18 +115,38 @@ class GraphFeatureExtractor:
 
         # Depth
         try:
-            features["downstream_depth"] = float(max(len(p) for p in nx.all_simple_paths(self.graph, node_id, list(nx.descendants(self.graph, node_id)))) if nx.descendants(self.graph, node_id) else 0)
+            features["downstream_depth"] = float(
+                max(
+                    len(p)
+                    for p in nx.all_simple_paths(
+                        self.graph, node_id, list(nx.descendants(self.graph, node_id))
+                    )
+                )
+                if nx.descendants(self.graph, node_id)
+                else 0
+            )
         except Exception:
             features["downstream_depth"] = 0.0
 
         try:
-            features["upstream_depth"] = float(max(len(p) for p in nx.all_simple_paths(self.graph, list(nx.ancestors(self.graph, node_id)), node_id)) if nx.ancestors(self.graph, node_id) else 0)
+            features["upstream_depth"] = float(
+                max(
+                    len(p)
+                    for p in nx.all_simple_paths(
+                        self.graph, list(nx.ancestors(self.graph, node_id)), node_id
+                    )
+                )
+                if nx.ancestors(self.graph, node_id)
+                else 0
+            )
         except Exception:
             features["upstream_depth"] = 0.0
 
         # Centrality measures (approximate for large graphs)
         try:
-            features["betweenness"] = nx.betweenness_centrality(self.graph, k=min(100, self.graph.number_of_nodes())).get(node_id, 0.0)
+            features["betweenness"] = nx.betweenness_centrality(
+                self.graph, k=min(100, self.graph.number_of_nodes())
+            ).get(node_id, 0.0)
         except Exception:
             features["betweenness"] = 0.0
 
@@ -205,9 +237,16 @@ class BusinessFeatureExtractor:
 
         # Category encoding
         cat_map = {
-            "Semiconductor": 1.0, "PCB": 2.0, "Sensor": 3.0,
-            "Actuator": 3.0, "Resistor": 4.0, "Capacitor": 4.0,
-            "Coil": 5.0, "Fastener": 6.0, "Housing": 7.0, "Wire": 8.0
+            "Semiconductor": 1.0,
+            "PCB": 2.0,
+            "Sensor": 3.0,
+            "Actuator": 3.0,
+            "Resistor": 4.0,
+            "Capacitor": 4.0,
+            "Coil": 5.0,
+            "Fastener": 6.0,
+            "Housing": 7.0,
+            "Wire": 8.0,
         }
         features["category_encoded"] = float(cat_map.get(component.category, 0))
 
@@ -242,7 +281,8 @@ class BusinessFeatureExtractor:
         features["safety_stock"] = float(inventory.safety_stock or 0)
         features["coverage_ratio"] = (
             float(inventory.quantity) / max(1, float(inventory.safety_stock))
-            if inventory.safety_stock and inventory.safety_stock > 0 else 0.0
+            if inventory.safety_stock and inventory.safety_stock > 0
+            else 0.0
         )
         return features
 
@@ -250,8 +290,12 @@ class BusinessFeatureExtractor:
         features = {}
         features["quantity"] = float(order.quantity or 0)
         status_map = {
-            "pending": 1.0, "confirmed": 2.0, "in_production": 3.0,
-            "shipped": 4.0, "delivered": 5.0, "delayed": 0.5
+            "pending": 1.0,
+            "confirmed": 2.0,
+            "in_production": 3.0,
+            "shipped": 4.0,
+            "delivered": 5.0,
+            "delayed": 0.5,
         }
         features["status_encoded"] = float(status_map.get(str(order.status), 1.0))
         return features
@@ -276,7 +320,9 @@ class ContextFeatureExtractor:
         }
         return features
 
-    def extract_freshness_features(self, last_updated: datetime, now: datetime | None = None) -> dict[str, float]:
+    def extract_freshness_features(
+        self, last_updated: datetime, now: datetime | None = None
+    ) -> dict[str, float]:
         """Compute data freshness features."""
         if now is None:
             now = datetime.now(UTC)
@@ -312,7 +358,9 @@ class FeatureExtractorOrchestrator:
         all_features = {}
 
         # Supplier features
-        suppliers = await db.execute(select(Supplier).where(Supplier.workspace_id == self.workspace_id))
+        suppliers = await db.execute(
+            select(Supplier).where(Supplier.workspace_id == self.workspace_id)
+        )
         for s in suppliers.scalars():
             node_id = f"supplier:{s.id}"
             feats = {}
@@ -321,7 +369,9 @@ class FeatureExtractorOrchestrator:
             all_features[node_id] = feats
 
         # Component features
-        components = await db.execute(select(Component).where(Component.workspace_id == self.workspace_id))
+        components = await db.execute(
+            select(Component).where(Component.workspace_id == self.workspace_id)
+        )
         for c in components.scalars():
             node_id = f"component:{c.id}"
             feats = {}
@@ -330,7 +380,9 @@ class FeatureExtractorOrchestrator:
             all_features[node_id] = feats
 
         # Warehouse features
-        warehouses = await db.execute(select(Warehouse).where(Warehouse.workspace_id == self.workspace_id))
+        warehouses = await db.execute(
+            select(Warehouse).where(Warehouse.workspace_id == self.workspace_id)
+        )
         for w in warehouses.scalars():
             node_id = f"warehouse:{w.id}"
             feats = {}
@@ -339,16 +391,24 @@ class FeatureExtractorOrchestrator:
             all_features[node_id] = feats
 
         # Factory features
-        factories = await db.execute(select(Factory).where(Factory.workspace_id == self.workspace_id))
+        factories = await db.execute(
+            select(Factory).where(Factory.workspace_id == self.workspace_id)
+        )
         for f in factories.scalars():
             node_id = f"factory:{f.id}"
             feats = {}
-            feats.update(self.business_extractor.extract_factory_features(f, db) if hasattr(self.business_extractor, 'extract_factory_features') else {})
+            feats.update(
+                self.business_extractor.extract_factory_features(f, db)
+                if hasattr(self.business_extractor, "extract_factory_features")
+                else {}
+            )
             feats.update(self.graph_extractor.extract_node_features(node_id))
             all_features[node_id] = feats
 
         # Product features
-        products = await db.execute(select(Product).where(Product.workspace_id == self.workspace_id))
+        products = await db.execute(
+            select(Product).where(Product.workspace_id == self.workspace_id)
+        )
         for p in products.scalars():
             node_id = f"product:{p.id}"
             feats = {}
@@ -357,7 +417,9 @@ class FeatureExtractorOrchestrator:
             all_features[node_id] = feats
 
         # Customer features
-        customers = await db.execute(select(Customer).where(Customer.workspace_id == self.workspace_id))
+        customers = await db.execute(
+            select(Customer).where(Customer.workspace_id == self.workspace_id)
+        )
         for c in customers.scalars():
             node_id = f"customer:{c.id}"
             feats = {}
@@ -366,7 +428,9 @@ class FeatureExtractorOrchestrator:
             all_features[node_id] = feats
 
         # Inventory features
-        inventory = await db.execute(select(Inventory).where(Inventory.workspace_id == self.workspace_id))
+        inventory = await db.execute(
+            select(Inventory).where(Inventory.workspace_id == self.workspace_id)
+        )
         for inv in inventory.scalars():
             node_id = f"inventory:{inv.id}"
             comp = await db.get(Component, inv.component_id)

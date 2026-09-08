@@ -293,7 +293,9 @@ class InventoryData:
             "safety_stock": self.safety_stock,
             "daily_usage": self.daily_usage,
             "last_updated_at": self.last_updated_at.isoformat(),
-            "coverage_days": None if self.coverage_days == float("inf") else round(self.coverage_days, 4),
+            "coverage_days": None
+            if self.coverage_days == float("inf")
+            else round(self.coverage_days, 4),
         }
 
 
@@ -499,7 +501,9 @@ class AffectedWarehouse:
             "quantity": self.quantity,
             "safety_stock": self.safety_stock,
             "daily_usage": self.daily_usage,
-            "coverage_days": None if self.coverage_days == float("inf") else round(self.coverage_days, 4),
+            "coverage_days": None
+            if self.coverage_days == float("inf")
+            else round(self.coverage_days, 4),
         }
 
 

@@ -15,9 +15,7 @@ from app.modules.nexus_spine.vanessa.orchestrator import (
     VanessaAnswer,
     VanessaOrchestrator,
     VanessaQuery,
-    classify_intent,
 )
-from app.modules.nexus_spine.vanessa.tools import ToolResult
 
 
 def _utc_now() -> datetime:
@@ -27,6 +25,7 @@ def _utc_now() -> datetime:
 @dataclass
 class ConversationContext:
     """Operational context bound to a Vanessa session."""
+
     tenant_id: str
     workspace_id: str
     user_id: str
@@ -117,6 +116,7 @@ class SessionMessage:
 @dataclass
 class SessionResponse:
     """Full session response with multimodal blocks and updated context."""
+
     session_id: str
     answer: str
     intent: str
@@ -148,10 +148,24 @@ class VanessaSessionManager:
 
     # Anaphoric references that resolve to the last selected entity
     ANAPHORA = {
-        "it", "that", "this", "they", "them", "the supplier", "that supplier",
-        "this supplier", "the order", "that order", "the risk", "that risk",
-        "the decision", "that decision", "the scenario", "that scenario",
-        "the forecast", "that forecast",
+        "it",
+        "that",
+        "this",
+        "they",
+        "them",
+        "the supplier",
+        "that supplier",
+        "this supplier",
+        "the order",
+        "that order",
+        "the risk",
+        "that risk",
+        "the decision",
+        "that decision",
+        "the scenario",
+        "that scenario",
+        "the forecast",
+        "that forecast",
     }
 
     # Follow-up intents suggested based on current context
@@ -201,6 +215,7 @@ class VanessaSessionManager:
         if self._orchestrator is not None:
             return self._orchestrator
         from app.modules.nexus_spine.vanessa.orchestrator import get_vanessa
+
         return get_vanessa()
 
     def get_or_create_session(
@@ -215,7 +230,11 @@ class VanessaSessionManager:
             # Find existing session for this user+workspace
             for sid, sess in self._sessions.items():
                 ctx: ConversationContext = sess["context"]
-                if ctx.tenant_id == tenant_id and ctx.workspace_id == workspace_id and ctx.user_id == user_id:
+                if (
+                    ctx.tenant_id == tenant_id
+                    and ctx.workspace_id == workspace_id
+                    and ctx.user_id == user_id
+                ):
                     return sid, ctx.clone()
             # Create new session
             session_id = f"VSESS-{uuid4().hex[:10]}"
@@ -339,7 +358,12 @@ class VanessaSessionManager:
         query_lower = query.lower().strip()
 
         # Check for anaphora referring to a selected entity
-        has_anaphora = any(ana in query_lower for ana in self.ANAPHORA) or query_lower in {"why?", "what happens?", "compare", "why is it risky?"}
+        has_anaphora = any(ana in query_lower for ana in self.ANAPHORA) or query_lower in {
+            "why?",
+            "what happens?",
+            "compare",
+            "why is it risky?",
+        }
 
         if has_anaphora:
             # If query mentions risk/supplier/etc. and we have a selected entity, inject it
@@ -349,14 +373,19 @@ class VanessaSessionManager:
                 if "entity_id" not in resolved_args:
                     resolved_args["entity_id"] = ctx.selected_entity_id
                 # Append context hint
-                resolved_query = f"{query} (referring to {ctx.selected_entity_name or ctx.selected_entity_id})"
+                resolved_query = (
+                    f"{query} (referring to {ctx.selected_entity_name or ctx.selected_entity_id})"
+                )
                 ctx.last_referenced_entity_id = ctx.selected_entity_id
                 ctx.last_topic = ctx.selected_entity_kind
 
             # If query mentions forecast and we have a selected SKU
-            if ("forecast" in query_lower or "demand" in query_lower) and ctx.selected_sku:
-                if "sku" not in resolved_args:
-                    resolved_args["sku"] = ctx.selected_sku
+            if (
+                ("forecast" in query_lower or "demand" in query_lower)
+                and ctx.selected_sku
+                and "sku" not in resolved_args
+            ):
+                resolved_args["sku"] = ctx.selected_sku
 
             # If query mentions decision and we have a selected decision
             if "decision" in query_lower and ctx.selected_decision_id:
@@ -389,52 +418,62 @@ class VanessaSessionManager:
                 break
 
         # Text block (always present)
-        blocks.append({
-            "type": ResponseBlockType.TEXT.value,
-            "title": "",
-            "content": answer.rendered_answer,
-        })
+        blocks.append(
+            {
+                "type": ResponseBlockType.TEXT.value,
+                "title": "",
+                "content": answer.rendered_answer,
+            }
+        )
 
         # Metric / card blocks based on intent
         if answer.intent == Intent.SUPPLIER_RISK:
             suppliers = primary_payload.get("suppliers", [])
             for s in suppliers[:3]:
-                blocks.append({
-                    "type": ResponseBlockType.RISK_CARD.value,
-                    "title": s.get("name", "Supplier"),
-                    "metrics": {
-                        "risk_score": s.get("risk_score"),
-                        "capacity_pct": s.get("capacity_pct"),
-                        "on_time_rate": s.get("on_time_rate"),
-                    },
-                    "data": s,
-                })
+                blocks.append(
+                    {
+                        "type": ResponseBlockType.RISK_CARD.value,
+                        "title": s.get("name", "Supplier"),
+                        "metrics": {
+                            "risk_score": s.get("risk_score"),
+                            "capacity_pct": s.get("capacity_pct"),
+                            "on_time_rate": s.get("on_time_rate"),
+                        },
+                        "data": s,
+                    }
+                )
         elif answer.intent == Intent.DEMAND_FORECAST:
-            blocks.append({
-                "type": ResponseBlockType.METRIC.value,
-                "title": f"Forecast: {primary_payload.get('sku', 'SKU')}",
-                "metrics": {
-                    "p50": primary_payload.get("p50"),
-                    "p80": primary_payload.get("p80"),
-                    "p95": primary_payload.get("p95"),
-                    "confidence": primary_payload.get("confidence"),
-                    "wape": primary_payload.get("backtest_wape"),
-                },
-            })
+            blocks.append(
+                {
+                    "type": ResponseBlockType.METRIC.value,
+                    "title": f"Forecast: {primary_payload.get('sku', 'SKU')}",
+                    "metrics": {
+                        "p50": primary_payload.get("p50"),
+                        "p80": primary_payload.get("p80"),
+                        "p95": primary_payload.get("p95"),
+                        "confidence": primary_payload.get("confidence"),
+                        "wape": primary_payload.get("backtest_wape"),
+                    },
+                }
+            )
         elif answer.intent == Intent.BLAST_RADIUS:
-            blocks.append({
-                "type": ResponseBlockType.GRAPH.value,
-                "title": f"Blast radius from {primary_payload.get('seed_name', '')}",
-                "data": primary_payload,
-            })
+            blocks.append(
+                {
+                    "type": ResponseBlockType.GRAPH.value,
+                    "title": f"Blast radius from {primary_payload.get('seed_name', '')}",
+                    "data": primary_payload,
+                }
+            )
         elif answer.intent == Intent.ANALOGOUS_DECISIONS:
             analogues = primary_payload.get("analogous_decisions", [])
             if analogues:
-                blocks.append({
-                    "type": ResponseBlockType.TIMELINE.value,
-                    "title": "Analogous decisions",
-                    "data": {"items": analogues},
-                })
+                blocks.append(
+                    {
+                        "type": ResponseBlockType.TIMELINE.value,
+                        "title": "Analogous decisions",
+                        "data": {"items": analogues},
+                    }
+                )
 
         return blocks
 
@@ -485,7 +524,9 @@ class VanessaSessionManager:
             msgs: list[SessionMessage] = sess["messages"]
             return [m.to_dict() for m in msgs[-limit:]]
 
-    def list_sessions(self, tenant_id: str, workspace_id: str, user_id: str | None = None) -> list[dict[str, Any]]:
+    def list_sessions(
+        self, tenant_id: str, workspace_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
         with self._lock:
             results = []
             for sid, sess in self._sessions.items():
@@ -494,13 +535,15 @@ class VanessaSessionManager:
                     continue
                 if user_id and ctx.user_id != user_id:
                     continue
-                results.append({
-                    "session_id": sid,
-                    "context": ctx.to_dict(),
-                    "message_count": len(sess["messages"]),
-                    "created_at": sess["created_at"].isoformat(),
-                    "last_active": sess["last_active"].isoformat(),
-                })
+                results.append(
+                    {
+                        "session_id": sid,
+                        "context": ctx.to_dict(),
+                        "message_count": len(sess["messages"]),
+                        "created_at": sess["created_at"].isoformat(),
+                        "last_active": sess["last_active"].isoformat(),
+                    }
+                )
             return results
 
 

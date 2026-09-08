@@ -87,19 +87,26 @@ def check_db() -> tuple[bool, str]:
         return False, f"db_factory_error: {type(e).__name__}"
 
 
-def check_redis() -> tuple[bool, str]:
+async def check_redis() -> tuple[bool, str]:
     """Probe Redis with a PING. Uses the same primitive the E3
     fail-closed rate limiter uses, so the readyz verdict tracks
-    the same Redis state the auth path sees."""
+    the same Redis state the auth path sees.
+
+    Must be an async check returning a proper (ok, detail) tuple. The
+    original version returned the bare coroutine of
+    ``is_redis_available()``; the aggregator awaited it to a bool and
+    then tried to unpack the bool — ``TypeError: cannot unpack
+    non-iterable bool object`` — so the redis component reported
+    ``check_raised`` and /readyz returned 503 in EVERY environment,
+    whether Redis was up or down. Found by the first live E2E run
+    (PR #1, 2026-09); the 503 body carried the exact detail string.
+    """
     try:
         from app.infrastructure.cache_manager import get_cache_manager
 
         cache = get_cache_manager()
-        # is_redis_available is async; we run it synchronously via
-        # the underlying ping to keep this check call-shape simple.
-        # The readyz handler awaits the full result.
-        # Returning the coroutine lets the caller await it.
-        return cache.is_redis_available()  # type: ignore[return-value]
+        ok = await cache.is_redis_available()
+        return bool(ok), "ok" if ok else "ping_failed"
     except Exception as e:
         return False, f"redis_check_error: {type(e).__name__}"
 

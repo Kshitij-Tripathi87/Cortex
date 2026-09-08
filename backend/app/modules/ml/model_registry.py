@@ -1,4 +1,5 @@
 """ML Model Registry — track model versions, metrics, and deployment artifacts."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -53,7 +54,9 @@ class ModelRegistry(Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    meta_data: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, nullable=False, default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON, nullable=False, default=dict
+    )
 
 
 class ModelEvaluation(Base):
@@ -75,7 +78,9 @@ class ModelEvaluation(Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     evaluated_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    meta_data: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, nullable=False, default=dict)
+    meta_data: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON, nullable=False, default=dict
+    )
 
 
 @dataclass(frozen=True)
@@ -228,6 +233,10 @@ async def promote_model(
         return None
 
     model.stage = stage
-    model.meta_data = {**model.meta_data, "promoted_by": promoted_by, "promoted_at": datetime.now(UTC).isoformat()}
+    model.meta_data = {
+        **model.meta_data,
+        "promoted_by": promoted_by,
+        "promoted_at": datetime.now(UTC).isoformat(),
+    }
     await db.flush()
     return model

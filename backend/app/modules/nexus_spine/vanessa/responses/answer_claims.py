@@ -14,12 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
-
-from pydantic import BaseModel, Field
-
-from app.modules.nexus_spine.ontology import get_world_model
-from app.modules.nexus_spine.vanessa.investigations.planner import VanessaInvestigator
+from uuid import UUID
 
 
 def _safe_uuid(val: Any) -> UUID | None:

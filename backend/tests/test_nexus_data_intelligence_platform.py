@@ -115,7 +115,9 @@ def test_signals_blast_radius_and_feature_store():
 
     # Signal Engine
     sig_engine = OperationalSignalEngine()
-    sig = sig_engine.evaluate_seller_performance("seller_99", avg_dispatch_days=4.5, baseline_dispatch_days=2.0)
+    sig = sig_engine.evaluate_seller_performance(
+        "seller_99", avg_dispatch_days=4.5, baseline_dispatch_days=2.0
+    )
     assert sig is not None
     assert sig.signal_type == "SUPPLIER_DEGRADATION"
     assert sig.severity == "CRITICAL"
@@ -132,7 +134,9 @@ def test_signals_blast_radius_and_feature_store():
     t_past = t_pred - timedelta(days=1)
     t_future = t_pred + timedelta(days=1)
 
-    f_store.put_features(VersionedFeatureVector("seller_99", "GRAPH", {"pagerank": 0.05}, 1, t_past))
+    f_store.put_features(
+        VersionedFeatureVector("seller_99", "GRAPH", {"pagerank": 0.05}, 1, t_past)
+    )
     valid_feat = f_store.get_features_as_of("seller_99", "GRAPH", t_pred)
     assert valid_feat is not None
     assert valid_feat.features["pagerank"] == 0.05
@@ -182,7 +186,9 @@ async def test_nexus_data_to_decision_orchestration():
 
     # 5. Counterfactual Simulations & Decision Evidence Graph
     assert len(result.decision_evidence_graph["counterfactual_simulations"]) == 4
-    optimal_sim = next(c for c in result.decision_evidence_graph["counterfactual_simulations"] if c["is_optimal"])
+    optimal_sim = next(
+        c for c in result.decision_evidence_graph["counterfactual_simulations"] if c["is_optimal"]
+    )
     assert optimal_sim["candidate"] == "CANDIDATE_C_AIR_EXPEDITE_AND_CROSS_DOCK"
     assert optimal_sim["net_economic_value_usd"] == 2900.0
 
@@ -190,7 +196,9 @@ async def test_nexus_data_to_decision_orchestration():
     assert result.decision_evidence_graph["total_evidence_nodes"] >= 5
     assert result.decision_evidence_graph["total_attribution_edges"] >= 4
     assert result.synthesized_decision["status"] == "PROPOSED_FOR_POLICY_GATE"
-    assert result.net_economic_value_usd == 2900.0  # Formula: Loss_without - Loss_with - Intervention_Cost
+    assert (
+        result.net_economic_value_usd == 2900.0
+    )  # Formula: Loss_without - Loss_with - Intervention_Cost
 
 
 def test_hermetic_data_path_default_is_repo_fixture():
@@ -199,10 +207,15 @@ def test_hermetic_data_path_default_is_repo_fixture():
     If this breaks, the regression suite is no longer reproducible.
     """
     # The fixture is always the default when the env var is unset.
-    assert os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "tests", "fixtures", "olist",
-    ) == OLIST_DATA_DIR
+    assert (
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "tests",
+            "fixtures",
+            "olist",
+        )
+        == OLIST_DATA_DIR
+    )
     assert os.path.isfile(os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv"))
     # The fixture must contain the real dataset (not an empty stub).
     with open(os.path.join(OLIST_DATA_DIR, "olist_orders_dataset.csv"), encoding="utf-8") as fh:

@@ -198,9 +198,7 @@ class WorldStateService:
             # PostgreSQL advisory write lock BEFORE any read of the current
             # version, so the projected version and appended sequence are
             # strictly monotonic across concurrent submissions.
-            await self.repository.acquire_world_write_lock(
-                event.workspace_id, event.world_id
-            )
+            await self.repository.acquire_world_write_lock(event.workspace_id, event.world_id)
 
             # 2. Resolve effective idempotency key
             eff_idempotency_key = (

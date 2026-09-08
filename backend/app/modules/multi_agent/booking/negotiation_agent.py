@@ -42,7 +42,9 @@ class CarrierNegotiationAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def evaluate_rate_quote(self, carrier_id: str, quoted_rate_usd: float, volume_m3: float = 5.0) -> NegotiationProposal:
+    def evaluate_rate_quote(
+        self, carrier_id: str, quoted_rate_usd: float, volume_m3: float = 5.0
+    ) -> NegotiationProposal:
         """Evaluates pricing bands and drafts negotiation target with volume commitments."""
         target_discount = 0.08  # 8% target discount on bulk air contracts
         target_rate = quoted_rate_usd * (1.0 - target_discount)
@@ -54,5 +56,8 @@ class CarrierNegotiationAgent:
             target_rate_usd=round(target_rate, 2),
             recommended_concession="Offer 30-day volume commitment on SP->RJ corridor in exchange for $450 fixed rate card.",
             spend_policy_compliant=True,
-            evidence_refs=["historical_carrier_rate_bands_2026", "policy_freight_negotiation_rules"],
+            evidence_refs=[
+                "historical_carrier_rate_bands_2026",
+                "policy_freight_negotiation_rules",
+            ],
         )

@@ -32,7 +32,9 @@ _model_registry = ModelRegistry()
 
 
 class InferenceApiRequest(BaseModel):
-    task: str = Field(description="Task type (e.g. SUPPLIER_SIMILARITY, CRITICAL_NODE_DETECTION, RISK_PROPAGATION, POLICY_OPTIMIZATION)")
+    task: str = Field(
+        description="Task type (e.g. SUPPLIER_SIMILARITY, CRITICAL_NODE_DETECTION, RISK_PROPAGATION, POLICY_OPTIMIZATION)"
+    )
     input_data: dict[str, Any] = Field(default_factory=dict)
     world_state_version: int = Field(default=1)
     model_version: str | None = None

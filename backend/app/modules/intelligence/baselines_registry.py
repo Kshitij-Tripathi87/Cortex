@@ -41,13 +41,19 @@ class BaselineRegistry:
     def _register_built_ins(self) -> None:
         """Register built-in deterministic baselines."""
         self.register(IntelligenceTask.SUPPLIER_SIMILARITY, self._baseline_supplier_similarity)
-        self.register(IntelligenceTask.CRITICAL_NODE_DETECTION, self._baseline_critical_node_detection)
+        self.register(
+            IntelligenceTask.CRITICAL_NODE_DETECTION, self._baseline_critical_node_detection
+        )
         self.register(IntelligenceTask.RISK_PROPAGATION, self._baseline_risk_propagation)
         self.register(IntelligenceTask.POLICY_OPTIMIZATION, self._baseline_policy_optimization)
 
     async def _baseline_supplier_similarity(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Simple attribute matching."""
-        return {"similarity_score": 0.85, "method": "attribute_matching_baseline", "status": "nominal"}
+        return {
+            "similarity_score": 0.85,
+            "method": "attribute_matching_baseline",
+            "status": "nominal",
+        }
 
     async def _baseline_critical_node_detection(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Degree centrality."""
@@ -55,7 +61,11 @@ class BaselineRegistry:
 
     async def _baseline_risk_propagation(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """BFS traversal."""
-        return {"risk_score": 0.35, "affected_nodes": ["COMP_01", "PROD_02"], "method": "bfs_traversal_baseline"}
+        return {
+            "risk_score": 0.35,
+            "affected_nodes": ["COMP_01", "PROD_02"],
+            "method": "bfs_traversal_baseline",
+        }
 
     async def _baseline_policy_optimization(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Greedy cost minimization."""

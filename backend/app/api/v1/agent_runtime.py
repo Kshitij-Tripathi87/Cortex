@@ -49,7 +49,9 @@ class DeliberationRequest(BaseModel):
     task_type: str = Field(default="disruption_mitigation", description="Task type discriminator")
     description: str = Field(description="Operational incident or problem description")
     world_state_version: int = Field(default=1, description="Target world state version")
-    priority: str = Field(default="NORMAL", description="Task priority (LOW, NORMAL, HIGH, CRITICAL)")
+    priority: str = Field(
+        default="NORMAL", description="Task priority (LOW, NORMAL, HIGH, CRITICAL)"
+    )
     scenario_id: str | None = None
     target_disruption_id: str | None = None
 

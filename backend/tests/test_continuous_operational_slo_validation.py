@@ -29,6 +29,7 @@ from app.modules.world.world_models import StateVariable, StateVariableType, Wor
 # 1. Multi-Route Prometheus Histogram Observation Under Load
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPrometheusHistogramMultiRouteLoad:
     """Verifies that concurrent requests across all 10 route families properly
 
@@ -80,6 +81,7 @@ class TestPrometheusHistogramMultiRouteLoad:
 # 2. Cumulative Bucket Snapshots & Quantile Accuracy
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHistogramQuantilesAndCompliance:
     """Verifies bucket compliance ratios, error budget burn rates, and quantile estimations."""
 
@@ -127,6 +129,7 @@ class TestHistogramQuantilesAndCompliance:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Noisy Neighbor Multi-Tenant SLA Isolation
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestNoisyNeighborMultiTenantSLAIsolation:
     """Verifies that an aggressive/flooding tenant does not degrade neighbor SLA compliance."""
@@ -188,6 +191,7 @@ class TestNoisyNeighborMultiTenantSLAIsolation:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. State Pipeline Operational Latency SLO Verification
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestStatePipelineOperationalSLO:
     """Measures live State Pipeline execution under concurrent load against frozen SLO contracts."""
@@ -258,16 +262,17 @@ class TestStatePipelineOperationalSLO:
 
         # Every operation must strictly be within the workspace and realtime P99 targets
         assert max_observed < workspace_p99_target, (
-            f"Max latency {max_observed*1000:.2f}ms exceeded workspace P99 target {workspace_p99_target*1000:.2f}ms"
+            f"Max latency {max_observed * 1000:.2f}ms exceeded workspace P99 target {workspace_p99_target * 1000:.2f}ms"
         )
         assert mean_observed < realtime_p99_target, (
-            f"Mean latency {mean_observed*1000:.2f}ms exceeded realtime target {realtime_p99_target*1000:.2f}ms"
+            f"Mean latency {mean_observed * 1000:.2f}ms exceeded realtime target {realtime_p99_target * 1000:.2f}ms"
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Multi-Window Error Budget Burn Rate & Alert Triggering
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestErrorBudgetBurnRateAndAlerts:
     """Verifies standard Google SRE multi-window multi-burn-rate alert algorithms."""
@@ -293,5 +298,6 @@ class TestErrorBudgetBurnRateAndAlerts:
         for family in slo.ROUTE_FAMILIES:
             p99_target = slo.LATENCY_TARGETS[family]["p99"]
             matching_buckets = [b for b in slo.LATENCY_HISTOGRAM_BUCKETS if b >= p99_target]
-            assert len(matching_buckets) > 0, f"Route {family} P99 target {p99_target} has no matching Prometheus bucket"
-
+            assert len(matching_buckets) > 0, (
+                f"Route {family} P99 target {p99_target} has no matching Prometheus bucket"
+            )

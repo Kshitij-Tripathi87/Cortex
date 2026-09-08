@@ -69,6 +69,7 @@ class TestOpenAPIDrift:
         # type generator reads. Pinning it to "3.1.0" prevents silent
         # downgrades that would strip nullable / oneOf / etc.
         import json
+
         backend_doc = json.loads(BACKEND_OPENAPI.read_text(encoding="utf-8"))
         assert backend_doc.get("openapi", "").startswith("3.1"), (
             f"OpenAPI version regressed: got {backend_doc.get('openapi')!r}"
@@ -83,6 +84,7 @@ class TestOpenAPIDrift:
         # type generator to produce useful TS — a schema with no
         # `paths` is a generation failure, not a real spec.
         import json
+
         for label, path in (("backend", BACKEND_OPENAPI), ("frontend", FRONTEND_OPENAPI)):
             doc = json.loads(path.read_text(encoding="utf-8"))
             assert doc.get("paths"), f"{label} OpenAPI has no `paths`"

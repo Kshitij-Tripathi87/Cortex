@@ -359,26 +359,18 @@ class EvidenceChain:
         for n in self.nodes:
             expected = compute_node_hash(n)
             if expected != n.node_hash:
-                failures.append(
-                    f"NODE_HASH_MISMATCH: {n.event_id} (type={n.node_type})"
-                )
+                failures.append(f"NODE_HASH_MISMATCH: {n.event_id} (type={n.node_type})")
 
         # Cross-tenant isolation (E17) — header-level
         # (org/ws live on the chain header; per-node rechecked below)
         # Per-node consistency
         for n in self.nodes:
             if n.organization_id != self.organization_id:
-                failures.append(
-                    f"CROSS_ORG_NODE: {n.event_id} org={n.organization_id}"
-                )
+                failures.append(f"CROSS_ORG_NODE: {n.event_id} org={n.organization_id}")
             if n.workspace_id != self.workspace_id:
-                failures.append(
-                    f"CROSS_WORKSPACE_NODE: {n.event_id} ws={n.workspace_id}"
-                )
+                failures.append(f"CROSS_WORKSPACE_NODE: {n.event_id} ws={n.workspace_id}")
             if n.correlation_id != self.correlation_id:
-                failures.append(
-                    f"CORRELATION_DRIFT: {n.event_id} corr={n.correlation_id}"
-                )
+                failures.append(f"CORRELATION_DRIFT: {n.event_id} corr={n.correlation_id}")
 
         # Structural: parent linkage
         ids = {n.event_id for n in self.nodes}
@@ -388,9 +380,7 @@ class EvidenceChain:
                     failures.append(f"ROOT_PARENT_ON_NON_ROOT: {n.event_id}")
             else:
                 if n.parent_id not in ids:
-                    failures.append(
-                        f"PARENT_NOT_FOUND: {n.event_id} -> {n.parent_id}"
-                    )
+                    failures.append(f"PARENT_NOT_FOUND: {n.event_id} -> {n.parent_id}")
                 else:
                     # Parent must precede child (chain ordering)
                     parent_idx = next(
@@ -398,16 +388,12 @@ class EvidenceChain:
                     )
                     child_idx = self.nodes.index(n)
                     if parent_idx >= child_idx:
-                        failures.append(
-                            f"PARENT_AFTER_CHILD: {n.event_id}"
-                        )
+                        failures.append(f"PARENT_AFTER_CHILD: {n.event_id}")
 
         # Structural: causation references a prior node in same chain
         for n in self.nodes:
             if n.causation_id and n.causation_id not in ids:
-                failures.append(
-                    f"CAUSATION_NOT_FOUND: {n.event_id} -> {n.causation_id}"
-                )
+                failures.append(f"CAUSATION_NOT_FOUND: {n.event_id} -> {n.causation_id}")
 
         # Chain root (E15)
         if self.chain_root != self._recompute_root():

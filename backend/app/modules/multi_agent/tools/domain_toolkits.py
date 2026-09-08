@@ -27,7 +27,9 @@ class DomainToolRegistry:
     # ─────────────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def search_capacity(origin: str, destination: str, required_volume_m3: float = 5.0) -> ToolExecutionResult:
+    def search_capacity(
+        origin: str, destination: str, required_volume_m3: float = 5.0
+    ) -> ToolExecutionResult:
         """Searches live transport lane capacity across road and air carriers."""
         lanes = [
             {
@@ -56,13 +58,19 @@ class DomainToolRegistry:
         return ToolExecutionResult(
             tool_name="search_capacity",
             status="SUCCESS",
-            data={"matched_lanes": lanes, "search_origin": origin, "search_destination": destination},
+            data={
+                "matched_lanes": lanes,
+                "search_origin": origin,
+                "search_destination": destination,
+            },
             evidence_tags=["rate_card_latam_2026", "telemetry_corridor_vcp_sdu"],
             audit_trace=f"Queried 2 active multimodal corridors for {origin}->{destination}",
         )
 
     @staticmethod
-    def get_carrier_rates(carrier_id: str, lane: str, weight_kg: float = 250.0) -> ToolExecutionResult:
+    def get_carrier_rates(
+        carrier_id: str, lane: str, weight_kg: float = 250.0
+    ) -> ToolExecutionResult:
         """Retrieves verified contract rate cards for specific carriers and lanes."""
         base_rate = 450.0 if "AIR" in carrier_id.upper() or "VCP" in lane else 320.0
         fuel_surcharge = base_rate * 0.08
@@ -106,7 +114,9 @@ class DomainToolRegistry:
         )
 
     @staticmethod
-    def verify_trade_compliance(origin: str, destination: str, product_category: str) -> ToolExecutionResult:
+    def verify_trade_compliance(
+        origin: str, destination: str, product_category: str
+    ) -> ToolExecutionResult:
         """Validates inter-state/cross-border trade permits and tax compliance (e.g. ICMS/ST in Brazil)."""
         requires_special_permit = product_category in {"hazardous_materials", "pharmaceuticals"}
         return ToolExecutionResult(
@@ -125,7 +135,9 @@ class DomainToolRegistry:
         )
 
     @staticmethod
-    def check_spend_budget(amount_usd: float, cost_center: str = "LOGISTICS_EXPEDITE") -> ToolExecutionResult:
+    def check_spend_budget(
+        amount_usd: float, cost_center: str = "LOGISTICS_EXPEDITE"
+    ) -> ToolExecutionResult:
         """Validates authorized spending thresholds against departmental budget reserves."""
         authorized_limit = 1500.0  # Max auto-authorized expedite budget
         is_within_budget = amount_usd <= authorized_limit
@@ -148,10 +160,13 @@ class DomainToolRegistry:
     # ─────────────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def calculate_3d_cube_utilization(order_items: list[dict[str, Any]], equipment_capacity_m3: float = 12.0) -> ToolExecutionResult:
+    def calculate_3d_cube_utilization(
+        order_items: list[dict[str, Any]], equipment_capacity_m3: float = 12.0
+    ) -> ToolExecutionResult:
         """Calculates 3D container cubic volume and payload utilization."""
         total_volume = sum(
-            (item.get("length_cm", 20) * item.get("width_cm", 15) * item.get("height_cm", 10)) / 1_000_000.0
+            (item.get("length_cm", 20) * item.get("width_cm", 15) * item.get("height_cm", 10))
+            / 1_000_000.0
             for item in order_items
         )
         total_weight_kg = sum(item.get("weight_g", 500) / 1000.0 for item in order_items)
@@ -172,7 +187,9 @@ class DomainToolRegistry:
         )
 
     @staticmethod
-    def compute_dijkstra_delay_cost(origin: str, destination: str, corridor_congestion: float = 1.9) -> ToolExecutionResult:
+    def compute_dijkstra_delay_cost(
+        origin: str, destination: str, corridor_congestion: float = 1.9
+    ) -> ToolExecutionResult:
         """Calculates topological shortest path delay and transit variability."""
         baseline_delay = 1.4  # days
         projected_delay = baseline_delay * corridor_congestion
@@ -196,7 +213,9 @@ class DomainToolRegistry:
     # ─────────────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def query_gnn_supplier_similarity(product_category: str, focal_seller_id: str) -> ToolExecutionResult:
+    def query_gnn_supplier_similarity(
+        product_category: str, focal_seller_id: str
+    ) -> ToolExecutionResult:
         """Leverages GNN node embeddings to discover qualified alternative suppliers."""
         alternatives = [
             {
@@ -221,7 +240,11 @@ class DomainToolRegistry:
         return ToolExecutionResult(
             tool_name="query_gnn_supplier_similarity",
             status="SUCCESS",
-            data={"focal_seller": focal_seller_id, "category": product_category, "candidate_suppliers": alternatives},
+            data={
+                "focal_seller": focal_seller_id,
+                "category": product_category,
+                "candidate_suppliers": alternatives,
+            },
             evidence_tags=["gnn_supplier_embeddings_v4.1", "graph_product_similarity"],
             audit_trace=f"Found {len(alternatives)} qualified replacement suppliers via GNN embeddings",
         )
@@ -230,15 +253,36 @@ class DomainToolRegistry:
     def calculate_supplier_scorecard(supplier_id: str) -> ToolExecutionResult:
         """Calculates multi-dimensional supplier reliability scorecard."""
         scores = {
-            "seller_bb99112233": {"quality": 98.2, "otif": 96.5, "lead_time": 95.0, "risk_score": 0.08},
-            "seller_cc33445566": {"quality": 94.0, "otif": 89.2, "lead_time": 88.0, "risk_score": 0.16},
-            "seller_01a00b8e99": {"quality": 92.0, "otif": 62.0, "lead_time": 54.0, "risk_score": 0.74},  # Degraded
+            "seller_bb99112233": {
+                "quality": 98.2,
+                "otif": 96.5,
+                "lead_time": 95.0,
+                "risk_score": 0.08,
+            },
+            "seller_cc33445566": {
+                "quality": 94.0,
+                "otif": 89.2,
+                "lead_time": 88.0,
+                "risk_score": 0.16,
+            },
+            "seller_01a00b8e99": {
+                "quality": 92.0,
+                "otif": 62.0,
+                "lead_time": 54.0,
+                "risk_score": 0.74,
+            },  # Degraded
         }
-        card = scores.get(supplier_id, {"quality": 90.0, "otif": 85.0, "lead_time": 85.0, "risk_score": 0.25})
+        card = scores.get(
+            supplier_id, {"quality": 90.0, "otif": 85.0, "lead_time": 85.0, "risk_score": 0.25}
+        )
         return ToolExecutionResult(
             tool_name="calculate_supplier_scorecard",
             status="SUCCESS",
-            data={"supplier_id": supplier_id, "scorecard": card, "composite_grade": "A" if card["risk_score"] < 0.15 else "DEGRADED_C"},
+            data={
+                "supplier_id": supplier_id,
+                "scorecard": card,
+                "composite_grade": "A" if card["risk_score"] < 0.15 else "DEGRADED_C",
+            },
             evidence_tags=["historical_otif_database_q3"],
             audit_trace=f"Supplier scorecard calculated for {supplier_id} (Risk: {card['risk_score']})",
         )

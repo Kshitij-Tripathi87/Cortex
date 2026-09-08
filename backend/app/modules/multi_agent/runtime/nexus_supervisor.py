@@ -95,42 +95,79 @@ class NexusSwarmSupervisor:
         )
 
         # 2. Step 1: Procurement & Sourcing Discovery
-        step_proc = task.add_step("Supplier Discovery & GNN Embeddings", "supplier_discovery_agent", "PROCUREMENT")
+        step_proc = task.add_step(
+            "Supplier Discovery & GNN Embeddings", "supplier_discovery_agent", "PROCUREMENT"
+        )
         step_proc.status = TaskStatus.IN_PROGRESS
         discovery_res = self.discovery_agent.discover_alternatives("telefonia", incident_entity_id)
-        sourcing_res = self.sourcing_agent.evaluate_sourcing_options(incident_entity_id, discovery_res.top_replacement)
-        step_proc.output_data = {"discovery": discovery_res.to_dict(), "sourcing": sourcing_res.to_dict()}
+        sourcing_res = self.sourcing_agent.evaluate_sourcing_options(
+            incident_entity_id, discovery_res.top_replacement
+        )
+        step_proc.output_data = {
+            "discovery": discovery_res.to_dict(),
+            "sourcing": sourcing_res.to_dict(),
+        }
         step_proc.evidence_refs = discovery_res.evidence_refs + sourcing_res.evidence_refs
         step_proc.status = TaskStatus.COMPLETED
 
         # 3. Step 2: Load Planning & 3D Cubing
-        step_opt = task.add_step("3D Load Optimization & Consolidation", "load_planning_agent", "OPTIMIZATION")
+        step_opt = task.add_step(
+            "3D Load Optimization & Consolidation", "load_planning_agent", "OPTIMIZATION"
+        )
         step_opt.status = TaskStatus.IN_PROGRESS
-        dummy_items = [{"weight_g": 450, "length_cm": 18, "width_cm": 10, "height_cm": 5} for _ in range(12)]
+        dummy_items = [
+            {"weight_g": 450, "length_cm": 18, "width_cm": 10, "height_cm": 5} for _ in range(12)
+        ]
         load_res = self.load_agent.plan_load(dummy_items)
         route_res = self.route_agent.optimize_route(origin, destination)
-        consol_res = self.consolidation_agent.evaluate_consolidation([f"ord_{i}" for i in range(12)])
-        step_opt.output_data = {"load": load_res.to_dict(), "route": route_res, "consolidation": consol_res}
+        consol_res = self.consolidation_agent.evaluate_consolidation(
+            [f"ord_{i}" for i in range(12)]
+        )
+        step_opt.output_data = {
+            "load": load_res.to_dict(),
+            "route": route_res,
+            "consolidation": consol_res,
+        }
         step_opt.evidence_refs = load_res.evidence_refs + route_res.get("evidence_refs", [])
         step_opt.status = TaskStatus.COMPLETED
 
         # 4. Step 3: Booking & Multimodal Capacity
-        step_book = task.add_step("Capacity Booking & Rate Cards", "capacity_booking_agent", "BOOKING")
+        step_book = task.add_step(
+            "Capacity Booking & Rate Cards", "capacity_booking_agent", "BOOKING"
+        )
         step_book.status = TaskStatus.IN_PROGRESS
-        booking_res = self.capacity_agent.evaluate_capacity(origin, destination, required_volume_m3=load_res.total_volume_m3)
-        negotiation_res = self.negotiation_agent.evaluate_rate_quote(booking_res.recommended_carrier, booking_res.expected_cost_usd)
-        tender_res = self.tender_agent.prepare_tender(booking_res.recommended_carrier, booking_res.recommended_lane, booking_res.expected_cost_usd)
-        step_book.output_data = {"booking": booking_res.to_dict(), "negotiation": negotiation_res.to_dict(), "tender": tender_res.to_dict()}
+        booking_res = self.capacity_agent.evaluate_capacity(
+            origin, destination, required_volume_m3=load_res.total_volume_m3
+        )
+        negotiation_res = self.negotiation_agent.evaluate_rate_quote(
+            booking_res.recommended_carrier, booking_res.expected_cost_usd
+        )
+        tender_res = self.tender_agent.prepare_tender(
+            booking_res.recommended_carrier,
+            booking_res.recommended_lane,
+            booking_res.expected_cost_usd,
+        )
+        step_book.output_data = {
+            "booking": booking_res.to_dict(),
+            "negotiation": negotiation_res.to_dict(),
+            "tender": tender_res.to_dict(),
+        }
         step_book.evidence_refs = booking_res.evidence_refs + negotiation_res.evidence_refs
         step_book.status = TaskStatus.COMPLETED
 
         # 5. Step 4: Compliance & Spend Policy Gate (Control Plane)
-        step_comp = task.add_step("Compliance Validation & Spend Authority", "compliance_agent", "COMPLIANCE")
+        step_comp = task.add_step(
+            "Compliance Validation & Spend Authority", "compliance_agent", "COMPLIANCE"
+        )
         step_comp.status = TaskStatus.IN_PROGRESS
         comp_res = self.compliance_agent.validate_action(incident_entity_id, origin, destination)
         fin_res = self.finance_agent.validate_budget(booking_res.expected_cost_usd)
         audit_res = self.audit_agent.verify_provenance_dag(task_id, "merkle_root_5a3d76")
-        step_comp.output_data = {"compliance": comp_res.to_dict(), "finance": fin_res.to_dict(), "audit": audit_res}
+        step_comp.output_data = {
+            "compliance": comp_res.to_dict(),
+            "finance": fin_res.to_dict(),
+            "audit": audit_res,
+        }
         step_comp.evidence_refs = comp_res.evidence_refs + fin_res.evidence_refs
         step_comp.status = TaskStatus.COMPLETED
 

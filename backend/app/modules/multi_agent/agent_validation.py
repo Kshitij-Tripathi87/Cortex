@@ -42,7 +42,9 @@ class MultiAgentResearchValidator:
         plan = self.engine.deliberate(adversarial_state)
 
         # Measure objections in critiques
-        objections = [c for c in plan.peer_critiques if not c.supports_proposal or c.feasibility_score < 0.70]
+        objections = [
+            c for c in plan.peer_critiques if not c.supports_proposal or c.feasibility_score < 0.70
+        ]
         deadlock = len(plan.selected_actions) == 0 and len(plan.proposals_evaluated) > 0
 
         # Pareto efficiency: net value of selected actions relative to total possible
@@ -53,7 +55,9 @@ class MultiAgentResearchValidator:
 
         trade_offs = []
         if len(objections) > 0:
-            trade_offs.append(f"Resolved {len(objections)} cross-functional domain objections without deadlock.")
+            trade_offs.append(
+                f"Resolved {len(objections)} cross-functional domain objections without deadlock."
+            )
         trade_offs.append(plan.trade_off_analysis)
 
         return AdversarialValidationResult(

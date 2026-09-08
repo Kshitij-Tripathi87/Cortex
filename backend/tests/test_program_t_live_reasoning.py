@@ -41,9 +41,7 @@ def test_natural_language_query_and_readiness_preflight():
 
     # Ingest baseline Olist tables
     csv_orders = (
-        "order_id,customer_id,order_status\n"
-        "ord_1,cust_1,delivered\n"
-        "ord_2,cust_2,in_transit\n"
+        "order_id,customer_id,order_status\nord_1,cust_1,delivered\nord_2,cust_2,in_transit\n"
     )
     workspace.ingest_csv_content("orders", csv_orders)
 
@@ -120,9 +118,14 @@ def test_full_34_step_rest_api_acceptance_flow():
     assert "nodes" in subgraph_resp.json()
 
     # Step 9-15: Deliberation & Counterfactuals
-    delib_resp = client.post("/api/v1/workspace/deliberate", json={"incident_entity_id": "seller_alpha"})
+    delib_resp = client.post(
+        "/api/v1/workspace/deliberate", json={"incident_entity_id": "seller_alpha"}
+    )
     assert delib_resp.status_code == 200
-    assert delib_resp.json()["deliberation_result"]["decision_card"]["net_economic_value_usd"] == 2900.0
+    assert (
+        delib_resp.json()["deliberation_result"]["decision_card"]["net_economic_value_usd"]
+        == 2900.0
+    )
 
     # Step 16: Check Decision Evidence Graph
     ev_resp = client.get("/api/v1/workspace/decisions/evidence")

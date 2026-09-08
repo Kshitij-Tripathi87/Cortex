@@ -41,6 +41,7 @@ from app.modules.nexus_spine.pipeline_stages import real_supervisor_fn
 # 1. Multi-Worker Deployment & Load Balancer Simulation
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestMultiWorkerDeploymentSimulation:
     """Verifies that multiple concurrent worker instances share state correctly via backend
 
@@ -58,7 +59,11 @@ class TestMultiWorkerDeploymentSimulation:
             worker_request_counts[worker_id] += 1
             # Each worker writes its processed task to shared cache
             task_key = f"task_{req_idx}"
-            await cache.set(f"org_load:ws_load:{task_key}", {"processed_by": worker_id, "idx": req_idx}, ttl_seconds=60)
+            await cache.set(
+                f"org_load:ws_load:{task_key}",
+                {"processed_by": worker_id, "idx": req_idx},
+                ttl_seconds=60,
+            )
             val = await cache.get(f"org_load:ws_load:{task_key}")
             assert val is not None
             assert val["processed_by"] == worker_id
@@ -80,6 +85,7 @@ class TestMultiWorkerDeploymentSimulation:
     async def test_cross_worker_session_and_token_validation(self) -> None:
         """JWT token issued on Worker 1 is valid and enforces RBAC uniformly on Worker 4."""
         import uuid
+
         user_id = uuid.uuid4()
         workspace_id = uuid.uuid4()
         role = "operator"
@@ -117,6 +123,7 @@ class TestMultiWorkerDeploymentSimulation:
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Graceful Shutdown & Request Drain Verification
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestGracefulShutdownAndDrain:
     """Verifies that the server handles SIGTERM/shutdown by allowing in-flight requests
@@ -200,6 +207,7 @@ class TestGracefulShutdownAndDrain:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Health Checks & Readiness Probe Degradation Hierarchy
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHealthAndReadinessHierarchy:
     """Verifies that /healthz always reports liveness and /readyz correctly
@@ -296,6 +304,7 @@ class TestHealthAndReadinessHierarchy:
 # 4. Redis Connection Pool Crash, Partition & Automatic Recovery
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRedisPartitionAndPoolRecovery:
     """Verifies fail-closed semantics during Redis outages and automatic
 
@@ -324,7 +333,9 @@ class TestRedisPartitionAndPoolRecovery:
         cache = get_cache_manager()
 
         with patch.object(cache, "is_redis_available", AsyncMock(return_value=False)):
-            async with cache.lock("governance_lock:ws_001", ttl_seconds=10, fail_closed=True) as acquired:
+            async with cache.lock(
+                "governance_lock:ws_001", ttl_seconds=10, fail_closed=True
+            ) as acquired:
                 assert acquired is False
 
     @pytest.mark.asyncio
@@ -344,7 +355,9 @@ class TestRedisPartitionAndPoolRecovery:
         mock_redis_client = MagicMock()
         mock_redis_client._redis.ping = AsyncMock(return_value=True)
 
-        with patch("app.infrastructure.cache_manager.get_redis_client", return_value=mock_redis_client):
+        with patch(
+            "app.infrastructure.cache_manager.get_redis_client", return_value=mock_redis_client
+        ):
             is_up = await cache.is_redis_available()
             assert is_up is True
             assert cache._redis_health[0] == "up"
@@ -358,6 +371,7 @@ class TestRedisPartitionAndPoolRecovery:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Multi-Agent Swarm Deliberation Chaos Resilience
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSwarmDeliberationChaosResilience:
     """Verifies that the multi-agent deliberation framework tolerates specialist
@@ -375,12 +389,14 @@ class TestSwarmDeliberationChaosResilience:
             incident_entity_type=EntityType.SUPPLIER,
             incident_entity_id="SUP_CRASH_001",
             affected_entity_ids=["ORD_001"],
-            signals=[{
-                "signal_id": "sig_crash_1",
-                "signal_type": "SUPPLIER_DISRUPTION",
-                "severity": "HIGH",
-                "entity_id": "SUP_CRASH_001",
-            }],
+            signals=[
+                {
+                    "signal_id": "sig_crash_1",
+                    "signal_type": "SUPPLIER_DISRUPTION",
+                    "severity": "HIGH",
+                    "entity_id": "SUP_CRASH_001",
+                }
+            ],
             blast_radius={
                 "total_revenue_at_risk_usd": 75000.0,
                 "geographic_exposure_regions": ["US"],

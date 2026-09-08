@@ -147,11 +147,15 @@ class TestWorkspaceIsolation:
 
         # All A states should have workspace_id = ws_a
         for state in ws_a_states:
-            assert state.workspace_id == ws_a, f"Found state with workspace {state.workspace_id} in ws_a"
+            assert state.workspace_id == ws_a, (
+                f"Found state with workspace {state.workspace_id} in ws_a"
+            )
 
         # All B states should have workspace_id = ws_b
         for state in ws_b_states:
-            assert state.workspace_id == ws_b, f"Found state with workspace {state.workspace_id} in ws_b"
+            assert state.workspace_id == ws_b, (
+                f"Found state with workspace {state.workspace_id} in ws_b"
+            )
 
     async def test_events_are_workspace_scoped(
         self, service: WorldStateService, repo: StateRepository

@@ -20,6 +20,7 @@ from app.common.ids import uuid7
 @dataclass(frozen=True)
 class ExecutionContext:
     """The execution context of a workflow or user action."""
+
     tenant_id: str
     organization_id: str
     workspace_id: str

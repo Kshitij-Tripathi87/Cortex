@@ -78,7 +78,9 @@ def upgrade() -> None:
         sa.Column("slug", sa.String(64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=_NOW),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=_NOW),
-        sa.Column("metadata", postgresql.JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column(
+            "metadata", postgresql.JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
         sa.UniqueConstraint("slug", name="uq_workspaces_slug"),
         schema="core",
     )
@@ -98,7 +100,9 @@ def upgrade() -> None:
         sa.Column("role", sa.String(32), nullable=False, server_default=sa.text("'viewer'")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=_NOW),
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("metadata", postgresql.JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column(
+            "metadata", postgresql.JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
         sa.UniqueConstraint("workspace_id", "email", name="uq_users_workspace_email"),
         schema="core",
     )
@@ -249,11 +253,15 @@ def upgrade() -> None:
         schema="operational",
     )
     op.create_index(
-        "ix_edges_workspace_from", "edges", ["workspace_id", "from_type", "from_id"],
+        "ix_edges_workspace_from",
+        "edges",
+        ["workspace_id", "from_type", "from_id"],
         schema="operational",
     )
     op.create_index(
-        "ix_edges_workspace_to", "edges", ["workspace_id", "to_type", "to_id"],
+        "ix_edges_workspace_to",
+        "edges",
+        ["workspace_id", "to_type", "to_id"],
         schema="operational",
     )
     op.create_index(
@@ -288,7 +296,9 @@ def upgrade() -> None:
             "last_updated_at", sa.DateTime(timezone=True), nullable=False, server_default=_NOW
         ),
         sa.UniqueConstraint(
-            "workspace_id", "warehouse_id", "component_id",
+            "workspace_id",
+            "warehouse_id",
+            "component_id",
             name="uq_inventory_workspace_warehouse_component",
         ),
         schema="inventory",
@@ -316,10 +326,14 @@ def upgrade() -> None:
             sa.ForeignKey("operational.components.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.Column("quantity_per_unit", sa.Numeric(18, 4), nullable=False, server_default=sa.text("1")),
+        sa.Column(
+            "quantity_per_unit", sa.Numeric(18, 4), nullable=False, server_default=sa.text("1")
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=_NOW),
         sa.UniqueConstraint(
-            "workspace_id", "product_id", "component_id",
+            "workspace_id",
+            "product_id",
+            "component_id",
             name="uq_bom_workspace_product_component",
         ),
         schema="inventory",
@@ -481,7 +495,9 @@ def upgrade() -> None:
         sa.Column("decision", sa.String(48), nullable=False),
         sa.Column("rationale", sa.Text, nullable=True),
         sa.Column("decided_at", sa.DateTime(timezone=True), nullable=False, server_default=_NOW),
-        sa.Column("contract_version", sa.String(16), nullable=False, server_default=sa.text("'1.0'")),
+        sa.Column(
+            "contract_version", sa.String(16), nullable=False, server_default=sa.text("'1.0'")
+        ),
         sa.Column(
             "payload", postgresql.JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
         ),

@@ -1,5 +1,4 @@
-"""Freight Tender & Booking Exception Agents — Groups A3 & A4.
-"""
+"""Freight Tender & Booking Exception Agents — Groups A3 & A4."""
 
 from __future__ import annotations
 
@@ -62,7 +61,9 @@ class BookingExceptionAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def handle_rejection(self, failed_carrier_id: str, origin: str, destination: str) -> dict[str, Any]:
+    def handle_rejection(
+        self, failed_carrier_id: str, origin: str, destination: str
+    ) -> dict[str, Any]:
         return {
             "exception_type": "CARRIER_REJECTION_OR_CUTOFF_MISSED",
             "failed_carrier": failed_carrier_id,

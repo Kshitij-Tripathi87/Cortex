@@ -34,6 +34,7 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 # 1. Frozen table list — the COUNT(*) verification must check these tables
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestFrozenTablesForVerify:
     """The backup script verifies its own integrity by
     restoring into a scratch schema and running
@@ -69,9 +70,9 @@ class TestFrozenTablesForVerify:
         except ImportError:
             pytest.skip("backup.py not on sys.path")
 
-        assert len(backup.FROZEN_TABLES_FOR_VERIFY) == len(
-            set(backup.FROZEN_TABLES_FOR_VERIFY)
-        ), "Duplicate table names in the verify list — would run COUNT(*) twice."
+        assert len(backup.FROZEN_TABLES_FOR_VERIFY) == len(set(backup.FROZEN_TABLES_FOR_VERIFY)), (
+            "Duplicate table names in the verify list — would run COUNT(*) twice."
+        )
 
     def test_frozen_table_list_uses_lowercase(self):
         # PG table names are case-folded unless quoted; using
@@ -93,6 +94,7 @@ class TestFrozenTablesForVerify:
 # 2. Status dict shape — the K8s CronJob tail-logs this
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestStatusDictContract:
     """The script prints a JSON status dict to stdout. The
     K8s CronJob's tail-log parse relies on the field
@@ -105,8 +107,7 @@ class TestStatusDictContract:
             from backup import _status
         except ImportError:
             pytest.skip("backup.py not on sys.path")
-        s = _status(ok=True, backup_file="cortex-x.sql.gz",
-                    backup_size_bytes=1024)
+        s = _status(ok=True, backup_file="cortex-x.sql.gz", backup_size_bytes=1024)
         for required in ("script", "timestamp", "ok"):
             assert required in s, f"Status missing field {required!r}"
 
@@ -119,8 +120,7 @@ class TestStatusDictContract:
             from backup import _status
         except ImportError:
             pytest.skip("backup.py not on sys.path")
-        s = _status(ok=True, backup_file="cortex-x.sql.gz",
-                    backup_size_bytes=1024)
+        s = _status(ok=True, backup_file="cortex-x.sql.gz", backup_size_bytes=1024)
         encoded = json.dumps(s)
         decoded = json.loads(encoded)
         assert decoded["ok"] is True
@@ -130,6 +130,7 @@ class TestStatusDictContract:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. pg_dump command construction — credentials stay out of argv
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestPgDumpCommandContract:
     """The script must pass the DB password via ``PGPASSWORD``
@@ -177,6 +178,7 @@ class TestPgDumpCommandContract:
 # 4. Script runs (smoke) — main() is invokable without raising
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestBackupScriptRunnable:
     """The script must be importable and ``main()`` must be
     invokable. We don't actually run pg_dump in this test —
@@ -191,6 +193,7 @@ class TestBackupScriptRunnable:
         # repo root, not from the test directory.
         sys.path.insert(0, str(SCRIPTS_DIR))
         import backup  # type: ignore
+
         assert hasattr(backup, "main")
         assert hasattr(backup, "run_backup")
         assert hasattr(backup, "_build_pg_dump_cmd")
@@ -216,8 +219,7 @@ class TestBackupScriptRunnable:
 
         monkeypatch.setattr(backup, "_run", _fake_pg_dump)
         # Skip the verify step (would need psql + live DB)
-        monkeypatch.setattr(backup, "_verify_backup",
-                            lambda p: {"ok": True, "skipped": True})
+        monkeypatch.setattr(backup, "_verify_backup", lambda p: {"ok": True, "skipped": True})
 
         status = backup.run_backup(
             backup_dir=tmp_path,

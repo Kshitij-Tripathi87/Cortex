@@ -364,6 +364,7 @@ async def evaluate_knowledge(
     require_workspace_access(body.workspace_id, auth)
 
     from app.modules.world.state_repository import StateRepository
+
     repo = StateRepository(db)
     state = await repo.get(body.world_id, body.workspace_id, version=body.version)
     if not state:

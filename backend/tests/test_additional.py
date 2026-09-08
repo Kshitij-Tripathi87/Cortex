@@ -277,8 +277,20 @@ def test_rule_with_multiple_conditions_and():
         world_id="world_1",
         graph_version=1,
         initial_variables={
-            "a.x": SV(variable_id="a.x", variable_type=StateVariableType.INVENTORY, entity_id="x", entity_type="a", value=5),
-            "b.y": SV(variable_id="b.y", variable_type=StateVariableType.INVENTORY, entity_id="y", entity_type="b", value=10),
+            "a.x": SV(
+                variable_id="a.x",
+                variable_type=StateVariableType.INVENTORY,
+                entity_id="x",
+                entity_type="a",
+                value=5,
+            ),
+            "b.y": SV(
+                variable_id="b.y",
+                variable_type=StateVariableType.INVENTORY,
+                entity_id="y",
+                entity_type="b",
+                value=10,
+            ),
         },
     )
 
@@ -342,9 +354,13 @@ def test_state_version_increments_correctly():
     # Apply 5 events
     events = [
         InventoryChanged(
-            event_id=f"evt_{i}", world_id="world_1", workspace_id="ws_1",
-            entity_type="warehouse", entity_id="wh_001",
-            warehouse_id="wh_001", component_id="comp_042",
+            event_id=f"evt_{i}",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="warehouse",
+            entity_id="wh_001",
+            warehouse_id="wh_001",
+            component_id="comp_042",
             quantity_change=1,
         )
         for i in range(5)
@@ -374,9 +390,13 @@ def test_state_hash_changes_per_version():
 
     # Apply event
     event = InventoryChanged(
-        event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-        entity_type="warehouse", entity_id="wh_001",
-        warehouse_id="wh_001", component_id="comp_042",
+        event_id="evt_1",
+        world_id="world_1",
+        workspace_id="ws_1",
+        entity_type="warehouse",
+        entity_id="wh_001",
+        warehouse_id="wh_001",
+        component_id="comp_042",
         quantity_change=10,
     )
     state_v2 = project_events(state, [event])
@@ -509,30 +529,51 @@ def test_rule_engine_multiple_rules_evaluation():
         world_id="world_1",
         graph_version=1,
         initial_variables={
-            "a.x": SV(variable_id="a.x", variable_type=StateVariableType.INVENTORY, entity_id="x", entity_type="a", value=5),
+            "a.x": SV(
+                variable_id="a.x",
+                variable_type=StateVariableType.INVENTORY,
+                entity_id="x",
+                entity_type="a",
+                value=5,
+            ),
         },
     )
 
     rules = [
         KnowledgeRule(
-            rule_id="r1", workspace_id="ws_1", name="Rule 1", description="",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id="a.x", operator="lt", value=10),
-            ]),
+            rule_id="r1",
+            workspace_id="ws_1",
+            name="Rule 1",
+            description="",
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(variable_id="a.x", operator="lt", value=10),
+                ]
+            ),
             action=RuleAction.NOTIFY,
         ),
         KnowledgeRule(
-            rule_id="r2", workspace_id="ws_1", name="Rule 2", description="",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id="a.x", operator="gt", value=100),
-            ]),
+            rule_id="r2",
+            workspace_id="ws_1",
+            name="Rule 2",
+            description="",
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(variable_id="a.x", operator="gt", value=100),
+                ]
+            ),
             action=RuleAction.EXPEDITE,
         ),
         KnowledgeRule(
-            rule_id="r3", workspace_id="ws_1", name="Rule 3", description="",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id="nonexistent", operator="lt", value=10),
-            ]),
+            rule_id="r3",
+            workspace_id="ws_1",
+            name="Rule 3",
+            description="",
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(variable_id="nonexistent", operator="lt", value=10),
+                ]
+            ),
             action=RuleAction.BLOCK,
         ),
     ]

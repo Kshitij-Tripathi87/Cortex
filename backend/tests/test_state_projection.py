@@ -300,13 +300,19 @@ def test_all_projectors_are_callable_with_two_args():
             event = _make_price_changed()
         elif event_cls is EntityIngested:
             event = EntityIngested(
-                event_id="evt_test_ei", world_id="world_1", workspace_id="ws_1",
-                entity_type="SUPPLIER", entity_id="S1",
+                event_id="evt_test_ei",
+                world_id="world_1",
+                workspace_id="ws_1",
+                entity_type="SUPPLIER",
+                entity_id="S1",
             )
         elif event_cls is ExecutionOutcome:
             event = ExecutionOutcome(
-                event_id="evt_test_eo", world_id="world_1", workspace_id="ws_1",
-                entity_type="EXECUTION", entity_id="PLAN_1",
+                event_id="evt_test_eo",
+                world_id="world_1",
+                workspace_id="ws_1",
+                entity_type="EXECUTION",
+                entity_id="PLAN_1",
             )
         else:
             pytest.fail(f"Unhandled event type: {event_cls}")

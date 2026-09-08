@@ -92,7 +92,9 @@ class StateSnapshot(BaseModel):
     timestamp: datetime = Field(default_factory=_utc_now)
     state: Mapping[str, Any] = Field(default_factory=dict)
     state_hash: str = Field(description="Content hash of the canonicalized state")
-    world_state_version: int = Field(ge=0, description="World-state version when snapshot was taken")
+    world_state_version: int = Field(
+        ge=0, description="World-state version when snapshot was taken"
+    )
     confidence: float = Field(ge=0.0, le=1.0, default=1.0)
 
 

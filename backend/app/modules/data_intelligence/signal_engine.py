@@ -140,7 +140,9 @@ class OperationalSignalEngine:
             if node and node.node_type in ("SUPPLIER", "SELLER"):
                 baseline = 1.0 / n
                 deviation = (node.pagerank - baseline) / max(0.001, baseline) * 100
-                severity = "CRITICAL" if deviation > 200 else ("HIGH" if deviation > 100 else "MEDIUM")
+                severity = (
+                    "CRITICAL" if deviation > 200 else ("HIGH" if deviation > 100 else "MEDIUM")
+                )
                 sig = OperationalSignal(
                     signal_id=f"sig_{uuid7()[:8]}",
                     entity_id=spof_id,
@@ -193,9 +195,7 @@ class OperationalSignalEngine:
                 confidence=0.90,
                 metric_value=analytics.supplier_concentration_gini,
                 baseline_threshold=0.4,
-                deviation_pct=round(
-                    (analytics.supplier_concentration_gini - 0.4) / 0.4 * 100, 1
-                ),
+                deviation_pct=round((analytics.supplier_concentration_gini - 0.4) / 0.4 * 100, 1),
                 evidence=[f"gini={analytics.supplier_concentration_gini:.3f}"],
             )
             signals.append(sig)

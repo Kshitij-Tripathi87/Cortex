@@ -203,17 +203,20 @@ def test_scenario_execution_with_metrics():
         capacity_pct=0.0,
     )
 
-    final_state = project_events(state, [
-        FactoryShutdown(
-            event_id="evt_1",
-            world_id="world_1",
-            workspace_id="ws_1",
-            entity_type="factory",
-            entity_id="fac_001",
-            capacity_pct=0.0,
-            cause="fire",
-        )
-    ])
+    final_state = project_events(
+        state,
+        [
+            FactoryShutdown(
+                event_id="evt_1",
+                world_id="world_1",
+                workspace_id="ws_1",
+                entity_type="factory",
+                entity_id="fac_001",
+                capacity_pct=0.0,
+                cause="fire",
+            )
+        ],
+    )
 
     calculator = ImpactCalculator()
     impact = calculator.calculate(state, final_state, duration_days=30)
@@ -363,23 +366,37 @@ def test_multi_entity_simulation():
     # Affect multiple suppliers and factories
     events = [
         SupplierDelayed(
-            event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-            entity_type="supplier", entity_id="sup_001", delay_days=10,
+            event_id="evt_1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="supplier",
+            entity_id="sup_001",
+            delay_days=10,
         ),
         SupplierDelayed(
-            event_id="evt_2", world_id="world_1", workspace_id="ws_1",
-            entity_type="supplier", entity_id="sup_002", delay_days=15,
+            event_id="evt_2",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="supplier",
+            entity_id="sup_002",
+            delay_days=15,
         ),
         FactoryShutdown(
-            event_id="evt_3", world_id="world_1", workspace_id="ws_1",
-            entity_type="factory", entity_id="fac_001", capacity_pct=20.0,
+            event_id="evt_3",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="factory",
+            entity_id="fac_001",
+            capacity_pct=20.0,
         ),
     ]
 
     final_state = project_events(state, events)
 
     # All entities affected
-    assert final_state.variables["supplier_health.supplier.sup_001"].raw_value == 0.95  # Health unchanged
+    assert (
+        final_state.variables["supplier_health.supplier.sup_001"].raw_value == 0.95
+    )  # Health unchanged
     assert final_state.variables["capacity.factory.fac_001"].raw_value == 20.0  # Reduced
 
 
@@ -392,19 +409,32 @@ def test_dependency_chain_inventory_lead_time_capacity():
     events = [
         # Supplier delay → reduces incoming inventory
         SupplierDelayed(
-            event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-            entity_type="supplier", entity_id="sup_001", delay_days=30,
+            event_id="evt_1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="supplier",
+            entity_id="sup_001",
+            delay_days=30,
         ),
         # Factory shutdown → reduces production
         FactoryShutdown(
-            event_id="evt_2", world_id="world_1", workspace_id="ws_1",
-            entity_type="factory", entity_id="fac_001", capacity_pct=10.0,
+            event_id="evt_2",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="factory",
+            entity_id="fac_001",
+            capacity_pct=10.0,
         ),
         # Order placed → consumes inventory
         OrderPlaced(
-            event_id="evt_3", world_id="world_1", workspace_id="ws_1",
-            entity_type="warehouse", entity_id="wh_001",
-            warehouse_id="wh_001", component_id="comp_042", quantity=200,
+            event_id="evt_3",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="warehouse",
+            entity_id="wh_001",
+            warehouse_id="wh_001",
+            component_id="comp_042",
+            quantity=200,
         ),
     ]
 
@@ -431,9 +461,13 @@ def test_rule_engine_validates_against_state():
             workspace_id="ws_1",
             name="Low Inventory Alert",
             description="Notify when inventory below 200",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id=inventory_var_id("wh_001", "comp_042"), operator="lt", value=200),
-            ]),
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(
+                        variable_id=inventory_var_id("wh_001", "comp_042"), operator="lt", value=200
+                    ),
+                ]
+            ),
             action=RuleAction.NOTIFY,
             severity=RuleSeverity.MEDIUM,
         ),
@@ -442,9 +476,13 @@ def test_rule_engine_validates_against_state():
             workspace_id="ws_1",
             name="Critical Inventory",
             description="Expedite when inventory below 100",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id=inventory_var_id("wh_001", "comp_042"), operator="lt", value=100),
-            ]),
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(
+                        variable_id=inventory_var_id("wh_001", "comp_042"), operator="lt", value=100
+                    ),
+                ]
+            ),
             action=RuleAction.EXPEDITE,
             severity=RuleSeverity.CRITICAL,
         ),
@@ -460,10 +498,15 @@ def test_rule_engine_validates_against_state():
     # Drop inventory below 200 AND below 100
     events = [
         InventoryChanged(
-            event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-            entity_type="warehouse", entity_id="wh_001",
-            warehouse_id="wh_001", component_id="comp_042",
-            quantity_change=-950, reason="consumption",
+            event_id="evt_1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="warehouse",
+            entity_id="wh_001",
+            warehouse_id="wh_001",
+            component_id="comp_042",
+            quantity_change=-950,
+            reason="consumption",
         )
     ]
     final_state = project_events(state, events)
@@ -513,25 +556,31 @@ def test_scenario_pipeline_with_all_components():
         workspace_id="ws_1",
         name="High supplier delay",
         description="Notify when supplier delay > 14 days",
-        trigger=RuleTrigger(conditions=[
-            RuleCondition(variable_id="lead_time.supplier.sup_001", operator="gt", value=14),
-        ]),
+        trigger=RuleTrigger(
+            conditions=[
+                RuleCondition(variable_id="lead_time.supplier.sup_001", operator="gt", value=14),
+            ]
+        ),
         action=RuleAction.NOTIFY,
     )
 
     # Pre-initialize the lead_time variable (since projection requires existing var)
     from dataclasses import replace
-    state_with_lt = replace(state, variables={
-        **state.variables,
-        "lead_time.supplier.sup_001": SV(
-            variable_id="lead_time.supplier.sup_001",
-            variable_type=StateVariableType.LEAD_TIME,
-            entity_id="sup_001",
-            entity_type="supplier",
-            value=10,
-            unit="days",
-        ),
-    })
+
+    state_with_lt = replace(
+        state,
+        variables={
+            **state.variables,
+            "lead_time.supplier.sup_001": SV(
+                variable_id="lead_time.supplier.sup_001",
+                variable_type=StateVariableType.LEAD_TIME,
+                entity_id="sup_001",
+                entity_type="supplier",
+                value=10,
+                unit="days",
+            ),
+        },
+    )
     final_state_with_lt = project_events(state_with_lt, typed_events)
 
     engine = RuleEngine()
@@ -550,31 +599,43 @@ def test_combined_scenario_factory_fire_plus_supplier_delay():
 
     # Pre-initialize lead_time variable
     from dataclasses import replace
-    state = replace(state, variables={
-        **state.variables,
-        "lead_time.supplier.sup_001": SV(
-            variable_id="lead_time.supplier.sup_001",
-            variable_type=StateVariableType.LEAD_TIME,
-            entity_id="sup_001",
-            entity_type="supplier",
-            value=0,
-            unit="days",
-        ),
-    })
+
+    state = replace(
+        state,
+        variables={
+            **state.variables,
+            "lead_time.supplier.sup_001": SV(
+                variable_id="lead_time.supplier.sup_001",
+                variable_type=StateVariableType.LEAD_TIME,
+                entity_id="sup_001",
+                entity_type="supplier",
+                value=0,
+                unit="days",
+            ),
+        },
+    )
 
     create_factory_fire_scenario("scn_1", "fac_001", capacity_pct=0.0)
     create_supplier_failure_twin_scenario("scn_2", "sup_001", delay_days=14)
 
     events = [
         FactoryShutdown(
-            event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-            entity_type="factory", entity_id="fac_001",
-            capacity_pct=0.0, cause="fire",
+            event_id="evt_1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="factory",
+            entity_id="fac_001",
+            capacity_pct=0.0,
+            cause="fire",
         ),
         SupplierDelayed(
-            event_id="evt_2", world_id="world_1", workspace_id="ws_1",
-            entity_type="supplier", entity_id="sup_001",
-            delay_days=14, disruption_type="weather",
+            event_id="evt_2",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="supplier",
+            entity_id="sup_001",
+            delay_days=14,
+            disruption_type="weather",
         ),
     ]
 
@@ -607,9 +668,13 @@ def test_cyber_attack_scenario():
     )
 
     event = FactoryShutdown(
-        event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-        entity_type="factory", entity_id="fac_001",
-        capacity_pct=0.0, cause="cyber_attack",
+        event_id="evt_1",
+        world_id="world_1",
+        workspace_id="ws_1",
+        entity_type="factory",
+        entity_id="fac_001",
+        capacity_pct=0.0,
+        cause="cyber_attack",
         estimated_recovery_days=21,
     )
 

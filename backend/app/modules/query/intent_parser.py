@@ -52,7 +52,10 @@ class OperationalIntentParser:
         lower_q = query.lower()
 
         # 1. Scenario Simulation Intent
-        if any(w in lower_q for w in ["what happens if", "simulate", "if seller", "disappears", "fails"]):
+        if any(
+            w in lower_q
+            for w in ["what happens if", "simulate", "if seller", "disappears", "fails"]
+        ):
             # Extract target entity if present
             words = query.split()
             entity_id = None
@@ -68,16 +71,25 @@ class OperationalIntentParser:
             )
 
         # 2. Blast Radius & Customer Exposure Intent
-        if any(w in lower_q for w in ["customers", "exposed", "blast radius", "revenue exposure", "impacted"]):
+        if any(
+            w in lower_q
+            for w in ["customers", "exposed", "blast radius", "revenue exposure", "impacted"]
+        ):
             return OperationalIntent(
                 intent_type=IntentType.TRACE_BLAST_RADIUS,
                 raw_query=query,
                 target_entity_types=["CUSTOMER", "ORDER"],
-                metrics_requested=["revenue_at_risk_usd", "affected_orders_count", "customer_regions"],
+                metrics_requested=[
+                    "revenue_at_risk_usd",
+                    "affected_orders_count",
+                    "customer_regions",
+                ],
             )
 
         # 3. Route & Logistics Risk Intent
-        if any(w in lower_q for w in ["route", "corridor", "transit variance", "congestion", "carrier"]):
+        if any(
+            w in lower_q for w in ["route", "corridor", "transit variance", "congestion", "carrier"]
+        ):
             return OperationalIntent(
                 intent_type=IntentType.IDENTIFY_ROUTE_RISK,
                 raw_query=query,
@@ -102,5 +114,10 @@ class OperationalIntentParser:
             raw_query=query,
             target_entity_types=["SELLER"],
             time_horizon_hours=time_horizon,
-            metrics_requested=["dispatch_delay_days", "pagerank_centrality", "is_spof", "sla_breach_probability"],
+            metrics_requested=[
+                "dispatch_delay_days",
+                "pagerank_centrality",
+                "is_spof",
+                "sla_breach_probability",
+            ],
         )

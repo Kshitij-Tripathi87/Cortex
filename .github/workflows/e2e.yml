@@ -40,13 +40,39 @@ jobs:
           cd backend
           pip install -e ".[dev]"
           alembic upgrade head
+        env:
+          CORTEX_ENV: test
+          # Compose stack creds (docker-compose.prod.yml postgres service)
+          CORTEX_TEST_DATABASE_URL: postgresql+asyncpg://cortex:cortex_secure_prod_2026!@localhost:5432/cortex
 
       - name: Run Backend Services in Background
         run: |
           cd backend
-          python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 5
-          curl -f http://localhost:8000/api/v1/health || exit 1
+          # app.api.v1.router mounts product.workflo_api (repo-root package,
+          # not part of the backend pip install) — put the repo root on
+          # PYTHONPATH, exactly like tests/conftest.py does for pytest.
+          PYTHONPATH="${GITHUB_WORKSPACE}" nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/healthz > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -f http://localhost:8000/healthz || { cat /tmp/uvicorn.log; exit 1; }
+          # Surface the readiness verdict (component list) as an annotation
+          # so a 503 cause is diagnosable without job-log access.
+          echo "::notice title=readyz at boot::$(curl -s http://localhost:8000/readyz | head -c 400)"
+        env:
+          CORTEX_ENV: test
+          CORTEX_DB_DSN: postgresql+asyncpg://cortex:cortex_secure_prod_2026!@localhost:5432/cortex
+          # Compose redis requires auth (docker-compose.prod.yml
+          # --requirepass); a passwordless URL made /readyz return 503
+          # (redis NOAUTH) in the first live runs.
+          CORTEX_REDIS_URL: redis://:cortex_redis_secure_2026!@localhost:6379/0
+          CORTEX_S3_ENDPOINT: http://localhost:9000
+          CORTEX_S3_BUCKET: cortex-uploads
+          CORTEX_S3_REGION: us-east-1
+          CORTEX_S3_ACCESS_KEY: minioadmin
+          CORTEX_S3_SECRET_KEY: minioadmin
+          CORTEX_S3_USE_PATH_STYLE: "true"
 
       - name: Install Frontend & Playwright Browsers
         run: |
@@ -54,10 +80,59 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Build & Start Frontend
+        run: |
+          cd frontend
+          npm run build
+          nohup npm run start > /tmp/frontend.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3000 > /dev/null || { cat /tmp/frontend.log; exit 1; }
+
       - name: Execute Full-Journey E2E Tests
         run: |
           cd frontend
-          npx playwright test tests/e2e_release_acceptance.spec.ts
+          set +e
+          npx playwright test tests/critical-path-e2e.spec.ts
+          rc=$?
+          set -e
+          # Surface run summary and each failed test as check-run
+          # annotations. Written via a quoted heredoc to avoid any shell
+          # interpretation of the JS source.
+          cat > /tmp/pw-annotate.js <<'PWEXTRACT'
+          const fs = require("fs");
+          let root;
+          try {
+            root = JSON.parse(fs.readFileSync("/tmp/pw.json", "utf8"));
+          } catch (e) {
+            console.log(`::error title=E2E no-report::Playwright JSON report missing (/tmp/pw.json): ${e && e.message}`);
+            process.exit(0);
+          }
+          const counts = {};
+          const fail = [];
+          const walk = (su) => {
+            for (const spec of (su.specs || [])) {
+              for (const t of (spec.tests || [])) {
+                for (const res of (t.results || [])) {
+                  counts[res.status] = (counts[res.status] || 0) + 1;
+                  if (res.status === "passed" || res.status === "skipped") continue;
+                  const err = res.error || {};
+                  const msg = String(err.message || err.stack || res.status)
+                    .split("\n").slice(0, 12).join(" | ").slice(0, 900);
+                  fail.push(`::error title=E2E ${spec.title} (${res.status})::${msg}`);
+                }
+              }
+            }
+            for (const c of (su.suites || [])) walk(c);
+          };
+          for (const su of (root.suites || [])) walk(su);
+          console.log(`::notice title=E2E summary::${JSON.stringify(counts)} stats=${JSON.stringify(root.stats || {}).slice(0, 200)}`);
+          for (const line of fail) console.log(line);
+          PWEXTRACT
+          node /tmp/pw-annotate.js || true
+          exit $rc
 
       - name: Upload Test Report
         if: always()

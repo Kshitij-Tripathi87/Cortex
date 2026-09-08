@@ -20,14 +20,13 @@ operational logic, LLM as the reasoning interface on top.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 
 def _utc_now() -> datetime:
@@ -197,7 +196,10 @@ def reset_tool_registry() -> ToolRegistry:
 
     This is useful for tests to ensure a clean state.
     """
-    from app.modules.nexus_spine.vanessa.builtin_tools import get_tool_registry as _get_builtin_registry
+    from app.modules.nexus_spine.vanessa.builtin_tools import (
+        get_tool_registry as _get_builtin_registry,
+    )
+
     return _get_builtin_registry()
 
 

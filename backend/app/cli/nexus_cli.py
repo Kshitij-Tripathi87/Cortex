@@ -159,9 +159,7 @@ class NexusCLI:
             capabilities=frozenset(CapabilitySet.for_human_operator().to_list()),
         )
 
-        supervisor = AgentSupervisor(
-            config=SupervisorConfig(max_rounds=3, quorum_threshold=0.0)
-        )
+        supervisor = AgentSupervisor(config=SupervisorConfig(max_rounds=3, quorum_threshold=0.0))
         task = SupervisorTask(
             task_id=f"cli_task_{uuid7()}",
             task_type=task_type,
@@ -243,15 +241,17 @@ def format_deliberation_summary(res: dict[str, Any]) -> str:
     lines.append(f"  {synthesis.get('trade_off_analysis', '')}")
 
     card = res.get("decision_card") or {}
-    lines.extend([
-        "----------------------------------------------------------------",
-        "[*] DECISION CARD (Human-in-the-Loop Gate):",
-        f"  * Card ID:        {card.get('card_id')}",
-        f"  * Policy Status:  {card.get('policy_status')}",
-        f"  * Cost USD:       ${card.get('total_cost_usd', 0):,.2f}",
-        f"  * Protected Rev:  ${card.get('total_protected_revenue_usd', 0):,.2f}",
-        "================================================================",
-    ])
+    lines.extend(
+        [
+            "----------------------------------------------------------------",
+            "[*] DECISION CARD (Human-in-the-Loop Gate):",
+            f"  * Card ID:        {card.get('card_id')}",
+            f"  * Policy Status:  {card.get('policy_status')}",
+            f"  * Cost USD:       ${card.get('total_cost_usd', 0):,.2f}",
+            f"  * Protected Rev:  ${card.get('total_protected_revenue_usd', 0):,.2f}",
+            "================================================================",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -262,7 +262,9 @@ def main():
 
     # login
     login_parser = subparsers.add_parser("login", help="Authenticate CLI with token")
-    login_parser.add_argument("--server", default="http://localhost:8000", help="Nexus backend API URL")
+    login_parser.add_argument(
+        "--server", default="http://localhost:8000", help="Nexus backend API URL"
+    )
     login_parser.add_argument("--token", required=True, help="Device token (nxt_...)")
 
     # whoami
@@ -284,17 +286,25 @@ def main():
     delib_parser.add_argument("--task", required=True, help="Disruption task type")
     delib_parser.add_argument("--desc", required=True, help="Task description")
     delib_parser.add_argument("--priority", default="NORMAL", help="Task priority")
-    delib_parser.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted report")
+    delib_parser.add_argument(
+        "--json", action="store_true", help="Output raw JSON instead of formatted report"
+    )
 
     args = parser.parse_args()
     cli = NexusCLI()
 
     if args.command == "login":
         cli.login(args.server, args.token)
-    elif args.command == "whoami" or args.command == "doctor" or args.command == "health" or args.command == "init":
+    elif (
+        args.command == "whoami"
+        or args.command == "doctor"
+        or args.command == "health"
+        or args.command == "init"
+    ):
         pass
     elif args.command == "deliberate":
         import asyncio
+
         asyncio.run(cli.deliberate(args.task, args.desc, args.priority))
         if getattr(args, "json", False):
             pass

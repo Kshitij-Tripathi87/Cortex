@@ -59,6 +59,7 @@ from app.modules.nexus_spine.models import AgentProposal
 # 1. Cross-Tenant Data Access Matrix (Different Orgs)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestCrossTenantNegativeIsolation:
     """Verifies that Tenant B cannot access or leak Tenant A state across any layer."""
 
@@ -70,7 +71,9 @@ class TestCrossTenantNegativeIsolation:
         org_b, ws_b = "org_commercial_airline", "ws_flight_ops"
 
         # Tenant A writes proprietary state
-        await cache.set_world_state(org_a, ws_a, 1, {"critical_frequency": "9.4GHz", "classified": True})
+        await cache.set_world_state(
+            org_a, ws_a, 1, {"critical_frequency": "9.4GHz", "classified": True}
+        )
 
         # Tenant B queries using Tenant A's workspace
         data_b = await cache.get_world_state(org_b, ws_a, 1)
@@ -130,12 +133,15 @@ class TestCrossTenantNegativeIsolation:
             query="formula high efficiency catalyst",
             workspace_id=ws_b,
         )
-        assert len(results_b) == 0, "Tenant B search must return zero results for Tenant A documents"
+        assert len(results_b) == 0, (
+            "Tenant B search must return zero results for Tenant A documents"
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Cross-Workspace Data Access Matrix (Same Org, Different Workspaces)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestCrossWorkspaceNegativeIsolation:
     """Verifies that User with Workspace 1 access is strictly denied on Workspace 2."""
@@ -210,6 +216,7 @@ class TestCrossWorkspaceNegativeIsolation:
 # 3. Privilege Escalation & Role Enforcement Matrix
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPrivilegeEscalationRejection:
     """Verifies that lower-privileged principals cannot invoke higher-role actions."""
 
@@ -256,6 +263,7 @@ class TestPrivilegeEscalationRejection:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. JWT Token Attack Vectors
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestJWTSecurityVectors:
     """Exercises adversarial JWT vectors: expired, forged, missing claims, tampered."""
@@ -350,6 +358,7 @@ class TestJWTSecurityVectors:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Stale Proposal Approval & State Mismatch Penetration
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestStaleProposalApprovalPenetration:
     """Verifies that approval cannot execute against stale or modified world state."""
@@ -488,6 +497,7 @@ class TestStaleProposalApprovalPenetration:
 # 6. Cryptographic Evidence DAG Tamper Detection
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestEvidenceDAGTamperDetection:
     """Verifies that altering any evidence node payload or edge invalidates provenance."""
 
@@ -565,7 +575,9 @@ class TestEvidenceDAGTamperDetection:
         assert len(failures) == 0
 
         # Attacker tampers with the output_hash in node 2 payload
-        tampered_node = replace(n2, output_hash="tampered_fake_hash_00000000000000000000000000000000")
+        tampered_node = replace(
+            n2, output_hash="tampered_fake_hash_00000000000000000000000000000000"
+        )
         chain.nodes[1] = tampered_node
 
         # Verification fails: node_hash mismatch

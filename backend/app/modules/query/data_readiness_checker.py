@@ -59,7 +59,9 @@ class DataReadinessChecker:
         # 1. Check Seller / SLA / Delivery queries
         if any(k in lower_q for k in ["seller", "supplier", "sla", "breach", "late", "delay"]):
             dimensions.append("SELLER_PERFORMANCE")
-            if not any("seller" in t for t in table_names) and not any("order" in t for t in table_names):
+            if not any("seller" in t for t in table_names) and not any(
+                "order" in t for t in table_names
+            ):
                 missing_prereqs.append("Sellers dataset with dispatch timestamps required")
 
         # 2. Check Route / Logistics queries

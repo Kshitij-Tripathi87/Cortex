@@ -75,12 +75,26 @@ def _build_supplier_centric_dataset() -> CanonicalDataset:
     ds.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": f"S{i}", "state": st, "city": ct, "_source_file": "suppliers.csv", "_source_row": i}
-            for i, (st, ct) in enumerate([
-                ("SP", "Sao Paulo"), ("RJ", "Rio"), ("MG", "Belo Horizonte"),
-                ("PR", "Curitiba"), ("RS", "Porto Alegre"), ("SC", "Florianopolis"),
-                ("BA", "Salvador"), ("PE", "Recife"),
-            ], start=1)
+            {
+                "supplier_id": f"S{i}",
+                "state": st,
+                "city": ct,
+                "_source_file": "suppliers.csv",
+                "_source_row": i,
+            }
+            for i, (st, ct) in enumerate(
+                [
+                    ("SP", "Sao Paulo"),
+                    ("RJ", "Rio"),
+                    ("MG", "Belo Horizonte"),
+                    ("PR", "Curitiba"),
+                    ("RS", "Porto Alegre"),
+                    ("SC", "Florianopolis"),
+                    ("BA", "Salvador"),
+                    ("PE", "Recife"),
+                ],
+                start=1,
+            )
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
         source_file="suppliers.csv",
@@ -89,9 +103,27 @@ def _build_supplier_centric_dataset() -> CanonicalDataset:
     ds.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": "C1", "state": "SP", "city": "Sao Paulo", "_source_file": "customers.csv", "_source_row": 1},
-            {"customer_id": "C2", "state": "RJ", "city": "Rio", "_source_file": "customers.csv", "_source_row": 2},
-            {"customer_id": "C3", "state": "MG", "city": "Belo Horizonte", "_source_file": "customers.csv", "_source_row": 3},
+            {
+                "customer_id": "C1",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "customers.csv",
+                "_source_row": 1,
+            },
+            {
+                "customer_id": "C2",
+                "state": "RJ",
+                "city": "Rio",
+                "_source_file": "customers.csv",
+                "_source_row": 2,
+            },
+            {
+                "customer_id": "C3",
+                "state": "MG",
+                "city": "Belo Horizonte",
+                "_source_file": "customers.csv",
+                "_source_row": 3,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="customers.csv",
@@ -100,19 +132,27 @@ def _build_supplier_centric_dataset() -> CanonicalDataset:
     order_rows = []
     for i in range(1, 13):
         cid = f"C{(i % 3) + 1}"
-        order_rows.append({
-            "order_id": f"O{i:03d}",
-            "customer_id": cid,
-            "status": "delivered" if i <= 6 else "processing",
-            "price": 100.0 + i * 25,
-            "freight_value": 10.0 + i * 2,
-            "_source_file": "orders.csv",
-            "_source_row": i,
-        })
+        order_rows.append(
+            {
+                "order_id": f"O{i:03d}",
+                "customer_id": cid,
+                "status": "delivered" if i <= 6 else "processing",
+                "price": 100.0 + i * 25,
+                "freight_value": 10.0 + i * 2,
+                "_source_file": "orders.csv",
+                "_source_row": i,
+            }
+        )
     ds.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=order_rows,
-        column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float", "freight_value": "float"},
+        column_types={
+            "order_id": "str",
+            "customer_id": "str",
+            "status": "str",
+            "price": "float",
+            "freight_value": "float",
+        },
         source_file="orders.csv",
     )
 
@@ -120,20 +160,29 @@ def _build_supplier_centric_dataset() -> CanonicalDataset:
     item_rows = []
     supplier_assignments = ["S1"] * 7 + ["S2", "S3", "S4", "S5", "S6"]
     for i in range(1, 13):
-        item_rows.append({
-            "item_id": f"I{i:03d}",
-            "order_id": f"O{i:03d}",
-            "supplier_id": supplier_assignments[i - 1],
-            "product_id": f"P{(i % 4) + 1}",
-            "price": 100.0 + i * 25,
-            "freight_value": 10.0 + i * 2,
-            "_source_file": "items.csv",
-            "_source_row": i,
-        })
+        item_rows.append(
+            {
+                "item_id": f"I{i:03d}",
+                "order_id": f"O{i:03d}",
+                "supplier_id": supplier_assignments[i - 1],
+                "product_id": f"P{(i % 4) + 1}",
+                "price": 100.0 + i * 25,
+                "freight_value": 10.0 + i * 2,
+                "_source_file": "items.csv",
+                "_source_row": i,
+            }
+        )
     ds.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=item_rows,
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float", "freight_value": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+            "freight_value": "float",
+        },
         source_file="items.csv",
     )
 
@@ -151,9 +200,27 @@ def _build_carrier_route_dataset() -> CanonicalDataset:
     ds.tables[EntityType.CARRIER] = CanonicalTable(
         entity_type=EntityType.CARRIER,
         rows=[
-            {"carrier_id": "CR1", "name": "FastFreight", "state": "SP", "_source_file": "carriers.csv", "_source_row": 1},
-            {"carrier_id": "CR2", "name": "SwiftLog", "state": "RJ", "_source_file": "carriers.csv", "_source_row": 2},
-            {"carrier_id": "CR3", "name": "MegaHaul", "state": "MG", "_source_file": "carriers.csv", "_source_row": 3},
+            {
+                "carrier_id": "CR1",
+                "name": "FastFreight",
+                "state": "SP",
+                "_source_file": "carriers.csv",
+                "_source_row": 1,
+            },
+            {
+                "carrier_id": "CR2",
+                "name": "SwiftLog",
+                "state": "RJ",
+                "_source_file": "carriers.csv",
+                "_source_row": 2,
+            },
+            {
+                "carrier_id": "CR3",
+                "name": "MegaHaul",
+                "state": "MG",
+                "_source_file": "carriers.csv",
+                "_source_row": 3,
+            },
         ],
         column_types={"carrier_id": "str", "name": "str", "state": "str"},
         source_file="carriers.csv",
@@ -162,21 +229,72 @@ def _build_carrier_route_dataset() -> CanonicalDataset:
     ds.tables[EntityType.ROUTE] = CanonicalTable(
         entity_type=EntityType.ROUTE,
         rows=[
-            {"route_id": "R1", "origin_state": "SP", "destination_state": "RJ", "distance_km": 430, "_source_file": "routes.csv", "_source_row": 1},
-            {"route_id": "R2", "origin_state": "SP", "destination_state": "MG", "distance_km": 590, "_source_file": "routes.csv", "_source_row": 2},
-            {"route_id": "R3", "origin_state": "RJ", "destination_state": "MG", "distance_km": 470, "_source_file": "routes.csv", "_source_row": 3},
-            {"route_id": "R4", "origin_state": "PR", "destination_state": "SP", "distance_km": 400, "_source_file": "routes.csv", "_source_row": 4},
+            {
+                "route_id": "R1",
+                "origin_state": "SP",
+                "destination_state": "RJ",
+                "distance_km": 430,
+                "_source_file": "routes.csv",
+                "_source_row": 1,
+            },
+            {
+                "route_id": "R2",
+                "origin_state": "SP",
+                "destination_state": "MG",
+                "distance_km": 590,
+                "_source_file": "routes.csv",
+                "_source_row": 2,
+            },
+            {
+                "route_id": "R3",
+                "origin_state": "RJ",
+                "destination_state": "MG",
+                "distance_km": 470,
+                "_source_file": "routes.csv",
+                "_source_row": 3,
+            },
+            {
+                "route_id": "R4",
+                "origin_state": "PR",
+                "destination_state": "SP",
+                "distance_km": 400,
+                "_source_file": "routes.csv",
+                "_source_row": 4,
+            },
         ],
-        column_types={"route_id": "str", "origin_state": "str", "destination_state": "str", "distance_km": "float"},
+        column_types={
+            "route_id": "str",
+            "origin_state": "str",
+            "destination_state": "str",
+            "distance_km": "float",
+        },
         source_file="routes.csv",
     )
 
     ds.tables[EntityType.WAREHOUSE] = CanonicalTable(
         entity_type=EntityType.WAREHOUSE,
         rows=[
-            {"warehouse_id": "WH1", "state": "SP", "capacity": 10000, "_source_file": "warehouses.csv", "_source_row": 1},
-            {"warehouse_id": "WH2", "state": "RJ", "capacity": 8000, "_source_file": "warehouses.csv", "_source_row": 2},
-            {"warehouse_id": "WH3", "state": "MG", "capacity": 6000, "_source_file": "warehouses.csv", "_source_row": 3},
+            {
+                "warehouse_id": "WH1",
+                "state": "SP",
+                "capacity": 10000,
+                "_source_file": "warehouses.csv",
+                "_source_row": 1,
+            },
+            {
+                "warehouse_id": "WH2",
+                "state": "RJ",
+                "capacity": 8000,
+                "_source_file": "warehouses.csv",
+                "_source_row": 2,
+            },
+            {
+                "warehouse_id": "WH3",
+                "state": "MG",
+                "capacity": 6000,
+                "_source_file": "warehouses.csv",
+                "_source_row": 3,
+            },
         ],
         column_types={"warehouse_id": "str", "state": "str", "capacity": "float"},
         source_file="warehouses.csv",
@@ -185,11 +303,24 @@ def _build_carrier_route_dataset() -> CanonicalDataset:
     ds.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": f"CC{i}", "state": st, "city": ct, "_source_file": "customers.csv", "_source_row": i}
-            for i, (st, ct) in enumerate([
-                ("SP", "Sao Paulo"), ("RJ", "Rio"), ("MG", "BH"),
-                ("SP", "Campinas"), ("RJ", "Niteroi"), ("MG", "Uberlandia"),
-            ], start=1)
+            {
+                "customer_id": f"CC{i}",
+                "state": st,
+                "city": ct,
+                "_source_file": "customers.csv",
+                "_source_row": i,
+            }
+            for i, (st, ct) in enumerate(
+                [
+                    ("SP", "Sao Paulo"),
+                    ("RJ", "Rio"),
+                    ("MG", "BH"),
+                    ("SP", "Campinas"),
+                    ("RJ", "Niteroi"),
+                    ("MG", "Uberlandia"),
+                ],
+                start=1,
+            )
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="customers.csv",
@@ -198,8 +329,20 @@ def _build_carrier_route_dataset() -> CanonicalDataset:
     ds.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": "SUP1", "state": "SP", "city": "Sao Paulo", "_source_file": "suppliers.csv", "_source_row": 1},
-            {"supplier_id": "SUP2", "state": "RJ", "city": "Rio", "_source_file": "suppliers.csv", "_source_row": 2},
+            {
+                "supplier_id": "SUP1",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "suppliers.csv",
+                "_source_row": 1,
+            },
+            {
+                "supplier_id": "SUP2",
+                "state": "RJ",
+                "city": "Rio",
+                "_source_file": "suppliers.csv",
+                "_source_row": 2,
+            },
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
         source_file="suppliers.csv",
@@ -209,39 +352,56 @@ def _build_carrier_route_dataset() -> CanonicalDataset:
     order_rows = []
     for i in range(1, 11):
         cid = f"CC{(i % 6) + 1}"
-        order_rows.append({
-            "order_id": f"OB{i:03d}",
-            "customer_id": cid,
-            "status": "shipped" if i <= 7 else "processing",
-            "price": 200.0 + i * 30,
-            "freight_value": 20.0 + i * 5,
-            "_source_file": "orders.csv",
-            "_source_row": i,
-        })
+        order_rows.append(
+            {
+                "order_id": f"OB{i:03d}",
+                "customer_id": cid,
+                "status": "shipped" if i <= 7 else "processing",
+                "price": 200.0 + i * 30,
+                "freight_value": 20.0 + i * 5,
+                "_source_file": "orders.csv",
+                "_source_row": i,
+            }
+        )
     ds.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=order_rows,
-        column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float", "freight_value": "float"},
+        column_types={
+            "order_id": "str",
+            "customer_id": "str",
+            "status": "str",
+            "price": "float",
+            "freight_value": "float",
+        },
         source_file="orders.csv",
     )
 
     # Items: evenly distributed across 2 suppliers → low Gini
     item_rows = []
     for i in range(1, 11):
-        item_rows.append({
-            "item_id": f"IB{i:03d}",
-            "order_id": f"OB{i:03d}",
-            "supplier_id": "SUP1" if i % 2 == 0 else "SUP2",
-            "product_id": f"PB{(i % 3) + 1}",
-            "price": 200.0 + i * 30,
-            "freight_value": 20.0 + i * 5,
-            "_source_file": "items.csv",
-            "_source_row": i,
-        })
+        item_rows.append(
+            {
+                "item_id": f"IB{i:03d}",
+                "order_id": f"OB{i:03d}",
+                "supplier_id": "SUP1" if i % 2 == 0 else "SUP2",
+                "product_id": f"PB{(i % 3) + 1}",
+                "price": 200.0 + i * 30,
+                "freight_value": 20.0 + i * 5,
+                "_source_file": "items.csv",
+                "_source_row": i,
+            }
+        )
     ds.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=item_rows,
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float", "freight_value": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+            "freight_value": "float",
+        },
         source_file="items.csv",
     )
 
@@ -249,19 +409,27 @@ def _build_carrier_route_dataset() -> CanonicalDataset:
     shipment_rows = []
     carriers = ["CR1", "CR2", "CR3"]
     for i in range(1, 9):
-        shipment_rows.append({
-            "shipment_id": f"SH{i:03d}",
-            "order_id": f"OB{i:03d}",
-            "carrier_id": carriers[i % 3],
-            "route_id": "R1" if i <= 5 else f"R{(i % 4) + 1}",
-            "status": "in_transit" if i <= 5 else "delivered",
-            "_source_file": "shipments.csv",
-            "_source_row": i,
-        })
+        shipment_rows.append(
+            {
+                "shipment_id": f"SH{i:03d}",
+                "order_id": f"OB{i:03d}",
+                "carrier_id": carriers[i % 3],
+                "route_id": "R1" if i <= 5 else f"R{(i % 4) + 1}",
+                "status": "in_transit" if i <= 5 else "delivered",
+                "_source_file": "shipments.csv",
+                "_source_row": i,
+            }
+        )
     ds.tables[EntityType.SHIPMENT] = CanonicalTable(
         entity_type=EntityType.SHIPMENT,
         rows=shipment_rows,
-        column_types={"shipment_id": "str", "order_id": "str", "carrier_id": "str", "route_id": "str", "status": "str"},
+        column_types={
+            "shipment_id": "str",
+            "order_id": "str",
+            "carrier_id": "str",
+            "route_id": "str",
+            "status": "str",
+        },
         source_file="shipments.csv",
     )
 
@@ -347,8 +515,12 @@ class TestStep01_SchemaDiscovery:
         assert "SHIPMENT" in types
 
     def test_datasets_have_different_entity_types(self, supplier_result, carrier_result):
-        s_types = set(_stage(supplier_result, "schema_discovery_and_profiling").output["entity_types"])
-        c_types = set(_stage(carrier_result, "schema_discovery_and_profiling").output["entity_types"])
+        s_types = set(
+            _stage(supplier_result, "schema_discovery_and_profiling").output["entity_types"]
+        )
+        c_types = set(
+            _stage(carrier_result, "schema_discovery_and_profiling").output["entity_types"]
+        )
         # Carrier dataset has entity types supplier dataset doesn't
         assert c_types - s_types, "Datasets must have materially different entity types"
 
@@ -605,9 +777,7 @@ class TestStep09_AgentSelection:
         # Costs must differ (different blast radius)
         s_costs = sorted([round(p.expected_cost_usd, 2) for p in s_proposals])
         c_costs = sorted([round(p.expected_cost_usd, 2) for p in c_proposals])
-        assert s_costs != c_costs, (
-            f"Proposal costs must differ: A={s_costs} vs B={c_costs}"
-        )
+        assert s_costs != c_costs, f"Proposal costs must differ: A={s_costs} vs B={c_costs}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -898,7 +1068,9 @@ class TestStep19_StaleDecisionInvalidation:
                 current_world_version=100,  # much newer
                 twin_result=supplier_result.twin_comparison or {"simulation_hash": "test"},
             )
-        assert "STALE_WORLD_STATE" in str(exc_info.value.reason) or "STALE_DECISION" in str(exc_info.value.reason)
+        assert "STALE_WORLD_STATE" in str(exc_info.value.reason) or "STALE_DECISION" in str(
+            exc_info.value.reason
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1018,11 +1190,9 @@ class TestCrossDatasetVariation:
         c_costs = sorted([round(p.expected_cost_usd, 2) for p in c_proposals])
         s_origins = sorted([p.payload.get("origin", "") for p in s_proposals])
         c_origins = sorted([p.payload.get("origin", "") for p in c_proposals])
-        assert (
-            s_targets != c_targets
-            or s_costs != c_costs
-            or s_origins != c_origins
-        ), "Proposals must differ between datasets"
+        assert s_targets != c_targets or s_costs != c_costs or s_origins != c_origins, (
+            "Proposals must differ between datasets"
+        )
 
     def test_twin_results_change(self, supplier_result, carrier_result):
         twin_s = supplier_result.twin_comparison
@@ -1050,7 +1220,11 @@ class TestCrossDatasetVariation:
         c_br = carrier_result.blast_radius or {}
         # At least one field must differ
         diffs = []
-        for key in ("affected_orders_count", "affected_customers_count", "total_revenue_at_risk_usd"):
+        for key in (
+            "affected_orders_count",
+            "affected_customers_count",
+            "total_revenue_at_risk_usd",
+        ):
             if s_br.get(key) != c_br.get(key):
                 diffs.append(key)
         assert diffs, f"Blast radius identical for both datasets: {s_br}"

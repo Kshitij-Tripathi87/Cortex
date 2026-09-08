@@ -53,6 +53,7 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 # 1. F1 — SLO catalog frozen
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestProductionGate:
     """The 19-point production gate. Each test method is one gate.
     The whole class is a single pytest pass/fail; the on-call runs
@@ -84,7 +85,16 @@ class TestProductionGate:
         # (no +inf — overflow is tracked by total_count separately)
         assert len(slo.LATENCY_HISTOGRAM_BUCKETS) == 10
         assert slo.LATENCY_HISTOGRAM_BUCKETS == (
-            0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
         )
 
         # LATENCY_TARGETS: every family has p50, p95, p99; no extra families
@@ -118,6 +128,7 @@ class TestProductionGate:
         # check_audit_chain is a callable that returns (bool, str)
         assert callable(health.check_audit_chain)
         import inspect
+
         sig = inspect.signature(health.check_audit_chain)
         assert len(sig.parameters) == 0  # no args
 
@@ -194,6 +205,7 @@ class TestProductionGate:
         """
         # F2 backup test must exist
         import importlib
+
         importlib.import_module("tests.test_f2_backup")
 
         # The F2 test pins these 5 core tables — H2 re-asserts the
@@ -208,6 +220,7 @@ class TestProductionGate:
 
         # The test_f2_backup module documents this contract
         import tests.test_f2_backup as f2_backup_test
+
         src_path = f2_backup_test.__file__
         assert src_path is not None
         with open(src_path, encoding="utf-8") as f:
@@ -314,7 +327,10 @@ class TestProductionGate:
         # The exact SET LOCAL statements use these setting names
         # (pinned by the module's source — we check the SQL string pattern)
         import app.infrastructure.tenant as tmod
-        tmod.set_tenant_context.__wrapped__.__wrapped__.__self__.__module__ if hasattr(tmod.set_tenant_context, '__wrapped__') else None
+
+        tmod.set_tenant_context.__wrapped__.__wrapped__.__self__.__module__ if hasattr(
+            tmod.set_tenant_context, "__wrapped__"
+        ) else None
         # Instead just assert the module exposes the right names
         # (the test_f4_security_hardening.py already pins the exact SQL)
 
@@ -371,6 +387,7 @@ class TestProductionGate:
         from app.modules.data_intelligence.operational_graph import (
             OperationalGraphEngine,
         )
+
         assert GraphDelta is not None
         assert GraphDeltaEngine is not None
         assert OperationalGraphEngine is not None
@@ -430,8 +447,7 @@ class TestProductionGate:
         drift_class = test_mod.TestOpenAPIDrift
         test_names = [n for n in dir(drift_class) if n.startswith("test_")]
         assert any("schemas_are_byte_identical" in n for n in test_names), (
-            "TestOpenAPIDrift must pin byte-identity between "
-            "backend and frontend openapi.json"
+            "TestOpenAPIDrift must pin byte-identity between backend and frontend openapi.json"
         )
 
     # ─────────────────────────────────────────────────────────────────────────────
@@ -443,12 +459,18 @@ class TestProductionGate:
         import tests.test_endpoint_authz_audit as test_mod
 
         # The audit classifies routes as GATED / PUBLIC / KNOWN_DEBT.
-        # All legacy debt routes have been paid down and gated (0 remaining debt).
+        # All 29 legacy debt routes have been paid down and gated. The only
+        # remaining pinned debt is D3g: the 15 Program S demo-workspace
+        # routes (app/api/v1/workspace.py), pinned 2026-09 (v0.8.2 routing
+        # flip) — see docs/architecture/ENDPOINT_AUTHZ_AUDIT.md. If this
+        # count changes, the KNOWN_DEBT set and the audit doc must change
+        # in the same commit.
         assert hasattr(test_mod, "KNOWN_DEBT")
         known_debt = test_mod.KNOWN_DEBT
         assert isinstance(known_debt, (set, frozenset))
-        assert len(known_debt) == 0, (
-            f"Expected 0 known-debt routes (all debt paid down), got {len(known_debt)}"
+        assert len(known_debt) == 15, (
+            f"Expected 15 known-debt routes (D3g, Program S demo workspace), "
+            f"got {len(known_debt)}: {sorted(known_debt)}"
         )
 
         # The classification is enforced by these test classes
@@ -459,13 +481,14 @@ class TestProductionGate:
 
         # The audit doc must exist
         from pathlib import Path
+
         audit_doc = (
             Path(test_mod.__file__).resolve().parents[2]
-            / "docs" / "architecture" / "ENDPOINT_AUTHZ_AUDIT.md"
+            / "docs"
+            / "architecture"
+            / "ENDPOINT_AUTHZ_AUDIT.md"
         )
-        assert audit_doc.is_file(), (
-            f"AuthZ audit document must exist at {audit_doc}"
-        )
+        assert audit_doc.is_file(), f"AuthZ audit document must exist at {audit_doc}"
 
     # ─────────────────────────────────────────────────────────────────────────────
     # 14. H1 — Chaos/resilience
@@ -579,8 +602,7 @@ class TestProductionGate:
             cls = getattr(test_mod, cls_name)
             test_methods = [n for n in dir(cls) if n.startswith("test_")]
             assert len(test_methods) >= 1, (
-                f"{cls_name} has no test methods; the J.2.3 contract "
-                f"requires at least one"
+                f"{cls_name} has no test methods; the J.2.3 contract requires at least one"
             )
 
     # ─────────────────────────────────────────────────────────────────────────────
@@ -628,13 +650,12 @@ class TestProductionGate:
         # which would require valid WorldSnapshot/WorldState instances).
         # All fields exist with concrete types
         for fname, ftype in fields.items():
-            assert ftype is not type(None), (
-                f"IsolationContext.{fname} has no type annotation"
-            )
+            assert ftype is not type(None), f"IsolationContext.{fname} has no type annotation"
 
         # Construct a real IsolationContext with real WorldSnapshot/WorldState
         # to verify the frozen contract at runtime.
         from datetime import datetime
+
         now = datetime.now(UTC)
         snap = WorldSnapshot(
             snapshot_id="snap_1",
@@ -692,15 +713,11 @@ class TestProductionGate:
 
         # The determinism contract is pinned in tests/test_j3_2_scenario_runtime.py
         import tests.test_j3_2_scenario_runtime as j32_test
+
         assert j32_test is not None
         # Module has at least one test class
-        j32_classes = [
-            n for n in dir(j32_test)
-            if isinstance(getattr(j32_test, n, None), type)
-        ]
-        assert len(j32_classes) >= 1, (
-            "J.3.2 test module should have at least one test class"
-        )
+        j32_classes = [n for n in dir(j32_test) if isinstance(getattr(j32_test, n, None), type)]
+        assert len(j32_classes) >= 1, "J.3.2 test module should have at least one test class"
 
     # ─────────────────────────────────────────────────────────────────────────────
     # 19. J.3.3 — KPI engine contract
@@ -736,18 +753,17 @@ class TestProductionGate:
             "recovery_time_hours",
         }
         assert contract_floats.issubset(field_names), (
-            f"KPIComputation missing contract floats: "
-            f"{contract_floats - field_names}"
+            f"KPIComputation missing contract floats: {contract_floats - field_names}"
         )
 
         # 4 provenance fields
         for prov in (
-            "kpi_hash", "formula_version",
-            "trajectory_ref_hash", "canonical_engine_version",
+            "kpi_hash",
+            "formula_version",
+            "trajectory_ref_hash",
+            "canonical_engine_version",
         ):
-            assert prov in field_names, (
-                f"KPIComputation missing provenance field {prov!r}"
-            )
+            assert prov in field_names, f"KPIComputation missing provenance field {prov!r}"
 
         # KPI_FORMULA_VERSION and CANONICAL_KPI_VERSION are defined strings
         assert isinstance(KPI_FORMULA_VERSION, str) and len(KPI_FORMULA_VERSION) > 0
@@ -816,16 +832,13 @@ class TestProductionGate:
             ("object_storage", lambda: (True, "ok")),
             ("audit_chain", lambda: (False, "stale_25h")),
         )
-        monkeypatch.setattr(
-            h_mod.check_dependencies, "__defaults__", (fake_checks,)
-        )
+        monkeypatch.setattr(h_mod.check_dependencies, "__defaults__", (fake_checks,))
 
         app = create_app()
         client = TestClient(app)
         resp = client.get("/readyz")
         assert resp.status_code == 503, (
-            f"/readyz returned {resp.status_code}; expected 503 for "
-            f"stale audit chain."
+            f"/readyz returned {resp.status_code}; expected 503 for stale audit chain."
         )
         body = resp.json()
         failed = {c["name"] for c in body["components"] if not c["ok"]}
@@ -849,22 +862,18 @@ class TestProductionGate:
         # state pipeline -> bus (audit log subscribes to this).
         assert hasattr(CanonicalMessageType, "WORLD_STATE_CHANGED")
         # Pin the wire string value
-        assert (
-            CanonicalMessageType.WORLD_STATE_CHANGED.value
-            == "nexus.world.state.changed"
-        )
+        assert CanonicalMessageType.WORLD_STATE_CHANGED.value == "nexus.world.state.changed"
 
         # state_pipeline.py source references both WORLD_STATE_CHANGED
         # and message_bus (the audit-log consistency contract).
         import inspect
+
         source = inspect.getsource(sp_mod)
         assert "WORLD_STATE_CHANGED" in source, (
             "state_pipeline must publish WORLD_STATE_CHANGED; the "
             "audit log is a downstream consumer of that message."
         )
-        assert "message_bus" in source, (
-            "state_pipeline must publish via message_bus."
-        )
+        assert "message_bus" in source, "state_pipeline must publish via message_bus."
 
     # ─────────────────────────────────────────────────────────────────────────────
     # Cross-block invariant: compliance_from_buckets returns [0, 1] never NaN
@@ -885,8 +894,7 @@ class TestProductionGate:
         )
         assert result is not None
         assert 0.0 <= result <= 1.0, (
-            f"compliance_from_buckets(0 obs) = {result}; "
-            f"expected a value in [0, 1]"
+            f"compliance_from_buckets(0 obs) = {result}; expected a value in [0, 1]"
         )
 
         # All within P99 -> 1.0
@@ -917,22 +925,22 @@ class TestProductionGate:
     def test_23_all_gate_test_files_exist(self):
         """All 19 per-block test files are present and importable."""
         test_files = [
-            "test_slo_catalog",           # F1
-            "test_f2_production_infra",   # F2a
-            "test_f2_backup",             # F2d
-            "test_f3_observability_trace", # F3
-            "test_f4_security_hardening", # F4a, F4b
-            "test_realtime_seq_resync",   # E1
-            "test_concurrency_1000",      # E2
-            "test_redis_fail_closed",     # E3
-            "test_openapi_contract",      # D2
+            "test_slo_catalog",  # F1
+            "test_f2_production_infra",  # F2a
+            "test_f2_backup",  # F2d
+            "test_f3_observability_trace",  # F3
+            "test_f4_security_hardening",  # F4a, F4b
+            "test_realtime_seq_resync",  # E1
+            "test_concurrency_1000",  # E2
+            "test_redis_fail_closed",  # E3
+            "test_openapi_contract",  # D2
             "test_endpoint_authz_audit",  # D3
-            "test_h1_chaos_resilience",   # H1
-            "test_failure_behavior_matrix", # C1
-            "test_j23_postgres_integration", # J.2.3
-            "test_j31_twin_lifecycle",    # J.3.1
-            "test_j3_2_scenario_runtime", # J.3.2
-            "test_j3_3_kpi_engine",       # J.3.3
+            "test_h1_chaos_resilience",  # H1
+            "test_failure_behavior_matrix",  # C1
+            "test_j23_postgres_integration",  # J.2.3
+            "test_j31_twin_lifecycle",  # J.3.1
+            "test_j3_2_scenario_runtime",  # J.3.2
+            "test_j3_3_kpi_engine",  # J.3.3
         ]
 
         for mod_name in test_files:

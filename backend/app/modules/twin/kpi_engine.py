@@ -58,8 +58,8 @@ KPI_FORMULA_VERSION = "twin-kpi-v1.0"
 # metadata for a specific computation. These are kept STABLE so that two
 # runs with identical (baseline, final, trajectory) always yield identical
 # KPI fields, regardless of state richness.
-DEFAULT_DAILY_BURN_RATE = 50.0      # inventory_coverage_days denominator
-DEFAULT_RECOVERY_TICKS = 7          # resilience calculator lookahead
+DEFAULT_DAILY_BURN_RATE = 50.0  # inventory_coverage_days denominator
+DEFAULT_RECOVERY_TICKS = 7  # resilience calculator lookahead
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,9 +183,7 @@ def compute_kpi_hash(kpi_dict: dict[str, Any]) -> str:
         "margin_exposure",
         "recovery_time_hours",
     ]
-    canonical = {
-        k: kpi_dict[k] for k in contract_keys
-    }
+    canonical = {k: kpi_dict[k] for k in contract_keys}
     blob = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
 
@@ -263,9 +261,7 @@ class KPIEngine:
 
         # Inventory block
         total_inventory_v = float(total_inventory)
-        safety_stock_coverage = self._safety_stock_coverage(
-            total_inventory_v, canonical_summary
-        )
+        safety_stock_coverage = self._safety_stock_coverage(total_inventory_v, canonical_summary)
 
         # Demand block — proxy mapping onto canonical (no canonical
         # fulfilled / backorder today,we derive from inventory × demand).
@@ -277,9 +273,7 @@ class KPIEngine:
         available_capacity = max(0.0, 100.0 - utilization)
 
         # Lead time block
-        average_lead_time = (
-            float(sum(lead_times) / len(lead_times)) if lead_times else 0.0
-        )
+        average_lead_time = float(sum(lead_times) / len(lead_times)) if lead_times else 0.0
         lead_time_variance = self._population_variance(lead_times)
 
         # Stockout block — trajectory-aware when trajectory provided
@@ -394,9 +388,7 @@ class KPIEngine:
                 out.append(v)
         return out
 
-    def _count_inventory_and_stockouts(
-        self, state: WorldState
-    ) -> tuple[int, int]:
+    def _count_inventory_and_stockouts(self, state: WorldState) -> tuple[int, int]:
         """Return (inventory_count, stockout_count) — count of inventory
         variables, plus count that are at-or-below zero."""
         total = 0
@@ -450,11 +442,7 @@ class KPIEngine:
         ``duration_days * 24`` hours (matching canonical operational
         calculator's formula).
         """
-        probability = (
-            float(stockout_count) / float(inventory_count)
-            if inventory_count > 0
-            else 0.0
-        )
+        probability = float(stockout_count) / float(inventory_count) if inventory_count > 0 else 0.0
         if stockout_count == 0:
             return probability, 0.0
 
@@ -465,8 +453,7 @@ class KPIEngine:
             ticks_with_stockouts = sum(
                 1
                 for snap in trajectory_snapshots
-                if isinstance(snap, dict)
-                and snap.get("variable_count", 0) > 0
+                if isinstance(snap, dict) and snap.get("variable_count", 0) > 0
                 # We count ticks where state_hash is below the baseline
                 # (proxy: any tick after the first one with state_hash
                 # diff from the baseline count). Real per-variable
@@ -477,16 +464,12 @@ class KPIEngine:
             )
             # When trajectory is meaningful, avg duration scales with
             # observed stockout ticks and trajectory span.
-            avg_hours = (
-                float(ticks_with_stockouts) * SCENARIO_TICK_HOURS / max(1, stockout_count)
-            )
+            avg_hours = float(ticks_with_stockouts) * SCENARIO_TICK_HOURS / max(1, stockout_count)
             return probability, avg_hours
 
         # No trajectory — fallback uses canonical calculator estimate.
         stockout_hours_total = summary.operational.stockout_hours.value
-        return probability, (
-            stockout_hours_total / max(1, stockout_count)
-        )
+        return probability, (stockout_hours_total / max(1, stockout_count))
 
     def _on_time_delivery_rate(
         self,

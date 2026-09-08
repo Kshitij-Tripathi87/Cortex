@@ -74,7 +74,10 @@ class DecisionInvalidationEngine:
         for dec_id, dep in self.decisions.items():
             if dep.is_valid:  # noqa: SIM102
                 # Check entity collision
-                if mutated_entity_id in dep.dependent_entity_ids or mutation_type == "FORCE_MAJOR_DISRUPTION":
+                if (
+                    mutated_entity_id in dep.dependent_entity_ids
+                    or mutation_type == "FORCE_MAJOR_DISRUPTION"
+                ):
                     dep.is_valid = False
                     dep.invalidation_reason = (
                         f"World State evolved to v{new_world_state_version}: Dependent entity {mutated_entity_id} "
@@ -95,4 +98,3 @@ class DecisionInvalidationEngine:
 
     def get_valid_decisions(self) -> list[DecisionDependencySet]:
         return [d for d in self.decisions.values() if d.is_valid]
-

@@ -345,7 +345,9 @@ class Scenario:
     scenario_id: str
     scenario_type: ScenarioType
     target_entities: dict[str, list[str]]  # e.g., {"supplier": ["sup_1"], "warehouse": ["wh_1"]}
-    parameters: dict[str, Any] = field(default_factory=dict)  # e.g., {"capacity_pct": 0.0, "delay_days": 5}
+    parameters: dict[str, Any] = field(
+        default_factory=dict
+    )  # e.g., {"capacity_pct": 0.0, "delay_days": 5}
     start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
     duration_hours: int = 72  # Simulation duration
     seed: int = 0

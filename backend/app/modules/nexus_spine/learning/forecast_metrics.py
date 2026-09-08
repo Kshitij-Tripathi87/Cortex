@@ -31,6 +31,7 @@ def _utc_now() -> datetime:
 @dataclass
 class SegmentKey:
     """Multi-dimensional segmentation key for forecast accuracy."""
+
     sku: str | None = None
     supplier_id: str | None = None
     region: str | None = None
@@ -39,7 +40,14 @@ class SegmentKey:
     model_version: str | None = None
 
     def as_tuple(self) -> tuple:
-        return (self.sku, self.supplier_id, self.region, self.product_family, self.horizon_days, self.model_version)
+        return (
+            self.sku,
+            self.supplier_id,
+            self.region,
+            self.product_family,
+            self.horizon_days,
+            self.model_version,
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -55,19 +63,20 @@ class SegmentKey:
 @dataclass
 class ForecastAccuracyMetrics:
     """Full suite of accuracy metrics for a segment."""
+
     segment: dict[str, Any]
     sample_count: int
-    mae: float                      # Mean Absolute Error
-    rmse: float                     # Root Mean Squared Error
-    wape: float                     # Weighted Absolute Percentage Error
-    mape: float                     # Mean Absolute Percentage Error
-    mpe: float                      # Mean Percentage Error (signed: + = under-forecast)
-    p50_coverage: float             # Fraction of actuals within P50 (ideally 0.5)
-    p80_coverage: float             # Fraction within P80 (ideally 0.8)
-    p95_coverage: float             # Fraction within P95 (ideally 0.95)
-    bias: float                     # Systematic bias (signed)
-    drift_detected: bool = False    # Whether drift exceeds threshold
-    drift_magnitude: float = 0.0    # Size of recent drift vs historical
+    mae: float  # Mean Absolute Error
+    rmse: float  # Root Mean Squared Error
+    wape: float  # Weighted Absolute Percentage Error
+    mape: float  # Mean Absolute Percentage Error
+    mpe: float  # Mean Percentage Error (signed: + = under-forecast)
+    p50_coverage: float  # Fraction of actuals within P50 (ideally 0.5)
+    p80_coverage: float  # Fraction within P80 (ideally 0.8)
+    p95_coverage: float  # Fraction within P95 (ideally 0.95)
+    bias: float  # Systematic bias (signed)
+    drift_detected: bool = False  # Whether drift exceeds threshold
+    drift_magnitude: float = 0.0  # Size of recent drift vs historical
     last_updated: datetime = field(default_factory=_utc_now)
 
     def to_dict(self) -> dict[str, Any]:
@@ -107,14 +116,18 @@ class ForecastAccuracyMetrics:
         wape_score = max(0.0, 1.0 - self.wape / 0.5)
         # Drift penalty
         drift_penalty = 0.7 if self.drift_detected else 1.0
-        return max(0.0, min(1.0, (calibration * 0.4 + bias_penalty * 0.25 + wape_score * 0.25) * drift_penalty))
+        return max(
+            0.0,
+            min(1.0, (calibration * 0.4 + bias_penalty * 0.25 + wape_score * 0.25) * drift_penalty),
+        )
 
 
 @dataclass
 class DriftAlert:
     """Detected forecast drift in a segment."""
+
     segment: dict[str, Any]
-    metric: str            # which metric drifted (mpe, wape, p80_coverage)
+    metric: str  # which metric drifted (mpe, wape, p80_coverage)
     historical_value: float
     recent_value: float
     magnitude: float
@@ -138,7 +151,7 @@ class ForecastMetricsTracker:
     on startup).
     """
 
-    DRIFT_WINDOW = 10       # compare last N evaluations vs prior
+    DRIFT_WINDOW = 10  # compare last N evaluations vs prior
     DRIFT_THRESHOLD = 0.15  # 15% change triggers drift alert
 
     def __init__(self) -> None:
@@ -163,24 +176,26 @@ class ForecastMetricsTracker:
     ) -> None:
         """Record one forecast evaluation with full segmentation data."""
         with self._lock:
-            self._evaluations.append({
-                "sku": sku or evaluation.sku,
-                "supplier_id": supplier_id,
-                "region": region,
-                "product_family": product_family,
-                "horizon_days": horizon_days,
-                "model_version": model_version,
-                "predicted_p50": evaluation.predicted_p50,
-                "predicted_p80": predicted_p80,
-                "predicted_p95": predicted_p95,
-                "actual": evaluation.actual,
-                "absolute_error": evaluation.absolute_error,
-                "percentage_error": evaluation.percentage_error,
-                "bias": evaluation.bias,
-                "within_p80": evaluation.is_within_p80 if predicted_p80 is not None else None,
-                "within_p95": evaluation.is_within_p95 if predicted_p95 is not None else None,
-                "timestamp": _utc_now(),
-            })
+            self._evaluations.append(
+                {
+                    "sku": sku or evaluation.sku,
+                    "supplier_id": supplier_id,
+                    "region": region,
+                    "product_family": product_family,
+                    "horizon_days": horizon_days,
+                    "model_version": model_version,
+                    "predicted_p50": evaluation.predicted_p50,
+                    "predicted_p80": predicted_p80,
+                    "predicted_p95": predicted_p95,
+                    "actual": evaluation.actual,
+                    "absolute_error": evaluation.absolute_error,
+                    "percentage_error": evaluation.percentage_error,
+                    "bias": evaluation.bias,
+                    "within_p80": evaluation.is_within_p80 if predicted_p80 is not None else None,
+                    "within_p95": evaluation.is_within_p95 if predicted_p95 is not None else None,
+                    "timestamp": _utc_now(),
+                }
+            )
             # Drift detection
             self._detect_drift_locked(
                 SegmentKey(sku=evaluation.sku, supplier_id=supplier_id, model_version=model_version)
@@ -226,8 +241,12 @@ class ForecastMetricsTracker:
             for key, evs in buckets.items():
                 sk, sup, reg, pf, hor, mv = key
                 segment = {
-                    "sku": sk, "supplier_id": sup, "region": reg,
-                    "product_family": pf, "horizon_days": hor, "model_version": mv,
+                    "sku": sk,
+                    "supplier_id": sup,
+                    "region": reg,
+                    "product_family": pf,
+                    "horizon_days": hor,
+                    "model_version": mv,
                 }
                 metrics = self._compute_metrics(segment, evs)
                 if metrics:
@@ -239,7 +258,9 @@ class ForecastMetricsTracker:
         with self._lock:
             return [a for a in self._drift_alerts if a.magnitude >= min_magnitude]
 
-    def where_is_forecast_wrong(self, *, min_samples: int = 5, min_abs_mpe: float = 0.05) -> list[dict[str, Any]]:
+    def where_is_forecast_wrong(
+        self, *, min_samples: int = 5, min_abs_mpe: float = 0.05
+    ) -> list[dict[str, Any]]:
         """Answer the key question: where is our forecast systematically wrong?
 
         Returns segments with significant systematic bias, sorted by |MPE|.
@@ -251,11 +272,17 @@ class ForecastMetricsTracker:
                 continue
             if abs(m.mpe) < min_abs_mpe:
                 continue
-            flagged.append({
-                **m.to_dict(),
-                "direction": "under-forecasting" if m.mpe > 0 else "over-forecasting",
-                "severity": "high" if abs(m.mpe) > 0.2 else "medium" if abs(m.mpe) > 0.1 else "low",
-            })
+            flagged.append(
+                {
+                    **m.to_dict(),
+                    "direction": "under-forecasting" if m.mpe > 0 else "over-forecasting",
+                    "severity": "high"
+                    if abs(m.mpe) > 0.2
+                    else "medium"
+                    if abs(m.mpe) > 0.1
+                    else "low",
+                }
+            )
         flagged.sort(key=lambda x: abs(x["mpe"]), reverse=True)
         return flagged
 
@@ -280,15 +307,31 @@ class ForecastMetricsTracker:
             wape = total_abs_error / total_actual if total_actual > 0 else 0
             mpe = sum(e["percentage_error"] for e in all_evs) / n
             mape = sum(abs(e["percentage_error"]) for e in all_evs) / n
-            p80_cov = sum(1 for e in all_evs if e["within_p80"]) / n if any(e["within_p80"] is not None for e in all_evs) else 0.8
-            p95_cov = sum(1 for e in all_evs if e["within_p95"]) / n if any(e["within_p95"] is not None for e in all_evs) else 0.95
-            active_drifts = len([a for a in self._drift_alerts if a.magnitude >= self.DRIFT_THRESHOLD])
+            p80_cov = (
+                sum(1 for e in all_evs if e["within_p80"]) / n
+                if any(e["within_p80"] is not None for e in all_evs)
+                else 0.8
+            )
+            p95_cov = (
+                sum(1 for e in all_evs if e["within_p95"]) / n
+                if any(e["within_p95"] is not None for e in all_evs)
+                else 0.95
+            )
+            active_drifts = len(
+                [a for a in self._drift_alerts if a.magnitude >= self.DRIFT_THRESHOLD]
+            )
 
             reliability = ForecastAccuracyMetrics(
                 segment={"scope": "global"},
                 sample_count=n,
-                mae=mae, rmse=rmse, wape=wape, mape=mape, mpe=mpe,
-                p50_coverage=0.5, p80_coverage=p80_cov, p95_coverage=p95_cov,
+                mae=mae,
+                rmse=rmse,
+                wape=wape,
+                mape=mape,
+                mpe=mpe,
+                p50_coverage=0.5,
+                p80_coverage=p80_cov,
+                p95_coverage=p95_cov,
                 bias=sum(e["bias"] for e in all_evs) / n,
                 drift_detected=active_drifts > 0,
                 drift_magnitude=0.0,
@@ -310,7 +353,9 @@ class ForecastMetricsTracker:
 
     # ── Internals ──────────────────────────────────────────────────────
 
-    def _compute_metrics(self, segment: dict[str, Any], evs: list[dict[str, Any]]) -> ForecastAccuracyMetrics | None:
+    def _compute_metrics(
+        self, segment: dict[str, Any], evs: list[dict[str, Any]]
+    ) -> ForecastAccuracyMetrics | None:
         if not evs:
             return None
         n = len(evs)
@@ -320,7 +365,7 @@ class ForecastMetricsTracker:
         biases = [e["bias"] for e in evs]
 
         mae = sum(abs_errors) / n
-        rmse = math.sqrt(sum(e ** 2 for e in abs_errors) / n)
+        rmse = math.sqrt(sum(e**2 for e in abs_errors) / n)
         total_abs_error = sum(abs_errors)
         total_actual = sum(abs(a) for a in actuals)
         wape = total_abs_error / total_actual if total_actual > 0 else mae
@@ -346,34 +391,46 @@ class ForecastMetricsTracker:
         return ForecastAccuracyMetrics(
             segment=segment,
             sample_count=n,
-            mae=mae, rmse=rmse, wape=wape, mape=mape, mpe=mpe,
-            p50_coverage=0.5, p80_coverage=p80_cov, p95_coverage=p95_cov,
+            mae=mae,
+            rmse=rmse,
+            wape=wape,
+            mape=mape,
+            mpe=mpe,
+            p50_coverage=0.5,
+            p80_coverage=p80_cov,
+            p95_coverage=p95_cov,
             bias=bias,
             drift_detected=drift_detected,
             drift_magnitude=drift_magnitude,
         )
 
     def _detect_drift_locked(self, key: SegmentKey) -> None:
-        matching = [e for e in self._evaluations if (
-            (key.sku is None or e["sku"] == key.sku) and
-            (key.supplier_id is None or e["supplier_id"] == key.supplier_id) and
-            (key.model_version is None or e["model_version"] == key.model_version)
-        )]
+        matching = [
+            e
+            for e in self._evaluations
+            if (
+                (key.sku is None or e["sku"] == key.sku)
+                and (key.supplier_id is None or e["supplier_id"] == key.supplier_id)
+                and (key.model_version is None or e["model_version"] == key.model_version)
+            )
+        ]
         if len(matching) < self.DRIFT_WINDOW * 2:
             return
-        recent = matching[-self.DRIFT_WINDOW:]
-        historical = matching[-self.DRIFT_WINDOW*2:-self.DRIFT_WINDOW]
+        recent = matching[-self.DRIFT_WINDOW :]
+        historical = matching[-self.DRIFT_WINDOW * 2 : -self.DRIFT_WINDOW]
         rec_mpe = sum(e["percentage_error"] for e in recent) / len(recent)
         hist_mpe = sum(e["percentage_error"] for e in historical) / len(historical)
         magnitude = abs(rec_mpe - hist_mpe)
         if magnitude >= self.DRIFT_THRESHOLD:
-            self._drift_alerts.append(DriftAlert(
-                segment=key.as_dict(),
-                metric="mpe",
-                historical_value=hist_mpe,
-                recent_value=rec_mpe,
-                magnitude=magnitude,
-            ))
+            self._drift_alerts.append(
+                DriftAlert(
+                    segment=key.as_dict(),
+                    metric="mpe",
+                    historical_value=hist_mpe,
+                    recent_value=rec_mpe,
+                    magnitude=magnitude,
+                )
+            )
 
 
 _singleton: ForecastMetricsTracker | None = None
