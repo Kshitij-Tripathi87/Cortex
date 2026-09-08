@@ -66,13 +66,15 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
   test('nexus console renders operational graph + signal panel', async ({ page }) => {
     await page.goto(`${BASE_URL}/nexus`);
     await expect(page.locator('h1, h2').first()).toBeVisible();
-    // Either the graph is rendered OR an empty/error/loading state is
-    // shown — never an unhandled error or blank page. count() is a
-    // zero-wait snapshot: on a cold CI runner the client component may
-    // not have hydrated yet, so wait for one of the two states instead.
-    const graph = page.locator('.graph-svg, [data-testid="graph-canvas"]').first();
-    const stateText = page.locator('text=/loading|error|empty|workspace/i').first();
-    await expect(graph.or(stateText)).toBeVisible({ timeout: 10_000 });
+    // The console always renders its section tabs (Overview, Data,
+    // World, Signals, ...). The operational graph itself
+    // (svg[aria-label="Operational graph"]) only renders when the
+    // workspace has nodes — an empty workspace must still show the
+    // console shell, never a blank page.
+    const tabs = page.locator('nav button, aside button, button');
+    for (const tab of ['Overview', 'Data', 'World', 'Signals', 'Decisions']) {
+      await expect(tabs.filter({ hasText: tab }).first()).toBeVisible({ timeout: 10_000 });
+    }
   });
 });
 

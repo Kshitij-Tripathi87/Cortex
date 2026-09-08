@@ -57,10 +57,16 @@ jobs:
             sleep 1
           done
           curl -f http://localhost:8000/healthz || { cat /tmp/uvicorn.log; exit 1; }
+          # Surface the readiness verdict (component list) as an annotation
+          # so a 503 cause is diagnosable without job-log access.
+          echo "::notice title=readyz at boot::$(curl -s http://localhost:8000/readyz | head -c 400)"
         env:
           CORTEX_ENV: test
           CORTEX_DB_DSN: postgresql+asyncpg://cortex:cortex_secure_prod_2026!@localhost:5432/cortex
-          CORTEX_REDIS_URL: redis://localhost:6379/0
+          # Compose redis requires auth (docker-compose.prod.yml
+          # --requirepass); a passwordless URL made /readyz return 503
+          # (redis NOAUTH) in the first live runs.
+          CORTEX_REDIS_URL: redis://:cortex_redis_secure_2026!@localhost:6379/0
           CORTEX_S3_ENDPOINT: http://localhost:9000
           CORTEX_S3_BUCKET: cortex-uploads
           CORTEX_S3_REGION: us-east-1
