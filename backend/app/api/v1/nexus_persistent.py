@@ -1,23 +1,29 @@
-"""Nexus v0.8 — Persistent (PostgreSQL-backed) API router.
+"""Nexus v0.8 — Canonical (PostgreSQL-backed) API router. Owns /nexus/*.
 
-Replaces the in-memory-singleton endpoints in nexus/__init__.py for:
+As of the v0.8.2 routing flip this router is the ONLY production authority
+for the Nexus namespace (/api/v1/nexus/*). It replaces the in-memory
+singleton endpoints of the v0.7 router (now demoted to /v07-legacy/nexus/*,
+mounted only when CORTEX_NEXUS_V07_LEGACY_ROUTES is explicitly enabled):
 
   - decisions  : create / get / list
-  - governance : advance / approve / reject / stale / execute / record-outcome
+  - governance : advance / execute / record-outcome
                  (state-machine enforced, transactional, optimistic concurrency)
-  - memory     : record / update-outcome / find-analogous / recent
-  - forecasts  : record
-  - observations (closes truth loop)
-  - calibration (per-SKU error stats, systematic bias)
+  - memory     : record / analogous / recent
+  - forecasts  : record / observations (closes truth loop) / calibration / bias
   - vanessa    : ask (LLM pipeline with AuthZ)
 
-All endpoints use a per-request AsyncSession from the DB pool, call the
-Authoritative* services (p0_migration), and never touch in-memory singletons
-for authoritative state.
+Every authoritative operation terminates at:
 
-v0.7 routes remain available at /v1/* for backward compatibility but their
-state is process-local. v0.8 routes are at /v1/nexus/persistent/* and are
-the authoritative production path going forward.
+    AsyncSession (per-request, from the DB pool)
+        ↓
+    PostgreSQL
+        ↓
+    Authoritative* service (app.modules.nexus_spine.p0_migration)
+
+and never touches the v0.7 in-memory singletons (DecisionLifecycleManager,
+DecisionMemory, TruthLoop) — there is no fallback path to process-local
+state. The v0.7 routes live under /v07-legacy/nexus/* for unit tests,
+migration tooling, and historical v0.7 demonstrations only.
 """
 
 from __future__ import annotations
@@ -50,7 +56,7 @@ from app.modules.nexus_spine.p0_migration import (
     get_authz,
 )
 
-router = APIRouter(prefix="/nexus/persistent", tags=["nexus-persistent"])
+router = APIRouter(prefix="/nexus", tags=["Nexus Decision Intelligence"])
 
 
 # ─────────────────────────────────────────────────────────────────────

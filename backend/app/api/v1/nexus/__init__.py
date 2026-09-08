@@ -1,4 +1,17 @@
-"""Nexus Decision Intelligence API — Stable /v1/* Surface.
+"""Nexus Decision Intelligence API — LEGACY v0.7 (in-memory) surface.
+
+⚠️  LEGACY — NOT AUTHORITATIVE (v0.8.2 routing flip, 2026-09).
+
+This router keeps the v0.7 in-memory implementation (process-local
+WorldModel / DecisionMemory / DecisionLifecycleManager / TruthLoop
+singletons). Since the v0.8.2 routing flip it is demoted to the explicit
+``/api/v1/v07-legacy/nexus/*`` namespace and is only mounted when
+``CORTEX_NEXUS_V07_LEGACY_ROUTES`` is explicitly enabled — it exists for
+unit tests, explicit migration tooling, and historical v0.7 demos.
+
+The canonical production surface is the persistent PostgreSQL-backed
+router in ``app/api/v1/nexus_persistent.py`` (mounted at ``/api/v1/nexus/*``).
+Do NOT add new endpoints here.
 
 Stable API surface for the Nexus operational decision system:
 

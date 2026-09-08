@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     app_name: str = "cortex-backend"
 
     # Database
-    db_dsn: str = Field(default="sqlite+aiosqlite:///./cortex_dev.db", description="PostgreSQL async DSN")
+    db_dsn: str = Field(
+        default="sqlite+aiosqlite:///./cortex_dev.db", description="PostgreSQL async DSN"
+    )
     db_pool_min: int = Field(default=4, description="Minimum DB pool size")
     db_pool_max: int = Field(default=20, description="Maximum DB pool size")
 
@@ -99,6 +101,17 @@ class Settings(BaseSettings):
     )
     cors_allow_credentials: bool = Field(default=True)
 
+    # Nexus v0.8.2 routing flip: the persistent PG-backed router owns
+    # /nexus/* (canonical). The v0.7 in-memory Nexus routers are demoted to
+    # /v07-legacy/nexus/* and are NOT mounted at all unless this flag is set
+    # (unit tests, explicit migration tooling, historical v0.7 demos).
+    # Temporary migration affordance — remove in v0.9.
+    nexus_v07_legacy_routes: bool = Field(
+        default=False,
+        description="Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* "
+        "(default False). Never enable in production.",
+    )
+
     # Feature flags (ADR-0008). Settings-based in MVP; Phase 2 may move to
     # DB-backed or remote service. Read via `get_settings().feature_flags[name]`.
     feature_flags: dict[str, bool] = Field(
@@ -124,9 +137,7 @@ class Settings(BaseSettings):
                     "CORTEX_JWT_SECRET must be set when CORTEX_ENV is pilot, prod, or staging"
                 )
             if len(self.jwt_secret) < 32:
-                raise ValueError(
-                    "CORTEX_JWT_SECRET must be at least 32 characters for HS256"
-                )
+                raise ValueError("CORTEX_JWT_SECRET must be at least 32 characters for HS256")
         return self
 
     model_config = {"env_prefix": "CORTEX_", "env_file": ".env", "extra": "ignore"}

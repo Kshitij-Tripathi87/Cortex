@@ -346,7 +346,7 @@ class TestV082APIIntegration:
         """Create → advance → execute → record outcome → memory → observe."""
         # Create
         r = await api_client.post(
-            "/nexus/persistent/decisions",
+            "/nexus/decisions",
             json={
                 "workspace_id": "WS1",
                 "situation": "Test decision for API lifecycle",
@@ -362,7 +362,7 @@ class TestV082APIIntegration:
 
         # Get
         r = await api_client.get(
-            f"/nexus/persistent/decisions/{did}", params={"workspace_id": "WS1"}
+            f"/nexus/decisions/{did}", params={"workspace_id": "WS1"}
         )
         assert r.status_code == 200
         assert r.json()["data"]["decision"]["phase"] == "proposed"
@@ -370,7 +370,7 @@ class TestV082APIIntegration:
         # Advance through lifecycle (simulate + policy_check + await_approval + approve)
         for phase in ("simulated", "policy_checked", "awaiting_approval", "approved"):
             r = await api_client.post(
-                f"/nexus/persistent/decisions/{did}/advance",
+                f"/nexus/decisions/{did}/advance",
                 headers={"X-Workspace-Id": "WS1"},
                 json={"target_phase": phase},
             )
@@ -378,14 +378,14 @@ class TestV082APIIntegration:
 
         # Execute convenience
         r = await api_client.post(
-            f"/nexus/persistent/decisions/{did}/execute", params={"workspace_id": "WS1"}
+            f"/nexus/decisions/{did}/execute", params={"workspace_id": "WS1"}
         )
         assert r.status_code == 200, r.text
         assert r.json()["data"]["decision"]["phase"] == "executed"
 
         # Record outcome
         r = await api_client.post(
-            f"/nexus/persistent/decisions/{did}/outcome",
+            f"/nexus/decisions/{did}/outcome",
             params={"workspace_id": "WS1"},
             json={
                 "outcome_status": "succeeded",
@@ -402,7 +402,7 @@ class TestV082APIIntegration:
         # Record forecast + observation
         fid = f"F-{uuid.uuid4().hex[:8]}"
         r = await api_client.post(
-            "/nexus/persistent/forecasts",
+            "/nexus/forecasts",
             params={"workspace_id": "WS1"},
             json={
                 "forecast_id": fid,
@@ -417,7 +417,7 @@ class TestV082APIIntegration:
         )
         assert r.status_code == 201, r.text
         r = await api_client.post(
-            "/nexus/persistent/observations",
+            "/nexus/observations",
             params={"workspace_id": "WS1"},
             json={
                 "forecast_id": fid,
@@ -429,7 +429,7 @@ class TestV082APIIntegration:
         assert r.json()["data"]["evaluation"]["absolute_error"] == pytest.approx(10.0, abs=0.1)
 
         # Calibration
-        r = await api_client.get("/nexus/persistent/calibration", params={"workspace_id": "WS1"})
+        r = await api_client.get("/nexus/calibration", params={"workspace_id": "WS1"})
         assert r.status_code == 200
         buckets = r.json()["data"]["buckets"]
         assert len(buckets) >= 1
@@ -439,7 +439,7 @@ class TestV082APIIntegration:
     async def test_analogous_decisions_after_restart(self, nexus_db_engine, api_client):
         """Create a decision with memory; a fresh service instance still finds it."""
         r = await api_client.post(
-            "/nexus/persistent/decisions",
+            "/nexus/decisions",
             json={
                 "workspace_id": "WS1",
                 "situation": "Stockout risk on SKU-42 due to late shipment",
@@ -454,27 +454,27 @@ class TestV082APIIntegration:
         # Execute + record outcome (so memory search works)
         for phase in ("simulated", "policy_checked", "awaiting_approval", "approved"):
             await api_client.post(
-                f"/nexus/persistent/decisions/{did}/advance",
+                f"/nexus/decisions/{did}/advance",
                 headers={"X-Workspace-Id": "WS1"},
                 json={"target_phase": phase},
             )
         await api_client.post(
-            f"/nexus/persistent/decisions/{did}/execute", params={"workspace_id": "WS1"}
+            f"/nexus/decisions/{did}/execute", params={"workspace_id": "WS1"}
         )
         await api_client.post(
-            f"/nexus/persistent/decisions/{did}/outcome",
+            f"/nexus/decisions/{did}/outcome",
             params={"workspace_id": "WS1"},
             json={"outcome_status": "succeeded"},
         )
         # Record into memory
         r = await api_client.post(
-            f"/nexus/persistent/decisions/{did}/memory", params={"workspace_id": "WS1"}
+            f"/nexus/decisions/{did}/memory", params={"workspace_id": "WS1"}
         )
         assert r.status_code == 200, r.text
 
         # Find analogous
         r = await api_client.post(
-            "/nexus/persistent/memory/analogous",
+            "/nexus/memory/analogous",
             params={"workspace_id": "WS1"},
             json={"situation": "shipment delay stockout SKU-42"},
         )
@@ -496,7 +496,7 @@ class TestV082APIIntegration:
 
         security.get_current_user = _viewer
         r = await api_client.post(
-            "/nexus/persistent/vanessa/ask",
+            "/nexus/vanessa/ask",
             params={"workspace_id": "WS1"},
             json={"query": "show me decisions"},
         )
@@ -522,7 +522,7 @@ class TestV082APIIntegration:
 
         security.get_current_user = _op
         r = await api_client.post(
-            "/nexus/persistent/vanessa/ask",
+            "/nexus/vanessa/ask",
             params={"workspace_id": "WS1"},
             json={"query": "what is the state of the world?"},
         )

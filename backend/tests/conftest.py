@@ -243,24 +243,35 @@ def nexus_db_path(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 async def nexus_db_engine(nexus_db_path):
-    import app.modules.access.models  # noqa: F401
     import app.modules.nexus_spine.persistence.models  # noqa: F401
     from app.infrastructure.database import Base
 
     url = f"sqlite+aiosqlite:///{nexus_db_path}"
     engine = create_async_engine(url, echo=False, future=True)
 
-    # SQLite has no schemas. After models are registered, strip schema="core"
-    # from every table and rewrite ForeignKey('core.X.col') → 'X.col'.
-    for table in Base.metadata.tables.values():
-        if table.schema == "core":
-            table.schema = None
+    # Create ONLY the nexus_* tables. Their foreign keys are self-contained
+    # (nexus_* → nexus_*), so no other modules' tables are needed. Copying
+    # to a fresh MetaData keeps this fixture independent of whatever other
+    # model modules earlier tests in the session may have registered on
+    # Base.metadata — creating ALL of Base.metadata made the v0.8 suite
+    # order-dependent (e.g. schema-qualified tables from unrelated modules
+    # break SQLite create_all).
+    nexus_metadata = MetaData()
+    for table in Base.metadata.sorted_tables:
+        if table.name.startswith("nexus_"):
+            table.to_metadata(nexus_metadata)
+
+    # SQLite has no schemas — strip any schema qualifier defensively.
+    for table in nexus_metadata.tables.values():
+        table.schema = None
         for col in table.columns:
             for fk in list(col.foreign_keys):
-                if fk._colspec and fk._colspec.startswith("core."):
-                    fk._colspec = fk._colspec[len("core.") :]
+                if fk._colspec and fk._colspec.count(".") == 2:
+                    # schema.table.col → table.col
+                    parts = fk._colspec.split(".")
+                    fk._colspec = f"{parts[1]}.{parts[2]}"
 
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(nexus_metadata.create_all)
     yield engine
     await engine.dispose()

@@ -275,7 +275,7 @@ export default function NexusDecisionCockpit() {
     const ql = q.toLowerCase();
 
     if (ql.includes("why") && ent) {
-      response = `${ent.entity_name} is flagged ${ent.severity} because ${ent.title.toLowerCase()}. The GNN structural analysis elevates the traditional risk score of ${(ent.risk_score * 100).toFixed(0)}% to ${((ent.gnn_risk_score ?? ent.risk_score) * 100).toFixed(0)}% due to ${ent.hidden_dependencies?.length ?? 0} hidden multi-hop dependencies that the rules-based engine missed. Confidence: ${(ent.explanation?.confidence ?? 0.8) * 100:.0f}% across ${ent.explanation?.evidence_count ?? 0} evidence points.`;
+      response = `${ent.entity_name} is flagged ${ent.severity} because ${ent.title.toLowerCase()}. The GNN structural analysis elevates the traditional risk score of ${(ent.risk_score * 100).toFixed(0)}% to ${((ent.gnn_risk_score ?? ent.risk_score) * 100).toFixed(0)}% due to ${ent.hidden_dependencies?.length ?? 0} hidden multi-hop dependencies that the rules-based engine missed. Confidence: ${((ent.explanation?.confidence ?? 0.8) * 100).toFixed(0)}% across ${ent.explanation?.evidence_count ?? 0} evidence points.`;
       blocks = ent.explanation?.blocks;
     } else if (ql.includes("happen") || ql.includes("lose") || ql.includes("fail")) {
       response = `If ${ent?.entity_name ?? "this node"} fails, GNN blast-radius analysis shows ${ent?.blast_radius_count ?? 0} downstream entities affected, with ~${formatINR(ent?.revenue_exposure)} revenue exposure and ${Math.round((ent?.sla_risk_pct ?? 0) * 100)}% projected SLA breach across ${ent?.explanation?.impact ?? "multiple orders"}.`;
@@ -534,7 +534,7 @@ function CriticalNodeGraph({
       ))}
 
       {/* Center label */}
-      <text x={cx} y={cy - 5} textAnchor="middle" fill="#06b6d4" fontSize="10" fontFamily="monospace" textTransform="uppercase">
+      <text x={cx} y={cy - 5} textAnchor="middle" fill="#06b6d4" fontSize="10" fontFamily="monospace" style={{ textTransform: "uppercase" }}>
         NEXUS
       </text>
       <text x={cx} y={cy + 8} textAnchor="middle" fill="#6b7280" fontSize="8" fontFamily="monospace">

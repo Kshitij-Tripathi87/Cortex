@@ -443,12 +443,18 @@ class TestProductionGate:
         import tests.test_endpoint_authz_audit as test_mod
 
         # The audit classifies routes as GATED / PUBLIC / KNOWN_DEBT.
-        # All legacy debt routes have been paid down and gated (0 remaining debt).
+        # All 29 legacy debt routes have been paid down and gated. The only
+        # remaining pinned debt is D3g: the 15 Program S demo-workspace
+        # routes (app/api/v1/workspace.py), pinned 2026-09 (v0.8.2 routing
+        # flip) — see docs/architecture/ENDPOINT_AUTHZ_AUDIT.md. If this
+        # count changes, the KNOWN_DEBT set and the audit doc must change
+        # in the same commit.
         assert hasattr(test_mod, "KNOWN_DEBT")
         known_debt = test_mod.KNOWN_DEBT
         assert isinstance(known_debt, (set, frozenset))
-        assert len(known_debt) == 0, (
-            f"Expected 0 known-debt routes (all debt paid down), got {len(known_debt)}"
+        assert len(known_debt) == 15, (
+            f"Expected 15 known-debt routes (D3g, Program S demo workspace), "
+            f"got {len(known_debt)}: {sorted(known_debt)}"
         )
 
         # The classification is enforced by these test classes

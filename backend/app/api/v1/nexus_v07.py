@@ -1,5 +1,15 @@
 """Nexus v0.7 — Extended API routes for Production Intelligence & Learning.
 
+⚠️  LEGACY — NOT AUTHORITATIVE (v0.8.2 routing flip, 2026-09).
+
+These routes run on v0.7 in-memory singletons (model registry, session
+managers, world-model projections). They are demoted to the explicit
+``/api/v1/v07-legacy/nexus/*`` namespace and are only mounted when
+``CORTEX_NEXUS_V07_LEGACY_ROUTES`` is explicitly enabled — for unit
+tests, migration tooling, and historical v0.7 demos. The canonical
+production surface is ``app/api/v1/nexus_persistent.py``
+(/api/v1/nexus/*, PostgreSQL-backed). Do NOT add new endpoints here.
+
 Adds endpoints for:
   /models             — Model Registry (train → evaluate → shadow → approve → deploy)
   /forecast-v2        — Enhanced forecasts with segmentation, drift, truth metrics

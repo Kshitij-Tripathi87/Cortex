@@ -22,7 +22,7 @@ from product.workflo_backend.orchestrator import reset_orchestrator
 from product.workflo_backend.agent import build_plan, diagnose, discover_surfaces
 from product.workflo_backend.policy import PolicyViolation, SandboxPolicy
 from product.workflo_backend.runs import RunStore
-from product.workflo_backend import get_orchestrator
+from product.workflo_api import router as workflo_router
 
 
 @pytest.fixture()

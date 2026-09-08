@@ -282,28 +282,30 @@ async def stream_workspace_events(
                 # Gap larger than the in-memory buffer can cover. Tell
                 # the client to do a full refresh; do NOT replay any
                 # deltas (they would form an incomplete sequence).
+                payload = json.dumps({
+                    'type': 'resync',
+                    'reason': 'since_seq_below_buffer',
+                    'min_known_seq': min_seq,
+                    'head_seq': engine.current_version_counter,
+                    'world_state_version': workspace.world_state_version,
+                })
                 yield (
                     "event: resync\n"
-                    f"data: {json.dumps({
-                        'type': 'resync',
-                        'reason': 'since_seq_below_buffer',
-                        'min_known_seq': min_seq,
-                        'head_seq': engine.current_version_counter,
-                        'world_state_version': workspace.world_state_version,
-                    })}\n\n"
+                    f"data: {payload}\n\n"
                 )
             else:
                 # Replay in seq order, then fall through to live tailing.
                 for d in engine.get_deltas_since_seq(since_seq):
+                    payload = json.dumps({
+                        'type': 'graph_delta',
+                        'graph_version': d.new_graph_version,
+                        'world_state_version': d.world_state_version,
+                        'seq': d.seq,
+                        'delta': d.to_dict(),
+                    })
                     yield (
                         "event: graph_delta\n"
-                        f"data: {json.dumps({
-                            'type': 'graph_delta',
-                            'graph_version': d.new_graph_version,
-                            'world_state_version': d.world_state_version,
-                            'seq': d.seq,
-                            'delta': d.to_dict(),
-                        })}\n\n"
+                        f"data: {payload}\n\n"
                     )
 
         # ── Live tailing loop ───────────────────────────────────────
@@ -318,33 +320,35 @@ async def stream_workspace_events(
                 # In normal operation the latest delta is the one that
                 # bumped the counter; `delta_history[-1]` is correct.
                 latest = engine.delta_history[-1] if engine.delta_history else None
+                payload = json.dumps({
+                    'type': 'graph_delta',
+                    'graph_version': f'graph_v{counter}',
+                    'world_state_version': workspace.world_state_version,
+                    'seq': latest.seq if latest else counter,
+                    'delta': latest.to_dict() if latest else None,
+                })
                 yield (
                     "event: graph_delta\n"
-                    f"data: {json.dumps({
-                        'type': 'graph_delta',
-                        'graph_version': f'graph_v{counter}',
-                        'world_state_version': workspace.world_state_version,
-                        'seq': latest.seq if latest else counter,
-                        'delta': latest.to_dict() if latest else None,
-                    })}\n\n"
+                    f"data: {payload}\n\n"
                 )
             else:
+                payload = json.dumps({
+                    'type': 'heartbeat',
+                    'graph_version': f'graph_v{counter}',
+                    'world_state_version': workspace.world_state_version,
+                    # Canonical E1 names — frontend prefers `nodes_count`
+                    # and `edges_count`. Legacy `total_graph_nodes` is
+                    # kept for backward compatibility with the
+                    # 1,337-test regression suite's openapi.json.
+                    'nodes_count': len(workspace.graph_engine.nodes),
+                    'edges_count': len(workspace.graph_engine.edges),
+                    'total_graph_nodes': len(workspace.graph_engine.nodes),
+                    'total_graph_edges': len(workspace.graph_engine.edges),
+                    'seq': counter,
+                })
                 yield (
                     "event: heartbeat\n"
-                    f"data: {json.dumps({
-                        'type': 'heartbeat',
-                        'graph_version': f'graph_v{counter}',
-                        'world_state_version': workspace.world_state_version,
-                        # Canonical E1 names — frontend prefers `nodes_count`
-                        # and `edges_count`. Legacy `total_graph_nodes` is
-                        # kept for backward compatibility with the
-                        # 1,337-test regression suite's openapi.json.
-                        'nodes_count': len(workspace.graph_engine.nodes),
-                        'edges_count': len(workspace.graph_engine.edges),
-                        'total_graph_nodes': len(workspace.graph_engine.nodes),
-                        'total_graph_edges': len(workspace.graph_engine.edges),
-                        'seq': counter,
-                    })}\n\n"
+                    f"data: {payload}\n\n"
                 )
             await asyncio.sleep(2)
 

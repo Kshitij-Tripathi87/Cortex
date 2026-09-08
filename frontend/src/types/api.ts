@@ -860,7 +860,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a CSV to ingest into MVP wedge tables.
-         * @description Receive a CSV upload, persist to S3, parse, validate, and insert rows.
+         * @description Receive a CSV upload, stream to S3, parse, validate, and insert rows.
          *
          *     Returns 202 Accepted with the ingestion_id; the actual row processing
          *     happens synchronously during this request (no background queue in MVP).
@@ -913,6 +913,2432 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/world/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get World State
+         * @description Get the current (or specific version of) world state.
+         */
+        get: operations["get_world_state_api_v1_world_state_get"];
+        put?: never;
+        /**
+         * Create World State
+         * @description Create genesis world state (version 1) for a workspace.
+         */
+        post: operations["create_world_state_api_v1_world_state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get World History
+         * @description Get the history of world state versions.
+         */
+        get: operations["get_world_history_api_v1_world_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit World Event
+         * @description Submit an event to mutate the world state through authoritative pipeline.
+         */
+        post: operations["submit_world_event_api_v1_world_event_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get State Diff
+         * @description Compare two versions of world state.
+         */
+        get: operations["get_state_diff_api_v1_world_diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replay World State
+         * @description Reconstruct world state at a specific version (time travel).
+         */
+        post: operations["replay_world_state_api_v1_world_replay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rollback World State
+         * @description Perform an append-only rollback restoring historical variables as a new version.
+         */
+        post: operations["rollback_world_state_api_v1_world_rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate World State
+         * @description Validate world state against all structural, domain, and security rules.
+         */
+        post: operations["validate_world_state_api_v1_world_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get World Events
+         * @description Get the event log for a world.
+         */
+        get: operations["get_world_events_api_v1_world_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/world/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify World Event Chain
+         * @description Verify the integrity of a world's event chain.
+         */
+        post: operations["verify_world_event_chain_api_v1_world_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Twin
+         * @description Create a new digital twin from a snapshot.
+         */
+        post: operations["create_twin_api_v1_twin_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Twins
+         * @description List all digital twins in a workspace.
+         */
+        get: operations["list_twins_api_v1_twin_list_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/{twin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Twin By Id
+         * @description Get metadata for a specific digital twin.
+         */
+        get: operations["get_twin_by_id_api_v1_twin__twin_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Destroy Twin
+         * @description Permanently destroy a digital twin (twin + runs). Production is untouched.
+         */
+        delete: operations["destroy_twin_api_v1_twin__twin_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Scenario
+         * @description Execute a scenario against a digital twin in isolated sandbox memory.
+         */
+        post: operations["run_scenario_api_v1_twin_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/fork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fork Twin
+         * @description Fork an existing twin into a counterfactual branch.
+         */
+        post: operations["fork_twin_api_v1_twin_fork_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/{twin_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Twin
+         * @description Archive a digital twin (soft lifecycle transition; remains queryable).
+         */
+        post: operations["archive_twin_api_v1_twin__twin_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/scenario": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Scenario From Template
+         * @description Create a scenario from a registered template.
+         */
+        post: operations["create_scenario_from_template_api_v1_twin_scenario_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Available Scenarios
+         * @description List all available scenario templates.
+         */
+        get: operations["list_available_scenarios_api_v1_twin_scenarios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/{twin_id}/lineage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Twin Lineage
+         * @description Get a twin's immutable lineage and verify its integrity.
+         */
+        get: operations["get_twin_lineage_api_v1_twin__twin_id__lineage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/{twin_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Twin State
+         * @description Get a twin's current state (variables, version, hash).
+         */
+        get: operations["get_twin_state_api_v1_twin__twin_id__state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/{twin_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Twin Events
+         * @description Get a twin's event log (optionally filtered by run).
+         */
+        get: operations["get_twin_events_api_v1_twin__twin_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/twin/{twin_id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Twin Results
+         * @description Get all scenario run results for a twin.
+         */
+        get: operations["get_twin_results_api_v1_twin__twin_id__results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/simulation/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Simulation
+         * @description Run a simulation against a digital twin.
+         */
+        post: operations["run_simulation_api_v1_simulation_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/simulation/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Batch Simulations
+         * @description Run multiple simulations against a twin.
+         */
+        post: operations["run_batch_simulations_api_v1_simulation_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/simulation/result/{simulation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Simulation Result
+         * @description Get a simulation result by ID.
+         */
+        get: operations["get_simulation_result_api_v1_simulation_result__simulation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/simulation/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scenarios
+         * @description List all available simulation scenarios.
+         */
+        get: operations["list_scenarios_api_v1_simulation_scenarios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rules
+         * @description List business rules for a workspace.
+         */
+        get: operations["list_rules_api_v1_knowledge_rules_get"];
+        put?: never;
+        /**
+         * Create Rule
+         * @description Create a business rule.
+         */
+        post: operations["create_rule_api_v1_knowledge_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Rule
+         * @description Get a specific rule by ID.
+         */
+        get: operations["get_rule_api_v1_knowledge_rules__rule_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/constraints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Constraints
+         * @description List constraints for a workspace.
+         */
+        get: operations["list_constraints_api_v1_knowledge_constraints_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/playbooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Playbooks
+         * @description List playbooks for a workspace.
+         */
+        get: operations["list_playbooks_api_v1_knowledge_playbooks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/slas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Slas
+         * @description List SLAs for a workspace.
+         */
+        get: operations["list_slas_api_v1_knowledge_slas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Policies
+         * @description List policies for a workspace.
+         */
+        get: operations["list_policies_api_v1_knowledge_policies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evaluate Knowledge
+         * @description Evaluate rules, constraints, and SLAs against current world state.
+         */
+        post: operations["evaluate_knowledge_api_v1_knowledge_evaluate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gnn/embeddings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compute Embeddings
+         * @description Compute dense GNN node embeddings for a world state.
+         */
+        post: operations["compute_embeddings_api_v1_gnn_embeddings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gnn/similar-suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find Similar Suppliers
+         * @description Find and rank alternative suppliers with multi-factor transparency.
+         */
+        post: operations["find_similar_suppliers_api_v1_gnn_similar_suppliers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gnn/critical-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Predict Critical Nodes
+         * @description Identify single points of failure and systemic bottleneck entities.
+         */
+        post: operations["predict_critical_nodes_api_v1_gnn_critical_nodes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gnn/hidden-dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detect Hidden Dependencies
+         * @description Discover unrecorded dependencies and shared vulnerability clusters.
+         */
+        post: operations["detect_hidden_dependencies_api_v1_gnn_hidden_dependencies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gnn/risk-propagation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forecast Risk Propagation
+         * @description Forecast cascading disruption propagation across multi-tier networks.
+         */
+        post: operations["forecast_risk_propagation_api_v1_gnn_risk_propagation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gnn/benchmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Benchmark Gnn
+         * @description Benchmark GNN against deterministic algorithms with statistical significance testing.
+         */
+        post: operations["benchmark_gnn_api_v1_gnn_benchmark_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rl/recommend-action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend Action
+         * @description Recommend the optimal mitigation action for the given world state.
+         */
+        post: operations["recommend_action_api_v1_rl_recommend_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rl/rollout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Rollout
+         * @description Execute a multi-step trajectory rollout in sandbox environment.
+         */
+        post: operations["run_rollout_api_v1_rl_rollout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rl/benchmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Benchmark Policy
+         * @description Benchmark RL policy performance against deterministic baseline heuristic.
+         */
+        post: operations["benchmark_policy_api_v1_rl_benchmark_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/multi-agent/deliberate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deliberate Plan
+         * @description Run 3-round specialist deliberation to generate a consensus mitigation plan.
+         */
+        post: operations["deliberate_plan_api_v1_multi_agent_deliberate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/multi-agent/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Agents
+         * @description List available autonomous specialist agents and functional domains.
+         */
+        get: operations["list_agents_api_v1_multi_agent_agents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Plan
+         * @description Create an ActionPlan and validate it against policy rules.
+         */
+        post: operations["create_plan_api_v1_execution_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/simulate-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate Gate
+         * @description Dry-run plan in an isolated digital twin sandbox.
+         */
+        post: operations["simulate_gate_api_v1_execution_simulate_gate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/decision-card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Decision Card
+         * @description Retrieve the human-in-the-loop decision card.
+         */
+        post: operations["get_decision_card_api_v1_execution_decision_card_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Operator Decision
+         * @description Record human review decision on the plan.
+         */
+        post: operations["submit_operator_decision_api_v1_execution_decide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispatch Plan
+         * @description Dispatch an approved ActionPlan to the external enterprise adapter.
+         */
+        post: operations["dispatch_plan_api_v1_execution_dispatch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/close-loop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close Loop
+         * @description Record executed decision and actual outcome in Decision Memory.
+         */
+        post: operations["close_loop_api_v1_execution_close_loop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/execution/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Decision Memory
+         * @description Query all decision memory records and calibration analytics.
+         */
+        get: operations["list_decision_memory_api_v1_execution_memory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/governance/flywheel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Flywheel Report
+         * @description Retrieve continuous learning flywheel metrics and subsystem calibrations.
+         */
+        get: operations["get_flywheel_report_api_v1_governance_flywheel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/data-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Audit Enterprise Data Readiness
+         * @description Pre-flight audit of customer data completeness before pilot activation.
+         */
+        post: operations["audit_enterprise_data_readiness_api_v1_validation_data_readiness_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/ingest-contract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Minimal Contract
+         * @description Ingest minimal enterprise customer data tables into an immutable WorldState.
+         */
+        post: operations["ingest_minimal_contract_api_v1_validation_ingest_contract_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/backtest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Temporal Backtest
+         * @description Run temporal backtest starting at T_0 without knowledge of the future.
+         */
+        post: operations["run_temporal_backtest_api_v1_validation_backtest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/intelligence-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare Intelligence Tiers
+         * @description Benchmark L1 (Deterministic) vs L2 (+GNN) vs L3 (+RL+Agents) intelligence tiers.
+         */
+        post: operations["compare_intelligence_tiers_api_v1_validation_intelligence_comparison_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/agent-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Audit Agent Grounding
+         * @description Audit agent proposal for hallucinated facts and evidence citations.
+         */
+        post: operations["audit_agent_grounding_api_v1_validation_agent_audit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/pilot-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Pilot Validation Report
+         * @description Generate the canonical CFO/COO Pilot Validation Report.
+         */
+        post: operations["generate_pilot_validation_report_api_v1_validation_pilot_report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/portfolio-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Portfolio Summary
+         * @description Retrieve cumulative ROI and win rate across all evaluated partner incidents.
+         */
+        get: operations["get_portfolio_summary_api_v1_validation_portfolio_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation/observability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Observability Dashboard
+         * @description Retrieve operational dashboard: Is Cortex Becoming More Correct?
+         */
+        get: operations["get_observability_dashboard_api_v1_validation_observability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/deliberate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Deliberation
+         * @description Execute a 3-round multi-agent deliberation across domain specialist agents.
+         */
+        post: operations["run_deliberation_api_v1_agents_deliberate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Agents
+         * @description List all registered specialist agents and their functional roles.
+         */
+        get: operations["list_agents_api_v1_agents_registry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tools
+         * @description List all available tools governed by the tool registry.
+         */
+        get: operations["list_tools_api_v1_agents_tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/tools/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute Tool
+         * @description Execute a tool through the capability and audit boundary.
+         */
+        post: operations["execute_tool_api_v1_agents_tools_execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Conversations
+         * @description List past multi-agent deliberations in the current workspace.
+         */
+        get: operations["list_conversations_api_v1_agents_conversations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Conversation
+         * @description Retrieve full details of a specific deliberation conversation.
+         */
+        get: operations["get_conversation_api_v1_agents_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/decision-room/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision Room Timeline
+         * @description Retrieve formatted Decision Room message trace timeline for frontend UI.
+         */
+        get: operations["get_decision_room_timeline_api_v1_agents_decision_room__conversation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/infer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute Inference
+         * @description Execute AI model inference via the unified gateway with safety fallback.
+         */
+        post: operations["execute_inference_api_v1_ai_infer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Models
+         * @description List registered AI models, validation scores, and deployment targets.
+         */
+        get: operations["list_models_api_v1_ai_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/models/{model_id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote Model
+         * @description Promote a validated shadow model to active production serving.
+         */
+        post: operations["promote_model_api_v1_ai_models__model_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/models/{model_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rollback Model
+         * @description Rollback an active deployment to the previous stable release.
+         */
+        post: operations["rollback_model_api_v1_ai_models__model_id__rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/baselines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Baselines
+         * @description List registered deterministic baselines used for high-availability fallbacks.
+         */
+        get: operations["list_baselines_api_v1_ai_baselines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/realtime/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Realtime Stats
+         * @description Retrieve real-time gateway connection statistics (operator role required).
+         */
+        get: operations["get_realtime_stats_api_v1_realtime_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/fleet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Agent Fleet
+         * @description Retrieve full agent fleet topology, artifacts, and running replicas.
+         */
+        get: operations["get_agent_fleet_api_v1_agents_fleet_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/train": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Train Agent
+         * @description Launch centralized CTDE training run with Central Critic evaluation.
+         */
+        post: operations["train_agent_api_v1_agents_train_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evaluate Agent
+         * @description Run 10-phase behavioral and safety promotion gate on trained artifact.
+         */
+        post: operations["evaluate_agent_api_v1_agents_evaluate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deploy Agent Replicas
+         * @description Deploy and scale decentralized agent replicas across worker nodes.
+         */
+        post: operations["deploy_agent_replicas_api_v1_agents_deploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/canary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Configure Canary
+         * @description Configure progressive canary traffic split between baseline and candidate version.
+         */
+        post: operations["configure_canary_api_v1_agents_canary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/supervise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Supervision Cycle
+         * @description Trigger autonomous supervisory cycle to detect and hot-replace degraded replicas.
+         */
+        post: operations["run_supervision_cycle_api_v1_agents_supervise_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/inject-degradation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inject Simulated Degradation
+         * @description Inject simulated behavioral drift or infra faults into a replica for chaos testing.
+         */
+        post: operations["inject_simulated_degradation_api_v1_agents_inject_degradation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create And Execute Task
+         * @description Executes a complete 4-family multi-agent task graph on the Nexus Multi-Agent OS.
+         */
+        post: operations["create_and_execute_task_api_v1_agents_tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Task Graph
+         * @description Returns details and step execution trace of a specific task graph.
+         */
+        get: operations["get_task_graph_api_v1_agents_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/manifests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Agent Capability Manifests
+         * @description Returns capability manifests and permission scopes for all 17 specialist agents.
+         */
+        get: operations["get_agent_capability_manifests_api_v1_agents_manifests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Workspace State
+         * @description Returns current workspace overview, loaded datasets, graph size, and active signals.
+         */
+        get: operations["get_workspace_state_api_v1_workspace_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/demo/load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load Demo Incident
+         * @description Loads the canonical 6-minute controlled demo dataset into the live backend workspace.
+         */
+        post: operations["load_demo_incident_api_v1_workspace_demo_load_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/ingest-raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Raw Table
+         * @description Dynamically ingests raw CSV table and expands the operational graph proportionally.
+         */
+        post: operations["ingest_raw_table_api_v1_workspace_ingest_raw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Dataset Files
+         * @description Multi-table CSV upload endpoint.
+         */
+        post: operations["upload_dataset_files_api_v1_workspace_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/graph/subgraph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Graph Subgraph
+         * @description Returns viewport-aware localized subgraph for high-performance canvas rendering.
+         */
+        get: operations["get_graph_subgraph_api_v1_workspace_graph_subgraph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/graph/critical-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Critical Nodes
+         * @description Returns ranked list of Single Points of Failure (SPOFs) and top PageRank hubs.
+         */
+        get: operations["get_critical_nodes_api_v1_workspace_graph_critical_nodes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Active Signals
+         * @description Returns detected operational anomaly signals and downstream blast radius exposure.
+         */
+        get: operations["get_active_signals_api_v1_workspace_signals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/deliberate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Agent Deliberation
+         * @description Runs the live Multi-Agent Decision Room and counterfactual simulations.
+         */
+        post: operations["trigger_agent_deliberation_api_v1_workspace_deliberate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/decisions/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision Evidence
+         * @description Returns the traversable Decision Evidence Graph with SHA-256 node hashes.
+         *
+         *     When ``decision_id`` is provided the lookup is fail-closed: evidence is
+         *     only ever returned if it belongs to exactly that decision — never to an
+         *     unrelated earlier or later decision.
+         */
+        get: operations["get_decision_evidence_api_v1_workspace_decisions_evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/decisions/validity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision Validity
+         * @description Returns whether the latest decision is valid or invalidated by world state mutation.
+         */
+        get: operations["get_decision_validity_api_v1_workspace_decisions_validity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/query/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Workspace Question
+         * @description Natural-language data interrogation and evidence-backed answer generation.
+         */
+        post: operations["ask_workspace_question_api_v1_workspace_query_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/query/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Query Readiness
+         * @description Preflight answerability check answering 'Can I answer this?' before execution.
+         */
+        get: operations["check_query_readiness_api_v1_workspace_query_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/append-stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Append Stream Event
+         * @description Injects live streaming event to mutate the operational graph via GraphDeltaEngine.
+         */
+        post: operations["append_stream_event_api_v1_workspace_append_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/graph/delta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Graph Deltas
+         * @description Returns list of incremental graph deltas since specified graph version.
+         */
+        get: operations["get_graph_deltas_api_v1_workspace_graph_delta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspace/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Workspace Events
+         * @description Server-Sent Events channel for live workspace reconciliation.
+         *
+         *     Emits:
+         *     - ``graph_delta``  — fired when the delta engine records new mutations;
+         *       payload includes ``seq`` (E1 monotonic per-engine sequence number)
+         *       and the canonical ``nodes_count`` / ``edges_count`` for client
+         *       reconciliation.
+         *     - ``heartbeat``    — periodic authoritative versions + graph size,
+         *       with the current ``seq`` so clients can detect missed events.
+         *     - ``resync``       — sent exactly once at connect time if the
+         *       client's ``since_seq`` is older than the oldest in-memory delta;
+         *       the client must do a full refresh on receipt.
+         */
+        get: operations["stream_workspace_events_api_v1_workspace_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/spine/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Spine
+         * @description Run the full Real Data Spine on uploaded CSV files.
+         *
+         *     Accepts either:
+         *     - Multiple CSV files uploaded directly (generic path)
+         *     - A path to an Olist data directory (adapter path, for testing)
+         *
+         *     Returns the full SpineResult with graph, signals, blast radius,
+         *     agent proposals, twin comparison, decision card, execution result,
+         *     and evidence DAG.
+         */
+        post: operations["run_spine_api_v1_spine_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_api_v1_workflo_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/sandboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Sandbox */
+        post: operations["create_sandbox_api_v1_workflo_sandboxes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/sandboxes/{sandbox_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inspect Sandbox */
+        get: operations["inspect_sandbox_api_v1_workflo_sandboxes__sandbox_id__get"];
+        put?: never;
+        post?: never;
+        /** Destroy Sandbox */
+        delete: operations["destroy_sandbox_api_v1_workflo_sandboxes__sandbox_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/sandboxes/{sandbox_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_api_v1_workflo_sandboxes__sandbox_id__files_get"];
+        put?: never;
+        /** Write File */
+        post: operations["write_file_api_v1_workflo_sandboxes__sandbox_id__files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/sandboxes/{sandbox_id}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read File */
+        get: operations["read_file_api_v1_workflo_sandboxes__sandbox_id__files_content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/sandboxes/{sandbox_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute */
+        post: operations["execute_api_v1_workflo_sandboxes__sandbox_id__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/agent/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Plan */
+        post: operations["agent_plan_api_v1_workflo_agent_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/agent/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Continue */
+        post: operations["agent_continue_api_v1_workflo_agent_continue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Run */
+        post: operations["create_run_api_v1_workflo_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_workflo_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/runs/{run_id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Run Artifacts */
+        get: operations["list_run_artifacts_api_v1_workflo_runs__run_id__artifacts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflo/runs/{run_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Events */
+        get: operations["stream_events_api_v1_workflo_runs__run_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decisions */
+        get: operations["list_decisions_api_v1_nexus_decisions_get"];
+        put?: never;
+        /** Create Decision */
+        post: operations["create_decision_api_v1_nexus_decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Decision */
+        get: operations["get_decision_api_v1_nexus_decisions__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Advance Decision */
+        post: operations["advance_decision_api_v1_nexus_decisions__decision_id__advance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute Decision
+         * @description Convenience: APPROVED -> AUTHORIZED -> EXECUTING -> EXECUTED.
+         */
+        post: operations["execute_decision_api_v1_nexus_decisions__decision_id__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Outcome */
+        post: operations["record_outcome_api_v1_nexus_decisions__decision_id__outcome_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Memory */
+        post: operations["record_memory_api_v1_nexus_decisions__decision_id__memory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/memory/analogous": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find Analogous */
+        post: operations["find_analogous_api_v1_nexus_memory_analogous_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/memory/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Memory */
+        get: operations["recent_memory_api_v1_nexus_memory_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/forecasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Forecast */
+        post: operations["record_forecast_api_v1_nexus_forecasts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Observation */
+        post: operations["record_observation_api_v1_nexus_observations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/calibration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Calibration */
+        get: operations["get_calibration_api_v1_nexus_calibration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/bias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Systematic Bias */
+        get: operations["get_systematic_bias_api_v1_nexus_bias_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/vanessa/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vanessa Ask */
+        post: operations["vanessa_ask_api_v1_nexus_vanessa_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -943,6 +3369,13 @@ export interface paths {
         /**
          * Readyz
          * @description Readiness probe — are dependencies healthy?
+         *
+         *     F2: composes the verdict from the four mandatory
+         *     dependency checks (db, redis, object_storage, audit
+         *     chain) in ``app.infrastructure.health``. The response
+         *     body lists every component state so the on-call
+         *     runbook can read the 503 cause from the payload
+         *     without checking logs.
          */
         get: operations["readyz_readyz_get"];
         put?: never;
@@ -977,6 +3410,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActionType
+         * @description Mitigation action types in the supply chain MDP.
+         * @enum {string}
+         */
+        ActionType: "noop" | "expedite_supplier" | "transfer_inventory" | "reroute_shipment" | "switch_supplier" | "adjust_production" | "prioritize_tier1";
         /** AffectedComponentBlock */
         AffectedComponentBlock: {
             /** Component Id */
@@ -1052,6 +3491,66 @@ export interface components {
             /** Coverage Days */
             coverage_days: number | null;
         };
+        /** AgentContinueRequest */
+        AgentContinueRequest: {
+            /** Run Id */
+            run_id?: string | null;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * AgentDomain
+         * @enum {string}
+         */
+        AgentDomain: "shipment_tracking" | "logistics_routing" | "inventory_allocation" | "procurement_sourcing" | "production_scheduling" | "executive_coordinator";
+        /** AgentGroundingAuditRequest */
+        AgentGroundingAuditRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Proposal */
+            proposal: {
+                [key: string]: unknown;
+            };
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** AgentPlanRequest */
+        AgentPlanRequest: {
+            /** Intent */
+            intent: string;
+            /** File Index */
+            file_index?: string[];
+        };
+        /** AnalogousRequest */
+        AnalogousRequest: {
+            /** Situation */
+            situation: string;
+            /**
+             * Limit
+             * @default 5
+             */
+            limit: number;
+            /**
+             * Min Similarity
+             * @default 0.1
+             */
+            min_similarity: number;
+        };
+        /** AskQuestionRequest */
+        AskQuestionRequest: {
+            /**
+             * Query
+             * @description Operational natural language question
+             */
+            query: string;
+        };
         /** AuditEventResponse */
         AuditEventResponse: {
             /** Event Id */
@@ -1076,6 +3575,25 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+        };
+        /** BatchSimulationRequest */
+        BatchSimulationRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Twin Id */
+            twin_id: string;
+            /** Scenario Ids */
+            scenario_ids: string[];
+            config?: components["schemas"]["SimulationConfigRequest"] | null;
+        };
+        /** BatchSimulationResponse */
+        BatchSimulationResponse: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Scenario Count */
+            scenario_count: number;
+            /** Results */
+            results: components["schemas"]["SimulationResultResponse"][];
         };
         /** BatchStatusResponse */
         BatchStatusResponse: {
@@ -1112,6 +3630,39 @@ export interface components {
              */
             workspace_id: string;
             settings?: components["schemas"]["Settings"] | null;
+        };
+        /** Body_run_spine_api_v1_spine_run_post */
+        Body_run_spine_api_v1_spine_run_post: {
+            /**
+             * Workspace Id
+             * @default
+             */
+            workspace_id: string;
+            /**
+             * Organization Id
+             * @default
+             */
+            organization_id: string;
+            /**
+             * Files
+             * @default []
+             */
+            files: string[];
+            /**
+             * Use Olist Adapter
+             * @default false
+             */
+            use_olist_adapter: boolean;
+            /**
+             * Olist Data Dir
+             * @default
+             */
+            olist_data_dir: string;
+        };
+        /** Body_upload_dataset_files_api_v1_workspace_upload_post */
+        Body_upload_dataset_files_api_v1_workspace_upload_post: {
+            /** Files */
+            files: string[];
         };
         /** Body_upload_source_file_api_v1_sources_upload_post */
         Body_upload_source_file_api_v1_sources_upload_post: {
@@ -1163,6 +3714,20 @@ export interface components {
             /** Claim State */
             claim_state: string;
         };
+        /** CloseLoopRequest */
+        CloseLoopRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Plan */
+            plan: {
+                [key: string]: unknown;
+            };
+            operator_decision: components["schemas"]["OperatorDecision"];
+            /** Actual Outcome Revenue Saved Usd */
+            actual_outcome_revenue_saved_usd?: number | null;
+        };
         /** CompilationResponse */
         CompilationResponse: {
             /** Snapshot Id */
@@ -1197,6 +3762,22 @@ export interface components {
             /** Formula */
             formula: string;
         };
+        /** ConfigureCanaryRequest */
+        ConfigureCanaryRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Candidate Version */
+            candidate_version: string;
+            /** Baseline Version */
+            baseline_version: string;
+            /**
+             * Canary Pct
+             * @default 10
+             */
+            canary_pct: number;
+            /** Workspace Id */
+            workspace_id: string;
+        };
         /** ConflictResponse */
         ConflictResponse: {
             /** Conflict Id */
@@ -1215,6 +3796,221 @@ export interface components {
             status: string;
             /** Explanation */
             explanation: string;
+        };
+        /** CreatePlanRequest */
+        CreatePlanRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            action_type: components["schemas"]["ActionType"];
+            /** Entity Id */
+            entity_id: string;
+            /**
+             * Quantity
+             * @default 0
+             */
+            quantity: number;
+            /** Target Entity Id */
+            target_entity_id?: string | null;
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
+            /** Objective */
+            objective: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** CreateRuleRequest */
+        CreateRuleRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            trigger: components["schemas"]["RuleTriggerRequest"];
+            action: components["schemas"]["RuleAction"];
+            /** @default medium */
+            severity: components["schemas"]["RuleSeverity"];
+            /** Action Params */
+            action_params?: {
+                [key: string]: unknown;
+            };
+            /** Tags */
+            tags?: string[];
+        };
+        /** CreateScenarioRequest */
+        CreateScenarioRequest: {
+            /** Template Id */
+            template_id: string;
+            /** Parameters */
+            parameters?: {
+                [key: string]: unknown;
+            };
+        };
+        /** CreateTaskRequest */
+        CreateTaskRequest: {
+            /**
+             * Incident Entity Id
+             * @description Entity causing disruption
+             * @default seller_01a00b8e99
+             */
+            incident_entity_id: string;
+            /**
+             * World State Version
+             * @description Authoritative world state version
+             * @default 101
+             */
+            world_state_version: number;
+            /**
+             * Origin
+             * @description Origin hub / city
+             * @default SP
+             */
+            origin: string;
+            /**
+             * Destination
+             * @description Destination hub / city
+             * @default RJ
+             */
+            destination: string;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /** CreateTwinRequest */
+        CreateTwinRequest: {
+            /** Organization Id */
+            organization_id?: string | null;
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Tags */
+            tags?: string[];
+        };
+        /** CreateWorldStateRequest */
+        CreateWorldStateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Graph Version
+             * @default 1
+             */
+            graph_version: number;
+            /** Initial Variables */
+            initial_variables?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** CriticalNodesRequest */
+        CriticalNodesRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Top K
+             * @default 10
+             */
+            top_k: number;
+        };
+        /** DataReadinessAuditRequest */
+        DataReadinessAuditRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Suppliers */
+            suppliers: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Components
+             * @default []
+             */
+            components: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Bill Of Materials
+             * @default []
+             */
+            bill_of_materials: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Warehouses
+             * @default []
+             */
+            warehouses: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Inventory Levels
+             * @default []
+             */
+            inventory_levels: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Factories
+             * @default []
+             */
+            factories: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Purchase Orders
+             * @default []
+             */
+            purchase_orders: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** DecisionAdvanceRequest */
+        DecisionAdvanceRequest: {
+            /** Target Phase */
+            target_phase: string;
+            /** Reason */
+            reason?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Expected World State Version */
+            expected_world_state_version?: number | null;
+            /** Expected World State Hash */
+            expected_world_state_hash?: string | null;
+            /** Chosen Option */
+            chosen_option?: string | null;
         };
         /** DecisionBriefResponse */
         DecisionBriefResponse: {
@@ -1241,6 +4037,40 @@ export interface components {
             ranking_formula: string;
             /** Failures */
             failures?: string[];
+        };
+        /** DecisionCreateRequest */
+        DecisionCreateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /**
+             * Proposal Id
+             * @default
+             */
+            proposal_id: string;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            }[];
+            /** Recommended Option Id */
+            recommended_option_id?: string | null;
+            /** Chosen Option */
+            chosen_option?: string | null;
+            /** Situation */
+            situation?: string | null;
+            /** Policy Id */
+            policy_id?: string | null;
+            /**
+             * World State Version
+             * @default 0
+             */
+            world_state_version: number;
+            /**
+             * World State Hash
+             * @default
+             */
+            world_state_hash: string;
+            /** Tags */
+            tags?: string[];
         };
         /**
          * DecisionExportResponse
@@ -1279,6 +4109,28 @@ export interface components {
             exported_at: string;
             /** Export Version */
             export_version: string;
+        };
+        /** DecisionOutcomeRequest */
+        DecisionOutcomeRequest: {
+            /** Outcome Payload */
+            outcome_payload?: {
+                [key: string]: unknown;
+            };
+            /** Actual Nev */
+            actual_nev?: number | null;
+            /** Actual Sla */
+            actual_sla?: number | null;
+            /** Actual Cost */
+            actual_cost?: number | null;
+            /**
+             * Outcome Status
+             * @default succeeded
+             */
+            outcome_status: string;
+            /** Financial Impact */
+            financial_impact?: number | null;
+            /** Actual Result Text */
+            actual_result_text?: string | null;
         };
         /**
          * DecisionRecordResponse
@@ -1383,6 +4235,53 @@ export interface components {
             /** Last Lesson At */
             last_lesson_at: string | null;
         };
+        /** DeliberationRequest */
+        DeliberationRequest: {
+            /**
+             * Task Type
+             * @description Task type discriminator
+             * @default disruption_mitigation
+             */
+            task_type: string;
+            /**
+             * Description
+             * @description Operational incident or problem description
+             */
+            description: string;
+            /**
+             * World State Version
+             * @description Target world state version
+             * @default 1
+             */
+            world_state_version: number;
+            /**
+             * Priority
+             * @description Task priority (LOW, NORMAL, HIGH, CRITICAL)
+             * @default NORMAL
+             */
+            priority: string;
+            /** Scenario Id */
+            scenario_id?: string | null;
+            /** Target Disruption Id */
+            target_disruption_id?: string | null;
+        };
+        /** DeployReplicasRequest */
+        DeployReplicasRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Version */
+            version: string;
+            /**
+             * Workspace Id
+             * @default ws_default
+             */
+            workspace_id: string;
+            /**
+             * Replica Count
+             * @default 2
+             */
+            replica_count: number;
+        };
         /** DiffRequest */
         DiffRequest: {
             /** From Snapshot Id */
@@ -1390,6 +4289,23 @@ export interface components {
             /** To Snapshot Id */
             to_snapshot_id: string;
         };
+        /** DispatchPlanRequest */
+        DispatchPlanRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Plan */
+            plan: {
+                [key: string]: unknown;
+            };
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+        };
+        /**
+         * DisruptionType
+         * @description Historical and real-time operational disruption categories.
+         * @enum {string}
+         */
+        DisruptionType: "supplier_delay" | "supplier_bankruptcy" | "factory_outage" | "transit_closure" | "inventory_shortage" | "demand_spike";
         /** EdgeResponse */
         EdgeResponse: {
             /** Edge Id */
@@ -1408,6 +4324,62 @@ export interface components {
             first_seen_version: number;
             /** Last Modified Version */
             last_modified_version: number;
+        };
+        /** EvaluateAgentRequest */
+        EvaluateAgentRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Version */
+            version: string;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /** EvaluateRequest */
+        EvaluateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Version */
+            version?: number | null;
+            /** Rule Ids */
+            rule_ids?: string[];
+            /** Constraint Ids */
+            constraint_ids?: string[];
+            /** Sla Ids */
+            sla_ids?: string[];
+        };
+        /** EvaluateResponse */
+        EvaluateResponse: {
+            /** State Hash */
+            state_hash: string;
+            /** Total Rules Evaluated */
+            total_rules_evaluated: number;
+            /** Total Constraints Evaluated */
+            total_constraints_evaluated: number;
+            /** Total Slas Evaluated */
+            total_slas_evaluated: number;
+            /** Fired Rules */
+            fired_rules: {
+                [key: string]: unknown;
+            }[];
+            /** Constraint Violations */
+            constraint_violations: {
+                [key: string]: unknown;
+            }[];
+            /** Sla Breaches */
+            sla_breaches: {
+                [key: string]: unknown;
+            }[];
+            /** Has Blocking Violations */
+            has_blocking_violations: boolean;
+        };
+        /** ExecuteRequest */
+        ExecuteRequest: {
+            /** Command */
+            command: string;
+            /** Timeout S */
+            timeout_s?: number | null;
         };
         /** FeatureSnapshotResponse */
         FeatureSnapshotResponse: {
@@ -1446,6 +4418,13 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** FileWriteRequest */
+        FileWriteRequest: {
+            /** Path */
+            path: string;
+            /** Content Base64 */
+            content_base64: string;
+        };
         /** FindPathsRequest */
         FindPathsRequest: {
             /** Source Id */
@@ -1465,10 +4444,151 @@ export interface components {
             /** Relationship Type */
             relationship_type?: string | null;
         };
+        /** ForecastCreateRequest */
+        ForecastCreateRequest: {
+            /** Forecast Id */
+            forecast_id?: string | null;
+            /** Sku */
+            sku: string;
+            /** P50 */
+            p50: number;
+            /** P80 */
+            p80: number;
+            /** P95 */
+            p95: number;
+            /** Mean */
+            mean: number;
+            /** Std Dev */
+            std_dev: number;
+            /** Supplier Id */
+            supplier_id?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Product Family */
+            product_family?: string | null;
+            /**
+             * Model Version
+             * @default baseline-v1
+             */
+            model_version: string;
+            /**
+             * World State Version
+             * @default 0
+             */
+            world_state_version: number;
+            /**
+             * Horizon Days
+             * @default 14
+             */
+            horizon_days: number;
+        };
+        /** ForkTwinRequest */
+        ForkTwinRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Source Twin Id */
+            source_twin_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** GNNBenchmarkRequest */
+        GNNBenchmarkRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            task_type: components["schemas"]["GNNTaskType"];
+            /** Target Entity Id */
+            target_entity_id?: string | null;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** GNNEvaluationRequest */
+        GNNEvaluationRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /**
+         * GNNTaskType
+         * @description GNN operational and intelligence task types.
+         * @enum {string}
+         */
+        GNNTaskType: "embedding" | "supplier_similarity" | "critical_node" | "link_prediction" | "risk_propagation";
+        /** GeneratePilotReportRequest */
+        GeneratePilotReportRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Incident Title */
+            incident_title: string;
+            /** Data Source Summary */
+            data_source_summary: string;
+            /** Predicted Revenue Risk Usd */
+            predicted_revenue_risk_usd: number;
+            /** Actual Revenue Loss Usd */
+            actual_revenue_loss_usd: number;
+            /** Predicted Stockout Hours */
+            predicted_stockout_hours: number;
+            /** Actual Stockout Hours */
+            actual_stockout_hours: number;
+            /** Predicted Orders Impacted */
+            predicted_orders_impacted: number;
+            /** Actual Orders Impacted */
+            actual_orders_impacted: number;
+            /** Predicted Recovery Days */
+            predicted_recovery_days: number;
+            /** Actual Recovery Days */
+            actual_recovery_days: number;
+            /** Cortex Action Name */
+            cortex_action_name: string;
+            /** Cortex Cost Usd */
+            cortex_cost_usd: number;
+            /** Cortex Protected Revenue Usd */
+            cortex_protected_revenue_usd: number;
+            /** Human Action Name */
+            human_action_name: string;
+            /** Human Cost Usd */
+            human_cost_usd: number;
+            /** Human Protected Revenue Usd */
+            human_protected_revenue_usd: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HiddenDependenciesRequest */
+        HiddenDependenciesRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Max Discoveries
+             * @default 15
+             */
+            max_discoveries: number;
         };
         /** ImpactSummaryResponse */
         ImpactSummaryResponse: {
@@ -1492,6 +4612,108 @@ export interface components {
             avg_confidence: number;
             /** Min Confidence */
             min_confidence: number;
+        };
+        /** InferenceApiRequest */
+        InferenceApiRequest: {
+            /**
+             * Task
+             * @description Task type (e.g. SUPPLIER_SIMILARITY, CRITICAL_NODE_DETECTION, RISK_PROPAGATION, POLICY_OPTIMIZATION)
+             */
+            task: string;
+            /** Input Data */
+            input_data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * World State Version
+             * @default 1
+             */
+            world_state_version: number;
+            /** Model Version */
+            model_version?: string | null;
+            /**
+             * Enable Shadow
+             * @default false
+             */
+            enable_shadow: boolean;
+            /**
+             * Fallback To Deterministic
+             * @default true
+             */
+            fallback_to_deterministic: boolean;
+        };
+        /** IngestContractRequest */
+        IngestContractRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Suppliers */
+            suppliers: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Components
+             * @default []
+             */
+            components: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Bill Of Materials
+             * @default []
+             */
+            bill_of_materials: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Warehouses
+             * @default []
+             */
+            warehouses: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Inventory Levels
+             * @default []
+             */
+            inventory_levels: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Factories
+             * @default []
+             */
+            factories: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Purchase Orders
+             * @default []
+             */
+            purchase_orders: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** IngestRawRequest */
+        IngestRawRequest: {
+            /**
+             * Table Name
+             * @description Table name (e.g. orders, sellers, customers, order_items)
+             */
+            table_name: string;
+            /**
+             * Csv Content
+             * @description Raw CSV content string
+             */
+            csv_content: string;
+            /** Primary Key */
+            primary_key?: string | null;
+            /**
+             * Max Rows
+             * @default 5000
+             */
+            max_rows: number;
         };
         /** IngestionAccepted */
         IngestionAccepted: {
@@ -1554,6 +4776,25 @@ export interface components {
              * @description Truncated for response
              */
             errors?: unknown[];
+        };
+        /** InjectDegradationRequest */
+        InjectDegradationRequest: {
+            /** Replica Id */
+            replica_id: string;
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Prediction Drift Score
+             * @default 0.65
+             */
+            prediction_drift_score: number;
+            /**
+             * Error Rate Pct
+             * @default 0
+             */
+            error_rate_pct: number;
+            /** Workspace Id */
+            workspace_id: string;
         };
         /** IntegrityResponse */
         IntegrityResponse: {
@@ -1745,6 +4986,26 @@ export interface components {
             /** Last Modified Version */
             last_modified_version: number;
         };
+        /** ObservationCreateRequest */
+        ObservationCreateRequest: {
+            /** Forecast Id */
+            forecast_id: string;
+            /** Sku */
+            sku: string;
+            /** Actual Value */
+            actual_value: number;
+            /** Observed At */
+            observed_at?: string | null;
+            /**
+             * Observation Type
+             * @default demand
+             */
+            observation_type: string;
+            /** Supplier Id */
+            supplier_id?: string | null;
+            /** Region */
+            region?: string | null;
+        };
         /**
          * OperationalStateUpsertRequest
          * @description Validated operational-state payload from an approved upstream connector.
@@ -1767,6 +5028,28 @@ export interface components {
             node_id: string;
             /** State Type */
             state_type: string;
+        };
+        /**
+         * OperatorDecision
+         * @description Human-in-the-loop operator actions.
+         * @enum {string}
+         */
+        OperatorDecision: "approve" | "reject" | "modify" | "simulate_alternative";
+        /** OperatorDecisionRequest */
+        OperatorDecisionRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Plan */
+            plan: {
+                [key: string]: unknown;
+            };
+            decision: components["schemas"]["OperatorDecision"];
+            /** Modifications */
+            modifications?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * OutcomeRequestModel
@@ -1834,6 +5117,56 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
+        };
+        /** PlanActionRequest */
+        PlanActionRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Plan */
+            plan: {
+                [key: string]: unknown;
+            };
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** PlaybookResponse */
+        PlaybookResponse: {
+            /** Playbook Id */
+            playbook_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Step Count */
+            step_count: number;
+            /** Severity */
+            severity: string;
+            /** Estimated Total Duration Minutes */
+            estimated_total_duration_minutes: number;
+        };
+        /** PolicyResponse */
+        PolicyResponse: {
+            /** Policy Id */
+            policy_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Domain */
+            domain: string;
+            /** Rule Count */
+            rule_count: number;
+            /** Constraint Count */
+            constraint_count: number;
+            /** Sla Count */
+            sla_count: number;
+            /** Playbook Count */
+            playbook_count: number;
         };
         /** PropagationBlock */
         PropagationBlock: {
@@ -1969,6 +5302,52 @@ export interface components {
             source_node_type: string;
             /** Steps */
             steps: components["schemas"]["PropagationStepResponse"][];
+        };
+        /** RLActionRequest */
+        RLActionRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** RLBenchmarkRequest */
+        RLBenchmarkRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Episodes
+             * @default 3
+             */
+            episodes: number;
+        };
+        /** RLRolloutRequest */
+        RLRolloutRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Max Steps
+             * @default 10
+             */
+            max_steps: number;
         };
         /**
          * RankedRecommendationResponse
@@ -2296,6 +5675,32 @@ export interface components {
             /** Quantified Loss */
             quantified_loss?: number | null;
         };
+        /** ReplayRequest */
+        ReplayRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Target Version */
+            target_version?: number | null;
+        };
+        /** ReplayResponse */
+        ReplayResponse: {
+            /** World Id */
+            world_id: string;
+            /** Version */
+            version: number;
+            /** Variables */
+            variables: components["schemas"]["StateVariableResponse"][];
+            /** State Hash */
+            state_hash: string;
+            /** Reconstruction Method */
+            reconstruction_method: string;
+            /** Transitions Replayed */
+            transitions_replayed: number;
+            /** Snapshot Used */
+            snapshot_used?: string | null;
+        };
         /**
          * ResolveRequest
          * @description Payload for conflict resolution.
@@ -2314,6 +5719,211 @@ export interface components {
             action: "approved" | "rejected" | "deferred" | "merge";
             /** Rationale */
             rationale: string;
+        };
+        /** RiskPropagationRequest */
+        RiskPropagationRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Epicenter Entity Id */
+            epicenter_entity_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Horizon Ticks
+             * @default 7
+             */
+            horizon_ticks: number;
+            /**
+             * Initial Severity Pct
+             * @default 100
+             */
+            initial_severity_pct: number;
+        };
+        /** RollbackRequest */
+        RollbackRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Target Version */
+            target_version: number;
+            /** Reason */
+            reason: string;
+        };
+        /** RollbackResponse */
+        RollbackResponse: {
+            /** New Version */
+            new_version: number;
+            /** Rolled Back From Version */
+            rolled_back_from_version: number;
+            /** Rolled Back To Version */
+            rolled_back_to_version: number;
+            /** Events Appended */
+            events_appended: number;
+            state: components["schemas"]["WorldStateResponse"];
+        };
+        /**
+         * RuleAction
+         * @description Actions a rule can take when triggered.
+         * @enum {string}
+         */
+        RuleAction: "notify" | "warn" | "block" | "expedite" | "escalate" | "auto_approve" | "auto_reject" | "trigger_playbook";
+        /** RuleConditionRequest */
+        RuleConditionRequest: {
+            /** Variable Id */
+            variable_id: string;
+            /** Operator */
+            operator: string;
+            /** Value */
+            value: unknown;
+        };
+        /** RuleResponse */
+        RuleResponse: {
+            /** Rule Id */
+            rule_id: string;
+            /** Workspace Id */
+            workspace_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Action */
+            action: string;
+            /** Severity */
+            severity: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Tags */
+            tags: string[];
+        };
+        /**
+         * RuleSeverity
+         * @description Severity of a rule violation or trigger.
+         * @enum {string}
+         */
+        RuleSeverity: "info" | "low" | "medium" | "high" | "critical";
+        /** RuleTriggerRequest */
+        RuleTriggerRequest: {
+            /** Conditions */
+            conditions: components["schemas"]["RuleConditionRequest"][];
+            /**
+             * Combinator
+             * @default and
+             */
+            combinator: string;
+        };
+        /** RunCreateRequest */
+        RunCreateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /**
+             * Name
+             * @default run
+             */
+            name: string;
+            /**
+             * Intent
+             * @default
+             */
+            intent: string;
+            /** Files */
+            files?: components["schemas"]["FileWriteRequest"][];
+            /** Command */
+            command?: string | null;
+        };
+        /** RunResultResponse */
+        RunResultResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Twin Id */
+            twin_id: string;
+            /** Scenario Id */
+            scenario_id: string;
+            /** Final State Hash */
+            final_state_hash: string;
+            /** Final Version */
+            final_version: number;
+            /** Events Processed */
+            events_processed: number;
+            /** Metrics */
+            metrics: {
+                [key: string]: number;
+            };
+            /** Comparison */
+            comparison: {
+                [key: string]: unknown;
+            } | null;
+            /** Timeline */
+            timeline: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+        };
+        /** RunScenarioRequest */
+        RunScenarioRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Twin Id */
+            twin_id: string;
+            /** Scenario Id */
+            scenario_id?: string | null;
+            custom_scenario?: components["schemas"]["TwinScenario"] | null;
+            /** Inject Events */
+            inject_events?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+        };
+        /** RunSimulationRequest */
+        RunSimulationRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Twin Id */
+            twin_id: string;
+            /** Scenario Id */
+            scenario_id: string;
+            config?: components["schemas"]["SimulationConfigRequest"] | null;
+        };
+        /** SLAResponse */
+        SLAResponse: {
+            /** Sla Id */
+            sla_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Metric Name */
+            metric_name: string;
+            /** Target Value */
+            target_value: number;
+            /** Comparison */
+            comparison: string;
+            /** Customer Facing */
+            customer_facing: boolean;
+        };
+        /** SandboxCreateRequest */
+        SandboxCreateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Name */
+            name: string;
+            /** Policy */
+            policy?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ScenarioAssumptionResponse */
         ScenarioAssumptionResponse: {
@@ -2457,6 +6067,21 @@ export interface components {
              */
             dry_run: boolean;
         };
+        /** ScenarioResponse */
+        ScenarioResponse: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Scenario Type */
+            scenario_type: string;
+            /** Events */
+            events: {
+                [key: string]: unknown;
+            }[];
+        };
         /** ScenarioSnapshotResponse */
         ScenarioSnapshotResponse: {
             /** Scenario Id */
@@ -2534,6 +6159,12 @@ export interface components {
             max_service_level_impact_pct: number;
         };
         /**
+         * ScenarioType
+         * @description Predefined scenario types for common disruptions.
+         * @enum {string}
+         */
+        ScenarioType: "supplier_failure" | "supplier_delay" | "inventory_shortage" | "demand_spike" | "route_disruption" | "capacity_reduction" | "port_closure" | "factory_fire" | "labor_strike" | "cyber_attack" | "pandemic" | "weather" | "pricing_shock" | "currency_shock" | "custom";
+        /**
          * Settings
          * @description Runtime configuration loaded from environment. No silent defaults.
          */
@@ -2558,6 +6189,7 @@ export interface components {
             /**
              * Db Dsn
              * @description PostgreSQL async DSN
+             * @default sqlite+aiosqlite:///./cortex_dev.db
              */
             db_dsn: string;
             /**
@@ -2740,6 +6372,26 @@ export interface components {
              */
             jwt_expiry_minutes: number;
             /**
+             * Cors Allowed Origins
+             * @description Allowed CORS origins (comma-separated)
+             */
+            cors_allowed_origins?: string[];
+            /** Cors Allowed Methods */
+            cors_allowed_methods?: string[];
+            /** Cors Allowed Headers */
+            cors_allowed_headers?: string[];
+            /**
+             * Cors Allow Credentials
+             * @default true
+             */
+            cors_allow_credentials: boolean;
+            /**
+             * Nexus V07 Legacy Routes
+             * @description Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* (default False). Never enable in production.
+             * @default false
+             */
+            nexus_v07_legacy_routes: boolean;
+            /**
              * Feature Flags
              * @description Feature flag toggles. Each flag is a boolean.
              */
@@ -2813,6 +6465,82 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** SimulationConfigRequest */
+        SimulationConfigRequest: {
+            /** @default day */
+            tick_granularity: components["schemas"]["TickGranularity"];
+            /**
+             * Max Ticks
+             * @default 30
+             */
+            max_ticks: number;
+            /**
+             * Include Recovery
+             * @default true
+             */
+            include_recovery: boolean;
+            /**
+             * Recovery Ticks
+             * @default 7
+             */
+            recovery_ticks: number;
+            /** Random Seed */
+            random_seed?: number | null;
+        };
+        /** SimulationResultResponse */
+        SimulationResultResponse: {
+            /** Simulation Id */
+            simulation_id: string;
+            /** Twin Id */
+            twin_id: string;
+            /** Scenario Id */
+            scenario_id: string;
+            /** Status */
+            status: string;
+            /** Ticks Executed */
+            ticks_executed: number;
+            /** Final State Hash */
+            final_state_hash: string;
+            /** Final Version */
+            final_version: number;
+            /** Timeline */
+            timeline: components["schemas"]["SimulationTickResponse"][];
+            /** Final Metrics */
+            final_metrics: {
+                [key: string]: number;
+            };
+            /** Baseline Metrics */
+            baseline_metrics: {
+                [key: string]: number;
+            };
+            /** Impact */
+            impact: {
+                [key: string]: unknown;
+            } | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Duration Ms */
+            duration_ms: number | null;
+        };
+        /** SimulationTickResponse */
+        SimulationTickResponse: {
+            /** Tick Id */
+            tick_id: string;
+            /** Tick Number */
+            tick_number: number;
+            /** Simulated Time */
+            simulated_time: string;
+            /** State Hash */
+            state_hash: string;
+            /** Metrics */
+            metrics: {
+                [key: string]: number;
+            };
+            /** Event Count */
+            event_count: number;
+        };
         /** SnapshotResponse */
         SnapshotResponse: {
             /** Snapshot Id */
@@ -2831,6 +6559,102 @@ export interface components {
             source_batch_id: string | null;
             /** Sealed At */
             sealed_at: string;
+        };
+        /**
+         * SpineRunResponse
+         * @description Response body for spine run.
+         */
+        SpineRunResponse: {
+            /** Spine Result */
+            spine_result: {
+                [key: string]: unknown;
+            };
+        };
+        /** StateDiffResponse */
+        StateDiffResponse: {
+            /** From Version */
+            from_version: number;
+            /** To Version */
+            to_version: number;
+            /** Variables Added */
+            variables_added: string[];
+            /** Variables Removed */
+            variables_removed: string[];
+            /** Variables Changed */
+            variables_changed: string[];
+            /** Summary */
+            summary: {
+                [key: string]: unknown;
+            };
+        };
+        /** StateVariableResponse */
+        StateVariableResponse: {
+            /** Variable Id */
+            variable_id: string;
+            /** Variable Type */
+            variable_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Value */
+            value: unknown;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** StreamEventRequest */
+        StreamEventRequest: {
+            /**
+             * Event Type
+             * @description e.g. ORDER_PLACED, SELLER_DEGRADATION
+             */
+            event_type: string;
+            /**
+             * Payload
+             * @description Structured event payload
+             */
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        /** SubmitEventRequest */
+        SubmitEventRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+            /** Caused By Event Id */
+            caused_by_event_id?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** SubmitEventResponse */
+        SubmitEventResponse: {
+            /** Event Id */
+            event_id: string;
+            /** Version Id */
+            version_id: string;
+            /** Version */
+            version: number;
+            /** Is Snapshot Created */
+            is_snapshot_created: boolean;
+            /** Is Duplicate */
+            is_duplicate: boolean;
+            state: components["schemas"]["WorldStateResponse"];
         };
         /** SupplierBlock */
         SupplierBlock: {
@@ -2863,6 +6687,56 @@ export interface components {
              */
             severity: string;
         };
+        /** SupplierSimilarityRequest */
+        SupplierSimilarityRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Target Supplier Id */
+            target_supplier_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Top K
+             * @default 5
+             */
+            top_k: number;
+        };
+        /** TemporalBacktestRequest */
+        TemporalBacktestRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Pre Event World Id */
+            pre_event_world_id: string;
+            /** Incident Name */
+            incident_name: string;
+            disruption_type: components["schemas"]["DisruptionType"];
+            /** Disrupted Entity Id */
+            disrupted_entity_id: string;
+            /** Ground Truth Actual Revenue Loss Usd */
+            ground_truth_actual_revenue_loss_usd: number;
+            /** Ground Truth Affected Products */
+            ground_truth_affected_products: string[];
+            /** Ground Truth Stockout Hours */
+            ground_truth_stockout_hours: number;
+            /** Ground Truth Recovery Days */
+            ground_truth_recovery_days: number;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /**
+         * TickGranularity
+         * @description Time granularity for simulation ticks.
+         * @enum {string}
+         */
+        TickGranularity: "hour" | "day" | "week" | "month";
         /** TimelineBlock */
         TimelineBlock: {
             /**
@@ -2887,6 +6761,44 @@ export interface components {
             description: string;
             /** Status */
             status: string;
+        };
+        /** ToolExecuteRequest */
+        ToolExecuteRequest: {
+            /** Tool Name */
+            tool_name: string;
+            /** Input Data */
+            input_data?: {
+                [key: string]: unknown;
+            };
+        };
+        /** TrainAgentRequest */
+        TrainAgentRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** @default shipment_tracking */
+            target_domain: components["schemas"]["AgentDomain"];
+            /**
+             * Target Version
+             * @default v8
+             */
+            target_version: string;
+            /**
+             * Dataset Version
+             * @default ds_logistics_2026_08
+             */
+            dataset_version: string;
+            /**
+             * Epochs
+             * @default 10
+             */
+            epochs: number;
+            /**
+             * Max Compute Budget Usd
+             * @default 25
+             */
+            max_compute_budget_usd: number;
+            /** Workspace Id */
+            workspace_id: string;
         };
         /** TraverseRequest */
         TraverseRequest: {
@@ -2923,6 +6835,82 @@ export interface components {
                 [key: string]: string | null;
             } | null;
         };
+        /** TwinResponse */
+        TwinResponse: {
+            /** Twin Id */
+            twin_id: string;
+            /** Organization Id */
+            organization_id: string;
+            /** Workspace Id */
+            workspace_id: string;
+            /** Parent World Id */
+            parent_world_id: string;
+            /** Parent Version */
+            parent_version: number;
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Fork Of Twin Id */
+            fork_of_twin_id: string | null;
+            /** Fork From Run Id */
+            fork_from_run_id: string | null;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Description */
+            description: string;
+            /** Tags */
+            tags: string[];
+            /** Lineage Hash */
+            lineage_hash: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+        };
+        /**
+         * TwinScenario
+         * @description A named scenario defining a sequence of injected events.
+         *
+         *     Scenarios can be:
+         *     - Predefined (ScenarioType enum)
+         *     - Custom (arbitrary event sequence)
+         *     - Parameterized (template with variables)
+         */
+        TwinScenario: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** @default custom */
+            scenario_type: components["schemas"]["ScenarioType"];
+            /** Events */
+            events?: {
+                [key: string]: unknown;
+            }[];
+            /** Parameters */
+            parameters?: {
+                [key: string]: unknown;
+            };
+            /** Tags */
+            tags?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
         /** UploadResponse */
         UploadResponse: {
             /** Batch Id */
@@ -2938,6 +6926,17 @@ export interface components {
             /** Profiling Scheduled */
             profiling_scheduled: boolean;
         };
+        /** ValidateStateRequest */
+        ValidateStateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /** Version */
+            version?: number | null;
+            /** Expected Hash */
+            expected_hash?: string | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -2950,6 +6949,43 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** ValidationIssueResponse */
+        ValidationIssueResponse: {
+            /** Issue Id */
+            issue_id: string;
+            /** Severity */
+            severity: string;
+            /** Rule */
+            rule: string;
+            /** Message */
+            message: string;
+            /** Affected Variables */
+            affected_variables: string[];
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+        };
+        /** ValidationResponse */
+        ValidationResponse: {
+            /** World Id */
+            world_id: string;
+            /** Version */
+            version: number;
+            /** Is Valid */
+            is_valid: boolean;
+            /** Rules Checked */
+            rules_checked: number;
+            /** Issues */
+            issues: components["schemas"]["ValidationIssueResponse"][];
+            /** Validated At */
+            validated_at: string;
+        };
+        /** VanessaAskRequest */
+        VanessaAskRequest: {
+            /** Query */
+            query: string;
         };
         /** WorkspaceFeaturesResponse */
         WorkspaceFeaturesResponse: {
@@ -2989,6 +7025,50 @@ export interface components {
             entity_type_counts: {
                 [key: string]: number;
             };
+        };
+        /** WorldStateResponse */
+        WorldStateResponse: {
+            /** World Id */
+            world_id: string;
+            /** Workspace Id */
+            workspace_id: string;
+            /** Version */
+            version: number;
+            /** Graph Version */
+            graph_version: number;
+            /** Variables */
+            variables: components["schemas"]["StateVariableResponse"][];
+            /** State Hash */
+            state_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+        };
+        /** DeliberateRequest */
+        app__api__v1__multi_agent__DeliberateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** DeliberateRequest */
+        app__api__v1__workspace__DeliberateRequest: {
+            /**
+             * Incident Entity Id
+             * @description Target entity ID to investigate
+             */
+            incident_entity_id?: string | null;
         };
     };
     responses: never;
@@ -4379,6 +8459,4273 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DecisionBriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_world_state_api_v1_world_state_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                world_id: string;
+                /** @description Specific version; defaults to latest */
+                version?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_world_state_api_v1_world_state_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorldStateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_world_history_api_v1_world_history_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                world_id: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_world_event_api_v1_world_event_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitEventResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_state_diff_api_v1_world_diff_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                world_id: string;
+                from_version: number;
+                to_version: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StateDiffResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replay_world_state_api_v1_world_replay_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollback_world_state_api_v1_world_rollback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RollbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RollbackResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_world_state_api_v1_world_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateStateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_world_events_api_v1_world_events_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                world_id: string;
+                entity_type?: string | null;
+                event_type?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_world_event_chain_api_v1_world_verify_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                world_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_twin_api_v1_twin_create_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTwinRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwinResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_twins_api_v1_twin_list_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_twin_by_id_api_v1_twin__twin_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwinResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    destroy_twin_api_v1_twin__twin_id__delete: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_scenario_api_v1_twin_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunScenarioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fork_twin_api_v1_twin_fork_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForkTwinRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwinResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_twin_api_v1_twin__twin_id__archive_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwinResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_scenario_from_template_api_v1_twin_scenario_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScenarioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_available_scenarios_api_v1_twin_scenarios_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                scenario_type?: string | null;
+                tag?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_twin_lineage_api_v1_twin__twin_id__lineage_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_twin_state_api_v1_twin__twin_id__state_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_twin_events_api_v1_twin__twin_id__events_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                run_id?: string | null;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_twin_results_api_v1_twin__twin_id__results_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                twin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_simulation_api_v1_simulation_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunSimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_batch_simulations_api_v1_simulation_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchSimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchSimulationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_simulation_result_api_v1_simulation_result__simulation_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                simulation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scenarios_api_v1_simulation_scenarios_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rules_api_v1_knowledge_rules_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                action?: string | null;
+                tag?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rule_api_v1_knowledge_rules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rule_api_v1_knowledge_rules__rule_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_constraints_api_v1_knowledge_constraints_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_playbooks_api_v1_knowledge_playbooks_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybookResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_slas_api_v1_knowledge_slas_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SLAResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_policies_api_v1_knowledge_policies_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluate_knowledge_api_v1_knowledge_evaluate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compute_embeddings_api_v1_gnn_embeddings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GNNEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_similar_suppliers_api_v1_gnn_similar_suppliers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierSimilarityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    predict_critical_nodes_api_v1_gnn_critical_nodes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CriticalNodesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detect_hidden_dependencies_api_v1_gnn_hidden_dependencies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HiddenDependenciesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forecast_risk_propagation_api_v1_gnn_risk_propagation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskPropagationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    benchmark_gnn_api_v1_gnn_benchmark_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GNNBenchmarkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recommend_action_api_v1_rl_recommend_action_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RLActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_rollout_api_v1_rl_rollout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RLRolloutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    benchmark_policy_api_v1_rl_benchmark_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RLBenchmarkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliberate_plan_api_v1_multi_agent_deliberate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__api__v1__multi_agent__DeliberateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_agents_api_v1_multi_agent_agents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    create_plan_api_v1_execution_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    simulate_gate_api_v1_execution_simulate_gate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_card_api_v1_execution_decision_card_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_operator_decision_api_v1_execution_decide_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dispatch_plan_api_v1_execution_dispatch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DispatchPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_loop_api_v1_execution_close_loop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseLoopRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decision_memory_api_v1_execution_memory_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_flywheel_report_api_v1_governance_flywheel_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_enterprise_data_readiness_api_v1_validation_data_readiness_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataReadinessAuditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_minimal_contract_api_v1_validation_ingest_contract_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestContractRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_temporal_backtest_api_v1_validation_backtest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemporalBacktestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_intelligence_tiers_api_v1_validation_intelligence_comparison_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_agent_grounding_api_v1_validation_agent_audit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentGroundingAuditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_pilot_validation_report_api_v1_validation_pilot_report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneratePilotReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_portfolio_summary_api_v1_validation_portfolio_summary_get: {
+        parameters: {
+            query: {
+                customer_name: string;
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_observability_dashboard_api_v1_validation_observability_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_deliberation_api_v1_agents_deliberate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-workspace-id"?: string;
+                "x-organization-id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliberationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_agents_api_v1_agents_registry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    list_tools_api_v1_agents_tools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    execute_tool_api_v1_agents_tools_execute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-workspace-id"?: string;
+                "x-organization-id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_v1_agents_conversations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-workspace-id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_conversation_api_v1_agents_conversations__conversation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_room_timeline_api_v1_agents_decision_room__conversation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_inference_api_v1_ai_infer_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-workspace-id"?: string;
+                "x-correlation-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InferenceApiRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_models_api_v1_ai_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    promote_model_api_v1_ai_models__model_id__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollback_model_api_v1_ai_models__model_id__rollback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_baselines_api_v1_ai_baselines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_realtime_stats_api_v1_realtime_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_agent_fleet_api_v1_agents_fleet_get: {
+        parameters: {
+            query: {
+                /** @description Workspace ID for authorization */
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    train_agent_api_v1_agents_train_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainAgentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluate_agent_api_v1_agents_evaluate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluateAgentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deploy_agent_replicas_api_v1_agents_deploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployReplicasRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_canary_api_v1_agents_canary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigureCanaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_supervision_cycle_api_v1_agents_supervise_post: {
+        parameters: {
+            query: {
+                agent_id: string;
+                /** @description Workspace ID for authorization */
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inject_simulated_degradation_api_v1_agents_inject_degradation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InjectDegradationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_and_execute_task_api_v1_agents_tasks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_task_graph_api_v1_agents_tasks__task_id__get: {
+        parameters: {
+            query: {
+                /** @description Workspace ID for authorization */
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agent_capability_manifests_api_v1_agents_manifests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_workspace_state_api_v1_workspace_state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    load_demo_incident_api_v1_workspace_demo_load_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    ingest_raw_table_api_v1_workspace_ingest_raw_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestRawRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_dataset_files_api_v1_workspace_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_dataset_files_api_v1_workspace_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_graph_subgraph_api_v1_workspace_graph_subgraph_get: {
+        parameters: {
+            query?: {
+                /** @description Focal node ID for 2-hop ego-network */
+                center_node_id?: string | null;
+                max_hops?: number;
+                limit_nodes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_critical_nodes_api_v1_workspace_graph_critical_nodes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_active_signals_api_v1_workspace_signals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    trigger_agent_deliberation_api_v1_workspace_deliberate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__api__v1__workspace__DeliberateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_evidence_api_v1_workspace_decisions_evidence_get: {
+        parameters: {
+            query?: {
+                /** @description Decision to retrieve evidence for */
+                decision_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_validity_api_v1_workspace_decisions_validity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    ask_workspace_question_api_v1_workspace_query_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_query_readiness_api_v1_workspace_query_readiness_get: {
+        parameters: {
+            query: {
+                /** @description Query to evaluate answerability for */
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    append_stream_event_api_v1_workspace_append_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StreamEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_graph_deltas_api_v1_workspace_graph_delta_get: {
+        parameters: {
+            query?: {
+                /** @description Previous graph version */
+                since_version?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_workspace_events_api_v1_workspace_stream_get: {
+        parameters: {
+            query?: {
+                /** @description E1 resync: the seq number the client last saw. The server replays all deltas with seq > since_seq before entering live tailing. -1 = no resync, jump straight to live. */
+                since_seq?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_spine_api_v1_spine_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_run_spine_api_v1_spine_run_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpineRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_api_v1_workflo_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    create_sandbox_api_v1_workflo_sandboxes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inspect_sandbox_api_v1_workflo_sandboxes__sandbox_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sandbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    destroy_sandbox_api_v1_workflo_sandboxes__sandbox_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sandbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_workflo_sandboxes__sandbox_id__files_get: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path: {
+                sandbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_file_api_v1_workflo_sandboxes__sandbox_id__files_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sandbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_file_api_v1_workflo_sandboxes__sandbox_id__files_content_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                sandbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_api_v1_workflo_sandboxes__sandbox_id__execute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sandbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_plan_api_v1_workflo_agent_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_continue_api_v1_workflo_agent_continue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentContinueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_run_api_v1_workflo_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_workflo_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_run_artifacts_api_v1_workflo_runs__run_id__artifacts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_events_api_v1_workflo_runs__run_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decisions_api_v1_nexus_decisions_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                phase?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_decision_api_v1_nexus_decisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_api_v1_nexus_decisions__decision_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    advance_decision_api_v1_nexus_decisions__decision_id__advance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionAdvanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_decision_api_v1_nexus_decisions__decision_id__execute_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_outcome_api_v1_nexus_decisions__decision_id__outcome_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionOutcomeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_memory_api_v1_nexus_decisions__decision_id__memory_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                } | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_analogous_api_v1_nexus_memory_analogous_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalogousRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_memory_api_v1_nexus_memory_recent_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_forecast_api_v1_nexus_forecasts_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForecastCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_observation_api_v1_nexus_observations_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ObservationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_calibration_api_v1_nexus_calibration_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                sku?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_systematic_bias_api_v1_nexus_bias_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                min_samples?: number;
+                bias_threshold?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vanessa_ask_api_v1_nexus_vanessa_ask_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VanessaAskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

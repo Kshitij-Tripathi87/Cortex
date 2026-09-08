@@ -115,6 +115,19 @@ All 29 legacy debt routes have been gated with AST-verifiable authorization help
   with explicit public marker, or add a lightweight `AuthContext`
   that just confirms the request is authenticated (no workspace check).
 - **D3f — `realtime.py::get_realtime_stats`**: COMPLETED. Now requires `role: "operator"` via `require_role`. Verified by `test_realtime_stats_endpoint`.
+- **D3g — `workspace.py` (Program S demo workspace)**: OPEN (pinned 2026-09, v0.8.2
+  routing flip). All 15 routes of the in-memory Live Data Intelligence
+  Workspace demo (`/state`, `/demo/load`, `/ingest-raw`, `/upload`,
+  `/graph/subgraph`, `/graph/critical-nodes`, `/signals`, `/deliberate`,
+  `/decisions/evidence`, `/decisions/validity`, `/query/ask`,
+  `/query/readiness`, `/append-stream`, `/graph/delta`, `/stream`) are
+  ungated by design — the demo workspace is process-local and carries no
+  authoritative state. They are pinned in `KNOWN_DEBT` so any NEW route
+  still fails the audit. Gating (or product-level removal once the
+  PostgreSQL-backed workspace replaces the demo) is a dedicated follow-up.
+  Note: these routes were previously invisible to the audit because
+  `workspace.py` used PEP 701 f-strings the AST scanner could not parse
+  on Python 3.11; the file has since been made 3.11-compatible.
 
 ## Verification
 
