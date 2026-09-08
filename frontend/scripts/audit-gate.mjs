@@ -80,20 +80,25 @@ const ghsaOf = (via) =>
 
 const acceptedByDependency = new Set();
 for (const [name, adv] of Object.entries(vulns)) {
-  const ids = ghsaOf(adv.via);
-  if (ids.some((id) => ACCEPTED.has(id))) acceptedByDependency.add(name);
+  if (ghsaOf(adv.via).some((id) => ACCEPTED.has(id))) acceptedByDependency.add(name);
 }
 
 const unaccepted = [];
 const accepted = [];
 for (const [name, adv] of Object.entries(vulns)) {
   const ids = ghsaOf(adv.via);
+  const via = adv.via ?? [];
+  const hasAdvisoryObjects = via.some((v) => typeof v === "object");
+  // An entry is accepted iff (a) one of ITS OWN advisory ids is accepted,
+  // or (b) it has no advisory objects of its own and every transitive
+  // reference points at an accepted package. Anything else — including a
+  // mix of unaccepted advisories and accepted references — is unaccepted.
   const isAccepted =
     ids.some((id) => ACCEPTED.has(id)) ||
-    // pure transitive entry: every string via points at an accepted package
-    ((adv.via ?? []).length > 0 &&
-      (adv.via ?? []).every((v) => typeof v === "string" ? acceptedByDependency.has(v) : true));
-  const entry = { name, severity: adv.severity, ids, title: (adv.via ?? []).find((v) => typeof v === "object")?.title ?? "" };
+    (!hasAdvisoryObjects &&
+      via.length > 0 &&
+      via.every((v) => typeof v === "string" && acceptedByDependency.has(v)));
+  const entry = { name, severity: adv.severity, ids, title: via.find((v) => typeof v === "object")?.title ?? "" };
   if (isAccepted) accepted.push(entry);
   else unaccepted.push(entry);
 }

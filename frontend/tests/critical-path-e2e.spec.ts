@@ -142,16 +142,19 @@ test.describe('Live stack smoke (skipped without backend)', () => {
 
   test('live /healthz is 200', async () => {
     const res: APIResponse = await fetch(`${BACKEND}/healthz`) as unknown as APIResponse;
-    expect(res.status).toBe(200);
+    // The second argument surfaces the response body in the failure
+    // message (visible in CI annotations) — essential for /readyz, whose
+    // 503 payload lists the degraded component.
+    expect(res.status, `healthz body: ${await res.text()}`).toBe(200);
   });
 
   test('live /readyz is 200', async () => {
     const res: APIResponse = await fetch(`${BACKEND}/readyz`) as unknown as APIResponse;
-    expect(res.status).toBe(200);
+    expect(res.status, `readyz body: ${await res.text()}`).toBe(200);
   });
 
   test('live /metrics is 200', async () => {
     const res: APIResponse = await fetch(`${BACKEND}/metrics`) as unknown as APIResponse;
-    expect(res.status).toBe(200);
+    expect(res.status, `metrics body (first 200): ${(await res.text()).slice(0, 200)}`).toBe(200);
   });
 });
