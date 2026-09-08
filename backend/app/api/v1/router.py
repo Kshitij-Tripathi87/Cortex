@@ -43,4 +43,7 @@ api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 api_router.include_router(workflo.router, prefix="", tags=["Workflo"])
 # Nexus Decision Intelligence — Operational Decision System (Phase A-F)
 api_router.include_router(nexus_v1.router, prefix="/nexus", tags=["Nexus Decision Intelligence"])
+# Nexus v0.7 — Production Intelligence & Learning
+from app.api.v1 import nexus_v07
+api_router.include_router(nexus_v07.router, prefix="/nexus", tags=["Nexus v0.7"])
 

@@ -1,4 +1,4 @@
-﻿"""Program S â€” Live Nexus Workspace REST Endpoints.
+"""Program S â€” Live Nexus Workspace REST Endpoints.
 
 Provides complete REST access for:
 - Data Ingestion & Live Multi-Table File Uploads

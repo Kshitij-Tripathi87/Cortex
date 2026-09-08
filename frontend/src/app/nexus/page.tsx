@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, apiBaseUrl } from "@/lib/api";
@@ -175,6 +175,7 @@ const SECTIONS = [
   "Scenarios",
   "Decisions",
   "Evidence",
+  "Cockpit v0.7",
 ] as const;
 
 type Section = (typeof SECTIONS)[number];
@@ -949,6 +950,19 @@ export default function NexusConsolePage() {
                 </button>
               </div>
             )}
+          </div>
+        );
+      }
+
+      case "Cockpit v0.7": {
+        if (typeof window !== "undefined") {
+          window.location.href = "/nexus/cockpit";
+        }
+        return (
+          <div className="flex h-full items-center justify-center">
+            <a href="/nexus/cockpit" className="border border-accent/60 bg-surface-2 px-6 py-3 text-sm uppercase tracking-wider text-accent hover:bg-surface">
+              OPEN NEXUS v0.7 COCKPIT →
+            </a>
           </div>
         );
       }

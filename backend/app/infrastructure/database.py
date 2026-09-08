@@ -47,6 +47,12 @@ async def init_db(dsn: str) -> None:
         )
     _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
+    # Import all Nexus models to register them with SQLAlchemy metadata,
+    # then create tables (idempotent; safe for dev; Alembic migrations for prod).
+    import app.modules.nexus_spine.persistence.models  # noqa: F401 — registers tables on Base.metadata
+    async with _engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
 
 async def close_db() -> None:
     global _engine

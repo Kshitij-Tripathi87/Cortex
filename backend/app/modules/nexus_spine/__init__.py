@@ -133,6 +133,60 @@ from app.modules.nexus_spine.governance import (
     reset_decision_lifecycle_manager,
     validate_world_state_consistent,
 )
+# Nexus v0.7 — Production Intelligence & Learning
+from app.modules.nexus_spine.persistence import (
+    DecisionRepository,
+    EvidenceRepository,
+    EventRepository,
+    ForecastRepository,
+    ModelRegistryRepository,
+    RecommendationRepository,
+    RiskRepository,
+    ScenarioRepository,
+    VanessaSessionRepository,
+    get_decision_repository,
+    get_evidence_repository,
+    get_event_repository,
+    get_forecast_repository,
+    get_model_registry_repository,
+    get_recommendation_repository,
+    get_risk_repository,
+    get_scenario_repository,
+    get_vanessa_session_repository,
+)
+from app.modules.nexus_spine.models_registry import (
+    ModelRegistry,
+    ModelLifecycleStatus,
+    get_model_registry,
+)
+from app.modules.nexus_spine.learning import (
+    ForecastMetricsTracker,
+    get_forecast_metrics_tracker,
+)
+from app.modules.nexus_spine.gnn import (
+    GNNEngine,
+    get_gnn_engine,
+)
+from app.modules.nexus_spine.rl import (
+    CandidateAction,
+    CandidateGenerator,
+    get_candidate_generator,
+)
+from app.modules.nexus_spine.recommendations import (
+    RecommendationEvaluator,
+    get_recommendation_evaluator,
+)
+from app.modules.nexus_spine.explanations import (
+    ExplanationEngine,
+    ResponseBlockType,
+    get_explanation_engine,
+)
+from app.modules.nexus_spine.vanessa.sessions import (
+    ConversationContext,
+    VanessaSessionManager,
+    get_vanessa_session_manager,
+)
+from app.modules.nexus_spine.realtime_events import NexusEventType, event_to_sse
 from app.modules.nexus_spine.spine_orchestrator import RealDataSpine
 from app.modules.nexus_spine.vanessa import (
     Intent,
@@ -162,6 +216,54 @@ __all__ = [
     "AgentProposal",
     "AnalogousDecision",
     "CalibrationBucket",
+    # v0.7 — Persistence
+    "DecisionRepository",
+    "EvidenceRepository",
+    "EventRepository",
+    "ForecastRepository",
+    "ModelRegistryRepository",
+    "RecommendationRepository",
+    "RiskRepository",
+    "ScenarioRepository",
+    "VanessaSessionRepository",
+    "get_decision_repository",
+    "get_evidence_repository",
+    "get_event_repository",
+    "get_forecast_repository",
+    "get_model_registry_repository",
+    "get_recommendation_repository",
+    "get_risk_repository",
+    "get_scenario_repository",
+    "get_vanessa_session_repository",
+    # v0.7 — Model Registry
+    "ModelRegistry",
+    "ModelLifecycleStatus",
+    "get_model_registry",
+    # v0.7 — Forecast Learning
+    "ForecastMetricsTracker",
+    "get_forecast_metrics_tracker",
+    # v0.7 — GNN
+    "GNNEngine",
+    "get_gnn_engine",
+    # v0.7 — RL (bounded)
+    "CandidateAction",
+    "CandidateGenerator",
+    "get_candidate_generator",
+    # v0.7 — Recommendations
+    "RecommendationEvaluator",
+    "get_recommendation_evaluator",
+    # v0.7 — Explanations
+    "ExplanationEngine",
+    "ResponseBlockType",
+    "get_explanation_engine",
+    # v0.7 — Vanessa Sessions
+    "ConversationContext",
+    "VanessaSessionManager",
+    "get_vanessa_session_manager",
+    # v0.7 — Realtime events
+    "NexusEventType",
+    "event_to_sse",
+    # Legacy
     "CanonicalDataset",
     "CanonicalEntity",
     "CanonicalTable",
