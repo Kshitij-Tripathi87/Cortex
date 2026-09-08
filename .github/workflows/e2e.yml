@@ -88,7 +88,36 @@ jobs:
       - name: Execute Full-Journey E2E Tests
         run: |
           cd frontend
-          npx playwright test tests/critical-path-e2e.spec.ts
+          set +e
+          PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/pw.json \
+            npx playwright test tests/critical-path-e2e.spec.ts --reporter=line,json
+          rc=$?
+          set -e
+          # Surface each failed test as a check-run annotation so the
+          # failure details are visible without downloading job logs.
+          node -e '
+            const fs = require("fs");
+            let root;
+            try { root = JSON.parse(fs.readFileSync("/tmp/pw.json", "utf8")); } catch { process.exit(0); }
+            const fail = [];
+            const walk = (su) => {
+              for (const spec of (su.specs || [])) {
+                for (const t of (spec.tests || [])) {
+                  for (const res of (t.results || [])) {
+                    if (res.status === "passed" || res.status === "skipped") continue;
+                    const err = res.error || {};
+                    const msg = String(err.message || err.stack || res.status)
+                      .split("\n").slice(0, 3).join(" | ").slice(0, 700);
+                    fail.push(`::error title=E2E ${spec.title} (${res.status})::${msg.replace(/`/g, "'")}`);
+                  }
+                }
+              }
+              for (const c of (su.suites || [])) walk(c);
+            };
+            for (const su of (root.suites || [])) walk(su);
+            for (const line of fail) console.log(line);
+          ' || true
+          exit $rc
 
       - name: Upload Test Report
         if: always()

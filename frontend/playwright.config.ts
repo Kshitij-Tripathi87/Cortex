@@ -8,6 +8,8 @@ export default defineConfig({
   },
   retries: 0,
   workers: process.env.CI ? 1 : undefined,
+  // HTML report in CI: the workflow uploads frontend/playwright-report/
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
 
   use: {
     headless: true,
