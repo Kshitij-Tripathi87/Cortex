@@ -117,12 +117,43 @@ jobs:
         run: |
           cd backend
           source .venv/bin/activate
-          pytest tests/ -v --tb=short --cov=app --cov-report=xml
+          set +e
+          pytest tests/ -v --tb=short --cov=app --cov-report=xml --junitxml=/tmp/junit.xml
+          rc=$?
+          set -e
+          # Surface every failed test as a check-run annotation (job logs
+          # are not retrievable in some environments).
+          cat > /tmp/junit_annotate.py <<'PYEXTRACT'
+          import xml.etree.ElementTree as ET
+
+          try:
+              root = ET.parse("/tmp/junit.xml").getroot()
+          except Exception as e:
+              print(f"::error title=pytest no-report::junitxml missing: {e}")
+              raise SystemExit(0)
+          counts = {}
+          for tc in root.iter("testcase"):
+              for kind in ("failure", "error"):
+                  node = tc.find(kind)
+                  if node is None:
+                      continue
+                  counts[kind] = counts.get(kind, 0) + 1
+                  name = f"{tc.get('classname', '')}::{tc.get('name', '')}"
+                  msg = (node.get("message") or node.text or kind)[:700].replace("\n", " | ")
+                  print(f"::error title=pytest {kind}: {name}::{msg}")
+          print(f"::notice title=pytest summary::failures={counts}")
+          PYEXTRACT
+          python /tmp/junit_annotate.py || true
+          exit $rc
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           files: ./backend/coverage.xml
+          # Coverage upload is reporting, not gating: a tokenless/public-repo
+          # upload hiccup must not fail the test job. (No CODECOV_TOKEN is
+          # configured in this repository.)
+          fail_ci_error: false
 
   budget-check:
     runs-on: ubuntu-latest
