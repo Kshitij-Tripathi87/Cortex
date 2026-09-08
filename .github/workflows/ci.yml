@@ -187,9 +187,15 @@ jobs:
       - name: Run TruffleHog (secrets scan)
         uses: trufflesecurity/trufflehog@v3.80.0
         with:
+          # Matches security.yml's proven invocation. Explicitly setting
+          # head: HEAD made the step fail on pushes TO main ("BASE and
+          # HEAD commits are the same" — exit 1, which also blocked the
+          # main-only docker job). Without head, the action scans from
+          # base to the checked-out commit and works in both PR and
+          # push-to-main contexts.
           path: .
-          base: main
-          head: HEAD
+          base: ${{ github.event.repository.default_branch }}
+          extra_args: --no-verification
       
       - name: Run dependency audit (Python)
         run: |

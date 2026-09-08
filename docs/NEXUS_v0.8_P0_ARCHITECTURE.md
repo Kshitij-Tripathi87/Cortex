@@ -6,7 +6,7 @@ singletons with authoritative PostgreSQL-backed services, real multi-worker
 realtime via Redis Pub/Sub, a real AuthZ layer, and a structured Vanessa
 LLM pipeline.
 
-## v0.8.2 Closeout — Routing Flip & Dual-Path Removal (2026-09)
+## v0.8.2 Closeout — Routing Flip & Dual-Path Removal (2026-09) — **CLOSED 2026-09-09**: merged to main via PR #1 (merge commit 57e5a51), 15/15 CI checks green
 
 The persistent PostgreSQL-backed router (`app/api/v1/nexus_persistent.py`)
 is the **only production authority** for the Nexus namespace. The v0.7
@@ -235,3 +235,13 @@ P2 (v0.95 Enterprise Beta):
 - Real observability (intelligence health + infra health; Vanessa answers "Is Nexus operating normally?")
 
 v1.0 Launch: live customers, SLOs, DR, security, ROI, ops support.
+
+## Next milestone
+
+**v0.8.3 — Realtime Outbox & Distributed Event Fabric**: design at
+`docs/NEXUS_v0.8.3_OUTBOX_EVENT_FABRIC.md`. Core invariant: a committed World
+State change must not disappear from the realtime stream — the outbox event is
+written transactionally with the state change and the database becomes the
+per-workspace sequence authority (replacing the Redis INCR / local-fallback
+dual space; see the seq-source stickiness handoff note in
+`app/infrastructure/realtime_bus.py`).
