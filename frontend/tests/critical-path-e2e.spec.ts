@@ -66,11 +66,13 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
   test('nexus console renders operational graph + signal panel', async ({ page }) => {
     await page.goto(`${BASE_URL}/nexus`);
     await expect(page.locator('h1, h2').first()).toBeVisible();
-    // Either the graph is rendered OR an empty/error state is shown
-    // — never an unhandled error or blank page.
-    const hasGraph = await page.locator('.graph-svg, [data-testid="graph-canvas"]').count();
-    const hasStateText = await page.locator('text=/loading|error|empty|workspace/i').count();
-    expect(hasGraph + hasStateText).toBeGreaterThan(0);
+    // Either the graph is rendered OR an empty/error/loading state is
+    // shown — never an unhandled error or blank page. count() is a
+    // zero-wait snapshot: on a cold CI runner the client component may
+    // not have hydrated yet, so wait for one of the two states instead.
+    const graph = page.locator('.graph-svg, [data-testid="graph-canvas"]').first();
+    const stateText = page.locator('text=/loading|error|empty|workspace/i').first();
+    await expect(graph.or(stateText)).toBeVisible({ timeout: 10_000 });
   });
 });
 

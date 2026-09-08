@@ -222,7 +222,26 @@ jobs:
           # security patch release cleared the CRITICAL and several
           # highs); eslint-config-next 16 is the fix for the dev-only
           # tooling highs. Both majors are dedicated migration PRs.
-          npm audit --omit=dev --audit-level=critical
+          set +e
+          npm audit --omit=dev --audit-level=critical --json > /tmp/node-audit.json 2>/tmp/node-audit.err
+          rc=$?
+          set -e
+          cat > /tmp/audit-note.js <<'AUDEXTRACT'
+          const fs = require("fs");
+          let d;
+          try { d = JSON.parse(fs.readFileSync("/tmp/node-audit.json", "utf8")); }
+          catch (e) {
+            console.log(`::error title=npm-audit no-json::${String(fs.readFileSync("/tmp/node-audit.err", "utf8")).slice(0, 500)}`);
+            process.exit(0);
+          }
+          const v = d.vulnerabilities || {};
+          console.log(`::notice title=npm-audit summary::${JSON.stringify(d.metadata && d.metadata.vulnerabilities || {})}`);
+          for (const [name, adv] of Object.entries(v)) {
+            console.log(`::error title=npm-audit ${name} [${adv.severity}]::via=${JSON.stringify(adv.via || []).slice(0, 300)} fixAvailable=${JSON.stringify(adv.fixAvailable)}`);
+          }
+          AUDEXTRACT
+          node /tmp/audit-note.js || true
+          exit $rc
 
   docker:
     runs-on: ubuntu-latest

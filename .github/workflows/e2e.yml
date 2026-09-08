@@ -114,7 +114,7 @@ jobs:
                   if (res.status === "passed" || res.status === "skipped") continue;
                   const err = res.error || {};
                   const msg = String(err.message || err.stack || res.status)
-                    .split("\n").slice(0, 3).join(" | ").slice(0, 700);
+                    .split("\n").slice(0, 12).join(" | ").slice(0, 900);
                   fail.push(`::error title=E2E ${spec.title} (${res.status})::${msg}`);
                 }
               }
