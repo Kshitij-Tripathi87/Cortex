@@ -145,3 +145,13 @@ All 29 legacy debt routes have been gated with AST-verifiable authorization help
   be a member of that workspace. 10 routes moved from KNOWN_DEBT to
   gated. Gated count increased from 109 to 119; KNOWN_DEBT reduced
   from 40 to 30.
+- **D3h — `/login` (auth.py) classified PUBLIC**: The MVP login endpoint
+  (`POST /login`, `app/api/v1/auth.py`) was invisible to every earlier audit
+  run: the file carried a UTF-8 BOM, so the audit's `ast.parse` raised
+  `SyntaxError` and silently skipped it. The BOM was removed during the
+  2026-09 lint paydown, which made the route — and its lack of a gate —
+  visible. Classification: **PUBLIC by design**. `/login` issues the bearer
+  token itself, so it cannot require one; it authenticates email + password
+  against the user table (verifying the Argon2/bcrypt hash) before issuing a
+  short-lived HS256 token, and returns 401 on any mismatch. Rate limiting is
+  the open hardening item (tracked separately), not an authz gate.

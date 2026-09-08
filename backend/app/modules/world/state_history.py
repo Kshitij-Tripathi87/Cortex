@@ -186,7 +186,9 @@ class ReplayEngine:
 
         if latest_snapshot and latest_snapshot.version <= target_version:
             # Reconstruct starting from checkpoint state
-            checkpoint_state = await self.repository.get(world_id, workspace_id, version=latest_snapshot.version)
+            checkpoint_state = await self.repository.get(
+                world_id, workspace_id, version=latest_snapshot.version
+            )
             if checkpoint_state is None:
                 checkpoint_state = create_initial_state(
                     workspace_id=workspace_id,

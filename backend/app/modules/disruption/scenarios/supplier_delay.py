@@ -75,34 +75,67 @@ def build() -> tuple[SupplyChainSnapshot, DisruptionScenario, BacktestLabels]:
     """
 
     suppliers = (
-        SupplierData(id=S_ACME, name="Acme Electronics", country="TW", tier="tier_1",
-                     lead_time_days=14),
-        SupplierData(id=S_BEACON, name="Beacon Supply", country="US", tier="tier_2",
-                     lead_time_days=7),
+        SupplierData(
+            id=S_ACME, name="Acme Electronics", country="TW", tier="tier_1", lead_time_days=14
+        ),
+        SupplierData(
+            id=S_BEACON, name="Beacon Supply", country="US", tier="tier_2", lead_time_days=7
+        ),
     )
 
     components = (
-        ComponentData(id=C_PCB, sku="PCB-001", name="Control Board PCB", category="PCB",
-                      unit_of_measure="EA"),
-        ComponentData(id=C_SENSOR, sku="SNS-002", name="Temperature Sensor",
-                      category="Sensor", unit_of_measure="EA"),
+        ComponentData(
+            id=C_PCB, sku="PCB-001", name="Control Board PCB", category="PCB", unit_of_measure="EA"
+        ),
+        ComponentData(
+            id=C_SENSOR,
+            sku="SNS-002",
+            name="Temperature Sensor",
+            category="Sensor",
+            unit_of_measure="EA",
+        ),
     )
 
     products = (
-        ProductData(id=P_CONTROLLER, sku="CONTR-1", name="Motor Controller V2",
-                    factory_id=None, unit_price=2500.0, margin_pct=0.35, lead_time_days=7),
-        ProductData(id=P_BOARD, sku="BOARD-3", name="I/O Interface Board",
-                    factory_id=None, unit_price=800.0, margin_pct=0.25, lead_time_days=5),
+        ProductData(
+            id=P_CONTROLLER,
+            sku="CONTR-1",
+            name="Motor Controller V2",
+            factory_id=None,
+            unit_price=2500.0,
+            margin_pct=0.35,
+            lead_time_days=7,
+        ),
+        ProductData(
+            id=P_BOARD,
+            sku="BOARD-3",
+            name="I/O Interface Board",
+            factory_id=None,
+            unit_price=800.0,
+            margin_pct=0.25,
+            lead_time_days=5,
+        ),
     )
 
     warehouse = WarehouseData(id=W_MAIN, code="WH-01", name="Main Warehouse")
 
     customers = (
-        CustomerData(id=CU_AUTOMOTIVE, name="Automotive Systems Inc", country="DE", tier="gold",
-                     contract_value_annual=5000000.0, late_delivery_penalty_pct=0.03),
-        CustomerData(id=CU_INDUSTRIAL, name="Industrial Motors LLC", country="US",
-                     tier="silver", contract_value_annual=2000000.0,
-                     late_delivery_penalty_pct=0.02),
+        CustomerData(
+            id=CU_AUTOMOTIVE,
+            name="Automotive Systems Inc",
+            country="DE",
+            tier="gold",
+            contract_value_annual=5000000.0,
+            late_delivery_penalty_pct=0.03,
+        ),
+        CustomerData(
+            id=CU_INDUSTRIAL,
+            name="Industrial Motors LLC",
+            country="US",
+            tier="silver",
+            contract_value_annual=2000000.0,
+            late_delivery_penalty_pct=0.02,
+        ),
     )
 
     edges = (
@@ -121,35 +154,80 @@ def build() -> tuple[SupplyChainSnapshot, DisruptionScenario, BacktestLabels]:
     )
 
     inventory = (
-        InventoryData(warehouse_id=W_MAIN, component_id=C_PCB, quantity=500,
-                      safety_stock=100, daily_usage=80, last_updated_at=T0),
-        InventoryData(warehouse_id=W_MAIN, component_id=C_SENSOR, quantity=200,
-                      safety_stock=50, daily_usage=30, last_updated_at=T0),
+        InventoryData(
+            warehouse_id=W_MAIN,
+            component_id=C_PCB,
+            quantity=500,
+            safety_stock=100,
+            daily_usage=80,
+            last_updated_at=T0,
+        ),
+        InventoryData(
+            warehouse_id=W_MAIN,
+            component_id=C_SENSOR,
+            quantity=200,
+            safety_stock=50,
+            daily_usage=30,
+            last_updated_at=T0,
+        ),
     )
 
     orders = (
-        OrderData(id=O1, customer_id=CU_AUTOMOTIVE, product_id=P_CONTROLLER,
-                  quantity=20, status="pending", order_date=ORDER_DATE_OFFSET,
-                 requested_delivery_date=date(2026, 3, 25), actual_delivery_date=None,
-                 unit_price=2500.0),
-        OrderData(id=O2, customer_id=CU_AUTOMOTIVE, product_id=P_CONTROLLER,
-                 quantity=10, status="confirmed", order_date=ORDER_DATE_OFFSET,
-                 requested_delivery_date=date(2026, 3, 22), actual_delivery_date=None,
-                 unit_price=2500.0),
-        OrderData(id=O3, customer_id=CU_INDUSTRIAL, product_id=P_CONTROLLER,
-                 quantity=15, status="pending", order_date=ORDER_DATE_OFFSET,
-                 requested_delivery_date=date(2026, 3, 30), actual_delivery_date=None,
-                 unit_price=2500.0),
-        OrderData(id=O4, customer_id=CU_INDUSTRIAL, product_id=P_BOARD,
-                 quantity=30, status="in_production", order_date=ORDER_DATE_OFFSET,
-                 requested_delivery_date=date(2026, 3, 20), actual_delivery_date=None,
-                 unit_price=800.0),
-        OrderData(id=O5, customer_id=CU_INDUSTRIAL, product_id=P_BOARD,
-                 quantity=5, status="delivered",
-                 order_date=(ORDER_DATE_OFFSET - timedelta(days=30)),
-                 requested_delivery_date=date(2026, 3, 1),
-                 actual_delivery_date=date(2026, 2, 28),
-                 unit_price=800.0),
+        OrderData(
+            id=O1,
+            customer_id=CU_AUTOMOTIVE,
+            product_id=P_CONTROLLER,
+            quantity=20,
+            status="pending",
+            order_date=ORDER_DATE_OFFSET,
+            requested_delivery_date=date(2026, 3, 25),
+            actual_delivery_date=None,
+            unit_price=2500.0,
+        ),
+        OrderData(
+            id=O2,
+            customer_id=CU_AUTOMOTIVE,
+            product_id=P_CONTROLLER,
+            quantity=10,
+            status="confirmed",
+            order_date=ORDER_DATE_OFFSET,
+            requested_delivery_date=date(2026, 3, 22),
+            actual_delivery_date=None,
+            unit_price=2500.0,
+        ),
+        OrderData(
+            id=O3,
+            customer_id=CU_INDUSTRIAL,
+            product_id=P_CONTROLLER,
+            quantity=15,
+            status="pending",
+            order_date=ORDER_DATE_OFFSET,
+            requested_delivery_date=date(2026, 3, 30),
+            actual_delivery_date=None,
+            unit_price=2500.0,
+        ),
+        OrderData(
+            id=O4,
+            customer_id=CU_INDUSTRIAL,
+            product_id=P_BOARD,
+            quantity=30,
+            status="in_production",
+            order_date=ORDER_DATE_OFFSET,
+            requested_delivery_date=date(2026, 3, 20),
+            actual_delivery_date=None,
+            unit_price=800.0,
+        ),
+        OrderData(
+            id=O5,
+            customer_id=CU_INDUSTRIAL,
+            product_id=P_BOARD,
+            quantity=5,
+            status="delivered",
+            order_date=(ORDER_DATE_OFFSET - timedelta(days=30)),
+            requested_delivery_date=date(2026, 3, 1),
+            actual_delivery_date=date(2026, 2, 28),
+            unit_price=800.0,
+        ),
     )
 
     snapshot = SupplyChainSnapshot(

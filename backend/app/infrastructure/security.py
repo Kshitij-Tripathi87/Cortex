@@ -1,4 +1,4 @@
-﻿"""Security infrastructure â€” auth context, authorization, and protective middleware.
+"""Security infrastructure â€” auth context, authorization, and protective middleware.
 
 This module provides the security primitives referenced by ``app/main.py`` and
 ``app/api/v1/graph.py``:
@@ -130,25 +130,47 @@ async def get_current_user(request: Request) -> AuthContext:
     if _is_strict_env():
         authorization = _header(request, "Authorization")
         if authorization is None or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required", headers={"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Bearer token required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         from app.modules.identity.jwt_auth import verify_token
+
         try:
             claims = verify_token(authorization.removeprefix("Bearer ").strip())
         except PermissionError as exc:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc), headers={"WWW-Authenticate": "Bearer"}) from exc
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(exc),
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
         roles = claims.get("roles", [])
         return AuthContext(
-            user_id=str(claims["sub"]), email=str(claims.get("email") or "") or None,
+            user_id=str(claims["sub"]),
+            email=str(claims.get("email") or "") or None,
             roles=[str(role) for role in roles] if isinstance(roles, list) else [],
-            workspace_ids=[str(claims["workspace_id"])], is_anonymous=False,
+            workspace_ids=[str(claims["workspace_id"])],
+            is_anonymous=False,
         )
 
     from app.modules.identity.dependencies import get_current_user as resolve_user
+
     try:
         principal = await resolve_user(request)
     except PermissionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"}) from None
-    return AuthContext(user_id=principal.user_id, email=principal.email, roles=principal.roles, workspace_ids=principal.workspace_ids, is_anonymous=principal.is_anonymous)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+    return AuthContext(
+        user_id=principal.user_id,
+        email=principal.email,
+        roles=principal.roles,
+        workspace_ids=principal.workspace_ids,
+        is_anonymous=principal.is_anonymous,
+    )
 
 
 def require_workspace_access(workspace_id: str, auth: AuthContext) -> None:

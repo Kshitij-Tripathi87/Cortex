@@ -296,7 +296,9 @@ async def export_decisions_for_training(
             actual_margin_impact = latest_outcome.actual_margin_impact_usd
             actual_penalty = latest_outcome.actual_penalty_usd
             actual_deadline = latest_outcome.actual_deadline_hours
-            outcome_captured_at = latest_outcome.captured_at.isoformat() if latest_outcome.captured_at else None
+            outcome_captured_at = (
+                latest_outcome.captured_at.isoformat() if latest_outcome.captured_at else None
+            )
 
         # Extract full context from metadata
         metadata = decision.metadata or {}
@@ -318,16 +320,18 @@ async def export_decisions_for_training(
         recs_data = metadata.get("recommendations", [])
         recommendations = []
         for i, r in enumerate(recs_data):
-            recommendations.append(RecommendationRecord(
-                rank=r.get("rank", i + 1),
-                action=r.get("action", ""),
-                name=r.get("name", ""),
-                explanation=r.get("explanation", ""),
-                applicable=r.get("applicable", True),
-                scores=r.get("scores", {}),
-                was_selected=r.get("was_selected", False),
-                human_override=r.get("human_override", False),
-            ))
+            recommendations.append(
+                RecommendationRecord(
+                    rank=r.get("rank", i + 1),
+                    action=r.get("action", ""),
+                    name=r.get("name", ""),
+                    explanation=r.get("explanation", ""),
+                    applicable=r.get("applicable", True),
+                    scores=r.get("scores", {}),
+                    was_selected=r.get("was_selected", False),
+                    human_override=r.get("human_override", False),
+                )
+            )
 
         # Build context
         context = DecisionContext(

@@ -25,9 +25,7 @@ class EvaluationRunRecord(Base):
         {"schema": "analytics"},
     )
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
     dataset_id: Mapped[str] = mapped_column(String(128), nullable=False)
     dataset_version: Mapped[int] = mapped_column(default=1)
     engine_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -204,17 +202,27 @@ class EvaluationRegistry:
     ) -> dict:
         """Compare two engines on the same dataset."""
         # Get best runs for each engine
-        stmt_a = select(EvaluationRunRecord).where(
-            EvaluationRunRecord.dataset_id == dataset_id,
-            EvaluationRunRecord.engine_type == engine_a,
-            EvaluationRunRecord.status == "completed",
-        ).order_by(EvaluationRunRecord.created_at.desc()).limit(1)
+        stmt_a = (
+            select(EvaluationRunRecord)
+            .where(
+                EvaluationRunRecord.dataset_id == dataset_id,
+                EvaluationRunRecord.engine_type == engine_a,
+                EvaluationRunRecord.status == "completed",
+            )
+            .order_by(EvaluationRunRecord.created_at.desc())
+            .limit(1)
+        )
 
-        stmt_b = select(EvaluationRunRecord).where(
-            EvaluationRunRecord.dataset_id == dataset_id,
-            EvaluationRunRecord.engine_type == engine_b,
-            EvaluationRunRecord.status == "completed",
-        ).order_by(EvaluationRunRecord.created_at.desc()).limit(1)
+        stmt_b = (
+            select(EvaluationRunRecord)
+            .where(
+                EvaluationRunRecord.dataset_id == dataset_id,
+                EvaluationRunRecord.engine_type == engine_b,
+                EvaluationRunRecord.status == "completed",
+            )
+            .order_by(EvaluationRunRecord.created_at.desc())
+            .limit(1)
+        )
 
         if version_a:
             stmt_a = stmt_a.where(EvaluationRunRecord.engine_version == version_a)
@@ -241,7 +249,7 @@ class EvaluationRegistry:
             b = metrics_b.get(key)
             if a is not None and b is not None:
                 diff = b - a
-                pct = (diff / a * 100) if a != 0 else float('inf') if b > 0 else 0
+                pct = (diff / a * 100) if a != 0 else float("inf") if b > 0 else 0
                 comparison[key] = {
                     "engine_a": a,
                     "engine_b": b,

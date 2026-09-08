@@ -35,7 +35,9 @@ class AgentPromotionGate:
         """Run all 10 evaluation phases and generate formal qualification report."""
         # 1. Capability manifest signature check
         if not artifact.capability_manifest.verify(self.capability_secret):
-            raise PermissionError("Unsigned or tampered capability manifest rejected by Promotion Gate.")
+            raise PermissionError(
+                "Unsigned or tampered capability manifest rejected by Promotion Gate."
+            )
 
         # 2. Behavioral Test Suite
         behavioral_score = await self._run_behavioral_harness(artifact)

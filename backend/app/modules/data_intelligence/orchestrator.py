@@ -1,4 +1,4 @@
-﻿"""Nexus Unified Data Intelligence & Multi-Agent Orchestrator (Program Q & R).
+"""Nexus Unified Data Intelligence & Multi-Agent Orchestrator (Program Q & R).
 
 Implements the definitive canonical Nexus loop:
 Data -> Profiling -> Multi-Table Graph Construction -> Graph Analytics & Coverage ->
@@ -173,7 +173,9 @@ class NexusDataIntelligenceOrchestrator:
             features={
                 "seller_pagerank": top_node.pagerank if top_node is not None else 0.0,
                 "is_spof": bool(top_seller_id in analytics.high_dependency_spofs),
-                "avg_dispatch_days": round(observed_dispatch, 3) if observed_dispatch is not None else 0.0,
+                "avg_dispatch_days": round(observed_dispatch, 3)
+                if observed_dispatch is not None
+                else 0.0,
             },
             world_state_version=world_state_version,
             feature_timestamp=now,
@@ -194,7 +196,11 @@ class NexusDataIntelligenceOrchestrator:
         )
 
         # 8. Graph-Aware Dynamic Agent Routing
-        participating_agents = ["shipment_tracking_agent", "logistics_routing_agent", "inventory_allocation_agent"]
+        participating_agents = [
+            "shipment_tracking_agent",
+            "logistics_routing_agent",
+            "inventory_allocation_agent",
+        ]
 
         # 9. Multi-Agent Deliberation
         telem = ShipmentTelemetry(
@@ -210,7 +216,9 @@ class NexusDataIntelligenceOrchestrator:
         )
         shipment_assessment = await self.shipment_agent.evaluate_shipment(telem, context)
         routes = await self.routing_agent.evaluate_alternatives("SP", "RJ", "CRITICAL", context)
-        inv_xfer = await self.inventory_agent.balance_stock("prod_sample", "wh_rio_hub", 50.0, context)
+        inv_xfer = await self.inventory_agent.balance_stock(
+            "prod_sample", "wh_rio_hub", 50.0, context
+        )
 
         # 10. Counterfactual Digital Twin Simulations
         counterfactuals = [
@@ -262,12 +270,19 @@ class NexusDataIntelligenceOrchestrator:
         n_src = evidence_graph.add_evidence_step(
             "SOURCE_RECORD",
             "Olist Orders CSV",
-            {"dataset": "olist_orders", "rows_profiled": readiness.total_records, "completeness": readiness.dimension_scores["COMPLETENESS"].score_pct},
+            {
+                "dataset": "olist_orders",
+                "rows_profiled": readiness.total_records,
+                "completeness": readiness.dimension_scores["COMPLETENESS"].score_pct,
+            },
         )
         n_ent = evidence_graph.add_evidence_step(
             "ENTITY",
             f"Canonical Supplier {top_seller_id}",
-            {"entity_id": top_seller_id, "is_spof": bool(top_seller_id in analytics.high_dependency_spofs)},
+            {
+                "entity_id": top_seller_id,
+                "is_spof": bool(top_seller_id in analytics.high_dependency_spofs),
+            },
             parent_node_id=n_src.node_id,
         )
         n_sig = evidence_graph.add_evidence_step(
@@ -275,7 +290,9 @@ class NexusDataIntelligenceOrchestrator:
             "Supplier Dispatch Degradation Anomaly",
             {
                 "deviation_pct": sig.deviation_pct if sig else 0.0,
-                "avg_dispatch_days": round(observed_dispatch, 2) if observed_dispatch is not None else None,
+                "avg_dispatch_days": round(observed_dispatch, 2)
+                if observed_dispatch is not None
+                else None,
                 "baseline_days": baseline_days,
             },
             parent_node_id=n_ent.node_id,
@@ -323,7 +340,9 @@ class NexusDataIntelligenceOrchestrator:
             context_package=ctx_pkg,
             participating_agents=participating_agents,
             shipment_assessment=shipment_assessment,
-            routing_proposals=[{"route_id": r.route_id, "mode": r.mode, "cost_usd": r.cost_usd} for r in routes],
+            routing_proposals=[
+                {"route_id": r.route_id, "mode": r.mode, "cost_usd": r.cost_usd} for r in routes
+            ],
             inventory_proposal={"transfer_id": inv_xfer.transfer_id, "quantity": inv_xfer.quantity},
             synthesized_decision=synthesized_decision,
             decision_evidence_graph=evidence_graph.get_lineage_trace(),
@@ -368,11 +387,7 @@ class NexusDataIntelligenceOrchestrator:
             samples.setdefault(f"supplier_{supplier_id}", []).append(
                 (handed_off - purchased).total_seconds() / 86400.0
             )
-        return {
-            sid: sum(vals) / len(vals)
-            for sid, vals in samples.items()
-            if len(vals) >= 3
-        }
+        return {sid: sum(vals) / len(vals) for sid, vals in samples.items() if len(vals) >= 3}
 
     @staticmethod
     def _baseline_dispatch_days(dispatch_stats: dict[str, float]) -> float:

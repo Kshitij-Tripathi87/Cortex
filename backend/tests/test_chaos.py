@@ -232,15 +232,23 @@ def test_chaos_out_of_order_events_processed_in_order():
     state = _create_baseline_state()
     events = [
         InventoryChanged(
-            event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-            entity_type="warehouse", entity_id="wh_001",
-            warehouse_id="wh_001", component_id="comp_042",
+            event_id="evt_1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="warehouse",
+            entity_id="wh_001",
+            warehouse_id="wh_001",
+            component_id="comp_042",
             quantity_change=100,
         ),
         InventoryChanged(
-            event_id="evt_2", world_id="world_1", workspace_id="ws_1",
-            entity_type="warehouse", entity_id="wh_001",
-            warehouse_id="wh_001", component_id="comp_042",
+            event_id="evt_2",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_type="warehouse",
+            entity_id="wh_001",
+            warehouse_id="wh_001",
+            component_id="comp_042",
             quantity_change=-50,
         ),
     ]
@@ -291,9 +299,11 @@ def test_chaos_knowledge_rule_with_missing_variable():
         workspace_id="ws_1",
         name="Missing var rule",
         description="Test rule",
-        trigger=RuleTrigger(conditions=[
-            RuleCondition(variable_id="nonexistent.variable", operator="lt", value=10),
-        ]),
+        trigger=RuleTrigger(
+            conditions=[
+                RuleCondition(variable_id="nonexistent.variable", operator="lt", value=10),
+            ]
+        ),
         action=RuleAction.NOTIFY,
     )
 
@@ -331,19 +341,27 @@ def test_chaos_knowledge_rule_with_cyclic_dependency():
     # Two rules that could form a cycle: a.b < 10 triggers rule that affects b
     rules = [
         KnowledgeRule(
-            rule_id="r1", workspace_id="ws_1", name="Rule 1",
+            rule_id="r1",
+            workspace_id="ws_1",
+            name="Rule 1",
             description="Test rule 1",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id="a.b", operator="lt", value=20),
-            ]),
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(variable_id="a.b", operator="lt", value=20),
+                ]
+            ),
             action=RuleAction.NOTIFY,
         ),
         KnowledgeRule(
-            rule_id="r2", workspace_id="ws_1", name="Rule 2",
+            rule_id="r2",
+            workspace_id="ws_1",
+            name="Rule 2",
             description="Test rule 2",
-            trigger=RuleTrigger(conditions=[
-                RuleCondition(variable_id="a.b", operator="lt", value=15),
-            ]),
+            trigger=RuleTrigger(
+                conditions=[
+                    RuleCondition(variable_id="a.b", operator="lt", value=15),
+                ]
+            ),
             action=RuleAction.EXPEDITE,
         ),
     ]
@@ -410,9 +428,13 @@ def test_chaos_simulation_with_very_long_scenario():
     for i in range(100):
         events.append(
             InventoryChanged(
-                event_id=f"evt_{i}", world_id="world_1", workspace_id="ws_1",
-                entity_type="warehouse", entity_id="wh_001",
-                warehouse_id="wh_001", component_id="comp_042",
+                event_id=f"evt_{i}",
+                world_id="world_1",
+                workspace_id="ws_1",
+                entity_type="warehouse",
+                entity_id="wh_001",
+                warehouse_id="wh_001",
+                component_id="comp_042",
                 quantity_change=1,
             )
         )
@@ -425,9 +447,11 @@ def test_chaos_twin_execution_with_state_corruption():
     state = _create_baseline_state()
     # Manually corrupt metadata
     from dataclasses import replace
+
     corrupted = replace(state, metadata={"bad_key": None, "another": []})
     # Should still be hashable
     from app.modules.world.state_projection import create_state_snapshot
+
     snap = create_state_snapshot(corrupted)
     assert snap.state_hash is not None
 
@@ -441,11 +465,16 @@ def test_chaos_replay_with_corrupted_state_hash():
     )
     # State with empty state_hash in metadata
     from dataclasses import replace
+
     state = replace(state, metadata={"state_hash": ""})
     event = InventoryChanged(
-        event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-        entity_type="warehouse", entity_id="wh_001",
-        warehouse_id="wh_001", component_id="comp_042",
+        event_id="evt_1",
+        world_id="world_1",
+        workspace_id="ws_1",
+        entity_type="warehouse",
+        entity_id="wh_001",
+        warehouse_id="wh_001",
+        component_id="comp_042",
         quantity_change=10,
     )
     final_state = project_events(state, [event])
@@ -459,9 +488,13 @@ def test_chaos_high_volume_event_stream():
     for i in range(5000):
         events.append(
             InventoryChanged(
-                event_id=f"unique_{i}", world_id="world_1", workspace_id="ws_1",
-                entity_type="warehouse", entity_id="wh_001",
-                warehouse_id="wh_001", component_id="comp_042",
+                event_id=f"unique_{i}",
+                world_id="world_1",
+                workspace_id="ws_1",
+                entity_type="warehouse",
+                entity_id="wh_001",
+                warehouse_id="wh_001",
+                component_id="comp_042",
                 quantity_change=i % 100,
             )
         )
@@ -506,9 +539,13 @@ def test_chaos_events_from_different_workspaces():
     )
 
     event = InventoryChanged(
-        event_id="evt_1", world_id="world_1", workspace_id="ws_1",
-        entity_type="warehouse", entity_id="wh_001",
-        warehouse_id="wh_001", component_id="comp_042",
+        event_id="evt_1",
+        world_id="world_1",
+        workspace_id="ws_1",
+        entity_type="warehouse",
+        entity_id="wh_001",
+        warehouse_id="wh_001",
+        component_id="comp_042",
         quantity_change=100,
     )
 

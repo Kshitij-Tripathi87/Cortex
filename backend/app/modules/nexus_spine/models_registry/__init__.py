@@ -11,8 +11,8 @@ governance on ML components just like Decisions require approval.
 from __future__ import annotations
 
 from app.modules.nexus_spine.models_registry.registry import (
-    ModelRegistry,
     ModelLifecycleStatus,
+    ModelRegistry,
     get_model_registry,
     reset_model_registry,
 )

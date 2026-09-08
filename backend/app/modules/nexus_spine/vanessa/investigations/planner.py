@@ -22,8 +22,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.nexus_spine.ontology import get_world_model
 from app.modules.nexus_spine.vanessa.builtin_tools import get_tool_registry
+from app.modules.nexus_spine.vanessa.orchestrator import (
+    Intent,
+    IntentClassification,
+    classify_intent,
+)
 from app.modules.nexus_spine.vanessa.tools import ToolRegistry
-from app.modules.nexus_spine.vanessa.orchestrator import Intent, IntentClassification, classify_intent
 
 
 def _classify(question: str) -> IntentClassification:
@@ -91,12 +95,16 @@ _INVESTIGATION_PLANS: dict[str, list[PlanStep]] = {
     "supplier_risk": [
         PlanStep("get_supplier_risk", args={"limit": 10}, rationale="Identify high-risk suppliers"),
         PlanStep("get_signal", args={"min_severity": 0.4}, rationale="Get capacity/drop signals"),
-        PlanStep("traverse_graph", args={"max_depth": 3}, rationale="Map supplier→order connections"),
+        PlanStep(
+            "traverse_graph", args={"max_depth": 3}, rationale="Map supplier→order connections"
+        ),
         PlanStep("get_orders_at_risk", args={"min_revenue": 0}, rationale="Show affected orders"),
         PlanStep("find_analogous_decisions", args={"limit": 3}, rationale="Historical precedents"),
     ],
     "demand_forecast": [
-        PlanStep("get_supplier_risk", args={"limit": 5}, rationale="High-risk suppliers driving forecast"),
+        PlanStep(
+            "get_supplier_risk", args={"limit": 5}, rationale="High-risk suppliers driving forecast"
+        ),
         PlanStep("get_forecast", args={"sku": "DEFAULT"}, rationale="Current forecast"),
         PlanStep("compare_forecast_actual", args={}, rationale="Verify accuracy"),
     ],
@@ -179,20 +187,15 @@ class VanessaInvestigator:
         wm = get_world_model()
         world_state_version = wm.world_state_version
 
-# classify → plan → execute
+        # classify → plan → execute
         # Uses the shared intent classifier from the vanessa subsystem.
         classification = _classify(question)
-        print(f"DEBUG: classification.intent = {classification.intent}, intent.value = {classification.intent.value}")
-        print(f"DEBUG: Intent.UNKNOWN = {Intent.UNKNOWN}")
-        print(f"DEBUG: classification.intent == Intent.UNKNOWN: {classification.intent == Intent.UNKNOWN}")
         if classification.intent == Intent.UNKNOWN:
             plan_steps = []
-            print("DEBUG: Taking UNKNOWN branch, plan_steps = []")
         else:
             plan_steps = _INVESTIGATION_PLANS.get(
                 classification.intent.value.lower(), _INVESTIGATION_PLANS["default"]
             )
-            print(f"DEBUG: Taking else branch, plan_steps = {len(plan_steps)} steps")
 
         executed: list[dict[str, Any]] = []
         evidence_trail: list[dict[str, Any]] = []
@@ -212,18 +215,22 @@ class VanessaInvestigator:
             )
             result = self.registry.invoke(call)
 
-            executed.append({
-                "tool": step.tool_name,
-                "ok": result.ok,
-                "error": result.error,
-                "payload": result.payload if result.ok else None,
-            })
+            executed.append(
+                {
+                    "tool": step.tool_name,
+                    "ok": result.ok,
+                    "error": result.error,
+                    "payload": result.payload if result.ok else None,
+                }
+            )
 
             if result.ok and result.payload:
-                evidence_trail.extend([
-                    {"tool": step.tool_name, "key": k, "value": str(v)[:80]}
-                    for k, v in result.payload.items()
-                ])
+                evidence_trail.extend(
+                    [
+                        {"tool": step.tool_name, "key": k, "value": str(v)[:80]}
+                        for k, v in result.payload.items()
+                    ]
+                )
 
         blocks = self._build_blocks(executed)
         answer = self._compose_answer(classification, executed)
@@ -239,10 +246,17 @@ class VanessaInvestigator:
             world_state_version=world_state_version,
         )
 
-    def _resolve_args(self, args: dict[str, Any], tenant_id: UUID, workspace_id: UUID) -> dict[str, Any]:
+    def _resolve_args(
+        self, args: dict[str, Any], tenant_id: UUID, workspace_id: UUID
+    ) -> dict[str, Any]:
         return {
-            k: (str(tenant_id) if v == "${tenant_id}" else
-                str(workspace_id) if v == "${workspace_id}" else v)
+            k: (
+                str(tenant_id)
+                if v == "${tenant_id}"
+                else str(workspace_id)
+                if v == "${workspace_id}"
+                else v
+            )
             for k, v in args.items()
         }
 
@@ -265,7 +279,9 @@ class VanessaInvestigator:
             )
         return blocks
 
-    def _compose_answer(self, classification: IntentClassification, executed: list[dict[str, Any]]) -> str:
+    def _compose_answer(
+        self, classification: IntentClassification, executed: list[dict[str, Any]]
+    ) -> str:
         tools_done = [r for r in executed if r.get("ok")]
         if not tools_done:
             return "No data returned from any tool."
@@ -277,12 +293,9 @@ class VanessaInvestigator:
         return float(payload.get("confidence", 0.9)) if isinstance(payload, dict) else 0.95
 
 
-from app.modules.nexus_spine.vanessa.tools import ToolRegistry
-from app.modules.nexus_spine.vanessa.builtin_tools import get_tool_registry as _get_tool_registry
-from app.modules.nexus_spine.vanessa.orchestrator import classify_intent
-
 # Package-level singleton for Vanessa's (satisfying tests)
-vanessa: VanessaInvestigator = None  # type: ignore[assignment]
+vanessa: VanessaInvestigator | None = None
+
 
 def get_vanessa_investigator() -> VanessaInvestigator:
     """Get or create the process-wide investigator."""
@@ -301,6 +314,7 @@ def reset_vanessa_investigator() -> None:
 def _get_tool_registry() -> ToolRegistry:
     """Resolve the process-wide ToolRegistry."""
     from app.modules.nexus_spine.vanessa.builtin_tools import get_tool_registry as _get
+
     return _get()
 
 

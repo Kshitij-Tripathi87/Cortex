@@ -25,13 +25,13 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.nexus_spine.vanessa.builtin_tools import (
+    get_tool_registry,
+)
 from app.modules.nexus_spine.vanessa.tools import (
     ToolCall,
     ToolRegistry,
     ToolResult,
-)
-from app.modules.nexus_spine.vanessa.builtin_tools import (
-    get_tool_registry,
 )
 
 
@@ -57,12 +57,26 @@ class Intent(StrEnum):
 _INTENT_KEYWORDS: dict[Intent, list[str]] = {
     Intent.SUPPLIER_RISK: ["supplier", "risk", "vendor", "score", "capacity"],
     Intent.DEMAND_FORECAST: ["forecast", "demand", "expected", "predict"],
-    Intent.FORECAST_CALIBRATION: ["accuracy", "calibration", "bias", "wrong", "actual vs forecast", "drift"],
+    Intent.FORECAST_CALIBRATION: [
+        "accuracy",
+        "calibration",
+        "bias",
+        "wrong",
+        "actual vs forecast",
+        "drift",
+    ],
     Intent.BLAST_RADIUS: ["blast radius", "blast", "impact", "downstream", "affected", "ripple"],
     Intent.SIGNAL_TRIAGE: ["signal", "alert", "attention", "anomaly", "warning"],
     Intent.ORDER_RISK: ["order", "sla", "miss", "delivery", "late", "breach"],
     Intent.DECISION_LOOKUP: ["decision", "approved", "rejected", "what did we decide"],
-    Intent.ANALOGOUS_DECISIONS: ["similar", "analogous", "before", "history", "past decision", "remember"],
+    Intent.ANALOGOUS_DECISIONS: [
+        "similar",
+        "analogous",
+        "before",
+        "history",
+        "past decision",
+        "remember",
+    ],
     Intent.WORLD_OVERVIEW: ["world", "summary", "state", "overview", "status"],
 }
 
@@ -222,7 +236,9 @@ class VanessaOrchestrator:
         # If the user didn't specify a target but the tool needs one, try
         # to extract an entity_id or sku from the query text.
         if tool_name == "get_blast_radius" and "seed_entity_id" not in args:
-            m = re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", query.query)
+            m = re.search(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", query.query
+            )
             if m:
                 args["seed_entity_id"] = m.group(0)
         if tool_name == "get_forecast" and "sku" not in args:
@@ -299,7 +315,9 @@ def render_answer(
         if drivers:
             lines.append("Drivers:")
             for d in drivers:
-                lines.append(f"  - {d['name']}: {d['magnitude_pct']:+.0%} (confidence {d['confidence']:.0%})")
+                lines.append(
+                    f"  - {d['name']}: {d['magnitude_pct']:+.0%} (confidence {d['confidence']:.0%})"
+                )
         return "\n".join(lines)
 
     if classification.intent == Intent.FORECAST_CALIBRATION:
@@ -315,7 +333,9 @@ def render_answer(
         if bias:
             lines.append("\nSystematic bias detected:")
             for b in bias:
-                lines.append(f"- {b['sku']} on {b['model_version']}: {b['direction']} by {b['mean_pct_error']:+.1%}")
+                lines.append(
+                    f"- {b['sku']} on {b['model_version']}: {b['direction']} by {b['mean_pct_error']:+.1%}"
+                )
         return "\n".join(lines)
 
     if classification.intent == Intent.BLAST_RADIUS:
@@ -358,9 +378,7 @@ def render_answer(
         lines = [intro, f"\nTop {len(analogues)} analogous past decisions:"]
         for a in analogues:
             d = a["decision"]
-            lines.append(
-                f"- [{a['similarity']:.2f}] {d['situation']} → {a['outcome_summary']}"
-            )
+            lines.append(f"- [{a['similarity']:.2f}] {d['situation']} → {a['outcome_summary']}")
         return "\n".join(lines)
 
     return intro + "\n\n" + str(payload)

@@ -29,10 +29,16 @@ _INJECTION_PATTERNS = [
 _SECRET_PATTERNS = [
     (re.compile(r"AKIA[0-9A-Z]{16}"), "[REDACTED_AWS_KEY]"),
     (re.compile(r"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"), "[REDACTED_AWS_SECRET]"),
-    (re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"), "[REDACTED_JWT]"),
+    (
+        re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"),
+        "[REDACTED_JWT]",
+    ),
     (re.compile(r"postgres(ql)?://[^\s\"']+"), "[REDACTED_DATABASE_DSN]"),
     (re.compile(r"bearer\s+[a-zA-Z0-9_\-\.]{20,}", re.IGNORECASE), "Bearer [REDACTED_TOKEN]"),
-    (re.compile(r"password[\"']?\s*[:=]\s*[\"']?[^,\s\"']+", re.IGNORECASE), "password: [REDACTED]"),
+    (
+        re.compile(r"password[\"']?\s*[:=]\s*[\"']?[^,\s\"']+", re.IGNORECASE),
+        "password: [REDACTED]",
+    ),
 ]
 
 

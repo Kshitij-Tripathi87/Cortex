@@ -92,7 +92,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("profile_id"),
     )
     op.create_index("ix_source_column_profiles_file_id", "source_column_profiles", ["file_id"])
-    op.create_index("ix_source_column_profiles_workspace_id", "source_column_profiles", ["workspace_id"])
+    op.create_index(
+        "ix_source_column_profiles_workspace_id", "source_column_profiles", ["workspace_id"]
+    )
 
     # Evidence claims
     op.create_table(
@@ -169,7 +171,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("assessment_id"),
     )
-    op.create_index("ix_readiness_assessments_workspace_id", "readiness_assessments", ["workspace_id"])
+    op.create_index(
+        "ix_readiness_assessments_workspace_id", "readiness_assessments", ["workspace_id"]
+    )
     op.create_index("ix_readiness_assessments_batch_id", "readiness_assessments", ["batch_id"])
 
 

@@ -1,4 +1,4 @@
-﻿"""Supplier Disruption Decision Brief API — the locked MVP product surface.
+"""Supplier Disruption Decision Brief API — the locked MVP product surface.
 
 Contract version 0.3.0 — exposes the full Morning Brief engine outputs so the
 frontend can render the executive screen without further round-trips.
@@ -261,6 +261,7 @@ def _to_inventory_data(i: Inventory) -> InventoryData:
     last_updated = i.last_updated_at
     if last_updated.tzinfo is None:
         from datetime import UTC
+
         last_updated = last_updated.replace(tzinfo=UTC)
     return InventoryData(
         warehouse_id=i.warehouse_id,
@@ -317,31 +318,49 @@ async def supplier_failure_brief(
         raise HTTPException(status_code=404, detail="Supplier not found")
 
     suppliers = list(
-        (await db.execute(select(Supplier).where(Supplier.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Supplier).where(Supplier.workspace_id == body.workspace_id))
+        ).scalars()
     )
     components = list(
-        (await db.execute(select(Component).where(Component.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Component).where(Component.workspace_id == body.workspace_id))
+        ).scalars()
     )
     warehouses = list(
-        (await db.execute(select(Warehouse).where(Warehouse.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Warehouse).where(Warehouse.workspace_id == body.workspace_id))
+        ).scalars()
     )
     factories = list(
-        (await db.execute(select(Factory).where(Factory.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Factory).where(Factory.workspace_id == body.workspace_id))
+        ).scalars()
     )
     products = list(
-        (await db.execute(select(Product).where(Product.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Product).where(Product.workspace_id == body.workspace_id))
+        ).scalars()
     )
     customers = list(
-        (await db.execute(select(Customer).where(Customer.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Customer).where(Customer.workspace_id == body.workspace_id))
+        ).scalars()
     )
     edges = list(
         (await db.execute(select(Edge).where(Edge.workspace_id == body.workspace_id))).scalars()
     )
     inventory = list(
-        (await db.execute(select(Inventory).where(Inventory.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(select(Inventory).where(Inventory.workspace_id == body.workspace_id))
+        ).scalars()
     )
     boms = list(
-        (await db.execute(select(BillOfMaterials).where(BillOfMaterials.workspace_id == body.workspace_id))).scalars()
+        (
+            await db.execute(
+                select(BillOfMaterials).where(BillOfMaterials.workspace_id == body.workspace_id)
+            )
+        ).scalars()
     )
     orders_with_products = list(
         (
@@ -386,6 +405,7 @@ async def supplier_failure_brief(
     scenario_id = f"{body.workspace_id}-{body.supplier_id}-{datetime.utcnow().isoformat()}"
     try:
         import asyncio
+
         asyncio.create_task(
             dispatch_shadow_models(
                 db=db,
@@ -420,7 +440,9 @@ async def supplier_failure_brief(
             "id": str(supplier_row.id),
             "name": supplier_row.name,
             "country": supplier_row.country,
-            "tier": str(supplier_row.tier.value) if hasattr(supplier_row.tier, "value") else str(supplier_row.tier),
+            "tier": str(supplier_row.tier.value)
+            if hasattr(supplier_row.tier, "value")
+            else str(supplier_row.tier),
             "lead_time_days": supplier_row.lead_time_days,
         },
         "scenario": {
@@ -462,7 +484,9 @@ async def supplier_failure_brief(
                     "quantity": w.quantity,
                     "safety_stock": w.safety_stock,
                     "daily_usage": w.daily_usage,
-                    "coverage_days": None if w.coverage_days == float("inf") else round(w.coverage_days, 4),
+                    "coverage_days": None
+                    if w.coverage_days == float("inf")
+                    else round(w.coverage_days, 4),
                 }
                 for w in brief.propagation.affected_warehouses
             ],
@@ -484,7 +508,9 @@ async def supplier_failure_brief(
             "revenue_risk_usd": round(brief.business_impact.revenue_risk_usd, 2),
             "margin_risk_usd": round(brief.business_impact.margin_risk_usd, 2),
             "penalty_exposure_usd": round(brief.business_impact.penalty_exposure_usd, 2),
-            "working_capital_impact_usd": round(brief.business_impact.working_capital_impact_usd, 2),
+            "working_capital_impact_usd": round(
+                brief.business_impact.working_capital_impact_usd, 2
+            ),
             "customer_impact_score": round(brief.business_impact.customer_impact_score, 4),
             "operational_impact_score": round(brief.business_impact.operational_impact_score, 4),
             "formula": brief.business_impact.formula,

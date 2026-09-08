@@ -361,9 +361,7 @@ class TestV082APIIntegration:
         did = dec["decision_id"]
 
         # Get
-        r = await api_client.get(
-            f"/nexus/decisions/{did}", params={"workspace_id": "WS1"}
-        )
+        r = await api_client.get(f"/nexus/decisions/{did}", params={"workspace_id": "WS1"})
         assert r.status_code == 200
         assert r.json()["data"]["decision"]["phase"] == "proposed"
 
@@ -377,9 +375,7 @@ class TestV082APIIntegration:
             assert r.status_code == 200, f"{phase}: {r.text}"
 
         # Execute convenience
-        r = await api_client.post(
-            f"/nexus/decisions/{did}/execute", params={"workspace_id": "WS1"}
-        )
+        r = await api_client.post(f"/nexus/decisions/{did}/execute", params={"workspace_id": "WS1"})
         assert r.status_code == 200, r.text
         assert r.json()["data"]["decision"]["phase"] == "executed"
 
@@ -458,18 +454,14 @@ class TestV082APIIntegration:
                 headers={"X-Workspace-Id": "WS1"},
                 json={"target_phase": phase},
             )
-        await api_client.post(
-            f"/nexus/decisions/{did}/execute", params={"workspace_id": "WS1"}
-        )
+        await api_client.post(f"/nexus/decisions/{did}/execute", params={"workspace_id": "WS1"})
         await api_client.post(
             f"/nexus/decisions/{did}/outcome",
             params={"workspace_id": "WS1"},
             json={"outcome_status": "succeeded"},
         )
         # Record into memory
-        r = await api_client.post(
-            f"/nexus/decisions/{did}/memory", params={"workspace_id": "WS1"}
-        )
+        r = await api_client.post(f"/nexus/decisions/{did}/memory", params={"workspace_id": "WS1"})
         assert r.status_code == 200, r.text
 
         # Find analogous

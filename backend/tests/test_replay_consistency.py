@@ -551,10 +551,7 @@ class TestReplayConsistencyAtScale:
                 quantity_change=i + 1,
                 reason="snapshot_test",
             )
-            await service_snapshotting.submit_event(
-                event,
-                idempotency_key=f"req_{i}"
-            )
+            await service_snapshotting.submit_event(event, idempotency_key=f"req_{i}")
 
         # Verify state hashes at each checkpoint
         state_at_5 = await repo.get_version(world_id, workspace_id, 6)  # 1 genesis + 5 events

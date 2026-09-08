@@ -54,6 +54,7 @@ from starlette.testclient import TestClient
 # 1. Redis fail-closed: authorization denies when Redis is down
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRedisFailClosed:
     """The rate-limit / authorization cache lives in Redis.
     If Redis is down, the cache layer MUST fail closed:
@@ -95,9 +96,9 @@ class TestRedisFailClosed:
         # 2. It's async and returns a bool.
         inspect.signature(CacheManager.is_redis_available)
         # iscoroutinefunction is the right check.
-        assert inspect.iscoroutinefunction(
-            CacheManager.is_redis_available
-        ), "is_redis_available must be async (it does a PING)."
+        assert inspect.iscoroutinefunction(CacheManager.is_redis_available), (
+            "is_redis_available must be async (it does a PING)."
+        )
 
         # 3. The default-cache singleton's probe either
         #    returns True (Redis is up in this test env)
@@ -105,6 +106,7 @@ class TestRedisFailClosed:
         #    must not raise. A raise here would be a
         #    bug; a non-bool return would be a bug.
         import asyncio
+
         cm = get_cache_manager()
         result = asyncio.run(cm.is_redis_available())
         assert isinstance(result, bool), (
@@ -118,6 +120,7 @@ class TestRedisFailClosed:
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. PostgreSQL transaction rollback contract
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestPostgresTransactionRollback:
     """If a transaction fails mid-way, the world-state and
@@ -152,9 +155,8 @@ class TestPostgresTransactionRollback:
         from app.infrastructure.state_pipeline import (
             RealtimeStatePipeline,
         )
-        run_sig = inspect.signature(
-            RealtimeStatePipeline.ingest_event_and_propagate
-        )
+
+        run_sig = inspect.signature(RealtimeStatePipeline.ingest_event_and_propagate)
         params = list(run_sig.parameters.keys())
         # Must take (self, event, current_state, context)
         for required in ("event", "current_state", "context"):
@@ -166,11 +168,8 @@ class TestPostgresTransactionRollback:
                 f"attribute the event."
             )
         # Must be async (it awaits the bus publish).
-        assert inspect.iscoroutinefunction(
-            RealtimeStatePipeline.ingest_event_and_propagate
-        ), (
-            "ingest_event_and_propagate must be async (it "
-            "awaits message_bus.publish)."
+        assert inspect.iscoroutinefunction(RealtimeStatePipeline.ingest_event_and_propagate), (
+            "ingest_event_and_propagate must be async (it awaits message_bus.publish)."
         )
 
     def test_audit_log_emission_does_not_silently_succeed(self):
@@ -201,6 +200,7 @@ class TestPostgresTransactionRollback:
         from app.infrastructure.state_pipeline import (
             PipelineProcessingResult,
         )
+
         source = inspect.getsource(state_pipeline)
         # 1. Canonical message type is referenced.
         assert "WORLD_STATE_CHANGED" in source, (
@@ -209,14 +209,13 @@ class TestPostgresTransactionRollback:
             "downstream consumer of that message."
         )
         # 2. Publish goes through the message bus.
-        assert "message_bus" in source, (
-            "state_pipeline must publish via message_bus."
-        )
+        assert "message_bus" in source, "state_pipeline must publish via message_bus."
         # 3. Result type has a success field.
-        result_fields = {
-            f.name for f in PipelineProcessingResult.__dataclass_fields__.values()
-        } if hasattr(PipelineProcessingResult, "__dataclass_fields__") else \
-            set(getattr(PipelineProcessingResult, "__annotations__", {}).keys())
+        result_fields = (
+            {f.name for f in PipelineProcessingResult.__dataclass_fields__.values()}
+            if hasattr(PipelineProcessingResult, "__dataclass_fields__")
+            else set(getattr(PipelineProcessingResult, "__annotations__", {}).keys())
+        )
         assert "success" in result_fields, (
             "PipelineProcessingResult must expose "
             "success; the caller uses it to detect "
@@ -227,6 +226,7 @@ class TestPostgresTransactionRollback:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. /readyz returns 503 when audit chain is stale
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestReadyzAuditChainContract:
     """The audit-chain check is one of the four mandatory
@@ -251,9 +251,7 @@ class TestReadyzAuditChainContract:
         )
         # Patch the default argument tuple in the function
         # object directly.
-        monkeypatch.setattr(
-            h_mod.check_dependencies, "__defaults__", (fake_checks,)
-        )
+        monkeypatch.setattr(h_mod.check_dependencies, "__defaults__", (fake_checks,))
 
         app = create_app()
         client = TestClient(app)
@@ -261,20 +259,19 @@ class TestReadyzAuditChainContract:
         # The audit chain is the gating check; if it's
         # stale, /readyz must return 503.
         assert resp.status_code == 503, (
-            f"/readyz returned {resp.status_code}; expected 503 "
-            f"for stale audit chain."
+            f"/readyz returned {resp.status_code}; expected 503 for stale audit chain."
         )
         body = resp.json()
         failed = {c["name"] for c in body["components"] if not c["ok"]}
         assert "audit_chain" in failed, (
-            f"Stale audit chain did not appear in failed "
-            f"components: {failed}"
+            f"Stale audit chain did not appear in failed components: {failed}"
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Trace context propagation handles malformed envelopes
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTraceContextCorruptionResilience:
     """A malformed W3C traceparent value MUST NOT crash the
@@ -286,6 +283,7 @@ class TestTraceContextCorruptionResilience:
             detach_context,
             restore_from_envelope,
         )
+
         # Inject a malformed envelope directly.
         bad_envelope = {
             "job_kind": "ingest",
@@ -317,6 +315,7 @@ class TestTraceContextCorruptionResilience:
             detach_context,
             restore_from_envelope,
         )
+
         # Empty envelope (no __trace_parent__ key).
         token = restore_from_envelope({})
         assert token is None
@@ -324,6 +323,7 @@ class TestTraceContextCorruptionResilience:
 
     def test_none_envelope_does_not_crash(self):
         from app.infrastructure.trace_context import restore_from_envelope
+
         # restore_from_envelope with None — this is a
         # programmer error (the envelope is supposed to
         # be a dict), but the function should not crash
@@ -343,6 +343,7 @@ class TestTraceContextCorruptionResilience:
 # 5. SLO compliance math never returns NaN / negative
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSLOComplianceMath:
     """The SLO compliance function (compliance_from_buckets)
     is the binding alert target. If it returns NaN or a
@@ -352,6 +353,7 @@ class TestSLOComplianceMath:
 
     def test_compliance_with_zero_observations_is_bounded(self):
         from app.infrastructure.slo import compliance_from_buckets
+
         # No observations → 0/0 is undefined. The function
         # must NOT return NaN, None, or a value outside
         # [0, 1]. The current contract returns 1.0
@@ -387,6 +389,7 @@ class TestSLOComplianceMath:
             LATENCY_TARGETS,
             compliance_from_buckets,
         )
+
         # All observations within P99 → compliance = 1.0.
         # Build a synthetic bucket snapshot that puts
         # every observation below the P99 target.
@@ -400,8 +403,9 @@ class TestSLOComplianceMath:
             cumulative += 1
         # All 100 observations in the bucket at or below
         # the P99 target.
-        bucket_counts = {b: (100 if i <= cumulative else 0)
-                        for i, b in enumerate(LATENCY_HISTOGRAM_BUCKETS)}
+        bucket_counts = {
+            b: (100 if i <= cumulative else 0) for i, b in enumerate(LATENCY_HISTOGRAM_BUCKETS)
+        }
         # The +inf bucket holds the overflow.
         bucket_counts[float("inf")] = 0
         result = compliance_from_buckets(
@@ -411,20 +415,17 @@ class TestSLOComplianceMath:
         )
         # Result is in [0, 1].
         assert 0.0 <= result <= 1.0, (
-            f"compliance_from_buckets returned {result} "
-            f"(out of [0, 1] range)."
+            f"compliance_from_buckets returned {result} (out of [0, 1] range)."
         )
         # All within P99 → 1.0.
-        assert result == 1.0, (
-            f"compliance_from_buckets(100% within P99) = {result}; "
-            f"expected 1.0."
-        )
+        assert result == 1.0, f"compliance_from_buckets(100% within P99) = {result}; expected 1.0."
 
     def test_compliance_with_all_outside_target_is_zero(self):
         from app.infrastructure.slo import (
             LATENCY_HISTOGRAM_BUCKETS,
             compliance_from_buckets,
         )
+
         # All observations above the P99 target (in the
         # +inf bucket).
         bucket_counts = {b: 0 for b in LATENCY_HISTOGRAM_BUCKETS}
@@ -434,15 +435,13 @@ class TestSLOComplianceMath:
             bucket_counts=bucket_counts,
             total_count=100,
         )
-        assert result == 0.0, (
-            f"compliance_from_buckets(100% outside P99) = {result}; "
-            f"expected 0.0."
-        )
+        assert result == 0.0, f"compliance_from_buckets(100% outside P99) = {result}; expected 0.0."
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. /healthz stays 200 even with all subsystems down
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHealthzAlways200:
     """The /healthz endpoint is a liveness probe. It must
@@ -453,6 +452,7 @@ class TestHealthzAlways200:
 
     def test_healthz_200_with_all_dependencies_failing(self):
         from app.main import create_app
+
         app = create_app()
         client = TestClient(app)
         # No patching — the default behavior is "200
@@ -474,6 +474,7 @@ class TestHealthzAlways200:
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. Reusable: assert_contract_invariant helper
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestReusableHelpers:
     """H1's contract assertions are reusable. Other chaos

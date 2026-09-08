@@ -93,7 +93,9 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
-        sa.Column("final_state_hash", sa.String(length=64), nullable=False),  # index: explicit below
+        sa.Column(
+            "final_state_hash", sa.String(length=64), nullable=False
+        ),  # index: explicit below
         sa.Column("final_version", sa.Integer(), nullable=False),
         sa.Column(
             "metrics",
@@ -169,7 +171,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("version_id"),
     )
     op.create_index("ix_twin_versions_twin_id", "twin_versions", ["twin_id"], unique=False)
-    op.create_index("ix_twin_versions_workspace_id", "twin_versions", ["workspace_id"], unique=False)
+    op.create_index(
+        "ix_twin_versions_workspace_id", "twin_versions", ["workspace_id"], unique=False
+    )
 
     op.create_table(
         "twin_state",

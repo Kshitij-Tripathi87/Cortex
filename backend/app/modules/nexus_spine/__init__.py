@@ -52,6 +52,29 @@ from app.modules.nexus_spine.demand import (
     reset_demand_engine,
     reset_truth_loop,
 )
+from app.modules.nexus_spine.explanations import (
+    ExplanationEngine,
+    ResponseBlockType,
+    get_explanation_engine,
+)
+from app.modules.nexus_spine.gnn import (
+    GNNEngine,
+    get_gnn_engine,
+)
+from app.modules.nexus_spine.governance import (
+    ALLOWED_TRANSITIONS,
+    TERMINAL_END_STATES,
+    TERMINAL_STATES,
+    DecisionLifecycle,
+    DecisionLifecycleManager,
+    get_decision_lifecycle_manager,
+    reset_decision_lifecycle_manager,
+    validate_world_state_consistent,
+)
+from app.modules.nexus_spine.learning import (
+    ForecastMetricsTracker,
+    get_forecast_metrics_tracker,
+)
 from app.modules.nexus_spine.memory import (
     AnalogousDecision,
     DecisionMemory,
@@ -65,6 +88,11 @@ from app.modules.nexus_spine.models import (
     SpineStageResult,
     SwarmTask,
     SwarmTaskContext,
+)
+from app.modules.nexus_spine.models_registry import (
+    ModelLifecycleStatus,
+    ModelRegistry,
+    get_model_registry,
 )
 from app.modules.nexus_spine.ontology import (
     ENTITY_KIND_TO_DOMAIN,
@@ -96,11 +124,38 @@ from app.modules.nexus_spine.ontology import (
     get_world_model,
     reset_world_model,
 )
+
+# Nexus v0.7 — Production Intelligence & Learning
+from app.modules.nexus_spine.persistence import (
+    DecisionRepository,
+    EventRepository,
+    EvidenceRepository,
+    ForecastRepository,
+    ModelRegistryRepository,
+    RecommendationRepository,
+    RiskRepository,
+    ScenarioRepository,
+    VanessaSessionRepository,
+    get_decision_repository,
+    get_event_repository,
+    get_evidence_repository,
+    get_forecast_repository,
+    get_model_registry_repository,
+    get_recommendation_repository,
+    get_risk_repository,
+    get_scenario_repository,
+    get_vanessa_session_repository,
+)
 from app.modules.nexus_spine.pipeline_stages import (
     execution_gate_fn,
     policy_gate_fn,
     real_supervisor_fn,
     twin_simulation_fn,
+)
+from app.modules.nexus_spine.realtime_events import NexusEventType, event_to_sse
+from app.modules.nexus_spine.recommendations import (
+    RecommendationEvaluator,
+    get_recommendation_evaluator,
 )
 from app.modules.nexus_spine.risk import (
     RiskAssessment,
@@ -109,6 +164,11 @@ from app.modules.nexus_spine.risk import (
     Severity,
     get_risk_engine,
     reset_risk_engine,
+)
+from app.modules.nexus_spine.rl import (
+    CandidateAction,
+    CandidateGenerator,
+    get_candidate_generator,
 )
 from app.modules.nexus_spine.scenarios import (
     DigitalTwin,
@@ -121,72 +181,6 @@ from app.modules.nexus_spine.scenarios import (
     get_scenario_studio,
     reset_scenario_studio,
 )
-from app.modules.nexus_spine.governance import (
-    ALLOWED_TRANSITIONS,
-    TERMINAL_END_STATES,
-    TERMINAL_STATES,
-    DecisionLifecycle,
-    DecisionLifecycleManager,
-    DecisionPhase,
-    DecisionTransition,
-    get_decision_lifecycle_manager,
-    reset_decision_lifecycle_manager,
-    validate_world_state_consistent,
-)
-# Nexus v0.7 — Production Intelligence & Learning
-from app.modules.nexus_spine.persistence import (
-    DecisionRepository,
-    EvidenceRepository,
-    EventRepository,
-    ForecastRepository,
-    ModelRegistryRepository,
-    RecommendationRepository,
-    RiskRepository,
-    ScenarioRepository,
-    VanessaSessionRepository,
-    get_decision_repository,
-    get_evidence_repository,
-    get_event_repository,
-    get_forecast_repository,
-    get_model_registry_repository,
-    get_recommendation_repository,
-    get_risk_repository,
-    get_scenario_repository,
-    get_vanessa_session_repository,
-)
-from app.modules.nexus_spine.models_registry import (
-    ModelRegistry,
-    ModelLifecycleStatus,
-    get_model_registry,
-)
-from app.modules.nexus_spine.learning import (
-    ForecastMetricsTracker,
-    get_forecast_metrics_tracker,
-)
-from app.modules.nexus_spine.gnn import (
-    GNNEngine,
-    get_gnn_engine,
-)
-from app.modules.nexus_spine.rl import (
-    CandidateAction,
-    CandidateGenerator,
-    get_candidate_generator,
-)
-from app.modules.nexus_spine.recommendations import (
-    RecommendationEvaluator,
-    get_recommendation_evaluator,
-)
-from app.modules.nexus_spine.explanations import (
-    ExplanationEngine,
-    ResponseBlockType,
-    get_explanation_engine,
-)
-from app.modules.nexus_spine.vanessa.sessions import (
-    ConversationContext,
-    VanessaSessionManager,
-    get_vanessa_session_manager,
-)
-from app.modules.nexus_spine.realtime_events import NexusEventType, event_to_sse
 from app.modules.nexus_spine.spine_orchestrator import RealDataSpine
 from app.modules.nexus_spine.vanessa import (
     Intent,
@@ -206,6 +200,11 @@ from app.modules.nexus_spine.vanessa import (
     render_answer,
     reset_tool_registry,
     reset_vanessa,
+)
+from app.modules.nexus_spine.vanessa.sessions import (
+    ConversationContext,
+    VanessaSessionManager,
+    get_vanessa_session_manager,
 )
 
 __all__ = [

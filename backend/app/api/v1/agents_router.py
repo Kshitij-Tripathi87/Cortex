@@ -150,7 +150,9 @@ async def evaluate_agent(
     require_workspace_access(req.workspace_id, auth)
     artifact = _deployment_controller.get_artifact(req.agent_id, req.version)
     if not artifact:
-        raise HTTPException(status_code=404, detail=f"Artifact {req.agent_id}:{req.version} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Artifact {req.agent_id}:{req.version} not found."
+        )
 
     report = await _promotion_gate.evaluate_and_qualify(artifact)
     return {
@@ -257,7 +259,9 @@ async def inject_simulated_degradation(
 # Operational Multi-Agent Task Graph & Manifest Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 class CreateTaskRequest(BaseModel):
-    incident_entity_id: str = Field(default="seller_01a00b8e99", description="Entity causing disruption")
+    incident_entity_id: str = Field(
+        default="seller_01a00b8e99", description="Entity causing disruption"
+    )
     world_state_version: int = Field(default=101, description="Authoritative world state version")
     origin: str = Field(default="SP", description="Origin hub / city")
     destination: str = Field(default="RJ", description="Destination hub / city")

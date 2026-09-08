@@ -141,8 +141,13 @@ def _build_dataset() -> CanonicalDataset:
     ds.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": f"S{i}", "state": "SP", "city": "Sao Paulo",
-             "_source_file": "suppliers.csv", "_source_row": i}
+            {
+                "supplier_id": f"S{i}",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "suppliers.csv",
+                "_source_row": i,
+            }
             for i in range(1, 5)
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
@@ -151,10 +156,20 @@ def _build_dataset() -> CanonicalDataset:
     ds.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": "C1", "state": "SP", "city": "Sao Paulo",
-             "_source_file": "customers.csv", "_source_row": 1},
-            {"customer_id": "C2", "state": "RJ", "city": "Rio",
-             "_source_file": "customers.csv", "_source_row": 2},
+            {
+                "customer_id": "C1",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "customers.csv",
+                "_source_row": 1,
+            },
+            {
+                "customer_id": "C2",
+                "state": "RJ",
+                "city": "Rio",
+                "_source_file": "customers.csv",
+                "_source_row": 2,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="customers.csv",
@@ -162,25 +177,45 @@ def _build_dataset() -> CanonicalDataset:
     ds.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": f"O{i:03d}", "customer_id": f"C{(i % 2) + 1}",
-             "status": "processing", "price": 200.0 + i * 10,
-             "freight_value": 15.0, "_source_file": "orders.csv", "_source_row": i}
+            {
+                "order_id": f"O{i:03d}",
+                "customer_id": f"C{(i % 2) + 1}",
+                "status": "processing",
+                "price": 200.0 + i * 10,
+                "freight_value": 15.0,
+                "_source_file": "orders.csv",
+                "_source_row": i,
+            }
             for i in range(1, 7)
         ],
-        column_types={"order_id": "str", "customer_id": "str", "status": "str",
-                      "price": "float", "freight_value": "float"},
+        column_types={
+            "order_id": "str",
+            "customer_id": "str",
+            "status": "str",
+            "price": "float",
+            "freight_value": "float",
+        },
         source_file="orders.csv",
     )
     ds.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"order_item_id": f"OI{i}", "order_id": f"O{i:03d}",
-             "supplier_id": f"S{(i % 4) + 1}", "product_id": f"P{i}",
-             "_source_file": "items.csv", "_source_row": i}
+            {
+                "order_item_id": f"OI{i}",
+                "order_id": f"O{i:03d}",
+                "supplier_id": f"S{(i % 4) + 1}",
+                "product_id": f"P{i}",
+                "_source_file": "items.csv",
+                "_source_row": i,
+            }
             for i in range(1, 7)
         ],
-        column_types={"order_item_id": "str", "order_id": "str",
-                      "supplier_id": "str", "product_id": "str"},
+        column_types={
+            "order_item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+        },
         source_file="items.csv",
     )
     return ds
@@ -201,13 +236,17 @@ class TestApprovalRecord:
 
     def test_hash_determinism(self):
         r1 = ApprovalRecord.create(
-            decision_id="d1", operator_id="op1",
-            proposal_hash="ph", simulation_hash="sh",
+            decision_id="d1",
+            operator_id="op1",
+            proposal_hash="ph",
+            simulation_hash="sh",
             world_state_version=10,
         )
         ApprovalRecord.create(
-            decision_id="d1", operator_id="op1",
-            proposal_hash="ph", simulation_hash="sh",
+            decision_id="d1",
+            operator_id="op1",
+            proposal_hash="ph",
+            simulation_hash="sh",
             world_state_version=10,
         )
         # Different approval_ids and timestamps, but same canonical hash inputs
@@ -504,10 +543,14 @@ class TestGovernedExecutionService:
     def test_outcome_hash_is_deterministic(self):
         """Same outcome fields → same hash."""
         o1 = ExecutionOutcome(
-            outcome_id="o1", execution_id="e1",
-            proposal_hash="ph", simulation_hash="sh",
-            approval_hash="ah", authorization_hash="auth",
-            world_state_version_before=100, world_state_version_after=100,
+            outcome_id="o1",
+            execution_id="e1",
+            proposal_hash="ph",
+            simulation_hash="sh",
+            approval_hash="ah",
+            authorization_hash="auth",
+            world_state_version_before=100,
+            world_state_version_after=100,
             adapter_result={"status": "EXECUTED"},
         )
         o1 = replace(o1, outcome_hash=compute_outcome_hash(o1))
@@ -585,10 +628,14 @@ class TestExecutionOutcome:
     def test_outcome_hash_sensitivity(self):
         """Changing any provenance hash changes the outcome_hash."""
         base = ExecutionOutcome(
-            outcome_id="o", execution_id="e",
-            proposal_hash="ph1", simulation_hash="sh",
-            approval_hash="ah", authorization_hash="auth",
-            world_state_version_before=1, world_state_version_after=2,
+            outcome_id="o",
+            execution_id="e",
+            proposal_hash="ph1",
+            simulation_hash="sh",
+            approval_hash="ah",
+            authorization_hash="auth",
+            world_state_version_before=1,
+            world_state_version_after=2,
             adapter_result={},
         )
         h1 = compute_outcome_hash(base)
@@ -636,12 +683,11 @@ class TestEvidenceChainCompletion:
     def test_full_lineage_present(self):
         g = DecisionEvidenceGraph(decision_id="d1")
         src = g.add_evidence_step("SOURCE_RECORD", "source", {"data": "a"})
-        sig = g.add_evidence_step("SIGNAL", "signal", {"type": "test"},
-                                   parent_node_id=src.node_id)
-        prop = g.add_evidence_step("PROPOSAL", "proposal", {"action": "x"},
-                                    parent_node_id=sig.node_id)
-        g.add_evidence_step("OUTCOME", "outcome", {"result": "ok"},
-                                   parent_node_id=prop.node_id)
+        sig = g.add_evidence_step("SIGNAL", "signal", {"type": "test"}, parent_node_id=src.node_id)
+        prop = g.add_evidence_step(
+            "PROPOSAL", "proposal", {"action": "x"}, parent_node_id=sig.node_id
+        )
+        g.add_evidence_step("OUTCOME", "outcome", {"result": "ok"}, parent_node_id=prop.node_id)
         assert len(g.nodes) == 4
         assert len(g.edges) == 3
         node_types = [n.node_type for n in g.nodes.values()]

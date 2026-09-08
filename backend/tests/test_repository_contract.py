@@ -48,7 +48,9 @@ class TestRepositoryContract:
             "modify_version",
         ]
         for method_name in forbidden_methods:
-            assert not hasattr(repo, method_name), f"Forbidden method {method_name} found on repository"
+            assert not hasattr(repo, method_name), (
+                f"Forbidden method {method_name} found on repository"
+            )
 
     async def test_repository_get_methods_no_side_effects(
         self, service: WorldStateService, repo: StateRepository

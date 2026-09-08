@@ -85,20 +85,32 @@ async def test_nexus_multi_agent_operational_acceptance():
     booking_agent = CapacityBookingAgent()
     booking_res = booking_agent.evaluate_capacity("SP", "RJ", required_volume_m3=4.2)
     assert booking_res.recommended_lane == "VCP-SDU"
-    assert booking_res.expected_cost_usd == 486.0 or booking_res.expected_cost_usd == 450.0 or booking_res.expected_cost_usd > 0
+    assert (
+        booking_res.expected_cost_usd == 486.0
+        or booking_res.expected_cost_usd == 450.0
+        or booking_res.expected_cost_usd > 0
+    )
     assert booking_res.sla_protection_pct >= 95.0
-    print(f"[PASS] 03. Capacity Booking Agent Identified Multimodal Lane: {booking_res.recommended_lane}")
+    print(
+        f"[PASS] 03. Capacity Booking Agent Identified Multimodal Lane: {booking_res.recommended_lane}"
+    )
 
     # 4. Carrier Negotiation Specialist (Group A2)
     neg_agent = CarrierNegotiationAgent()
-    neg_res = neg_agent.evaluate_rate_quote(booking_res.recommended_carrier, booking_res.expected_cost_usd)
+    neg_res = neg_agent.evaluate_rate_quote(
+        booking_res.recommended_carrier, booking_res.expected_cost_usd
+    )
     assert neg_res.target_rate_usd < booking_res.expected_cost_usd
     assert neg_res.spend_policy_compliant is True
-    print(f"[PASS] 04. Carrier Negotiation Agent Computed Target Rate: ${neg_res.target_rate_usd:.2f}")
+    print(
+        f"[PASS] 04. Carrier Negotiation Agent Computed Target Rate: ${neg_res.target_rate_usd:.2f}"
+    )
 
     # 5. Freight Tender Specialist (Group A3)
     tender_agent = FreightTenderAgent()
-    tender_res = tender_agent.prepare_tender(booking_res.recommended_carrier, booking_res.recommended_lane, booking_res.expected_cost_usd)
+    tender_res = tender_agent.prepare_tender(
+        booking_res.recommended_carrier, booking_res.recommended_lane, booking_res.expected_cost_usd
+    )
     assert tender_res.status == "READY_FOR_GOVERNANCE_SIGN_OFF"
     print(f"[PASS] 05. Freight Tender Agent Drafted Booking Tender: {tender_res.tender_id}")
 
@@ -119,7 +131,9 @@ async def test_nexus_multi_agent_operational_acceptance():
     finance_agent = FinanceValidationAgent()
     fin_res = finance_agent.validate_budget(booking_res.expected_cost_usd)
     assert fin_res.is_approved is True
-    print(f"[PASS] 08. Finance Validation Agent Approved Spend: ${booking_res.expected_cost_usd:.2f} (Within Budget)")
+    print(
+        f"[PASS] 08. Finance Validation Agent Approved Spend: ${booking_res.expected_cost_usd:.2f} (Within Budget)"
+    )
 
     # 9. Audit & Provenance Specialist (Group B4)
     audit_agent = AuditAgent()
@@ -129,11 +143,15 @@ async def test_nexus_multi_agent_operational_acceptance():
 
     # 10. Load Planning Specialist (Group C1)
     load_agent = LoadPlanningAgent()
-    dummy_orders = [{"weight_g": 450, "length_cm": 18, "width_cm": 10, "height_cm": 5} for _ in range(12)]
+    dummy_orders = [
+        {"weight_g": 450, "length_cm": 18, "width_cm": 10, "height_cm": 5} for _ in range(12)
+    ]
     load_res = load_agent.plan_load(dummy_orders)
     assert load_res.feasibility_status == "FEASIBLE"
     assert load_res.cube_utilization_pct < 100.0
-    print(f"[PASS] 10. Load Planning Agent Calculated 3D Cubing: {load_res.cube_utilization_pct}% Utilization")
+    print(
+        f"[PASS] 10. Load Planning Agent Calculated 3D Cubing: {load_res.cube_utilization_pct}% Utilization"
+    )
 
     # 11. Route Optimization Specialist (Group C2)
     route_agent = RouteOptimizationAgent()
@@ -145,7 +163,9 @@ async def test_nexus_multi_agent_operational_acceptance():
     consol_agent = ConsolidationAgent()
     consol_res = consol_agent.evaluate_consolidation([f"ord_{i}" for i in range(12)])
     assert consol_res["freight_savings_usd"] == 320.0
-    print(f"[PASS] 12. Consolidation Agent Identified Savings: ${consol_res['freight_savings_usd']:.2f}")
+    print(
+        f"[PASS] 12. Consolidation Agent Identified Savings: ${consol_res['freight_savings_usd']:.2f}"
+    )
 
     # 13. Supplier Discovery via GNN Embeddings (Group D1)
     disc_agent = SupplierDiscoveryAgent()
@@ -158,11 +178,15 @@ async def test_nexus_multi_agent_operational_acceptance():
     eval_agent = SupplierEvaluationAgent()
     eval_res = eval_agent.evaluate_supplier(disc_res.top_replacement)
     assert eval_res["composite_grade"] == "A"
-    print(f"[PASS] 14. Supplier Evaluation Agent Assigned Scorecard Grade: {eval_res['composite_grade']}")
+    print(
+        f"[PASS] 14. Supplier Evaluation Agent Assigned Scorecard Grade: {eval_res['composite_grade']}"
+    )
 
     # 15. Strategic Sourcing Trade-off (Group D3)
     sourcing_agent = StrategicSourcingAgent()
-    sourcing_res = sourcing_agent.evaluate_sourcing_options("seller_01a00b8e99", disc_res.top_replacement)
+    sourcing_res = sourcing_agent.evaluate_sourcing_options(
+        "seller_01a00b8e99", disc_res.top_replacement
+    )
     assert sourcing_res.strategy_type == "AIR_EXPEDITE_PREFERRED"
     print("[PASS] 15. Strategic Sourcing Agent Recommended Air Expedite Strategy")
 
@@ -185,10 +209,16 @@ async def test_nexus_multi_agent_operational_acceptance():
     print(f"[PASS] 16. Swarm Synthesis Engine Achieved Consensus Score: {summary.consensus_score}")
 
     # 17. Digital Twin Counterfactual Candidates Evaluation
-    cand_c = next(c for c in summary.candidates if c["candidate_id"] == "CANDIDATE_C_AIR_EXPEDITE_AND_CROSS_DOCK")
+    cand_c = next(
+        c
+        for c in summary.candidates
+        if c["candidate_id"] == "CANDIDATE_C_AIR_EXPEDITE_AND_CROSS_DOCK"
+    )
     assert cand_c["is_optimal_choice"] is True
     assert cand_c["net_economic_value_usd"] == 2900.0
-    print(f"[PASS] 17. Candidate C Dominates Digital Twin with +${cand_c['net_economic_value_usd']:.2f} NEV")
+    print(
+        f"[PASS] 17. Candidate C Dominates Digital Twin with +${cand_c['net_economic_value_usd']:.2f} NEV"
+    )
 
     # 18. End-to-End Task Graph Execution via Nexus Supervisor
     supervisor = NexusSwarmSupervisor()
@@ -198,7 +228,9 @@ async def test_nexus_multi_agent_operational_acceptance():
     task = list(supervisor.active_tasks.values())[0]
     assert task.status == TaskStatus.COMPLETED
     assert len(task.steps) == 4
-    print(f"[PASS] 18. Master Nexus Supervisor Successfully Executed 4-Step Task Graph ({task.task_id})")
+    print(
+        f"[PASS] 18. Master Nexus Supervisor Successfully Executed 4-Step Task Graph ({task.task_id})"
+    )
 
     # 19. Hard Compliance VETO Test (Regulatory Blacklist Injection)
     veto_comp_res = comp_agent.validate_action("seller_blocked_99", "SP", "RJ")
@@ -222,7 +254,9 @@ async def test_nexus_multi_agent_operational_acceptance():
 
     # 20. Cryptographic Evidence Chain Aggregation
     assert len(summary.all_evidence_refs) >= 5
-    print(f"[PASS] 20. Cryptographic Evidence Trail Formed ({len(summary.all_evidence_refs)} verifiable references)")
+    print(
+        f"[PASS] 20. Cryptographic Evidence Trail Formed ({len(summary.all_evidence_refs)} verifiable references)"
+    )
 
     # 21. Flagship Acceptance Sign-off
     print("[PASS] 21. NEXUS_MULTI_AGENT_OPERATIONAL_ACCEPTANCE FLAGSHIP PIPELINE COMPLETE")

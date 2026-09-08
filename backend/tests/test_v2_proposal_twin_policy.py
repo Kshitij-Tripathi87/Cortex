@@ -82,13 +82,15 @@ def _make_swarm_task(
         incident_entity_id="sup_001",
         incident_entity_type=EntityType.SUPPLIER,
         affected_entity_ids=["ord_001", "ord_002"],
-        signals=[{
-            "signal_id": "sig_001",
-            "entity_id": "sup_001",
-            "entity_type": "SUPPLIER",
-            "signal_type": "SUPPLIER_DEGRADATION",
-            "severity": "HIGH",
-        }],
+        signals=[
+            {
+                "signal_id": "sig_001",
+                "entity_id": "sup_001",
+                "entity_type": "SUPPLIER",
+                "signal_type": "SUPPLIER_DEGRADATION",
+                "severity": "HIGH",
+            }
+        ],
         blast_radius={
             "root_cause_entity_id": "sup_001",
             "affected_orders_count": 10,
@@ -249,6 +251,7 @@ class TestProposalToTwinFlow:
 
     def test_twin_with_world_variables(self):
         """twin_simulation_fn uses world.variables when available."""
+
         class _FakeWorld:
             variables = {"workspace.revenue": {"value": {"total_revenue_at_risk_usd": 50000}}}
 
@@ -288,7 +291,11 @@ class TestTwinToPolicyFlow:
             world_state_version=1,
             # proposal_hash intentionally empty
         )
-        twin_result = {"status": "COMPLETED", "simulation_hash": "abc", "recommended": {"risk_score": 0.1, "nev_usd": 100}}
+        twin_result = {
+            "status": "COMPLETED",
+            "simulation_hash": "abc",
+            "recommended": {"risk_score": 0.1, "nev_usd": 100},
+        }
         result = policy_gate_fn([p], twin_result)
         assert result["approved"] is False
         assert any("PROPOSAL_HASH_MISSING" in v for v in result["violations"])
@@ -297,7 +304,11 @@ class TestTwinToPolicyFlow:
         """Proposals with different world_state_version → VERSION_MISMATCH."""
         p1 = _make_proposal(agent_id="a1", world_state_version=10)
         p2 = _make_proposal(agent_id="a2", world_state_version=11)
-        twin_result = {"status": "COMPLETED", "simulation_hash": "abc", "recommended": {"risk_score": 0.1, "nev_usd": 100}}
+        twin_result = {
+            "status": "COMPLETED",
+            "simulation_hash": "abc",
+            "recommended": {"risk_score": 0.1, "nev_usd": 100},
+        }
         result = policy_gate_fn([p1, p2], twin_result)
         assert result["approved"] is False
         assert any("VERSION_MISMATCH" in v for v in result["violations"])
@@ -327,7 +338,8 @@ class TestDeniedDecisionCannotExecute:
         p = _make_proposal()
         with pytest.raises(ExecutionGateError) as exc:
             execution_gate_fn(
-                p, {"approved": False},
+                p,
+                {"approved": False},
                 organization_id="org",
                 twin_result={"simulation_hash": "abc"},
             )
@@ -343,7 +355,8 @@ class TestDeniedDecisionCannotExecute:
         )
         with pytest.raises(ExecutionGateError) as exc:
             execution_gate_fn(
-                p, {"approved": True},
+                p,
+                {"approved": True},
                 organization_id="org",
                 twin_result={"simulation_hash": "abc"},
             )
@@ -354,7 +367,8 @@ class TestDeniedDecisionCannotExecute:
         p = _make_proposal()
         with pytest.raises(ExecutionGateError) as exc:
             execution_gate_fn(
-                p, {"approved": True},
+                p,
+                {"approved": True},
                 organization_id="org",
                 twin_result={},  # no simulation_hash
             )
@@ -486,10 +500,7 @@ class TestProposalProvenance:
             )
             for p in raw_proposals
         ]
-        stamped = [
-            replace(p, proposal_hash=compute_proposal_hash(p))
-            for p in stamped
-        ]
+        stamped = [replace(p, proposal_hash=compute_proposal_hash(p)) for p in stamped]
 
         for p in stamped:
             assert p.world_state_version == 42

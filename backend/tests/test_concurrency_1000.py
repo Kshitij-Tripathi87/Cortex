@@ -44,6 +44,7 @@ from app.modules.world.world_service import WorldStateService
 # Fixtures — dedicated engine with NullPool so N writers don't share a pool
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 async def wide_engine(request):
     """A dedicated PG engine sized for high-contention writer tests.
@@ -64,6 +65,7 @@ async def wide_engine(request):
         # Verify connection works
         async with engine.begin() as conn:
             from sqlalchemy import select
+
             await conn.execute(select(1))
         return engine
     except Exception as e:
@@ -87,6 +89,7 @@ async def wide_sessionmaker(wide_engine):
 # Helper — submit N events concurrently, each in its own session
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def _submit_event(
     maker: async_sessionmaker[AsyncSession],
     event: InventoryChanged,
@@ -97,9 +100,7 @@ async def _submit_event(
         repo = StateRepository(db=session)
         service = WorldStateService(repository=repo, snapshot_interval=1000)
         try:
-            result = await service.submit_event(
-                event, idempotency_key=idempotency_key
-            )
+            result = await service.submit_event(event, idempotency_key=idempotency_key)
             await session.commit()
             return result.version
         except Exception:
@@ -130,10 +131,7 @@ async def _run_concurrent(
         for i in range(n)
     ]
     results = await asyncio.gather(
-        *[
-            _submit_event(maker, ev, f"e2_key_{i}")
-            for i, ev in enumerate(events)
-        ],
+        *[_submit_event(maker, ev, f"e2_key_{i}") for i, ev in enumerate(events)],
         return_exceptions=False,
     )
     return sorted(results)
@@ -173,14 +171,11 @@ async def test_100_concurrent_writers_remain_ordered(
         await service.initialize_world(workspace_id, world_id)
         await session.commit()
 
-    versions = await _run_concurrent(
-        wide_sessionmaker, workspace_id, world_id, PR_CI_WRITERS
-    )
+    versions = await _run_concurrent(wide_sessionmaker, workspace_id, world_id, PR_CI_WRITERS)
 
     # Every version must be unique.
     assert len(set(versions)) == PR_CI_WRITERS, (
-        f"Duplicate versions detected: "
-        f"{[v for v in versions if versions.count(v) > 1]}"
+        f"Duplicate versions detected: {[v for v in versions if versions.count(v) > 1]}"
     )
 
     # Versions must be dense: 2..N+1 (genesis is version 1).
@@ -222,13 +217,10 @@ async def test_1000_concurrent_writers_remain_ordered(
         await service.initialize_world(workspace_id, world_id)
         await session.commit()
 
-    versions = await _run_concurrent(
-        wide_sessionmaker, workspace_id, world_id, NIGHTLY_WRITERS
-    )
+    versions = await _run_concurrent(wide_sessionmaker, workspace_id, world_id, NIGHTLY_WRITERS)
 
     assert len(set(versions)) == NIGHTLY_WRITERS, (
-        f"Duplicate versions at 1000-writer scale: "
-        f"{[v for v in versions if versions.count(v) > 1]}"
+        f"Duplicate versions at 1000-writer scale: {[v for v in versions if versions.count(v) > 1]}"
     )
     expected = list(range(2, NIGHTLY_WRITERS + 2))
     assert versions == expected, (

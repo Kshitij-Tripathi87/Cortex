@@ -71,94 +71,103 @@ def real_supervisor_fn(task: SwarmTask) -> list[AgentProposal]:
     signals = ctx.signals
 
     # Incident location (from blast radius or first signal)
-    origin = blast.get("geographic_exposure_regions", ["UNKNOWN"])[0] if blast.get("geographic_exposure_regions") else "UNKNOWN"
+    origin = (
+        blast.get("geographic_exposure_regions", ["UNKNOWN"])[0]
+        if blast.get("geographic_exposure_regions")
+        else "UNKNOWN"
+    )
     destination = origin  # same region for localized incidents
 
     # ── PROCUREMENT family ─────────────────────────────────────────────
     if "PROCUREMENT" in active_domains:
-        proposals.append(AgentProposal(
-            agent_id="procurement_discovery_agent",
-            agent_family="PROCUREMENT",
-            action="discover_alternative_suppliers",
-            target_entity_ids=[incident_id] + affected[:5],
-            expected_cost_usd=blast.get("total_revenue_at_risk_usd", 0) * 0.1,
-            expected_delay_days=3.0,
-            expected_risk_score=0.3,
-            evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
-            confidence=0.85,
-            payload={
-                "incident_entity_id": incident_id,
-                "signal_type": task.signal_type,
-                "affected_count": len(affected),
-            },
-        ))
+        proposals.append(
+            AgentProposal(
+                agent_id="procurement_discovery_agent",
+                agent_family="PROCUREMENT",
+                action="discover_alternative_suppliers",
+                target_entity_ids=[incident_id] + affected[:5],
+                expected_cost_usd=blast.get("total_revenue_at_risk_usd", 0) * 0.1,
+                expected_delay_days=3.0,
+                expected_risk_score=0.3,
+                evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
+                confidence=0.85,
+                payload={
+                    "incident_entity_id": incident_id,
+                    "signal_type": task.signal_type,
+                    "affected_count": len(affected),
+                },
+            )
+        )
 
     # ── BOOKING family ─────────────────────────────────────────────────
     if "BOOKING" in active_domains:
-        proposals.append(AgentProposal(
-            agent_id="capacity_booking_agent",
-            agent_family="BOOKING",
-            action="reserve_expedited_capacity",
-            target_entity_ids=affected[:5],
-            expected_cost_usd=blast.get("total_revenue_at_risk_usd", 0) * 0.15,
-            expected_delay_days=1.0,
-            expected_risk_score=0.2,
-            evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
-            confidence=0.80,
-            payload={
-                "origin": origin,
-                "destination": destination,
-                "affected_orders": blast.get("affected_orders_count", 0),
-            },
-        ))
+        proposals.append(
+            AgentProposal(
+                agent_id="capacity_booking_agent",
+                agent_family="BOOKING",
+                action="reserve_expedited_capacity",
+                target_entity_ids=affected[:5],
+                expected_cost_usd=blast.get("total_revenue_at_risk_usd", 0) * 0.15,
+                expected_delay_days=1.0,
+                expected_risk_score=0.2,
+                evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
+                confidence=0.80,
+                payload={
+                    "origin": origin,
+                    "destination": destination,
+                    "affected_orders": blast.get("affected_orders_count", 0),
+                },
+            )
+        )
 
     # ── OPTIMIZATION family ────────────────────────────────────────────
     if "OPTIMIZATION" in active_domains:
-        proposals.append(AgentProposal(
-            agent_id="load_planning_agent",
-            agent_family="OPTIMIZATION",
-            action="consolidate_and_reroute",
-            target_entity_ids=affected[:5],
-            expected_cost_usd=blast.get("total_revenue_at_risk_usd", 0) * 0.08,
-            expected_delay_days=2.0,
-            expected_risk_score=0.25,
-            evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
-            confidence=0.75,
-            payload={
-                "origin": origin,
-                "destination": destination,
-                "affected_orders": blast.get("affected_orders_count", 0),
-            },
-        ))
+        proposals.append(
+            AgentProposal(
+                agent_id="load_planning_agent",
+                agent_family="OPTIMIZATION",
+                action="consolidate_and_reroute",
+                target_entity_ids=affected[:5],
+                expected_cost_usd=blast.get("total_revenue_at_risk_usd", 0) * 0.08,
+                expected_delay_days=2.0,
+                expected_risk_score=0.25,
+                evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
+                confidence=0.75,
+                payload={
+                    "origin": origin,
+                    "destination": destination,
+                    "affected_orders": blast.get("affected_orders_count", 0),
+                },
+            )
+        )
 
     # ── COMPLIANCE family ──────────────────────────────────────────────
     if "COMPLIANCE" in active_domains:
-        proposals.append(AgentProposal(
-            agent_id="compliance_agent",
-            agent_family="COMPLIANCE",
-            action="validate_action_and_spend_authority",
-            target_entity_ids=[incident_id],
-            expected_cost_usd=0.0,
-            expected_delay_days=0.0,
-            expected_risk_score=0.05,
-            evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
-            confidence=0.95,
-            payload={
-                "incident_entity_id": incident_id,
-                "signal_type": task.signal_type,
-                "severity": task.signal_severity,
-            },
-        ))
+        proposals.append(
+            AgentProposal(
+                agent_id="compliance_agent",
+                agent_family="COMPLIANCE",
+                action="validate_action_and_spend_authority",
+                target_entity_ids=[incident_id],
+                expected_cost_usd=0.0,
+                expected_delay_days=0.0,
+                expected_risk_score=0.05,
+                evidence_refs=[f"signal:{s['signal_id']}" for s in signals],
+                confidence=0.95,
+                payload={
+                    "incident_entity_id": incident_id,
+                    "signal_type": task.signal_type,
+                    "severity": task.signal_severity,
+                },
+            )
+        )
 
     return proposals
 
 
 def _has_route_bottleneck(signals: list[dict[str, Any]]) -> bool:
     """Check if any signal indicates a route bottleneck."""
-    return any(
-        s.get("signal_type") in ("ROUTE_CONGESTION", "ROUTE_DISRUPTION")
-        for s in signals
-    )
+    return any(s.get("signal_type") in ("ROUTE_CONGESTION", "ROUTE_DISRUPTION") for s in signals)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -201,9 +210,7 @@ def twin_simulation_fn(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def policy_gate_fn(
-    proposals: list[AgentProposal], twin_result: dict[str, Any]
-) -> dict[str, Any]:
+def policy_gate_fn(proposals: list[AgentProposal], twin_result: dict[str, Any]) -> dict[str, Any]:
     """Check proposals against policy constraints.
 
     V2.2 policy checks:
@@ -339,7 +346,5 @@ def execution_gate_fn(
         "world_state_version": current_world_version or world_state_version,
         "proposal_hash": proposal.proposal_hash,
         "simulation_hash": _twin.get("simulation_hash", ""),
-        "executed_at": __import__("datetime").datetime.now(
-            __import__("datetime").UTC
-        ).isoformat(),
+        "executed_at": __import__("datetime").datetime.now(__import__("datetime").UTC).isoformat(),
     }

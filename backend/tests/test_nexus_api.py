@@ -24,22 +24,29 @@ verifies workspace_id consistency.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.api.v1.nexus import router as nexus_router
-from app.modules.nexus_spine.demand import HistoricalDemandPoint, get_demand_engine, reset_demand_engine
-from app.modules.nexus_spine.memory import DecisionRecord, get_decision_memory, reset_decision_memory
+from app.modules.nexus_spine.demand import (
+    HistoricalDemandPoint,
+    get_demand_engine,
+    reset_demand_engine,
+)
+from app.modules.nexus_spine.memory import (
+    DecisionRecord,
+    get_decision_memory,
+    reset_decision_memory,
+)
 from app.modules.nexus_spine.ontology import (
     SalesOrderEntity,
     SupplierEntity,
     get_world_model,
     reset_world_model,
 )
-
 
 TENANT = uuid4()
 WORKSPACE = uuid4()
@@ -51,38 +58,50 @@ async def app_and_client():
     reset_demand_engine()
     reset_decision_memory()
     from app.modules.nexus_spine.vanessa import reset_tool_registry, reset_vanessa
+
     reset_tool_registry()
     reset_vanessa()
 
     wm = get_world_model()
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SUP-1", name="Acme", source="t",
-        capacity_pct=60.0, risk_score=0.7,
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SUP-1",
+        name="Acme",
+        source="t",
+        capacity_pct=60.0,
+        risk_score=0.7,
     )
     wm.upsert(s)
     so = SalesOrderEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SO-1", name="Big", source="t",
-        quantity=100, customer_id=uuid4(),
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SO-1",
+        name="Big",
+        source="t",
+        quantity=100,
+        customer_id=uuid4(),
         promised_delivery=datetime.now(UTC),
-        revenue=200000.0, sla_risk_pct=0.7,
+        revenue=200000.0,
+        sla_risk_pct=0.7,
     )
     wm.upsert(so)
     eng = get_demand_engine()
     for d in range(30):
-        eng.record_history([
-            HistoricalDemandPoint(
-                timestamp=datetime.now(UTC) - timedelta(days=d),
-                sku="SKU-1", quantity=100.0,
-            )
-        ])
+        eng.record_history(
+            [
+                HistoricalDemandPoint(
+                    timestamp=datetime.now(UTC) - timedelta(days=d),
+                    sku="SKU-1",
+                    quantity=100.0,
+                )
+            ]
+        )
 
     app = FastAPI()
     app.include_router(nexus_router, prefix="/api/v1")
 
     # Auth override that returns a fixed AuthContext (simulating header identity)
-    from app.api.v1.nexus import ApiEnvelope
     from app.infrastructure.security import AuthContext
 
     async def _fake_user() -> AuthContext:
@@ -95,8 +114,8 @@ async def app_and_client():
         )
 
     # Override the dependency
-    from app.api.v1.nexus import router as nx_router
     from app.infrastructure.security import get_current_user as real_get_current_user
+
     app.dependency_overrides[real_get_current_user] = _fake_user
 
     transport = ASGITransport(app=app)
@@ -266,15 +285,23 @@ async def test_decisions_record_and_analogous(app_and_client):
     _, client, _ = app_and_client
     # Seed a historical decision
     mem = get_decision_memory()
-    mem.record(DecisionRecord(
-        decision_id="dec-hist",
-        tenant_id=str(TENANT), workspace_id=str(WORKSPACE),
-        situation="Supplier outage affected orders",
-        evidence_ids=[], world_state_version=1,
-        options=[], recommended_option_id="A", chosen_option_id="A",
-        policy_id="p1", approval_id=None, executed_at=datetime.now(UTC),
-        outcome_status="succeeded",
-    ))
+    mem.record(
+        DecisionRecord(
+            decision_id="dec-hist",
+            tenant_id=str(TENANT),
+            workspace_id=str(WORKSPACE),
+            situation="Supplier outage affected orders",
+            evidence_ids=[],
+            world_state_version=1,
+            options=[],
+            recommended_option_id="A",
+            chosen_option_id="A",
+            policy_id="p1",
+            approval_id=None,
+            executed_at=datetime.now(UTC),
+            outcome_status="succeeded",
+        )
+    )
 
     resp = await client.post(
         "/api/v1/decisions",
@@ -282,7 +309,8 @@ async def test_decisions_record_and_analogous(app_and_client):
             "workspace_id": str(WORKSPACE),
             "decision_id": "dec-new",
             "situation": "Port outage affected orders",
-            "evidence_ids": [], "world_state_version": 2,
+            "evidence_ids": [],
+            "world_state_version": 2,
             "options": [{"id": "A"}],
             "recommended_option_id": "A",
             "chosen_option_id": "A",

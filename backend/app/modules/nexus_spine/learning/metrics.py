@@ -19,9 +19,10 @@ Aggregation is segmented (`aggregate_segments`) so Nexus can answer
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 
 
 def _utc_now() -> datetime:
@@ -84,7 +85,9 @@ class TruthMetrics:
             "p50_coverage": round(self.p50_coverage, 4),
             "p80_coverage": None if self.p80_coverage is None else round(self.p80_coverage, 4),
             "p95_coverage": None if self.p95_coverage is None else round(self.p95_coverage, 4),
-            "accuracy_score": None if self.accuracy_score is None else round(self.accuracy_score, 4),
+            "accuracy_score": None
+            if self.accuracy_score is None
+            else round(self.accuracy_score, 4),
             "drift": None if self.drift is None else round(self.drift, 4),
         }
 
@@ -218,7 +221,7 @@ def aggregate_segments(
     for row in points:
         key = tuple(str(row.get(k) or "unknown") for k in segment_keys)
         groups.setdefault(key, []).append(_row_to_point(row))
-        segs[key] = {k: v for k, v in zip(segment_keys, key)}
+        segs[key] = dict(zip(segment_keys, key, strict=True))
     results: list[SegmentMetrics] = []
     for key, bucket in groups.items():
         results.append(

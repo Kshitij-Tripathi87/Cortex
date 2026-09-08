@@ -182,37 +182,69 @@ class GraphDeltaEngine:
             # 2. Customer Node & Edge
             if customer_id not in self.graph_engine.nodes:
                 self.graph_engine.add_node(customer_id, "CUSTOMER", {"state": dest})
-                delta.added_nodes.append(NodeDelta(customer_id, "ADDED", "CUSTOMER", {"state": dest}))
+                delta.added_nodes.append(
+                    NodeDelta(customer_id, "ADDED", "CUSTOMER", {"state": dest})
+                )
             e1 = self.graph_engine.add_edge(customer_id, order_id, "PLACED")
-            delta.added_edges.append(EdgeDelta(e1.edge_id, "ADDED", customer_id, order_id, "PLACED"))
+            delta.added_edges.append(
+                EdgeDelta(e1.edge_id, "ADDED", customer_id, order_id, "PLACED")
+            )
 
             # 3. Product Node & Edge
             if product_id not in self.graph_engine.nodes:
-                self.graph_engine.add_node(product_id, "PRODUCT", {"category": payload.get("category", "general")})
+                self.graph_engine.add_node(
+                    product_id, "PRODUCT", {"category": payload.get("category", "general")}
+                )
                 delta.added_nodes.append(NodeDelta(product_id, "ADDED", "PRODUCT"))
             e2 = self.graph_engine.add_edge(order_id, product_id, "CONTAINS")
-            delta.added_edges.append(EdgeDelta(e2.edge_id, "ADDED", order_id, product_id, "CONTAINS"))
+            delta.added_edges.append(
+                EdgeDelta(e2.edge_id, "ADDED", order_id, product_id, "CONTAINS")
+            )
 
             # 4. Supplier (alias: seller) Node & Edge
             if seller_id not in self.graph_engine.nodes:
                 self.graph_engine.add_node(seller_id, "SUPPLIER", {"state": origin})
-                delta.added_nodes.append(NodeDelta(seller_id, "ADDED", "SUPPLIER", {"state": origin}))
+                delta.added_nodes.append(
+                    NodeDelta(seller_id, "ADDED", "SUPPLIER", {"state": origin})
+                )
             e3 = self.graph_engine.add_edge(order_id, seller_id, "FULFILLED_BY")
-            delta.added_edges.append(EdgeDelta(e3.edge_id, "ADDED", order_id, seller_id, "FULFILLED_BY"))
+            delta.added_edges.append(
+                EdgeDelta(e3.edge_id, "ADDED", order_id, seller_id, "FULFILLED_BY")
+            )
 
             # 5. Route Node & Edge
             if route_id not in self.graph_engine.nodes:
-                self.graph_engine.add_node(route_id, "ROUTE", {"origin": origin, "destination": dest})
-                delta.added_nodes.append(NodeDelta(route_id, "ADDED", "ROUTE", {"origin": origin, "destination": dest}))
+                self.graph_engine.add_node(
+                    route_id, "ROUTE", {"origin": origin, "destination": dest}
+                )
+                delta.added_nodes.append(
+                    NodeDelta(route_id, "ADDED", "ROUTE", {"origin": origin, "destination": dest})
+                )
             e4 = self.graph_engine.add_edge(order_id, route_id, "TRAVELS_TO")
-            delta.added_edges.append(EdgeDelta(e4.edge_id, "ADDED", order_id, route_id, "TRAVELS_TO"))
+            delta.added_edges.append(
+                EdgeDelta(e4.edge_id, "ADDED", order_id, route_id, "TRAVELS_TO")
+            )
 
-        elif event_type in {"SELLER_STATUS_CHANGED", "SELLER_DEGRADATION", "SUPPLIER_STATUS_CHANGED", "SUPPLIER_DEGRADATION"}:
+        elif event_type in {
+            "SELLER_STATUS_CHANGED",
+            "SELLER_DEGRADATION",
+            "SUPPLIER_STATUS_CHANGED",
+            "SUPPLIER_DEGRADATION",
+        }:
             seller_id = payload.get("seller_id", "seller_default")
             if seller_id in self.graph_engine.nodes:
                 node = self.graph_engine.nodes[seller_id]
                 node.attributes.update(payload)
-                delta.updated_nodes.append(NodeDelta(seller_id, "UPDATED", "SUPPLIER", node.attributes, node.pagerank, node.is_spof))
+                delta.updated_nodes.append(
+                    NodeDelta(
+                        seller_id,
+                        "UPDATED",
+                        "SUPPLIER",
+                        node.attributes,
+                        node.pagerank,
+                        node.is_spof,
+                    )
+                )
 
         self.delta_history.append(delta)
         return delta

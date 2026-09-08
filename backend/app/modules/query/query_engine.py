@@ -69,9 +69,27 @@ class NexusQueryEngine:
                 "12 active downstream customer orders are currently exposed to delivery breach.",
             ]
             citations = [
-                EvidenceCitation("cit_1", "SIGNAL", "Dispatch Anomaly", "3.8d vs 2.0d (+90%)", "/workspace#signals"),
-                EvidenceCitation("cit_2", "GRAPH_PATH", "SPOF Path", "seller_01a00b8e99 -> route_SP_to_RJ", "/workspace#graph"),
-                EvidenceCitation("cit_3", "METRIC", "Network Centrality", "PageRank: 0.042 (High)", "/workspace#graph"),
+                EvidenceCitation(
+                    "cit_1",
+                    "SIGNAL",
+                    "Dispatch Anomaly",
+                    "3.8d vs 2.0d (+90%)",
+                    "/workspace#signals",
+                ),
+                EvidenceCitation(
+                    "cit_2",
+                    "GRAPH_PATH",
+                    "SPOF Path",
+                    "seller_01a00b8e99 -> route_SP_to_RJ",
+                    "/workspace#graph",
+                ),
+                EvidenceCitation(
+                    "cit_3",
+                    "METRIC",
+                    "Network Centrality",
+                    "PageRank: 0.042 (High)",
+                    "/workspace#graph",
+                ),
             ]
             impacted = ["seller_01a00b8e99", "route_SP_to_RJ", "order_9901", "order_9902"]
             rec = {
@@ -89,8 +107,20 @@ class NexusQueryEngine:
                 "Cancellation risk is elevated without immediate expediting intervention.",
             ]
             citations = [
-                EvidenceCitation("cit_4", "RECORD", "Exposed Orders", "12 Orders ($1,746.00)", "/workspace#signals"),
-                EvidenceCitation("cit_5", "GRAPH_PATH", "Customer Blast Radius", "12 Customer Nodes", "/workspace#graph"),
+                EvidenceCitation(
+                    "cit_4",
+                    "RECORD",
+                    "Exposed Orders",
+                    "12 Orders ($1,746.00)",
+                    "/workspace#signals",
+                ),
+                EvidenceCitation(
+                    "cit_5",
+                    "GRAPH_PATH",
+                    "Customer Blast Radius",
+                    "12 Customer Nodes",
+                    "/workspace#graph",
+                ),
             ]
             impacted = ["cust_2011", "cust_2012", "order_9901", "order_9902", "route_SP_to_RJ"]
             rec = {
@@ -105,7 +135,9 @@ class NexusQueryEngine:
                 "Highway BR-116 bottleneck detected via carrier latency reports.",
             ]
             citations = [
-                EvidenceCitation("cit_6", "GRAPH_PATH", "Route Corridor", "route_SP_to_RJ", "/workspace#graph"),
+                EvidenceCitation(
+                    "cit_6", "GRAPH_PATH", "Route Corridor", "route_SP_to_RJ", "/workspace#graph"
+                ),
             ]
             impacted = ["route_SP_to_RJ"]
             rec = {"action_type": "activate_air_corridor_vcp_sdu", "net_economic_value_usd": 2900.0}
@@ -113,7 +145,11 @@ class NexusQueryEngine:
         else:
             finding = f"Operational scan over {len(self.graph_engine.nodes)} nodes complete. 1 active SPOF detected."
             reasons = ["Operational graph structure is healthy with 98.6% relationship coverage."]
-            citations = [EvidenceCitation("cit_7", "METRIC", "Graph Health", "98.6% Coverage", "/workspace#graph")]
+            citations = [
+                EvidenceCitation(
+                    "cit_7", "METRIC", "Graph Health", "98.6% Coverage", "/workspace#graph"
+                )
+            ]
             impacted = ["seller_01a00b8e99"]
             rec = {"action_type": "monitor_nominal_flow"}
 

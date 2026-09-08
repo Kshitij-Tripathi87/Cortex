@@ -302,7 +302,9 @@ class SpineResult:
             "evidence_root_id": self.evidence_root_id,
             "outcome": dict(self.outcome) if self.outcome else None,
             "approval_record": dict(self.approval_record) if self.approval_record else None,
-            "execution_authorization": dict(self.execution_authorization) if self.execution_authorization else None,
+            "execution_authorization": dict(self.execution_authorization)
+            if self.execution_authorization
+            else None,
             "execution_outcome": dict(self.execution_outcome) if self.execution_outcome else None,
             "evidence_chain_hash": self.evidence_chain_hash,
             "evidence_chain_v24": (
@@ -310,9 +312,7 @@ class SpineResult:
             ),
             "evidence_chain_node_count": self.evidence_chain_node_count,
             "evidence_chain_verification": (
-                dict(self.evidence_chain_verification)
-                if self.evidence_chain_verification
-                else None
+                dict(self.evidence_chain_verification) if self.evidence_chain_verification else None
             ),
             "status": self.status,
             "created_at": self.created_at.isoformat(),

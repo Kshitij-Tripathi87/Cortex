@@ -57,7 +57,12 @@ class ModelRegistry:
                 "calibration": {"p50_coverage": 0.5, "p80_coverage": 0.8, "p95_coverage": 0.95},
                 "status": ModelLifecycleStatus.DEPLOYED,
                 "approval_status": "approved",
-                "feature_schema": {"sku": "string", "price": "float", "promotion": "bool", "season": "categorical"},
+                "feature_schema": {
+                    "sku": "string",
+                    "price": "float",
+                    "promotion": "bool",
+                    "season": "categorical",
+                },
                 "created_at": now,
                 "deployed_at": now,
                 "created_by": "system",
@@ -68,11 +73,26 @@ class ModelRegistry:
                 "version": "v1.0",
                 "model_type": "gnn",
                 "description": "Graph Neural Network for supply chain critical node detection and risk propagation",
-                "metrics": {"critical_node_precision": 0.82, "critical_node_recall": 0.79, "propagation_auc": 0.88, "accuracy": 0.84},
+                "metrics": {
+                    "critical_node_precision": 0.82,
+                    "critical_node_recall": 0.79,
+                    "propagation_auc": 0.88,
+                    "accuracy": 0.84,
+                },
                 "calibration": {},
                 "status": ModelLifecycleStatus.DEPLOYED,
                 "approval_status": "approved",
-                "gnn_config": {"layers": 3, "hidden_dim": 64, "aggregation": "attention", "node_features": ["degree", "pagerank", "capacity_util", "historical_incidents"]},
+                "gnn_config": {
+                    "layers": 3,
+                    "hidden_dim": 64,
+                    "aggregation": "attention",
+                    "node_features": [
+                        "degree",
+                        "pagerank",
+                        "capacity_util",
+                        "historical_incidents",
+                    ],
+                },
                 "created_at": now,
                 "deployed_at": now,
                 "created_by": "system",
@@ -87,7 +107,12 @@ class ModelRegistry:
                 "calibration": {},
                 "status": ModelLifecycleStatus.SHADOW,
                 "approval_status": "pending",
-                "rl_config": {"algorithm": "PPO", "bounded": True, "max_actions_per_turn": 3, "simulation_gate": True},
+                "rl_config": {
+                    "algorithm": "PPO",
+                    "bounded": True,
+                    "max_actions_per_turn": 3,
+                    "simulation_gate": True,
+                },
                 "created_at": now,
                 "created_by": "system",
             },
@@ -156,23 +181,29 @@ class ModelRegistry:
     def get_by_name(self, name: str, version: str | None = None) -> ModelRegistryEntryDB | None:
         with self._lock:
             for entry in self._cache.values():
-                if entry.name == name:
-                    if version is None or entry.version == version:
-                        return entry
+                if entry.name == name and (version is None or entry.version == version):
+                    return entry
             return None
 
-    def list(self, status: str | None = None, model_type: str | None = None) -> list[ModelRegistryEntryDB]:
+    def list(
+        self, status: str | None = None, model_type: str | None = None
+    ) -> list[ModelRegistryEntryDB]:
         with self._lock:
             results = list(self._cache.values())
             if status:
                 results = [r for r in results if r.status == status]
             if model_type:
                 results = [r for r in results if r.model_type == model_type]
-            results.sort(key=lambda r: r.created_at or datetime.min.replace(tzinfo=UTC), reverse=True)
+            results.sort(
+                key=lambda r: r.created_at or datetime.min.replace(tzinfo=UTC), reverse=True
+            )
             return results
 
-    def transition(self, model_id: str, target_status: str, *, actor: str = "system") -> ModelRegistryEntryDB:
+    def transition(
+        self, model_id: str, target_status: str, *, actor: str = "system"
+    ) -> ModelRegistryEntryDB:
         from app.modules.nexus_spine.persistence.repositories import ModelRegistryRepository
+
         transitions = ModelRegistryRepository.LIFECYCLE_TRANSITIONS
         with self._lock:
             entry = self._cache.get(model_id)
@@ -190,7 +221,11 @@ class ModelRegistry:
                 entry.approval_status = "approved"
                 # Auto-rollback other deployed models of the same type
                 for other in self._cache.values():
-                    if other.model_id != model_id and other.model_type == entry.model_type and other.status == ModelLifecycleStatus.DEPLOYED:
+                    if (
+                        other.model_id != model_id
+                        and other.model_type == entry.model_type
+                        and other.status == ModelLifecycleStatus.DEPLOYED
+                    ):
                         other.status = ModelLifecycleStatus.MONITORING
             elif target_status == ModelLifecycleStatus.ROLLED_BACK:
                 entry.rolled_back_at = _utc_now()
@@ -218,7 +253,9 @@ class ModelRegistry:
             entry.metrics = existing
             return entry
 
-    def update_calibration(self, model_id: str, calibration: dict[str, Any]) -> ModelRegistryEntryDB:
+    def update_calibration(
+        self, model_id: str, calibration: dict[str, Any]
+    ) -> ModelRegistryEntryDB:
         with self._lock:
             entry = self._cache.get(model_id)
             if not entry:
@@ -228,7 +265,9 @@ class ModelRegistry:
             entry.calibration = existing
             return entry
 
-    def record_shadow_result(self, model_id: str, shadow_metrics: dict[str, Any]) -> ModelRegistryEntryDB:
+    def record_shadow_result(
+        self, model_id: str, shadow_metrics: dict[str, Any]
+    ) -> ModelRegistryEntryDB:
         with self._lock:
             entry = self._cache.get(model_id)
             if not entry:
@@ -263,7 +302,11 @@ class ModelRegistry:
             }
             for mtype, label in type_labels.items():
                 deployed = next(
-                    (e for e in by_type.get(mtype, []) if e.status == ModelLifecycleStatus.DEPLOYED),
+                    (
+                        e
+                        for e in by_type.get(mtype, [])
+                        if e.status == ModelLifecycleStatus.DEPLOYED
+                    ),
                     None,
                 )
                 if deployed:
@@ -284,7 +327,9 @@ class ModelRegistry:
                         "name": deployed.name,
                         "version": deployed.version,
                         "accuracy": round(min(1.0, max(0.0, float(accuracy))), 4),
-                        "deployed_at": deployed.deployed_at.isoformat() if deployed.deployed_at else None,
+                        "deployed_at": deployed.deployed_at.isoformat()
+                        if deployed.deployed_at
+                        else None,
                         "metrics": metrics,
                     }
                 else:

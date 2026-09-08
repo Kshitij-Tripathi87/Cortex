@@ -251,9 +251,7 @@ class TestConcurrencyAndSequencing:
         all_events = [(world_a, e) for e in events_a] + [(world_b, e) for e in events_b]
         results = await asyncio.gather(
             *[
-                submit_in_own_session(
-                    postgres_sessionmaker, event, idempotency_key=f"key_{idx}"
-                )
+                submit_in_own_session(postgres_sessionmaker, event, idempotency_key=f"key_{idx}")
                 for idx, (world, event) in enumerate(all_events)
             ],
             return_exceptions=False,

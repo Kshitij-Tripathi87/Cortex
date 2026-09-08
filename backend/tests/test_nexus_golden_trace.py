@@ -11,26 +11,12 @@ blocking any further action.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
 
-from app.modules.nexus_spine.ontology import (
-    EntityKind,
-    RelationshipEdge,
-    RelationshipKind,
-    SalesOrderEntity,
-    SignalEntity,
-    SupplierEntity,
-    get_world_model,
-    reset_world_model,
-)
 from app.modules.nexus_spine.demand import (
-    ForecastActual,
-    HistoricalDemandPoint,
-    get_demand_engine,
-    get_truth_loop,
     reset_demand_engine,
     reset_truth_loop,
 )
@@ -45,6 +31,13 @@ from app.modules.nexus_spine.memory import (
     DecisionRecord,
     get_decision_memory,
     reset_decision_memory,
+)
+from app.modules.nexus_spine.ontology import (
+    SalesOrderEntity,
+    SignalEntity,
+    SupplierEntity,
+    get_world_model,
+    reset_world_model,
 )
 from app.modules.nexus_spine.risk import get_risk_engine, reset_risk_engine
 from app.modules.nexus_spine.scenarios import (
@@ -62,16 +55,24 @@ WORKSPACE = UUID("22222222-2222-2222-2222-222222222222")
 @pytest.fixture()
 def clean_state():
     for fn in [
-        reset_world_model, reset_demand_engine, reset_decision_memory,
-        reset_decision_lifecycle_manager, reset_risk_engine,
-        reset_scenario_studio, reset_truth_loop,
+        reset_world_model,
+        reset_demand_engine,
+        reset_decision_memory,
+        reset_decision_lifecycle_manager,
+        reset_risk_engine,
+        reset_scenario_studio,
+        reset_truth_loop,
     ]:
         fn()
     yield
     for fn in [
-        reset_world_model, reset_demand_engine, reset_decision_memory,
-        reset_decision_lifecycle_manager, reset_risk_engine,
-        reset_scenario_studio, reset_truth_loop,
+        reset_world_model,
+        reset_demand_engine,
+        reset_decision_memory,
+        reset_decision_lifecycle_manager,
+        reset_risk_engine,
+        reset_scenario_studio,
+        reset_truth_loop,
     ]:
         fn()
 
@@ -82,8 +83,11 @@ async def test_golden_decision_loop(clean_state):
 
     # STEP 1: Seed the world with a supplier + 2 orders at risk
     supplier = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SUP-142", name="Acme Components", source="test",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SUP-142",
+        name="Acme Components",
+        source="test",
         capacity_pct=40.0,  # Degraded
         risk_score=0.85,
         lead_time_days=14,
@@ -92,11 +96,16 @@ async def test_golden_decision_loop(clean_state):
 
     for i in range(2):
         order = SalesOrderEntity.create(
-            tenant_id=TENANT, workspace_id=WORKSPACE,
-            natural_key=f"SO-{i}", name=f"Order {i}", source="test",
-            quantity=100, customer_id=uuid4(),
+            tenant_id=TENANT,
+            workspace_id=WORKSPACE,
+            natural_key=f"SO-{i}",
+            name=f"Order {i}",
+            source="test",
+            quantity=100,
+            customer_id=uuid4(),
             promised_delivery=datetime.now(UTC),
-            revenue=150000.0, sla_risk_pct=0.80,
+            revenue=150000.0,
+            sla_risk_pct=0.80,
         )
         wm.upsert(order)
 
@@ -104,10 +113,14 @@ async def test_golden_decision_loop(clean_state):
 
     # STEP 2: A signal fires
     sig = SignalEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SIG-1", name="Supplier capacity drop", source="horizon",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SIG-1",
+        name="Supplier capacity drop",
+        source="horizon",
         affected_entity_id=supplier.entity_id,
-        severity_score=0.85, signal_type="capacity_loss",
+        severity_score=0.85,
+        signal_type="capacity_loss",
         description="Acme Components capacity fell to 40%",
     )
     wm.upsert(sig)
@@ -115,18 +128,22 @@ async def test_golden_decision_loop(clean_state):
     # STEP 3: Risk engine computes risk
     risks = get_risk_engine().compute(TENANT, WORKSPACE)
     assert len(risks) >= 1
-    primary = max(risks, key=lambda r: r.revenue_at_risk)
 
     # STEP 4: Scenario compares options
     studio = get_scenario_studio()
-    baseline = ScenarioDefinition(workspace_id=str(WORKSPACE), tenant_id=str(TENANT), name="Baseline")
+    baseline = ScenarioDefinition(
+        workspace_id=str(WORKSPACE), tenant_id=str(TENANT), name="Baseline"
+    )
     shift = ScenarioDefinition(
-        workspace_id=str(WORKSPACE), tenant_id=str(TENANT),
+        workspace_id=str(WORKSPACE),
+        tenant_id=str(TENANT),
         name="Shift to S-188",
-        mutations=[ScenarioMutation(
-            kind=MutationKind.SUPPLIER_FAILURE,
-            target_entity_id=supplier.entity_id,
-            parameters={"availability_pct": 0.5}),
+        mutations=[
+            ScenarioMutation(
+                kind=MutationKind.SUPPLIER_FAILURE,
+                target_entity_id=supplier.entity_id,
+                parameters={"availability_pct": 0.5},
+            ),
         ],
     )
     cmp = studio.compare(baseline, [shift])
@@ -137,7 +154,8 @@ async def test_golden_decision_loop(clean_state):
 
     lifecycle = DecisionLifecycle(
         decision_id="DEC-100",
-        tenant_id=str(TENANT), workspace_id=str(WORKSPACE),
+        tenant_id=str(TENANT),
+        workspace_id=str(WORKSPACE),
         world_state_version=wm.world_state_version,
         world_state_hash="",
         proposal_id="SIG-1",
@@ -163,25 +181,37 @@ async def test_golden_decision_loop(clean_state):
     assert lifecycle.phase == DecisionPhase.OUTCOME_RECORDED
 
     # STEP 7: Verify world-state hash is consistent
-    assert validate_world_state_consistent(
-        lifecycle, wm.world_state_version, lifecycle.world_state_hash
-    ) == True
+    assert (
+        validate_world_state_consistent(
+            lifecycle, wm.world_state_version, lifecycle.world_state_hash
+        )
+        is True
+    )
 
     # STEP 8: Memory records the decision
     memory = get_decision_memory()
-    memory.record(DecisionRecord(
-        decision_id="DEC-100", tenant_id=str(TENANT), workspace_id=str(WORKSPACE),
-        situation="Supplier capacity drop",
-        evidence_ids=[str(sig.entity_id)],
-        world_state_version=1,
-        options=[{"id": "a"}], recommended_option_id="a",
-        chosen_option_id="a", policy_id="p", approval_id=None,
-        executed_at=datetime.now(UTC),
-        outcome_status="succeeded", financial_impact=80000.0,
-    ))
+    memory.record(
+        DecisionRecord(
+            decision_id="DEC-100",
+            tenant_id=str(TENANT),
+            workspace_id=str(WORKSPACE),
+            situation="Supplier capacity drop",
+            evidence_ids=[str(sig.entity_id)],
+            world_state_version=1,
+            options=[{"id": "a"}],
+            recommended_option_id="a",
+            chosen_option_id="a",
+            policy_id="p",
+            approval_id=None,
+            executed_at=datetime.now(UTC),
+            outcome_status="succeeded",
+            financial_impact=80000.0,
+        )
+    )
 
     analogues = memory.find_analogous(
-        tenant_id=str(TENANT), workspace_id=str(WORKSPACE),
+        tenant_id=str(TENANT),
+        workspace_id=str(WORKSPACE),
         situation="Supplier capacity drop",
     )
     assert len(analogues) >= 1
@@ -189,11 +219,18 @@ async def test_golden_decision_loop(clean_state):
 
     # STEP 9: VERIFY STALE — world state changed outside decision context
     # Mutate a new supplier (not the one in the original decision)
-    wm.upsert(SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SUP-143", name="Other Supplier", source="test",
-        capacity_pct=90.0, risk_score=0.1,
-    ), actor="external")
+    wm.upsert(
+        SupplierEntity.create(
+            tenant_id=TENANT,
+            workspace_id=WORKSPACE,
+            natural_key="SUP-143",
+            name="Other Supplier",
+            source="test",
+            capacity_pct=90.0,
+            risk_score=0.1,
+        ),
+        actor="external",
+    )
 
     # World state changed
     assert wm.world_state_version > 1
@@ -201,7 +238,8 @@ async def test_golden_decision_loop(clean_state):
     # STEP 10: A stale decision can no longer execute
     stale = DecisionLifecycle(
         decision_id="DEC-100",
-        tenant_id=str(TENANT), workspace_id=str(WORKSPACE),
+        tenant_id=str(TENANT),
+        workspace_id=str(WORKSPACE),
         world_state_version=lifecycle.world_state_version,
         world_state_hash=lifecycle.world_state_hash,
         proposal_id="SIG-1",
@@ -225,33 +263,45 @@ async def test_world_state_version_drift_marks_stale(clean_state):
 
     # Initial state
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="V1-S", name="First", source="t", capacity_pct=100,
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="V1-S",
+        name="First",
+        source="t",
+        capacity_pct=100,
     )
     wm.upsert(s)
 
     # Track a decision at v1
     mgr = get_decision_lifecycle_manager()
     lc = DecisionLifecycle(
-        decision_id="DEC-V1", tenant_id=str(TENANT), workspace_id=str(WORKSPACE),
-        world_state_version=wm.world_state_version, world_state_hash="hash1",
+        decision_id="DEC-V1",
+        tenant_id=str(TENANT),
+        workspace_id=str(WORKSPACE),
+        world_state_version=wm.world_state_version,
+        world_state_hash="hash1",
         proposal_id="p1",
     )
     mgr.put(lc)
 
     # Advance world state
-    wm.upsert(SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="V2-S", name="Second", source="t", capacity_pct=90,
-    ), actor="user")
+    wm.upsert(
+        SupplierEntity.create(
+            tenant_id=TENANT,
+            workspace_id=WORKSPACE,
+            natural_key="V2-S",
+            name="Second",
+            source="t",
+            capacity_pct=90,
+        ),
+        actor="user",
+    )
 
     assert wm.world_state_version > lc.world_state_version
 
     # Check staleness
-    ok = validate_world_state_consistent(
-        lc, wm.world_state_version, lc.world_state_hash
-    )
-    assert ok == False  # Not consistent → stale
+    ok = validate_world_state_consistent(lc, wm.world_state_version, lc.world_state_hash)
+    assert ok is False  # Not consistent → stale
 
     # Decision should be marked stale (or ineligible for execution)
     lifecycle = get_decision_lifecycle_manager().get("DEC-V1")
@@ -266,21 +316,29 @@ async def test_evidence_chain_integrity(clean_state):
 
     # Build evidence chain: signal → world state → decision
     supplier = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SIG-CHAIN", name="Evidence Test", source="test",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SIG-CHAIN",
+        name="Evidence Test",
+        source="test",
         capacity_pct=30.0,
     )
     wm.upsert(supplier)
 
     sig = SignalEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="EV-SIG", name="Signal with evidence", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="EV-SIG",
+        name="Signal with evidence",
+        source="t",
         affected_entity_id=supplier.entity_id,
-        severity_score=0.9, signal_type="capacity_loss",
+        severity_score=0.9,
+        signal_type="capacity_loss",
     )
     wm.upsert(sig)
 
-    from app.modules.nexus_spine.evidence_chain import EvidenceChain, ROOT_PARENT_ID
+    from app.modules.nexus_spine.evidence_chain import ROOT_PARENT_ID, EvidenceChain
+
     chain = EvidenceChain(
         organization_id=str(TENANT),
         workspace_id=str(WORKSPACE),

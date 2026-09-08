@@ -89,6 +89,7 @@ class ApprovalRecord:
             approval_expiry=approval_expiry,
         )
         from dataclasses import replace
+
         return replace(record, approval_hash=compute_approval_hash(record))
 
 

@@ -51,7 +51,9 @@ class ComplianceAgent:
     ) -> ComplianceVerdict:
         """Evaluates trade sanctions, blacklists, and regulatory permits."""
         blacklist_res = DomainToolRegistry.check_supplier_blacklist(supplier_id)
-        trade_res = DomainToolRegistry.verify_trade_compliance(origin, destination, product_category)
+        trade_res = DomainToolRegistry.verify_trade_compliance(
+            origin, destination, product_category
+        )
 
         rules_triggered = []
         is_blocked = False

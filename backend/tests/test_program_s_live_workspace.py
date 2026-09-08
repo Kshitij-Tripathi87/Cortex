@@ -58,7 +58,7 @@ def test_dynamic_graph_scaling_proportional_to_input_data():
     # Ingest additional 20 sellers
     sellers_csv_lines = ["seller_id,seller_zip_code_prefix,seller_city,seller_state"]
     for i in range(20):
-        sellers_csv_lines.append(f"seller_{i},0131{i%10},Sao Paulo,SP")
+        sellers_csv_lines.append(f"seller_{i},0131{i % 10},Sao Paulo,SP")
     sellers_csv = "\n".join(sellers_csv_lines)
 
     res_sellers = workspace.ingest_csv_content(
@@ -183,7 +183,9 @@ def test_workspace_rest_api_endpoints():
     assert state_data["graph_analytics"]["total_nodes"] > 0
 
     # 3. Trigger Deliberation via REST
-    resp_delib = client.post("/api/v1/workspace/deliberate", json={"incident_entity_id": "seller_01a00b8e99"})
+    resp_delib = client.post(
+        "/api/v1/workspace/deliberate", json={"incident_entity_id": "seller_01a00b8e99"}
+    )
     assert resp_delib.status_code == 200
     delib_data = resp_delib.json()
     assert delib_data["deliberation_result"]["decision_card"]["net_economic_value_usd"] == 2900.0

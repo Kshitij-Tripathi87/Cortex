@@ -9,13 +9,14 @@ violation, unauthorized command, secret access, sandbox reuse).
 from __future__ import annotations
 
 import os
+
+# Add product folder to path for moved workflo modules
+import sys
 from pathlib import Path
 
 import pytest
 
-# Add product folder to path for moved workflo modules
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'product'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "product"))
 
 from product.workflo_backend.agent import build_plan, diagnose, discover_surfaces
 from product.workflo_backend.orchestrator import (
@@ -183,7 +184,10 @@ class TestExecution:
     async def test_cwd_is_workspace_not_host(
         self, orchestrator: SandboxOrchestrator, sandbox
     ) -> None:
-        result = await orchestrator.execute(sandbox.id, "cd")
+        # POSIX /bin/sh `cd` prints nothing (only Windows cmd.exe prints the
+        # cwd), so the original bare "cd" made stdout empty on Linux CI.
+        # python -c prints the cwd identically on every platform.
+        result = await orchestrator.execute(sandbox.id, 'python -c "import os; print(os.getcwd())"')
         assert result.exit_code == 0
         assert (
             str(orchestrator.storage_root) in (result.stdout.strip().lower().replace("'", ""))

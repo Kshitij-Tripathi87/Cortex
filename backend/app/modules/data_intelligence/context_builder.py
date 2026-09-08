@@ -71,8 +71,12 @@ class ContextBuilder:
             "root_node": primary_entity_id,
             "neighbors_count": len(neighbors),
             "neighbors": neighbors[:10],
-            "is_spof": self.graph_engine.nodes.get(primary_entity_id, None).is_spof if primary_entity_id in self.graph_engine.nodes else False,
-            "pagerank": self.graph_engine.nodes.get(primary_entity_id, None).pagerank if primary_entity_id in self.graph_engine.nodes else 0.0,
+            "is_spof": self.graph_engine.nodes.get(primary_entity_id, None).is_spof
+            if primary_entity_id in self.graph_engine.nodes
+            else False,
+            "pagerank": self.graph_engine.nodes.get(primary_entity_id, None).pagerank
+            if primary_entity_id in self.graph_engine.nodes
+            else 0.0,
         }
 
         analogs = [
@@ -86,7 +90,11 @@ class ContextBuilder:
         ]
 
         policies = [
-            {"policy_id": "pol_expedite_limit", "max_unsupervised_usd": 5000.0, "require_approval_above_usd": 10000.0}
+            {
+                "policy_id": "pol_expedite_limit",
+                "max_unsupervised_usd": 5000.0,
+                "require_approval_above_usd": 10000.0,
+            }
         ]
 
         return AgentContextPackage(

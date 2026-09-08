@@ -192,7 +192,9 @@ class TestTimeTravel:
             )
 
         replay_engine = ReplayEngine(repo)
-        range_states = await replay_engine.replay_range(world_id, workspace_id, from_version=2, to_version=5)
+        range_states = await replay_engine.replay_range(
+            world_id, workspace_id, from_version=2, to_version=5
+        )
 
         assert len(range_states) == 4
         inv_key = inventory_var_id("wh_1", "comp_1")

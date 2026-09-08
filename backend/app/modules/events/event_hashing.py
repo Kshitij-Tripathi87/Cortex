@@ -132,7 +132,10 @@ def verify_chain(
                 )
             )
             return ChainVerificationResult(
-                is_valid=False, total_records=len(records), verified_records=verified, errors=tuple(errors)
+                is_valid=False,
+                total_records=len(records),
+                verified_records=verified,
+                errors=tuple(errors),
             )
 
         if sequence != expected_sequence:
@@ -145,7 +148,10 @@ def verify_chain(
                 )
             )
             return ChainVerificationResult(
-                is_valid=False, total_records=len(records), verified_records=verified, errors=tuple(errors)
+                is_valid=False,
+                total_records=len(records),
+                verified_records=verified,
+                errors=tuple(errors),
             )
 
         prev_hash = event_hash

@@ -55,8 +55,12 @@ class DataReadinessReport:
                 }
                 for k, v in self.dimension_scores.items()
             },
-            "temporal_span_start": self.temporal_span_start.isoformat() if self.temporal_span_start else None,
-            "temporal_span_end": self.temporal_span_end.isoformat() if self.temporal_span_end else None,
+            "temporal_span_start": self.temporal_span_start.isoformat()
+            if self.temporal_span_start
+            else None,
+            "temporal_span_end": self.temporal_span_end.isoformat()
+            if self.temporal_span_end
+            else None,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -106,6 +110,7 @@ class DataQualityProfiler:
         max_rows: int = 10000,
     ) -> DataReadinessReport:
         import io
+
         timestamp_columns = timestamp_columns or []
         total_rows = 0
         null_counts: dict[str, int] = {col: 0 for col in required_columns}
@@ -189,7 +194,9 @@ class DataQualityProfiler:
                 passed=temporal_violations == 0,
                 score_pct=temporal_pct,
                 violations_count=temporal_violations,
-                details=[f"Temporal anomalies: {temporal_violations}"] if temporal_violations else [],
+                details=[f"Temporal anomalies: {temporal_violations}"]
+                if temporal_violations
+                else [],
             ),
             "RELATIONSHIPS": QualityDimensionScore(
                 dimension="RELATIONSHIPS",

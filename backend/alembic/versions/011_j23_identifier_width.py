@@ -15,21 +15,22 @@ Columns widened in all five world-state tables:
 - world_versions.world_id, workspace_id
 - world_metadata.workspace_id, world_id, parent_world_id
 """
+
 import sqlalchemy as sa
 
 from alembic import op
 
-revision = '011_j23_identifier_width'
-down_revision = '010_j23_repository_hardening'
+revision = "011_j23_identifier_width"
+down_revision = "010_j23_repository_hardening"
 branch_labels = None
 depends_on = None
 
 _TABLES = (
-    ('world_states', ('world_id', 'workspace_id')),
-    ('world_state_events', ('world_id', 'workspace_id')),
-    ('world_snapshots', ('world_id', 'workspace_id')),
-    ('world_versions', ('world_id', 'workspace_id')),
-    ('world_metadata', ('workspace_id', 'world_id', 'parent_world_id')),
+    ("world_states", ("world_id", "workspace_id")),
+    ("world_state_events", ("world_id", "workspace_id")),
+    ("world_snapshots", ("world_id", "workspace_id")),
+    ("world_versions", ("world_id", "workspace_id")),
+    ("world_metadata", ("workspace_id", "world_id", "parent_world_id")),
 )
 
 
@@ -41,7 +42,7 @@ def upgrade() -> None:
                 column,
                 existing_type=sa.String(length=36),
                 type_=sa.String(length=64),
-                existing_nullable=False if column != 'parent_world_id' else True,
+                existing_nullable=column == "parent_world_id",
             )
 
 
@@ -53,5 +54,5 @@ def downgrade() -> None:
                 column,
                 existing_type=sa.String(length=64),
                 type_=sa.String(length=36),
-                existing_nullable=False if column != 'parent_world_id' else True,
+                existing_nullable=column == "parent_world_id",
             )

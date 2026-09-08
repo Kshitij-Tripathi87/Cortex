@@ -195,8 +195,12 @@ class TestKPIComputationContract:
             assert key in d, f"legacy alias missing from to_dict: {key}"
         # No string provenance fields leak into the metrics dict —
         # they live on the dataclass itself and on TwinResult.metadata.
-        provenance_keys = ("kpi_hash", "formula_version", "trajectory_ref_hash",
-                            "canonical_engine_version")
+        provenance_keys = (
+            "kpi_hash",
+            "formula_version",
+            "trajectory_ref_hash",
+            "canonical_engine_version",
+        )
         for k in provenance_keys:
             assert k not in d, f"provenance key {k} must not leak into metrics dict"
         # All values in to_dict() are numeric (int or float, never str).
@@ -345,8 +349,7 @@ class TestKPITrajectoryBridge:
         # Construct a 25-tick trajectory — recovery_time_hours should equal
         # (25-1) * 1.0 = 24 hours.
         trajectory = [
-            {"tick": i, "version": 1, "state_hash": "h", "variable_count": 5}
-            for i in range(25)
+            {"tick": i, "version": 1, "state_hash": "h", "variable_count": 5} for i in range(25)
         ]
         kpi_with_traj = KPIEngine().compute(
             baseline, final, trajectory_snapshots=trajectory, trajectory_hash="t1"
@@ -381,7 +384,9 @@ class TestKPITrajectoryBridge:
             # We use the public surface too — the kpi_hash should be
             # deterministic on these inputs.
             days = KPIEngine()._estimate_duration_days(traj)
-            assert days == expected_days, f"{n_ticks} ticks → expected {expected_days} days, got {days}"
+            assert days == expected_days, (
+                f"{n_ticks} ticks → expected {expected_days} days, got {days}"
+            )
 
     def test_kpi_with_trajectory_reproducible_across_computations(self) -> None:
         """Two KPI computations with identical (baseline, final, trajectory)

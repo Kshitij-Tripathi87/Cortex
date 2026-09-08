@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import threading
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -90,9 +90,7 @@ class TruthLoop:
             # class is the source of truth for forecast math but the truth
             # loop only needs the public evaluation semantics.
             absolute_error = actual.actual_quantity - forecast.p50
-            percentage_error = (
-                absolute_error / forecast.p50 if forecast.p50 != 0 else 0.0
-            )
+            percentage_error = absolute_error / forecast.p50 if forecast.p50 != 0 else 0.0
             evaluation = ForecastEvaluation(
                 forecast_id=forecast.forecast_id,
                 sku=forecast.sku,

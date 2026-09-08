@@ -171,7 +171,9 @@ def test_ctde_decentralized_replicas_and_canary_routing():
         policy_id="pol_v7",
         dataset_version="ds_v7",
         training_run_id="run_v7",
-        capability_manifest=SignedCapabilityManifest("shipment_tracking", "v7", ["read", "propose"], []),
+        capability_manifest=SignedCapabilityManifest(
+            "shipment_tracking", "v7", ["read", "propose"], []
+        ),
     )
     art_v8 = AgentArtifact(
         artifact_id="art_v8",
@@ -182,7 +184,9 @@ def test_ctde_decentralized_replicas_and_canary_routing():
         policy_id="pol_v8",
         dataset_version="ds_v8",
         training_run_id="run_v8",
-        capability_manifest=SignedCapabilityManifest("shipment_tracking", "v8", ["read", "propose"], []),
+        capability_manifest=SignedCapabilityManifest(
+            "shipment_tracking", "v8", ["read", "propose"], []
+        ),
     )
     ctrl.register_artifact(art_v7)
     ctrl.register_artifact(art_v8)

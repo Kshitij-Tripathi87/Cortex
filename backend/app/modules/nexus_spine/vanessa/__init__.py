@@ -15,6 +15,7 @@ Public API:
 - VanessaInvestigator / InvestigationResult / ResponseBlock: multi-step chains
 """
 
+from app.modules.nexus_spine.vanessa.builtin_tools import get_tool_registry
 from app.modules.nexus_spine.vanessa.investigations.planner import (
     InvestigationResult,
     PlanStep,
@@ -23,7 +24,6 @@ from app.modules.nexus_spine.vanessa.investigations.planner import (
     VanessaInvestigator,
     get_vanessa_investigator,
     reset_vanessa_investigator,
-    classify_intent as _classify_intent_impl,
 )
 from app.modules.nexus_spine.vanessa.orchestrator import (
     Intent,
@@ -45,7 +45,6 @@ from app.modules.nexus_spine.vanessa.tools import (
     build_default_registry,
     reset_tool_registry,
 )
-from app.modules.nexus_spine.vanessa.builtin_tools import get_tool_registry
 
 __all__ = [
     # Intent router

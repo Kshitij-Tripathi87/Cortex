@@ -41,6 +41,7 @@ from app.infrastructure.tenant import (
 # 1. TenantContext value object contract
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestTenantContextValueObject:
     """TenantContext is the immutable value object that carries
     the tenant identity into the DB layer. It MUST be frozen
@@ -89,6 +90,7 @@ class TestTenantContextValueObject:
 # 2. SET LOCAL emission contract
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSetTenantContext:
     """set_tenant_context MUST emit SET LOCAL statements with
     the correct parameter binding. The SQL is what the RLS
@@ -108,12 +110,16 @@ class TestSetTenantContext:
         calls = session.execute.call_args_list
         # First call: SET LOCAL app.current_tenant_id = :tenant_id
         sql_1 = calls[0].args[0]
-        params_1 = calls[0].kwargs.get("parameters") or calls[0].args[1] if len(calls[0].args) > 1 else {}
+        params_1 = (
+            calls[0].kwargs.get("parameters") or calls[0].args[1] if len(calls[0].args) > 1 else {}
+        )
         assert "SET LOCAL app.current_tenant_id" in str(sql_1)
         assert params_1.get("tenant_id") == "org_1"
         # Second call: SET LOCAL app.current_workspace_id = :workspace_id
         sql_2 = calls[1].args[0]
-        params_2 = calls[1].kwargs.get("parameters") or calls[1].args[1] if len(calls[1].args) > 1 else {}
+        params_2 = (
+            calls[1].kwargs.get("parameters") or calls[1].args[1] if len(calls[1].args) > 1 else {}
+        )
         assert "SET LOCAL app.current_workspace_id" in str(sql_2)
         assert params_2.get("workspace_id") == "ws_1"
 
@@ -131,13 +137,16 @@ class TestSetTenantContext:
         calls = session.execute.call_args_list
         # The parameter must be passed as a bound parameter,
         # not string-concatenated.
-        params_1 = calls[0].kwargs.get("parameters") or calls[0].args[1] if len(calls[0].args) > 1 else {}
+        params_1 = (
+            calls[0].kwargs.get("parameters") or calls[0].args[1] if len(calls[0].args) > 1 else {}
+        )
         assert params_1.get("tenant_id") == "org_1'; DROP TABLE users; --"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. with_tenant_context context manager contract
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestWithTenantContext:
     """with_tenant_context is the public API for tenant-scoped
@@ -207,6 +216,7 @@ class TestWithTenantContext:
 # 4. SQLite integration test — exercise SET LOCAL against real DB
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestTenantContextSQLiteIntegration:
     """Exercise the tenant context API against a real SQLite
     database. SQLite does NOT support ``SET LOCAL`` syntax
@@ -234,7 +244,9 @@ class TestTenantContextSQLiteIntegration:
         await engine.dispose()
 
     @pytest.mark.asyncio
-    async def test_with_tenant_context_none_runs_against_real_db(self, sqlite_session: AsyncSession):
+    async def test_with_tenant_context_none_runs_against_real_db(
+        self, sqlite_session: AsyncSession
+    ):
         # ctx=None path: no SET LOCAL is issued, so SQLite
         # is happy. This proves the context manager works
         # end-to-end with a real SQLAlchemy session.
@@ -243,7 +255,9 @@ class TestTenantContextSQLiteIntegration:
             assert result.scalar() == 1
 
     @pytest.mark.asyncio
-    async def test_with_tenant_context_skip_on_sqlite_for_pg_only_path(self, sqlite_session: AsyncSession):
+    async def test_with_tenant_context_skip_on_sqlite_for_pg_only_path(
+        self, sqlite_session: AsyncSession
+    ):
         # The SET LOCAL path requires PostgreSQL. SQLite
         # raises ``OperationalError: near "SET": syntax error``
         # because ``SET LOCAL`` is a PG extension. We pin
@@ -259,16 +273,15 @@ class TestTenantContextSQLiteIntegration:
         # (or underlying sqlite3 error). We don't care
         # which — what matters is that the failure is
         # observable and not silently swallowed.
-        assert "SET" in str(exc_info.value).upper() or \
-               "syntax" in str(exc_info.value).lower(), (
-            f"Expected SQLite SET LOCAL to fail with a parse error, "
-            f"got: {exc_info.value!r}"
+        assert "SET" in str(exc_info.value).upper() or "syntax" in str(exc_info.value).lower(), (
+            f"Expected SQLite SET LOCAL to fail with a parse error, got: {exc_info.value!r}"
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Input validation hardening (Pydantic guard)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestInputValidationHardening:
     """Every ingress route that accepts a workspace_id MUST
@@ -289,6 +302,7 @@ class TestInputValidationHardening:
         # Try to import known ingress models
         try:
             from app.modules.world.schemas import EventSubmit, StateQuery
+
             models_to_test.append(("EventSubmit", EventSubmit))
             models_to_test.append(("StateQuery", StateQuery))
         except ImportError:
@@ -296,12 +310,14 @@ class TestInputValidationHardening:
 
         try:
             from app.modules.ingestion.schemas import IngestionBatch
+
             models_to_test.append(("IngestionBatch", IngestionBatch))
         except ImportError:
             pass
 
         try:
             from app.modules.graph.schemas import GraphQuery
+
             models_to_test.append(("GraphQuery", GraphQuery))
         except ImportError:
             pass
@@ -328,6 +344,7 @@ class TestInputValidationHardening:
 # 6. Security scan module contract (stubbed)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSecurityScanModule:
     """The security scan module runs pip-audit style checks and
     reports vulnerable pinned versions. The actual scan runs
@@ -336,6 +353,7 @@ class TestSecurityScanModule:
 
     def test_security_scan_module_exists(self):
         import importlib.util
+
         spec = importlib.util.find_spec("app.infrastructure.security_scan")
         assert spec is not None, (
             "app.infrastructure.security_scan module must exist; "
@@ -344,15 +362,16 @@ class TestSecurityScanModule:
 
     def test_security_scan_has_public_api(self):
         import app.infrastructure.security_scan as scan_mod
+
         # The module must expose these callables
         for name in ("run_scan", "parse_audit_output", "SecurityFinding"):
             assert hasattr(scan_mod, name), (
-                f"security_scan must expose {name!r}; the CI job "
-                f"calls this directly."
+                f"security_scan must expose {name!r}; the CI job calls this directly."
             )
 
     def test_security_finding_is_serializable(self):
         import app.infrastructure.security_scan as scan_mod
+
         finding = scan_mod.SecurityFinding(
             package="requests",
             version="2.28.0",
@@ -362,6 +381,7 @@ class TestSecurityScanModule:
         )
         # Must be JSON-serializable for the CI artifact
         import json
+
         serialized = json.dumps(finding.to_dict())
         assert "requests" in serialized
         assert "CVE-2023-1234" in serialized
@@ -371,11 +391,13 @@ class TestSecurityScanModule:
 # 7. Module-level invariants
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestModuleInvariants:
     """Frozen constants that are part of the RLS contract."""
 
     def test_rls_setting_names_are_frozen(self):
         from app.infrastructure.tenant import make_tenant_context
+
         # The SET LOCAL uses hardcoded setting names. These
         # must match the migration that creates the settings.
         # If they change, the migration must change too.

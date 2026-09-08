@@ -82,7 +82,9 @@ class CentralDatasetBuilder:
                     "weather_severity": t.weather_severity,
                 },
                 target_label={
-                    "status": "CRITICAL_DELAY" if t.port_congestion_index > 0.7 else ("AT_RISK" if is_delayed else "ON_TIME"),
+                    "status": "CRITICAL_DELAY"
+                    if t.port_congestion_index > 0.7
+                    else ("AT_RISK" if is_delayed else "ON_TIME"),
                     "is_delayed": is_delayed,
                 },
                 provenance_source=f"world_state_v{world_state_version}",

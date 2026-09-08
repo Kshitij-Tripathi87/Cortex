@@ -38,6 +38,7 @@ from app.modules.data_intelligence.operational_graph import (
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def engine() -> GraphDeltaEngine:
     return GraphDeltaEngine(OperationalGraphEngine())
@@ -61,6 +62,7 @@ def _apply(engine: GraphDeltaEngine, event_type: str = "ORDER_PLACED") -> GraphD
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. The delta itself — seq is monotonic, starts at engine counter, in to_dict
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestDeltaSeqContract:
     """The `seq` field on every delta MUST be monotonic, MUST be in
@@ -105,6 +107,7 @@ class TestDeltaSeqContract:
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Replay — get_deltas_since_seq orders by seq, skips <= since_seq
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSeqReplayContract:
     """`get_deltas_since_seq(since_seq)` is the engine method the SSE
@@ -151,6 +154,7 @@ class TestSeqReplayContract:
 # 3. min_known_seq — the resync decision point
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestMinKnownSeqContract:
     """`min_known_seq()` returns the seq of the oldest in-memory delta.
     The SSE handler compares the client's `since_seq` against this to
@@ -196,17 +200,27 @@ class TestMinKnownSeqContract:
 # 4. The to_dict wire shape — what clients actually consume
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestDeltaWireShape:
     """The wire shape is the contract. `to_dict()` is the on-the-wire
     JSON for every delta. Field order is irrelevant; presence and
     types are."""
 
     REQUIRED_KEYS = {
-        "delta_id", "event_type", "previous_graph_version",
-        "new_graph_version", "world_state_version", "seq",
-        "total_changes_count", "added_nodes", "updated_nodes",
-        "removed_nodes", "added_edges", "updated_edges",
-        "removed_edges", "timestamp",
+        "delta_id",
+        "event_type",
+        "previous_graph_version",
+        "new_graph_version",
+        "world_state_version",
+        "seq",
+        "total_changes_count",
+        "added_nodes",
+        "updated_nodes",
+        "removed_nodes",
+        "added_edges",
+        "updated_edges",
+        "removed_edges",
+        "timestamp",
     }
 
     def test_to_dict_has_all_required_keys(self, engine: GraphDeltaEngine):

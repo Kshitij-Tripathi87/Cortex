@@ -22,15 +22,13 @@ from app.modules.nexus_spine.ontology import (
     EntityQuery,
     RelationshipEdge,
     RelationshipKind,
-    SupplierEntity,
     SalesOrderEntity,
-    PurchaseOrderEntity,
+    SupplierEntity,
     get_world_model,
     reset_world_model,
 )
 from app.modules.nexus_spine.ontology.persistence import (
     NexusEntityDB,
-    NexusRelationshipDB,
     OntologyStore,
     entity_to_row,
     row_to_entity,
@@ -39,7 +37,6 @@ from app.modules.nexus_spine.ontology.write_through import (
     PersistenceMode,
     WriteThroughWorldModelRepository,
 )
-
 
 TENANT = UUID("11111111-1111-1111-1111-111111111111")
 WORKSPACE = UUID("22222222-2222-2222-2222-222222222222")
@@ -64,6 +61,7 @@ def make_supplier_sync():
             capacity_pct=80.0,
             risk_score=0.35,
         )
+
     return _make
 
 
@@ -74,9 +72,13 @@ def make_supplier_sync():
 
 def test_entity_to_row_and_back_round_trip():
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SUP-X", name="Acme", source="test",
-        capacity_pct=72.5, risk_score=0.42,
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SUP-X",
+        name="Acme",
+        source="test",
+        capacity_pct=72.5,
+        risk_score=0.42,
     )
     row = entity_to_row(s)
     restored = row_to_entity(NexusEntityDB(**row))
@@ -88,8 +90,11 @@ def test_entity_to_row_and_back_round_trip():
 
 def test_row_preserves_entity_state_history():
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="H-1", name="Historic", source="test",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="H-1",
+        name="Historic",
+        source="test",
         capacity_pct=100.0,
     )
     s.append_state_snapshot(
@@ -109,8 +114,11 @@ def test_row_preserves_entity_state_history():
 
 def test_row_preserves_provenance_chain():
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="P-1", name="Prov", source="test",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="P-1",
+        name="Prov",
+        source="test",
     )
     s.append_state_snapshot(
         new_state=s.state,
@@ -135,8 +143,11 @@ def test_row_preserves_provenance_chain():
 def test_write_through_memory_only_mode(fresh_model):
     repo = WriteThroughWorldModelRepository()
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="S", name="S", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="S",
+        name="S",
+        source="t",
     )
     saved, version = repo.upsert_sync(s, actor="alice")
     assert version >= 1
@@ -148,8 +159,11 @@ def test_write_through_memory_only_mode(fresh_model):
 async def test_write_through_upsert_falls_back_without_store(fresh_model):
     repo = WriteThroughWorldModelRepository()
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="S", name="S", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="S",
+        name="S",
+        source="t",
     )
     saved, version = await repo.upsert(s, actor="alice")
     assert version >= 1
@@ -162,12 +176,18 @@ async def test_write_through_upsert_falls_back_without_store(fresh_model):
 async def test_write_through_query_passes_through(fresh_model):
     repo = WriteThroughWorldModelRepository()
     s1 = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="S1", name="One", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="S1",
+        name="One",
+        source="t",
     )
     s2 = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="S2", name="Two", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="S2",
+        name="Two",
+        source="t",
     )
     await repo.upsert(s1, actor="t")
     await repo.upsert(s2, actor="t")
@@ -193,8 +213,11 @@ def test_write_through_consistency_check_no_store(fresh_model):
 async def test_ontology_store_upsert_and_get(db_session: AsyncSession):
     store = OntologyStore(db_session)
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="DB-S1", name="DB Supplier", source="test",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="DB-S1",
+        name="DB Supplier",
+        source="test",
         capacity_pct=64.0,
     )
     saved = await store.upsert_entity(s)
@@ -208,13 +231,20 @@ async def test_ontology_store_upsert_and_get(db_session: AsyncSession):
 async def test_ontology_store_queries_by_kind(db_session: AsyncSession):
     store = OntologyStore(db_session)
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="DB-S2", name="S2", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="DB-S2",
+        name="S2",
+        source="t",
     )
     wk = SalesOrderEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="DB-SO1", name="SO1", source="t",
-        quantity=10, customer_id=uuid4(),
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="DB-SO1",
+        name="SO1",
+        source="t",
+        quantity=10,
+        customer_id=uuid4(),
         promised_delivery=datetime.now(UTC),
         revenue=1000.0,
     )
@@ -231,13 +261,20 @@ async def test_ontology_store_queries_by_kind(db_session: AsyncSession):
 async def test_relationship_store_write_and_read(db_session: AsyncSession):
     store = OntologyStore(db_session)
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="R-S", name="From", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="R-S",
+        name="From",
+        source="t",
     )
     t = SalesOrderEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="R-T", name="To", source="t",
-        quantity=10, customer_id=uuid4(),
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="R-T",
+        name="To",
+        source="t",
+        quantity=10,
+        customer_id=uuid4(),
         promised_delivery=datetime.now(UTC),
         revenue=1.0,
     )
@@ -261,8 +298,11 @@ async def test_relationship_store_write_and_read(db_session: AsyncSession):
 async def test_hydrate_workspace_rebuilds_projection(fresh_model, db_session: AsyncSession):
     store = OntologyStore(db_session)
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="HYD-1", name="Hyd", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="HYD-1",
+        name="Hyd",
+        source="t",
     )
     await store.upsert_entity(s)
 
@@ -280,15 +320,21 @@ async def test_hydrate_workspace_rebuilds_projection(fresh_model, db_session: As
 @pytest.mark.asyncio
 async def test_consistency_check_detects_sync(fresh_model, db_session: AsyncSession):
     from app.modules.nexus_spine.ontology import get_world_model
+
     store = OntologyStore(db_session)
     s = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="CHK-1", name="Check", source="t",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="CHK-1",
+        name="Check",
+        source="t",
     )
     await store.upsert_entity(s)
     projection = get_world_model()
     repo = WriteThroughWorldModelRepository(
-        projection=projection, store=store, mode=PersistenceMode.PERSIST_FIRST,
+        projection=projection,
+        store=store,
+        mode=PersistenceMode.PERSIST_FIRST,
     )
     await repo.upsert(s, actor="test")
     report = await repo.consistency_check(TENANT, WORKSPACE)

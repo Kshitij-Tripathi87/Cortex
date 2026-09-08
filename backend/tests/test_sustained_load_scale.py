@@ -52,13 +52,26 @@ from tests.benchmark_harness import BenchmarkResult, run_load_benchmark
 # Fixtures & Shared Dataset Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def create_sample_dataset(workspace_id: str, organization_id: str) -> CanonicalDataset:
     dataset = CanonicalDataset(workspace_id=workspace_id, organization_id=organization_id)
     dataset.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": f"S_1_{workspace_id}", "state": "CA", "city": "San Francisco", "_source_file": "s.csv", "_source_row": 1},
-            {"supplier_id": f"S_2_{workspace_id}", "state": "TX", "city": "Austin", "_source_file": "s.csv", "_source_row": 2},
+            {
+                "supplier_id": f"S_1_{workspace_id}",
+                "state": "CA",
+                "city": "San Francisco",
+                "_source_file": "s.csv",
+                "_source_row": 1,
+            },
+            {
+                "supplier_id": f"S_2_{workspace_id}",
+                "state": "TX",
+                "city": "Austin",
+                "_source_file": "s.csv",
+                "_source_row": 2,
+            },
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
         source_file="s.csv",
@@ -66,7 +79,13 @@ def create_sample_dataset(workspace_id: str, organization_id: str) -> CanonicalD
     dataset.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": f"C_1_{workspace_id}", "state": "NY", "city": "New York", "_source_file": "c.csv", "_source_row": 1},
+            {
+                "customer_id": f"C_1_{workspace_id}",
+                "state": "NY",
+                "city": "New York",
+                "_source_file": "c.csv",
+                "_source_row": 1,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="c.csv",
@@ -74,7 +93,14 @@ def create_sample_dataset(workspace_id: str, organization_id: str) -> CanonicalD
     dataset.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": f"O_1_{workspace_id}", "customer_id": f"C_1_{workspace_id}", "status": "shipped", "price": 450.0, "_source_file": "o.csv", "_source_row": 1},
+            {
+                "order_id": f"O_1_{workspace_id}",
+                "customer_id": f"C_1_{workspace_id}",
+                "status": "shipped",
+                "price": 450.0,
+                "_source_file": "o.csv",
+                "_source_row": 1,
+            },
         ],
         column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float"},
         source_file="o.csv",
@@ -82,9 +108,23 @@ def create_sample_dataset(workspace_id: str, organization_id: str) -> CanonicalD
     dataset.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"item_id": f"I_1_{workspace_id}", "order_id": f"O_1_{workspace_id}", "supplier_id": f"S_1_{workspace_id}", "product_id": "P_CHIP", "price": 450.0, "_source_file": "i.csv", "_source_row": 1},
+            {
+                "item_id": f"I_1_{workspace_id}",
+                "order_id": f"O_1_{workspace_id}",
+                "supplier_id": f"S_1_{workspace_id}",
+                "product_id": "P_CHIP",
+                "price": 450.0,
+                "_source_file": "i.csv",
+                "_source_row": 1,
+            },
         ],
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+        },
         source_file="i.csv",
     )
     return dataset
@@ -93,6 +133,7 @@ def create_sample_dataset(workspace_id: str, organization_id: str) -> CanonicalD
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Canonical Dataset Ingestion & Profiling Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestCanonicalIngestionLoadScaling:
     """Validates Path 1 under 10, 50, 100, 250, 500, 1000 concurrent ingestions."""
@@ -128,6 +169,7 @@ class TestCanonicalIngestionLoadScaling:
 # 2. Entity Resolution & Operational Graph Construction Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestOperationalGraphLoadScaling:
     """Validates Path 2 under 10, 50, 100, 250, 500, 1000 concurrent graph constructions."""
 
@@ -159,6 +201,7 @@ class TestOperationalGraphLoadScaling:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Real-Time Signal Detection & Blast Radius Analysis Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSignalAndBlastRadiusLoadScaling:
     """Validates Path 3 under 10, 50, 100, 250, 500, 1000 concurrent signal & blast computations."""
@@ -206,6 +249,7 @@ class TestSignalAndBlastRadiusLoadScaling:
 # 4. Supervisor Multi-Agent Context Assembly & Proposal Generation Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSupervisorMultiAgentLoadScaling:
     """Validates Path 4 under 10, 50, 100, 250, 500, 1000 concurrent supervisor deliberations."""
 
@@ -220,12 +264,14 @@ class TestSupervisorMultiAgentLoadScaling:
                 incident_entity_type=EntityType.SUPPLIER,
                 incident_entity_id=f"S_SUP_{worker_id}",
                 affected_entity_ids=[f"O_ORD_{worker_id}", f"C_CUST_{worker_id}"],
-                signals=[{
-                    "signal_id": f"sig_delib_{worker_id}",
-                    "signal_type": "SUPPLIER_DISRUPTION",
-                    "severity": "HIGH",
-                    "entity_id": f"S_SUP_{worker_id}",
-                }],
+                signals=[
+                    {
+                        "signal_id": f"sig_delib_{worker_id}",
+                        "signal_type": "SUPPLIER_DISRUPTION",
+                        "severity": "HIGH",
+                        "entity_id": f"S_SUP_{worker_id}",
+                    }
+                ],
                 blast_radius={
                     "total_revenue_at_risk_usd": 50000.0,
                     "geographic_exposure_regions": ["TW", "US"],
@@ -268,6 +314,7 @@ class TestSupervisorMultiAgentLoadScaling:
 # 5. Digital Twin Counterfactual Scenario Simulation Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestDigitalTwinCounterfactualLoadScaling:
     """Validates Path 5 under 10, 50, 100, 250, 500, 1000 concurrent twin scenario simulations."""
 
@@ -309,6 +356,7 @@ class TestDigitalTwinCounterfactualLoadScaling:
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Policy Evaluation & Governed Execution Service Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestGovernedExecutionGovernanceLoadScaling:
     """Validates Path 6 under 10, 50, 100, 250, 500, 1000 concurrent governed authorizations."""
@@ -371,6 +419,7 @@ class TestGovernedExecutionGovernanceLoadScaling:
 # 7. Multi-Tenant Cache & Event Bus State Pipeline Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRealtimeStatePipelineLoadScaling:
     """Validates Path 7 under 10, 50, 100, 250, 500, 1000 concurrent state pipeline events."""
 
@@ -431,6 +480,7 @@ class TestRealtimeStatePipelineLoadScaling:
 # 8. WebSocket Realtime Fanout & Sequence Resync Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestWebSocketRealtimeFanoutLoadScaling:
     """Validates Path 8 under 10, 50, 100, 250, 500, 1000 concurrent client broadcasts."""
 
@@ -481,6 +531,7 @@ class TestWebSocketRealtimeFanoutLoadScaling:
 # 9. Evidence DAG Cryptographic Verification & Audit Export Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestEvidenceDAGVerificationLoadScaling:
     """Validates Path 9 under 10, 50, 100, 250, 500, 1000 concurrent DAG constructions & verifications."""
 
@@ -490,9 +541,15 @@ class TestEvidenceDAGVerificationLoadScaling:
         async def _dag_op(worker_id: int) -> None:
             graph = DecisionEvidenceGraph(decision_id=f"DEC_SCALE_{worker_id}")
             n1 = graph.add_evidence_step("SOURCE_RECORD", "Telemetry", {"load_id": worker_id})
-            n2 = graph.add_evidence_step("SIGNAL", "Delay", {"delay_h": 12.0}, parent_node_id=n1.node_id)
-            n3 = graph.add_evidence_step("PROPOSAL", "Reroute", {"cost": 500.0}, parent_node_id=n2.node_id)
-            _n4 = graph.add_evidence_step("DECISION", "Approve", {"approved": True}, parent_node_id=n3.node_id)
+            n2 = graph.add_evidence_step(
+                "SIGNAL", "Delay", {"delay_h": 12.0}, parent_node_id=n1.node_id
+            )
+            n3 = graph.add_evidence_step(
+                "PROPOSAL", "Reroute", {"cost": 500.0}, parent_node_id=n2.node_id
+            )
+            _n4 = graph.add_evidence_step(
+                "DECISION", "Approve", {"approved": True}, parent_node_id=n3.node_id
+            )
 
             chain_hash = graph.compute_chain_hash()
             assert len(chain_hash) == 64
@@ -514,6 +571,7 @@ class TestEvidenceDAGVerificationLoadScaling:
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. End-to-End Multi-Tenant Spine Execution Load Scaling
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestEndToEndSpinePipelineLoadScaling:
     """Validates Full 12-Stage Spine under concurrent multi-tenant execution."""

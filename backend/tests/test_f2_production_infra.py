@@ -35,12 +35,14 @@ import pytest
 @pytest.fixture
 def health_mod():
     import app.infrastructure.health as health
+
     return health
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Health endpoint contract — simple liveness, no dependency checks
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHealthEndpoint:
     """``/healthz`` must stay a pure liveness probe. It must
@@ -53,6 +55,7 @@ class TestHealthEndpoint:
         from starlette.testclient import TestClient
 
         from app.main import create_app
+
         app = create_app()
         client = TestClient(app)
         resp = client.get("/healthz")
@@ -69,6 +72,7 @@ class TestHealthEndpoint:
         client = TestClient(app)
         # Force a DB failure by patching the dependency check.
         import app.infrastructure.health as h_mod
+
         with patch.object(h_mod, "check_db", return_value=(False, "down")):
             # Note: the health endpoint does not call check_db
             # at all — the 200 is unconditional. This test
@@ -81,6 +85,7 @@ class TestHealthEndpoint:
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Readiness endpoint contract — all four checks, aggregate verdict
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestReadinessEndpoint:
     """``/readyz`` must return 503 if any dependency fails, and
@@ -114,9 +119,7 @@ class TestReadinessEndpoint:
             assert "ok" in c, "Every component needs an ok flag"
             assert "detail" in c, "Every component needs a detail"
 
-    def test_readiness_503_includes_failed_component_names(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
+    def test_readiness_503_includes_failed_component_names(self, monkeypatch: pytest.MonkeyPatch):
         # Inject a synthetic failure for one dependency; the
         # 503 response must mention the failing component by
         # name so the alert rule can key off it directly.
@@ -150,15 +153,14 @@ class TestReadinessEndpoint:
             assert failed == {"redis"}
             # The response payload must include the detail so the
             # on-call can diagnose without checking the audit chain.
-            redis_row = next(
-                c for c in body["components"] if c["name"] == "redis"
-            )
+            redis_row = next(c for c in body["components"] if c["name"] == "redis")
             assert redis_row["detail"] == "simulated_down"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Dependency-level contract — individual checks
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestDependencyContracts:
     """Every dependency check returns a ``(bool, str)`` tuple
@@ -169,6 +171,7 @@ class TestDependencyContracts:
 
     def test_db_check_contract(self):
         import app.infrastructure.health as h_mod
+
         ok, detail = h_mod.check_db()
         assert isinstance(ok, bool)
         assert isinstance(detail, str)
@@ -176,9 +179,11 @@ class TestDependencyContracts:
 
     def test_redis_check_contract(self):
         import app.infrastructure.health as h_mod
+
         # check_redis returns a coroutine.
         result = h_mod.check_redis()
         import inspect
+
         assert inspect.isawaitable(result), (
             "check_redis must return an awaitable; the caller "
             "awaits it so both sync and async checks work uniformly."
@@ -186,18 +191,21 @@ class TestDependencyContracts:
 
     def test_object_storage_check_contract(self):
         import app.infrastructure.health as h_mod
+
         ok, detail = h_mod.check_object_storage()
         assert isinstance(ok, bool)
         assert isinstance(detail, str)
 
     def test_audit_chain_check_contract(self):
         import app.infrastructure.health as h_mod
+
         ok, detail = h_mod.check_audit_chain()
         assert isinstance(ok, bool)
         assert isinstance(detail, str)
 
     def test_audit_chain_max_age_is_positive(self):
         import app.infrastructure.health as h_mod
+
         assert h_mod.AUDIT_CHAIN_MAX_AGE.total_seconds() == 86400.0  # 1d
         assert __import__("datetime").timedelta(0) < h_mod.AUDIT_CHAIN_MAX_AGE
 
@@ -205,6 +213,7 @@ class TestDependencyContracts:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. K8s startupProbe budget — 180s for init_db to complete
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestK8sProbeBudget:
     """The startupProbe budget must be larger than the readiness
@@ -220,6 +229,7 @@ class TestK8sProbeBudget:
         # is at <repo>/k8s/base.yaml, so we resolve from the
         # test file's parents and walk up to the repo root.
         from pathlib import Path
+
         repo_root = Path(__file__).resolve().parents[2]  # tests/ -> backend/ -> repo
         manifest_path = repo_root / "k8s" / "base.yaml"
         with open(manifest_path, encoding="utf-8") as f:

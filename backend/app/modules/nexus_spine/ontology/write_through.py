@@ -40,7 +40,6 @@ from app.modules.nexus_spine.ontology.entities import (
 from app.modules.nexus_spine.ontology.repository import (
     WorldModelRepository,
     get_world_model,
-    reset_world_model,
 )
 
 
@@ -143,7 +142,9 @@ class WriteThroughWorldModelRepository:
             saved, version = self._projection.upsert(persisted, actor=actor)
         return saved, version
 
-    async def delete(self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID, *, actor: str = "system") -> bool:
+    async def delete(
+        self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID, *, actor: str = "system"
+    ) -> bool:
         if self._store is None or self._mode == PersistenceMode.MEMORY_ONLY:
             return self._projection.delete(tenant_id, workspace_id, entity_id, actor=actor)
         removed = await self._store.delete_entity(tenant_id, workspace_id, entity_id)
@@ -171,7 +172,9 @@ class WriteThroughWorldModelRepository:
     def get(self, tenant_id: UUID, workspace_id: UUID, entity_id: UUID) -> Entity | None:
         return self._projection.get(tenant_id, workspace_id, entity_id)
 
-    def get_by_natural_key(self, tenant_id: UUID, workspace_id: UUID, natural_key: str) -> Entity | None:
+    def get_by_natural_key(
+        self, tenant_id: UUID, workspace_id: UUID, natural_key: str
+    ) -> Entity | None:
         return self._projection.get_by_natural_key(tenant_id, workspace_id, natural_key)
 
     def query(self, query: EntityQuery) -> EntityPage:
@@ -191,7 +194,12 @@ class WriteThroughWorldModelRepository:
         max_depth: int = 1,
     ) -> list[tuple[UUID, RelationshipEdge]]:
         return self._projection.neighbors(
-            tenant_id, workspace_id, entity_id, direction=direction, kinds=kinds, max_depth=max_depth
+            tenant_id,
+            workspace_id,
+            entity_id,
+            direction=direction,
+            kinds=kinds,
+            max_depth=max_depth,
         )
 
     def traverse_supply_chain(
@@ -229,7 +237,9 @@ class WriteThroughWorldModelRepository:
                 self._projection._by_natural_key[
                     (entity.tenant_id, entity.workspace_id, entity.natural_key)
                 ] = entity.entity_id
-                self._projection._by_kind[(entity.tenant_id, entity.workspace_id, entity.kind)].add(entity.entity_id)
+                self._projection._by_kind[(entity.tenant_id, entity.workspace_id, entity.kind)].add(
+                    entity.entity_id
+                )
         return len(entities)
 
     async def consistency_check(self, tenant_id: UUID, workspace_id: UUID) -> SyncReport:
@@ -243,8 +253,7 @@ class WriteThroughWorldModelRepository:
         store_entities, _ = await self._store.hydrate_workspace(tenant_id, workspace_id)
         store_ids = {e.entity_id for e in store_entities}
         projection_ids = {
-            e.entity_id
-            for e in self._projection.iter_entities(tenant_id, workspace_id)
+            e.entity_id for e in self._projection.iter_entities(tenant_id, workspace_id)
         }
         store_only = len(store_ids - projection_ids)
         projection_only = len(projection_ids - store_ids)

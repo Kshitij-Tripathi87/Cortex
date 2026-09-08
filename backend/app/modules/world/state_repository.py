@@ -231,7 +231,9 @@ class StateRepository:
         await self.db.flush()
         return state
 
-    async def get(self, world_id: str, workspace_id: str, version: int | None = None) -> WorldState | None:
+    async def get(
+        self, world_id: str, workspace_id: str, version: int | None = None
+    ) -> WorldState | None:
         """Get world state by ID and optional version.
 
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
@@ -365,12 +367,9 @@ class StateRepository:
         # by the caller makes this read-then-insert safe.
         sequence_number: int | None = None
         if source != "genesis":
-            max_seq_stmt = (
-                select(func.max(WorldVersionDB.sequence_number))
-                .where(
-                    WorldVersionDB.world_id == state.world_id,
-                    WorldVersionDB.workspace_id == state.workspace_id,
-                )
+            max_seq_stmt = select(func.max(WorldVersionDB.sequence_number)).where(
+                WorldVersionDB.world_id == state.world_id,
+                WorldVersionDB.workspace_id == state.workspace_id,
             )
             max_seq_result = await self.db.execute(max_seq_stmt)
             sequence_number = (max_seq_result.scalar() or 0) + 1
@@ -407,7 +406,9 @@ class StateRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_version_by_event_id(self, event_id: str, workspace_id: str) -> WorldVersionDB | None:
+    async def get_version_by_event_id(
+        self, event_id: str, workspace_id: str
+    ) -> WorldVersionDB | None:
         """Get the version lineage record associated with a given event ID.
 
         WORKSPACE ISOLATION: Query is scoped to workspace_id.
@@ -581,7 +582,9 @@ class StateRepository:
     # Versions (Lineage)
     # ─────────────────────────────────────────────────────────────────────────
 
-    async def get_version(self, world_id: str, workspace_id: str, version: int) -> WorldVersionDB | None:
+    async def get_version(
+        self, world_id: str, workspace_id: str, version: int
+    ) -> WorldVersionDB | None:
         """Get a specific world version.
 
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.
@@ -633,7 +636,9 @@ class StateRepository:
         await self.db.flush()
         return metadata
 
-    async def get_metadata(self, world_id: str, workspace_id: str, version: int | None = None) -> StateMetadata | None:
+    async def get_metadata(
+        self, world_id: str, workspace_id: str, version: int | None = None
+    ) -> StateMetadata | None:
         """Get world state metadata.
 
         WORKSPACE ISOLATION: Query is scoped to both world_id and workspace_id.

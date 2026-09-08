@@ -45,7 +45,10 @@ class AgentSpecification:
 
     def validate_capability_privileges(self) -> bool:
         """Enforce privilege separation: Specialist domain agents must NOT have EXECUTE."""
-        return not (Capability.EXECUTE.value in self.allowed_capabilities and self.domain != AgentDomain.EXECUTIVE_COORDINATOR)
+        return not (
+            Capability.EXECUTE.value in self.allowed_capabilities
+            and self.domain != AgentDomain.EXECUTIVE_COORDINATOR
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,7 +85,13 @@ def get_canonical_shipment_tracking_spec(version: str = "v8") -> AgentSpecificat
         ],
         input_schema={
             "type": "object",
-            "required": ["shipment_id", "origin", "destination", "planned_eta_days", "elapsed_days"],
+            "required": [
+                "shipment_id",
+                "origin",
+                "destination",
+                "planned_eta_days",
+                "elapsed_days",
+            ],
             "properties": {
                 "shipment_id": {"type": "string"},
                 "origin": {"type": "string"},
@@ -95,7 +104,13 @@ def get_canonical_shipment_tracking_spec(version: str = "v8") -> AgentSpecificat
         },
         output_schema={
             "type": "object",
-            "required": ["shipment_id", "status", "risk_score", "predicted_delay_days", "mitigation_needed"],
+            "required": [
+                "shipment_id",
+                "status",
+                "risk_score",
+                "predicted_delay_days",
+                "mitigation_needed",
+            ],
             "properties": {
                 "shipment_id": {"type": "string"},
                 "status": {"type": "string", "enum": ["ON_TIME", "AT_RISK", "CRITICAL_DELAY"]},
@@ -105,6 +120,10 @@ def get_canonical_shipment_tracking_spec(version: str = "v8") -> AgentSpecificat
                 "recommended_action": {"type": "object"},
             },
         },
-        allowed_capabilities=[Capability.READ.value, Capability.PROPOSE.value, Capability.SIMULATE.value],
+        allowed_capabilities=[
+            Capability.READ.value,
+            Capability.PROPOSE.value,
+            Capability.SIMULATE.value,
+        ],
         allowed_tools=["get_shipment_telemetry", "get_port_congestion", "simulate_eta"],
     )

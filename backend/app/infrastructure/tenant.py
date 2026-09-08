@@ -61,6 +61,7 @@ class TenantContext:
     ``current_setting('app.current_tenant_id')`` and
     ``current_setting('app.current_workspace_id')``.
     """
+
     tenant_id: str
     workspace_id: str
 

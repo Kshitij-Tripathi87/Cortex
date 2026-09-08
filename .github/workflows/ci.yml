@@ -161,7 +161,17 @@ jobs:
         run: |
           cd backend
           pip install pip-audit
-          pip-audit --desc
+          # Audit the PROJECT's dependency set, not this job's ephemeral
+          # runner environment (a bare `pip-audit` audits the runner's own
+          # pip/setuptools and can never pass).
+          pip install -e .
+          python -m pip freeze --all | grep -v '^-e' | grep -v '^pip==' | grep -v '^setuptools==' | grep -v '^wheel==' > /tmp/audit-reqs.txt
+          # PYSEC-2026-1325 (ecdsa, via python-jose — used for JWT
+          # verification in app/modules/identity/provider.py) has no fix
+          # release upstream. Ignored explicitly here; re-evaluate when
+          # python-jose ships a fix or the identity module migrates to
+          # PyJWT-only.
+          pip-audit --no-deps --desc --requirement /tmp/audit-reqs.txt --ignore-vuln PYSEC-2026-1325
       
       - name: Run dependency audit (Node)
         run: |

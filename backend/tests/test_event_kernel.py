@@ -151,17 +151,27 @@ def test_event_hash_ignores_metadata_changes():
     e1 = _make_inventory_event()
     # Replace frozen field — but events are frozen, so we construct fresh
     e_with_meta = InventoryChanged(
-        event_id=e1.event_id, world_id=e1.world_id, workspace_id=e1.workspace_id,
-        entity_type=e1.entity_type, entity_id=e1.entity_id,
-        warehouse_id=e1.warehouse_id, component_id=e1.component_id,
-        quantity_change=e1.quantity_change, reason=e1.reason,
+        event_id=e1.event_id,
+        world_id=e1.world_id,
+        workspace_id=e1.workspace_id,
+        entity_type=e1.entity_type,
+        entity_id=e1.entity_id,
+        warehouse_id=e1.warehouse_id,
+        component_id=e1.component_id,
+        quantity_change=e1.quantity_change,
+        reason=e1.reason,
         metadata={"policy_version": "v1"},
     )
     e_with_meta2 = InventoryChanged(
-        event_id=e1.event_id, world_id=e1.world_id, workspace_id=e1.workspace_id,
-        entity_type=e1.entity_type, entity_id=e1.entity_id,
-        warehouse_id=e1.warehouse_id, component_id=e1.component_id,
-        quantity_change=e1.quantity_change, reason=e1.reason,
+        event_id=e1.event_id,
+        world_id=e1.world_id,
+        workspace_id=e1.workspace_id,
+        entity_type=e1.entity_type,
+        entity_id=e1.entity_id,
+        warehouse_id=e1.warehouse_id,
+        component_id=e1.component_id,
+        quantity_change=e1.quantity_change,
+        reason=e1.reason,
         metadata={"policy_version": "v2", "experiment_id": "exp_99"},
     )
     h1 = compute_event_hash(e1, e1.to_payload())
@@ -257,7 +267,12 @@ def _inv_record(event_id: str, warehouse_id: str, component_id: str, qty: int) -
         entity_id=warehouse_id,
         entity_type="warehouse",
         event_type="inventory_changed",
-        payload={"warehouse_id": warehouse_id, "component_id": component_id, "quantity_change": qty, "reason": "production"},
+        payload={
+            "warehouse_id": warehouse_id,
+            "component_id": component_id,
+            "quantity_change": qty,
+            "reason": "production",
+        },
     )
 
 
@@ -279,9 +294,13 @@ def test_replay_events_records_unrecognized_event_type_as_warning():
     state = _initial_state_with_inventory()
     records = [
         ReplayRecord(
-            event_id="e1", world_id="world_1", workspace_id="ws_1",
-            entity_id="wh_001", entity_type="warehouse",
-            event_type="mystery_event", payload={},
+            event_id="e1",
+            world_id="world_1",
+            workspace_id="ws_1",
+            entity_id="wh_001",
+            entity_type="warehouse",
+            event_type="mystery_event",
+            payload={},
         ),
     ]
     outcome = replay_events(state, records)
@@ -307,7 +326,9 @@ def test_replay_batches_invokes_progress_callback():
     batch1 = [_inv_record(f"e{i}", "wh_001", "comp_042", 1) for i in range(5)]
     batch2 = [_inv_record(f"e{i}", "wh_001", "comp_042", 1) for i in range(5, 10)]
     progress: list[tuple[int, int]] = []
-    outcome = replay_batches(state, [batch1, batch2], on_progress=lambda s, a: progress.append((s, a)))
+    outcome = replay_batches(
+        state, [batch1, batch2], on_progress=lambda s, a: progress.append((s, a))
+    )
     assert outcome.events_seen == 10
     assert outcome.transitions_applied == 10
     assert progress == [(5, 5), (10, 10)]
@@ -351,9 +372,13 @@ def test_event_missing_world_id_fails():
 
 def test_event_missing_required_payload_field_fails():
     e = InventoryChanged(
-        event_id="evt_1", world_id="w", workspace_id="ws",
-        entity_type="warehouse", entity_id="wh_001",
-        warehouse_id="wh_001", component_id="comp_042",
+        event_id="evt_1",
+        world_id="w",
+        workspace_id="ws",
+        entity_type="warehouse",
+        entity_id="wh_001",
+        warehouse_id="wh_001",
+        component_id="comp_042",
         quantity_change=10,
     )
     # Manually delete the payload field (bypasses __post_init__)
@@ -365,8 +390,11 @@ def test_event_missing_required_payload_field_fails():
 
 def test_event_with_invalid_capacity_raises_warning():
     e = CapacityChanged(
-        event_id="evt_1", world_id="w", workspace_id="ws",
-        entity_type="factory", entity_id="f1",
+        event_id="evt_1",
+        world_id="w",
+        workspace_id="ws",
+        entity_type="factory",
+        entity_id="f1",
         capacity_pct=150.0,
     )
     issues = check_event(e)
@@ -375,8 +403,11 @@ def test_event_with_invalid_capacity_raises_warning():
 
 def test_event_with_negative_lead_time_warning():
     e = SupplierDelayed(
-        event_id="evt_1", world_id="w", workspace_id="ws",
-        entity_type="supplier", entity_id="sup_1",
+        event_id="evt_1",
+        world_id="w",
+        workspace_id="ws",
+        entity_type="supplier",
+        entity_id="sup_1",
         delay_days=-5,
     )
     issues = check_event(e)
@@ -387,10 +418,15 @@ def test_unknown_metadata_key_warns_but_does_not_error():
     e = _make_inventory_event()
     # Override metadata via fresh construction with metadata dict
     e_with_meta = InventoryChanged(
-        event_id=e.event_id, world_id=e.world_id, workspace_id=e.workspace_id,
-        entity_type=e.entity_type, entity_id=e.entity_id,
-        warehouse_id=e.warehouse_id, component_id=e.component_id,
-        quantity_change=e.quantity_change, reason=e.reason,
+        event_id=e.event_id,
+        world_id=e.world_id,
+        workspace_id=e.workspace_id,
+        entity_type=e.entity_type,
+        entity_id=e.entity_id,
+        warehouse_id=e.warehouse_id,
+        component_id=e.component_id,
+        quantity_change=e.quantity_change,
+        reason=e.reason,
         metadata={"unknown_key": "x"},
     )
     issues = check_event(e_with_meta)
@@ -403,10 +439,15 @@ def test_metadata_with_forward_compat_key_is_clean():
     """experiment_id, policy_version, etc. should not produce warnings."""
     e = _make_inventory_event()
     e_with_meta = InventoryChanged(
-        event_id=e.event_id, world_id=e.world_id, workspace_id=e.workspace_id,
-        entity_type=e.entity_type, entity_id=e.entity_id,
-        warehouse_id=e.warehouse_id, component_id=e.component_id,
-        quantity_change=e.quantity_change, reason=e.reason,
+        event_id=e.event_id,
+        world_id=e.world_id,
+        workspace_id=e.workspace_id,
+        entity_type=e.entity_type,
+        entity_id=e.entity_id,
+        warehouse_id=e.warehouse_id,
+        component_id=e.component_id,
+        quantity_change=e.quantity_change,
+        reason=e.reason,
         metadata={"experiment_id": "exp_42", "policy_version": "v3"},
     )
     issues = check_event(e_with_meta)
@@ -424,10 +465,19 @@ def test_validate_event_raises_on_hard_error():
 def test_all_worldevent_subtypes_have_validation_schemas():
     """Every typed WorldEvent must have a payload schema (or be the base)."""
     from app.modules.events.event_validation import _PAYLOAD_SCHEMAS
+
     subtypes = [
-        InventoryChanged, SupplierDelayed, SupplierHealthChanged,
-        OrderPlaced, OrderCancelled, CapacityChanged, FactoryShutdown,
-        RouteDisruption, ShipmentDelayed, DemandChanged, PriceChanged,
+        InventoryChanged,
+        SupplierDelayed,
+        SupplierHealthChanged,
+        OrderPlaced,
+        OrderCancelled,
+        CapacityChanged,
+        FactoryShutdown,
+        RouteDisruption,
+        ShipmentDelayed,
+        DemandChanged,
+        PriceChanged,
     ]
     for cls in subtypes:
         assert cls in _PAYLOAD_SCHEMAS, f"Missing validation schema for {cls.__name__}"

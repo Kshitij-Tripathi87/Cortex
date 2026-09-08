@@ -150,8 +150,10 @@ def propagate(
             nid = edge.to_id
             edge_path = path + (edge.edge_type,)
             child_hop = hop + 1
-            child_exposure = exposure * ATTENUATION_PER_HOP if edge.weight is None else exposure * float(
-                edge.weight
+            child_exposure = (
+                exposure * ATTENUATION_PER_HOP
+                if edge.weight is None
+                else exposure * float(edge.weight)
             )
             child_exposure = max(0.0, min(1.0, child_exposure))
 
@@ -265,7 +267,11 @@ def _bottleneck_component(
         for bom in bom_by_comp.get(comp_id, []):
             if bom.product_id == product_id:
                 return comp_id
-    return next(iter(sorted(affected_component_ids, key=str))) if affected_component_ids else product_id
+    return (
+        next(iter(sorted(affected_component_ids, key=str)))
+        if affected_component_ids
+        else product_id
+    )
 
 
 def _qty_per_unit(
@@ -296,7 +302,7 @@ def _open_orders_for_products(
         for o in orders
         if o.product_id in product_ids and o.status in open_statuses
     ]
-    matched.sort(key=lambda o: (str(o.order_id)))
+    matched.sort(key=lambda o: str(o.order_id))
     return matched
 
 

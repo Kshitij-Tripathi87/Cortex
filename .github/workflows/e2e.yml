@@ -48,7 +48,10 @@ jobs:
       - name: Run Backend Services in Background
         run: |
           cd backend
-          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
+          # app.api.v1.router mounts product.workflo_api (repo-root package,
+          # not part of the backend pip install) — put the repo root on
+          # PYTHONPATH, exactly like tests/conftest.py does for pytest.
+          PYTHONPATH="${GITHUB_WORKSPACE}" nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8000/healthz > /dev/null; then break; fi
             sleep 1

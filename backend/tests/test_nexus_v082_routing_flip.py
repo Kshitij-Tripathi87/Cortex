@@ -293,7 +293,13 @@ def _install_legacy_tripwires(monkeypatch) -> list[str]:
     for module_name, names in _LEGACY_NAMESPACES.items():
         module = importlib.import_module(module_name)
         for name in names:
-            target = getattr(module, name)
+            # A missing attribute is the STRONGEST pass state: the legacy
+            # name was removed from the module entirely, so there is nothing
+            # left to invoke. (The 2026-09 lint paydown removed the vestigial
+            # unused re-exports from app.api.v1.nexus.)
+            target = getattr(module, name, None)
+            if target is None:
+                continue
             if isinstance(target, type):
                 # Patch the constructor — catches direct instantiation.
                 monkeypatch.setattr(target, "__init__", _trip(f"{module_name}.{name}"))

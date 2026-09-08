@@ -260,6 +260,8 @@ class AgentArtifact:
             "lifecycle_state": self.lifecycle_state.value,
             "canary_traffic_pct": self.canary_traffic_pct,
             "capability_manifest": self.capability_manifest.to_dict(),
-            "evaluation_report": self.evaluation_report.to_dict() if self.evaluation_report else None,
+            "evaluation_report": self.evaluation_report.to_dict()
+            if self.evaluation_report
+            else None,
             "created_at": self.created_at.isoformat(),
         }

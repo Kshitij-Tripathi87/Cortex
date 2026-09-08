@@ -1,4 +1,4 @@
-﻿"""Program S â€” Live Nexus Data Workspace Master Service.
+"""Program S â€” Live Nexus Data Workspace Master Service.
 
 Orchestrates the entire live user-driven operational intelligence cycle:
 1. Dynamic Ingestion & Multi-Table Schema Discovery
@@ -109,7 +109,9 @@ class LiveWorkspaceState:
 class LiveNexusWorkspace:
     """Live interactive workspace instance maintaining proportional operational graph and intelligence."""
 
-    def __init__(self, workspace_id: str = "ws_default", organization_id: str = "org_default") -> None:
+    def __init__(
+        self, workspace_id: str = "ws_default", organization_id: str = "org_default"
+    ) -> None:
         self.workspace_id = workspace_id
         self.organization_id = organization_id
         self.profiler = DataQualityProfiler()
@@ -171,14 +173,16 @@ class LiveNexusWorkspace:
         for r in rows[:max_rows]:
             self._map_row_to_graph(table_name, r)
 
-        self.datasets.append({
-            "dataset_id": f"ds_{uuid7()[:8]}",
-            "name": table_name,
-            "row_count": row_count,
-            "columns": detected_cols,
-            "status": "PROCESSED",
-            "ingested_at": datetime.now(UTC).isoformat(),
-        })
+        self.datasets.append(
+            {
+                "dataset_id": f"ds_{uuid7()[:8]}",
+                "name": table_name,
+                "row_count": row_count,
+                "columns": detected_cols,
+                "status": "PROCESSED",
+                "ingested_at": datetime.now(UTC).isoformat(),
+            }
+        )
 
         # 3. Recompute Graph Analytics & Signals
         analytics = self.graph_engine.compute_graph_analytics(
@@ -219,7 +223,9 @@ class LiveNexusWorkspace:
             oid = self._typed_id("order_", row.get("order_id"))
             cid = self._typed_id("cust_", row.get("customer_id"))
             price = float(row["price"]) if row.get("price") not in (None, "") else 0.0
-            self.graph_engine.add_node(oid, "ORDER", {"status": row.get("order_status", "delivered"), "price": price})
+            self.graph_engine.add_node(
+                oid, "ORDER", {"status": row.get("order_status", "delivered"), "price": price}
+            )
             if "customer_id" in row:
                 self.graph_engine.add_node(cid, "CUSTOMER")
                 self.graph_engine.add_edge(cid, oid, "PLACED")
@@ -248,7 +254,15 @@ class LiveNexusWorkspace:
         elif "seller" in lower_tbl:
             sid = self._typed_id("seller_", row.get("seller_id"))
             loc = self._typed_id("loc_", row.get("seller_state"), "loc_SP_")
-            self.graph_engine.add_node(sid, "SUPPLIER", {"zip": row.get("seller_zip_code_prefix"), "state": row.get("seller_state"), "reliability_score": row.get("reliability_score")})
+            self.graph_engine.add_node(
+                sid,
+                "SUPPLIER",
+                {
+                    "zip": row.get("seller_zip_code_prefix"),
+                    "state": row.get("seller_state"),
+                    "reliability_score": row.get("reliability_score"),
+                },
+            )
             self.graph_engine.add_node(loc, "LOCATION", {"state": row.get("seller_state")})
             self.graph_engine.add_edge(sid, loc, "LOCATED_IN")
         elif "route" in lower_tbl:
@@ -259,11 +273,15 @@ class LiveNexusWorkspace:
                 congestion = float(row.get("congestion_factor", 1.0))
             except (TypeError, ValueError):
                 congestion = 1.0
-            self.graph_engine.add_node(rid, "ROUTE", {
-                "corridor": row.get("corridor"),
-                "baseline_delay_days": row.get("baseline_delay_days"),
-                "congestion_factor": congestion,
-            })
+            self.graph_engine.add_node(
+                rid,
+                "ROUTE",
+                {
+                    "corridor": row.get("corridor"),
+                    "baseline_delay_days": row.get("baseline_delay_days"),
+                    "congestion_factor": congestion,
+                },
+            )
             self.graph_engine.add_node(origin, "LOCATION", {"state": row.get("origin")})
             self.graph_engine.add_node(dest, "LOCATION", {"state": row.get("destination")})
             self.graph_engine.add_edge(origin, rid, "ROUTE_ORIGIN")
@@ -271,13 +289,21 @@ class LiveNexusWorkspace:
         elif "product" in lower_tbl:
             pid = self._typed_id("prod_", row.get("product_id"))
             cat = self._typed_id("cat_", row.get("product_category_name"), "cat_general_")
-            self.graph_engine.add_node(pid, "PRODUCT", {"category": row.get("product_category_name")})
-            self.graph_engine.add_node(cat, "CATEGORY", {"category": row.get("product_category_name")})
+            self.graph_engine.add_node(
+                pid, "PRODUCT", {"category": row.get("product_category_name")}
+            )
+            self.graph_engine.add_node(
+                cat, "CATEGORY", {"category": row.get("product_category_name")}
+            )
             self.graph_engine.add_edge(pid, cat, "BELONGS_TO")
         elif "customer" in lower_tbl:
             cid = self._typed_id("cust_", row.get("customer_id"))
             loc = self._typed_id("loc_", row.get("customer_state"), "loc_RJ_")
-            self.graph_engine.add_node(cid, "CUSTOMER", {"zip": row.get("customer_zip_code_prefix"), "state": row.get("customer_state")})
+            self.graph_engine.add_node(
+                cid,
+                "CUSTOMER",
+                {"zip": row.get("customer_zip_code_prefix"), "state": row.get("customer_state")},
+            )
             self.graph_engine.add_node(loc, "LOCATION", {"state": row.get("customer_state")})
             self.graph_engine.add_edge(cid, loc, "LOCATED_IN")
         else:
@@ -339,25 +365,29 @@ class LiveNexusWorkspace:
         sub_edges = []
         for edge in self.graph_engine.edges.values():
             if edge.source_id in visited_nodes and edge.target_id in visited_nodes:
-                sub_edges.append({
-                    "edge_id": edge.edge_id,
-                    "source": edge.source_id,
-                    "target": edge.target_id,
-                    "relation_type": edge.relation_type,
-                    "weight": edge.weight,
-                })
+                sub_edges.append(
+                    {
+                        "edge_id": edge.edge_id,
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "relation_type": edge.relation_type,
+                        "weight": edge.weight,
+                    }
+                )
 
         sub_nodes = []
         for nid in visited_nodes:
             node = self.graph_engine.nodes[nid]
-            sub_nodes.append({
-                "id": node.node_id,
-                "type": node.node_type,
-                "attributes": node.attributes,
-                "pagerank": round(node.pagerank, 6),
-                "degree": len(self.graph_engine.adjacency.get(nid, set())),
-                "is_spof": node.is_spof,
-            })
+            sub_nodes.append(
+                {
+                    "id": node.node_id,
+                    "type": node.node_type,
+                    "attributes": node.attributes,
+                    "pagerank": round(node.pagerank, 6),
+                    "degree": len(self.graph_engine.adjacency.get(nid, set())),
+                    "is_spof": node.is_spof,
+                }
+            )
 
         return {
             "focal_node": target,
@@ -374,17 +404,38 @@ class LiveNexusWorkspace:
     ) -> dict[str, Any]:
         """Runs the live Multi-Agent Decision Room with structured message passing and counterfactual simulations."""
         _ctx = context or ExecutionContext.create_system_context()  # noqa: F841
-        target_id = incident_entity_id or (self.active_signals[0].entity_id if self.active_signals else "seller_default")
+        target_id = incident_entity_id or (
+            self.active_signals[0].entity_id if self.active_signals else "seller_default"
+        )
 
         # 1. Root Cause & Blast Radius
-        sig = self.active_signals[0] if self.active_signals else OperationalSignal("sig_live", target_id, "SUPPLIER", "SUPPLIER_DEGRADATION", "CRITICAL", 3.8, 2.0, 1.8, 90.0, ["f_delay"])
+        sig = (
+            self.active_signals[0]
+            if self.active_signals
+            else OperationalSignal(
+                "sig_live",
+                target_id,
+                "SUPPLIER",
+                "SUPPLIER_DEGRADATION",
+                "CRITICAL",
+                3.8,
+                2.0,
+                1.8,
+                90.0,
+                ["f_delay"],
+            )
+        )
         blast = self.root_cause_engine.analyze_blast_radius(sig)
 
         # 2. Context Package
         self.context_builder.build_context_package(target_id, sig, blast, self.world_state_version)
 
         # 3. Dynamic Agent Selection
-        participating_agents = ["shipment_tracking_agent", "logistics_routing_agent", "inventory_allocation_agent"]
+        participating_agents = [
+            "shipment_tracking_agent",
+            "logistics_routing_agent",
+            "inventory_allocation_agent",
+        ]
 
         # 4. Structured Message Stream
         now = datetime.now(UTC)
@@ -484,12 +535,41 @@ class LiveNexusWorkspace:
         dec_id = f"dec_live_{uuid7()}"
         self.last_decision_id = dec_id
         ev_graph = DecisionEvidenceGraph(decision_id=dec_id)
-        s1 = ev_graph.add_evidence_step("SOURCE_RECORD", "Live Ingested Order Batch", {"workspace": self.workspace_id, "node_count": len(self.graph_engine.nodes)})
-        s2 = ev_graph.add_evidence_step("ENTITY", f"Canonical Entity {target_id}", {"target_id": target_id, "is_spof": True}, parent_node_id=s1.node_id)
-        s3 = ev_graph.add_evidence_step("SIGNAL", "Operational Signal: Dispatch Degradation", {"deviation_pct": 90.0}, parent_node_id=s2.node_id)
-        s4 = ev_graph.add_evidence_step("HYPOTHESIS", "Root Cause: Dispatch Buffer Exhaustion", {"support_score": 0.91}, parent_node_id=s3.node_id)
-        s5 = ev_graph.add_evidence_step("PROPOSAL", "Specialist Expedite & Cross-Dock Proposal", {"cost_usd": 450.0}, parent_node_id=s4.node_id)
-        ev_graph.add_evidence_step("DECISION", "Decision Card: Candidate C (Air Expedite + Cross-Dock)", {"net_economic_value_usd": 2900.0, "optimal": True}, parent_node_id=s5.node_id)
+        s1 = ev_graph.add_evidence_step(
+            "SOURCE_RECORD",
+            "Live Ingested Order Batch",
+            {"workspace": self.workspace_id, "node_count": len(self.graph_engine.nodes)},
+        )
+        s2 = ev_graph.add_evidence_step(
+            "ENTITY",
+            f"Canonical Entity {target_id}",
+            {"target_id": target_id, "is_spof": True},
+            parent_node_id=s1.node_id,
+        )
+        s3 = ev_graph.add_evidence_step(
+            "SIGNAL",
+            "Operational Signal: Dispatch Degradation",
+            {"deviation_pct": 90.0},
+            parent_node_id=s2.node_id,
+        )
+        s4 = ev_graph.add_evidence_step(
+            "HYPOTHESIS",
+            "Root Cause: Dispatch Buffer Exhaustion",
+            {"support_score": 0.91},
+            parent_node_id=s3.node_id,
+        )
+        s5 = ev_graph.add_evidence_step(
+            "PROPOSAL",
+            "Specialist Expedite & Cross-Dock Proposal",
+            {"cost_usd": 450.0},
+            parent_node_id=s4.node_id,
+        )
+        ev_graph.add_evidence_step(
+            "DECISION",
+            "Decision Card: Candidate C (Air Expedite + Cross-Dock)",
+            {"net_economic_value_usd": 2900.0, "optimal": True},
+            parent_node_id=s5.node_id,
+        )
         ev_graph.record_counterfactual_simulations(counterfactuals)
 
         self.last_decision_evidence = ev_graph.get_lineage_trace()
@@ -561,7 +641,12 @@ class LiveNexusWorkspace:
         self._evaluate_signals()
 
         # Check if this stream event mutates an entity that invalidates previous decisions
-        mutated_entity = payload.get("seller_id") or payload.get("order_id") or payload.get("route_id") or "unknown"
+        mutated_entity = (
+            payload.get("seller_id")
+            or payload.get("order_id")
+            or payload.get("route_id")
+            or "unknown"
+        )
         self.invalidation_engine.evaluate_mutation_impact(
             mutated_entity_id=mutated_entity,
             mutation_type=event_type,
@@ -585,7 +670,11 @@ class LiveNexusWorkspace:
             world_state_version=self.world_state_version,
         )
         target_dec_id = getattr(self, "last_decision_id", "dec_live_01")
-        is_valid = self.invalidation_engine.is_decision_valid(target_dec_id) if self.last_decision_evidence else True
+        is_valid = (
+            self.invalidation_engine.is_decision_valid(target_dec_id)
+            if self.last_decision_evidence
+            else True
+        )
         inval_reason = (
             self.invalidation_engine.decisions[target_dec_id].invalidation_reason
             if (target_dec_id in self.invalidation_engine.decisions and not is_valid)
@@ -610,4 +699,3 @@ class LiveNexusWorkspace:
     def get_workspace_state(self) -> LiveWorkspaceState:
         """Alias for get_state for backward compatibility."""
         return self.get_state()
-

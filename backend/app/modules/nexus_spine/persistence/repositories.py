@@ -25,23 +25,20 @@ import json
 import threading
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import Float, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.nexus_spine.persistence.models import (
-    ApprovalRecordDB,
     DecisionRecordDB,
     DecisionTransitionDB,
+    EventRecordDB,
     EvidenceEdgeDB,
     EvidenceNodeDB,
-    EventRecordDB,
-    ExecutionRecordDB,
     ForecastRecordDB,
     ModelRegistryEntryDB,
     ObservationRecordDB,
-    OutcomeRecordDB,
     RecommendationRecordDB,
     RiskRecordDB,
     ScenarioRecordDB,
@@ -172,27 +169,44 @@ class DecisionRepository:
         self.put_cache(self._db_to_dict(decision))
         return transition
 
-    async def list_by_phase(self, session: AsyncSession, tenant_id: str, workspace_id: str, phase: str) -> list[DecisionRecordDB]:
-        stmt = select(DecisionRecordDB).where(
-            DecisionRecordDB.tenant_id == tenant_id,
-            DecisionRecordDB.workspace_id == workspace_id,
-            DecisionRecordDB.phase == phase,
-        ).order_by(DecisionRecordDB.created_at.desc())
+    async def list_by_phase(
+        self, session: AsyncSession, tenant_id: str, workspace_id: str, phase: str
+    ) -> list[DecisionRecordDB]:
+        stmt = (
+            select(DecisionRecordDB)
+            .where(
+                DecisionRecordDB.tenant_id == tenant_id,
+                DecisionRecordDB.workspace_id == workspace_id,
+                DecisionRecordDB.phase == phase,
+            )
+            .order_by(DecisionRecordDB.created_at.desc())
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def list_by_workspace(self, session: AsyncSession, tenant_id: str, workspace_id: str, limit: int = 100) -> list[DecisionRecordDB]:
-        stmt = select(DecisionRecordDB).where(
-            DecisionRecordDB.tenant_id == tenant_id,
-            DecisionRecordDB.workspace_id == workspace_id,
-        ).order_by(DecisionRecordDB.created_at.desc()).limit(limit)
+    async def list_by_workspace(
+        self, session: AsyncSession, tenant_id: str, workspace_id: str, limit: int = 100
+    ) -> list[DecisionRecordDB]:
+        stmt = (
+            select(DecisionRecordDB)
+            .where(
+                DecisionRecordDB.tenant_id == tenant_id,
+                DecisionRecordDB.workspace_id == workspace_id,
+            )
+            .order_by(DecisionRecordDB.created_at.desc())
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_transitions(self, session: AsyncSession, decision_id: str) -> list[DecisionTransitionDB]:
-        stmt = select(DecisionTransitionDB).where(
-            DecisionTransitionDB.decision_id == decision_id
-        ).order_by(DecisionTransitionDB.timestamp)
+    async def get_transitions(
+        self, session: AsyncSession, decision_id: str
+    ) -> list[DecisionTransitionDB]:
+        stmt = (
+            select(DecisionTransitionDB)
+            .where(DecisionTransitionDB.decision_id == decision_id)
+            .order_by(DecisionTransitionDB.timestamp)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -224,17 +238,23 @@ class DecisionRepository:
 
 
 class ForecastRepository:
-    async def record_forecast(self, session: AsyncSession, record: ForecastRecordDB) -> ForecastRecordDB:
+    async def record_forecast(
+        self, session: AsyncSession, record: ForecastRecordDB
+    ) -> ForecastRecordDB:
         session.add(record)
         await session.flush()
         return record
 
-    async def get_forecast(self, session: AsyncSession, forecast_id: str) -> ForecastRecordDB | None:
+    async def get_forecast(
+        self, session: AsyncSession, forecast_id: str
+    ) -> ForecastRecordDB | None:
         stmt = select(ForecastRecordDB).where(ForecastRecordDB.forecast_id == forecast_id)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def record_observation(self, session: AsyncSession, obs: ObservationRecordDB) -> ObservationRecordDB:
+    async def record_observation(
+        self, session: AsyncSession, obs: ObservationRecordDB
+    ) -> ObservationRecordDB:
         """Record an observation and if it matches a forecast, compute error metrics."""
         if obs.forecast_id:
             forecast = await self.get_forecast(session, obs.forecast_id)
@@ -273,21 +293,25 @@ class ForecastRepository:
         if sku:
             conditions.append(ObservationRecordDB.sku == sku)
 
-        stmt = select(
-            ObservationRecordDB.sku,
-            ObservationRecordDB.supplier_id,
-            ObservationRecordDB.region,
-            func.count(ObservationRecordDB.id).label("sample_count"),
-            func.avg(func.abs(ObservationRecordDB.absolute_error)).label("mae"),
-            func.sqrt(func.avg(func.pow(ObservationRecordDB.absolute_error, 2))).label("rmse"),
-            func.avg(ObservationRecordDB.percentage_error).label("mpe"),
-            func.avg(ObservationRecordDB.bias).label("bias"),
-            func.avg(func.cast(ObservationRecordDB.within_p80, Float)).label("p80_coverage"),
-            func.avg(func.cast(ObservationRecordDB.within_p95, Float)).label("p95_coverage"),
-        ).where(and_(*conditions)).group_by(
-            ObservationRecordDB.sku,
-            ObservationRecordDB.supplier_id,
-            ObservationRecordDB.region,
+        stmt = (
+            select(
+                ObservationRecordDB.sku,
+                ObservationRecordDB.supplier_id,
+                ObservationRecordDB.region,
+                func.count(ObservationRecordDB.id).label("sample_count"),
+                func.avg(func.abs(ObservationRecordDB.absolute_error)).label("mae"),
+                func.sqrt(func.avg(func.pow(ObservationRecordDB.absolute_error, 2))).label("rmse"),
+                func.avg(ObservationRecordDB.percentage_error).label("mpe"),
+                func.avg(ObservationRecordDB.bias).label("bias"),
+                func.avg(func.cast(ObservationRecordDB.within_p80, Float)).label("p80_coverage"),
+                func.avg(func.cast(ObservationRecordDB.within_p95, Float)).label("p95_coverage"),
+            )
+            .where(and_(*conditions))
+            .group_by(
+                ObservationRecordDB.sku,
+                ObservationRecordDB.supplier_id,
+                ObservationRecordDB.region,
+            )
         )
 
         result = await session.execute(stmt)
@@ -299,22 +323,24 @@ class ForecastRepository:
             mpe = float(row.mpe or 0)
             p80 = float(row.p80_coverage or 0)
             p95 = float(row.p95_coverage or 0)
-            buckets.append({
-                "sku": row.sku,
-                "supplier_id": row.supplier_id,
-                "region": row.region,
-                "sample_count": int(row.sample_count),
-                "mae": round(mae, 4),
-                "rmse": round(float(row.rmse or 0), 4),
-                "wape": round(abs(mpe), 4),
-                "mape": round(abs(mpe), 4),
-                "mpe": round(mpe, 4),
-                "bias": round(float(row.bias or 0), 4),
-                "p50_coverage": round(1.0 - abs(mpe), 4) if mpe else 0.0,
-                "p80_coverage": round(p80, 4),
-                "p95_coverage": round(p95, 4),
-                "drift_detected": abs(mpe) > 0.1 and int(row.sample_count) >= 5,
-            })
+            buckets.append(
+                {
+                    "sku": row.sku,
+                    "supplier_id": row.supplier_id,
+                    "region": row.region,
+                    "sample_count": int(row.sample_count),
+                    "mae": round(mae, 4),
+                    "rmse": round(float(row.rmse or 0), 4),
+                    "wape": round(abs(mpe), 4),
+                    "mape": round(abs(mpe), 4),
+                    "mpe": round(mpe, 4),
+                    "bias": round(float(row.bias or 0), 4),
+                    "p50_coverage": round(1.0 - abs(mpe), 4) if mpe else 0.0,
+                    "p80_coverage": round(p80, 4),
+                    "p95_coverage": round(p95, 4),
+                    "drift_detected": abs(mpe) > 0.1 and int(row.sample_count) >= 5,
+                }
+            )
         return buckets
 
     async def list_observations(
@@ -331,9 +357,12 @@ class ForecastRepository:
         ]
         if sku:
             conditions.append(ObservationRecordDB.sku == sku)
-        stmt = select(ObservationRecordDB).where(*conditions).order_by(
-            ObservationRecordDB.observed_at.desc()
-        ).limit(limit)
+        stmt = (
+            select(ObservationRecordDB)
+            .where(*conditions)
+            .order_by(ObservationRecordDB.observed_at.desc())
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -356,7 +385,9 @@ class ModelRegistryRepository:
         "archived": set(),
     }
 
-    async def register(self, session: AsyncSession, entry: ModelRegistryEntryDB) -> ModelRegistryEntryDB:
+    async def register(
+        self, session: AsyncSession, entry: ModelRegistryEntryDB
+    ) -> ModelRegistryEntryDB:
         session.add(entry)
         await session.flush()
         return entry
@@ -366,7 +397,9 @@ class ModelRegistryRepository:
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_by_name_version(self, session: AsyncSession, name: str, version: str) -> ModelRegistryEntryDB | None:
+    async def get_by_name_version(
+        self, session: AsyncSession, name: str, version: str
+    ) -> ModelRegistryEntryDB | None:
         stmt = select(ModelRegistryEntryDB).where(
             ModelRegistryEntryDB.name == name,
             ModelRegistryEntryDB.version == version,
@@ -374,13 +407,19 @@ class ModelRegistryRepository:
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_by_status(self, session: AsyncSession, status: str | None = None, model_type: str | None = None) -> list[ModelRegistryEntryDB]:
+    async def list_by_status(
+        self, session: AsyncSession, status: str | None = None, model_type: str | None = None
+    ) -> list[ModelRegistryEntryDB]:
         conditions = []
         if status:
             conditions.append(ModelRegistryEntryDB.status == status)
         if model_type:
             conditions.append(ModelRegistryEntryDB.model_type == model_type)
-        stmt = select(ModelRegistryEntryDB).where(*conditions).order_by(ModelRegistryEntryDB.created_at.desc())
+        stmt = (
+            select(ModelRegistryEntryDB)
+            .where(*conditions)
+            .order_by(ModelRegistryEntryDB.created_at.desc())
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -411,7 +450,9 @@ class ModelRegistryRepository:
         await session.flush()
         return model
 
-    async def approve(self, session: AsyncSession, model_id: str, approver: str) -> ModelRegistryEntryDB:
+    async def approve(
+        self, session: AsyncSession, model_id: str, approver: str
+    ) -> ModelRegistryEntryDB:
         model = await self.get(session, model_id)
         if not model:
             raise ValueError(f"Model {model_id} not found")
@@ -420,11 +461,18 @@ class ModelRegistryRepository:
         await session.flush()
         return model
 
-    async def get_deployed(self, session: AsyncSession, model_type: str) -> ModelRegistryEntryDB | None:
-        stmt = select(ModelRegistryEntryDB).where(
-            ModelRegistryEntryDB.model_type == model_type,
-            ModelRegistryEntryDB.status == "deployed",
-        ).order_by(ModelRegistryEntryDB.deployed_at.desc()).limit(1)
+    async def get_deployed(
+        self, session: AsyncSession, model_type: str
+    ) -> ModelRegistryEntryDB | None:
+        stmt = (
+            select(ModelRegistryEntryDB)
+            .where(
+                ModelRegistryEntryDB.model_type == model_type,
+                ModelRegistryEntryDB.status == "deployed",
+            )
+            .order_by(ModelRegistryEntryDB.deployed_at.desc())
+            .limit(1)
+        )
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -472,11 +520,15 @@ class RiskRepository:
         min_severity: str | None = None,
     ) -> list[RiskRecordDB]:
         severity_order = {"WATCH": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
-        stmt = select(RiskRecordDB).where(
-            RiskRecordDB.tenant_id == tenant_id,
-            RiskRecordDB.workspace_id == workspace_id,
-            RiskRecordDB.status == "open",
-        ).order_by(RiskRecordDB.risk_score.desc())
+        stmt = (
+            select(RiskRecordDB)
+            .where(
+                RiskRecordDB.tenant_id == tenant_id,
+                RiskRecordDB.workspace_id == workspace_id,
+                RiskRecordDB.status == "open",
+            )
+            .order_by(RiskRecordDB.risk_score.desc())
+        )
         result = await session.execute(stmt)
         risks = list(result.scalars().all())
         if min_severity and min_severity in severity_order:
@@ -523,10 +575,14 @@ class ScenarioRepository:
         await session.flush()
         return scenario
 
-    async def list_by_decision(self, session: AsyncSession, decision_id: str) -> list[ScenarioRecordDB]:
-        stmt = select(ScenarioRecordDB).where(
-            ScenarioRecordDB.decision_id == decision_id
-        ).order_by(ScenarioRecordDB.created_at)
+    async def list_by_decision(
+        self, session: AsyncSession, decision_id: str
+    ) -> list[ScenarioRecordDB]:
+        stmt = (
+            select(ScenarioRecordDB)
+            .where(ScenarioRecordDB.decision_id == decision_id)
+            .order_by(ScenarioRecordDB.created_at)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -547,7 +603,9 @@ class EvidenceRepository:
         await session.flush()
         return edge
 
-    async def get_graph(self, session: AsyncSession, decision_id: str) -> tuple[list[EvidenceNodeDB], list[EvidenceEdgeDB]]:
+    async def get_graph(
+        self, session: AsyncSession, decision_id: str
+    ) -> tuple[list[EvidenceNodeDB], list[EvidenceEdgeDB]]:
         nodes_stmt = select(EvidenceNodeDB).where(EvidenceNodeDB.decision_id == decision_id)
         nodes_result = await session.execute(nodes_stmt)
         nodes = list(nodes_result.scalars().all())
@@ -577,11 +635,16 @@ class VanessaSessionRepository:
         workspace_id: str,
         user_id: str,
     ) -> VanessaSessionDB:
-        stmt = select(VanessaSessionDB).where(
-            VanessaSessionDB.tenant_id == tenant_id,
-            VanessaSessionDB.workspace_id == workspace_id,
-            VanessaSessionDB.user_id == user_id,
-        ).order_by(VanessaSessionDB.last_active_at.desc()).limit(1)
+        stmt = (
+            select(VanessaSessionDB)
+            .where(
+                VanessaSessionDB.tenant_id == tenant_id,
+                VanessaSessionDB.workspace_id == workspace_id,
+                VanessaSessionDB.user_id == user_id,
+            )
+            .order_by(VanessaSessionDB.last_active_at.desc())
+            .limit(1)
+        )
         result = await session.execute(stmt)
         existing = result.scalar_one_or_none()
         if existing:
@@ -657,10 +720,15 @@ class VanessaSessionRepository:
         await session.flush()
         return msg
 
-    async def get_history(self, session: AsyncSession, session_id: str, limit: int = 50) -> list[VanessaMessageDB]:
-        stmt = select(VanessaMessageDB).where(
-            VanessaMessageDB.session_id == session_id
-        ).order_by(VanessaMessageDB.turn_number.desc()).limit(limit)
+    async def get_history(
+        self, session: AsyncSession, session_id: str, limit: int = 50
+    ) -> list[VanessaMessageDB]:
+        stmt = (
+            select(VanessaMessageDB)
+            .where(VanessaMessageDB.session_id == session_id)
+            .order_by(VanessaMessageDB.turn_number.desc())
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(reversed(list(result.scalars().all())))
 
@@ -671,12 +739,16 @@ class VanessaSessionRepository:
 
 
 class RecommendationRepository:
-    async def create(self, session: AsyncSession, record: RecommendationRecordDB) -> RecommendationRecordDB:
+    async def create(
+        self, session: AsyncSession, record: RecommendationRecordDB
+    ) -> RecommendationRecordDB:
         session.add(record)
         await session.flush()
         return record
 
-    async def get(self, session: AsyncSession, recommendation_id: str) -> RecommendationRecordDB | None:
+    async def get(
+        self, session: AsyncSession, recommendation_id: str
+    ) -> RecommendationRecordDB | None:
         stmt = select(RecommendationRecordDB).where(
             RecommendationRecordDB.recommendation_id == recommendation_id
         )
@@ -703,7 +775,9 @@ class RecommendationRepository:
 
         # Compute accuracy and regret
         if rec.predicted_nev != 0:
-            rec.recommendation_accuracy = max(0.0, 1.0 - abs(actual_nev - rec.predicted_nev) / abs(rec.predicted_nev))
+            rec.recommendation_accuracy = max(
+                0.0, 1.0 - abs(actual_nev - rec.predicted_nev) / abs(rec.predicted_nev)
+            )
         rec.simulation_error = abs(actual_cost - rec.predicted_cost) if rec.predicted_cost else None
         # Regret = negative NEV difference (higher is worse)
         rec.recommendation_regret = max(0.0, rec.predicted_nev - actual_nev)
@@ -718,10 +792,15 @@ class RecommendationRepository:
         workspace_id: str,
         limit: int = 100,
     ) -> list[RecommendationRecordDB]:
-        stmt = select(RecommendationRecordDB).where(
-            RecommendationRecordDB.tenant_id == tenant_id,
-            RecommendationRecordDB.workspace_id == workspace_id,
-        ).order_by(RecommendationRecordDB.created_at.desc()).limit(limit)
+        stmt = (
+            select(RecommendationRecordDB)
+            .where(
+                RecommendationRecordDB.tenant_id == tenant_id,
+                RecommendationRecordDB.workspace_id == workspace_id,
+            )
+            .order_by(RecommendationRecordDB.created_at.desc())
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -741,7 +820,12 @@ class RecommendationRepository:
         total = int(total_result.scalar() or 0)
 
         if total == 0:
-            return {"total_evaluated": 0, "success_rate": 0.0, "avg_accuracy": 0.0, "avg_regret": 0.0}
+            return {
+                "total_evaluated": 0,
+                "success_rate": 0.0,
+                "avg_accuracy": 0.0,
+                "avg_regret": 0.0,
+            }
 
         stmt_success = select(func.count(RecommendationRecordDB.recommendation_id)).where(
             RecommendationRecordDB.tenant_id == tenant_id,
@@ -769,12 +853,16 @@ class RecommendationRepository:
 
         return {
             "total_evaluated": total,
-            "total": total + (await session.execute(
-                select(func.count(RecommendationRecordDB.recommendation_id)).where(
-                    RecommendationRecordDB.tenant_id == tenant_id,
-                    RecommendationRecordDB.workspace_id == workspace_id,
+            "total": total
+            + (
+                await session.execute(
+                    select(func.count(RecommendationRecordDB.recommendation_id)).where(
+                        RecommendationRecordDB.tenant_id == tenant_id,
+                        RecommendationRecordDB.workspace_id == workspace_id,
+                    )
                 )
-            )).scalar() - total,
+            ).scalar()
+            - total,
             "success_rate": round(successes / total, 4) if total > 0 else 0.0,
             "avg_accuracy": round(avg_accuracy, 4),
             "avg_regret": round(avg_regret, 4),
@@ -818,9 +906,14 @@ class EventRepository:
         return event
 
     async def get_pending(self, session: AsyncSession, limit: int = 100) -> list[EventRecordDB]:
-        stmt = select(EventRecordDB).where(
-            EventRecordDB.published == False,  # noqa: E712
-        ).order_by(EventRecordDB.created_at).limit(limit)
+        stmt = (
+            select(EventRecordDB)
+            .where(
+                EventRecordDB.published == False,  # noqa: E712
+            )
+            .order_by(EventRecordDB.created_at)
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -839,10 +932,15 @@ class EventRepository:
         workspace_id: str,
         limit: int = 100,
     ) -> list[EventRecordDB]:
-        stmt = select(EventRecordDB).where(
-            EventRecordDB.tenant_id == tenant_id,
-            EventRecordDB.workspace_id == workspace_id,
-        ).order_by(EventRecordDB.created_at.desc()).limit(limit)
+        stmt = (
+            select(EventRecordDB)
+            .where(
+                EventRecordDB.tenant_id == tenant_id,
+                EventRecordDB.workspace_id == workspace_id,
+            )
+            .order_by(EventRecordDB.created_at.desc())
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 

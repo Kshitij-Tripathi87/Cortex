@@ -177,7 +177,9 @@ class CalibrationPlatform:
     def _brier_score(self, confidences: list[float], labels: list[int]) -> float:
         if not confidences or len(confidences) != len(labels):
             return 0.0
-        return sum((c - label) ** 2 for c, label in zip(confidences, labels, strict=False)) / len(confidences)
+        return sum((c - label) ** 2 for c, label in zip(confidences, labels, strict=False)) / len(
+            confidences
+        )
 
 
 class Calibrator:
@@ -233,6 +235,7 @@ class PlattScalingCalibrator(Calibrator):
         if not self.fitted:
             return confidences
         import math
+
         return [1 / (1 + math.exp(-(self.a * c + self.b))) for c in confidences]
 
     def get_params(self) -> dict:
@@ -328,7 +331,7 @@ class TemperatureScalingCalibrator(Calibrator):
 
         # Simple grid search for temperature
         best_T = 1.0
-        best_nll = float('inf')
+        best_nll = float("inf")
 
         for T in [0.1, 0.2, 0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0, 5.0, 10.0]:
             nll = 0.0
@@ -349,6 +352,7 @@ class TemperatureScalingCalibrator(Calibrator):
             return confidences
 
         import math
+
         result = []
         for c in confidences:
             logit = math.log(c / (1 - c + 1e-9))
@@ -458,10 +462,14 @@ def _compute_mce(confidences: list[float], labels: list[int], n_bins: int = 10) 
 def _brier_score(confidences: list[float], labels: list[int]) -> float:
     if not confidences or len(confidences) != len(labels):
         return 0.0
-    return sum((c - label) ** 2 for c, label in zip(confidences, labels, strict=False)) / len(confidences)
+    return sum((c - label) ** 2 for c, label in zip(confidences, labels, strict=False)) / len(
+        confidences
+    )
 
 
-def _reliability_diagram(confidences: list[float], labels: list[int], n_bins: int = 10) -> list[dict]:
+def _reliability_diagram(
+    confidences: list[float], labels: list[int], n_bins: int = 10
+) -> list[dict]:
     if not confidences or len(confidences) != len(labels):
         return []
 
@@ -473,22 +481,26 @@ def _reliability_diagram(confidences: list[float], labels: list[int], n_bins: in
     points = []
     for i, bin_samples in enumerate(bins):
         if not bin_samples:
-            points.append({
-                "bin": i,
-                "confidence": (i + 0.5) / n_bins,
-                "accuracy": 0.0,
-                "count": 0,
-            })
+            points.append(
+                {
+                    "bin": i,
+                    "confidence": (i + 0.5) / n_bins,
+                    "accuracy": 0.0,
+                    "count": 0,
+                }
+            )
             continue
 
         avg_conf = sum(c for c, _ in bin_samples) / len(bin_samples)
         accuracy = sum(label for _, label in bin_samples) / len(bin_samples)
-        points.append({
-            "bin": i,
-            "confidence": avg_conf,
-            "accuracy": accuracy,
-            "count": len(bin_samples),
-        })
+        points.append(
+            {
+                "bin": i,
+                "confidence": avg_conf,
+                "accuracy": accuracy,
+                "count": len(bin_samples),
+            }
+        )
     return points
 
 

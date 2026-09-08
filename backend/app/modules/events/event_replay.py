@@ -119,9 +119,7 @@ def replay_events(
             continue
 
         if transition is None:
-            warnings.append(
-                f"event_id={rec.event_id} unrecognized_event_type={rec.event_type}"
-            )
+            warnings.append(f"event_id={rec.event_id} unrecognized_event_type={rec.event_type}")
             continue
 
         state = apply_transition(state, transition)

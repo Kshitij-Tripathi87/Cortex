@@ -321,7 +321,12 @@ class RuleEngine:
             if constraint.min_value is not None and value < constraint.min_value:
                 violated = True
         elif op == "between":
-            if constraint.min_value is not None and value < constraint.min_value or constraint.max_value is not None and value > constraint.max_value:
+            if (
+                constraint.min_value is not None
+                and value < constraint.min_value
+                or constraint.max_value is not None
+                and value > constraint.max_value
+            ):
                 violated = True
         elif op == "eq":
             if constraint.min_value is not None and value != constraint.min_value:
@@ -368,7 +373,18 @@ class RuleEngine:
         value = matching_var.raw_value
 
         breached = False
-        if sla.comparison == "le" and value > sla.target_value or sla.comparison == "ge" and value < sla.target_value or sla.comparison == "lt" and value >= sla.target_value or sla.comparison == "gt" and value <= sla.target_value or sla.comparison == "eq" and value != sla.target_value:
+        if (
+            sla.comparison == "le"
+            and value > sla.target_value
+            or sla.comparison == "ge"
+            and value < sla.target_value
+            or sla.comparison == "lt"
+            and value >= sla.target_value
+            or sla.comparison == "gt"
+            and value <= sla.target_value
+            or sla.comparison == "eq"
+            and value != sla.target_value
+        ):
             breached = True
 
         if not breached:
@@ -432,11 +448,16 @@ class RuleEngine:
         if condition.operator == "ge":
             return isinstance(actual, (int, float)) and actual >= condition.value
         if condition.operator == "in":
-            return actual in (condition.value if isinstance(condition.value, list) else [condition.value])
+            return actual in (
+                condition.value if isinstance(condition.value, list) else [condition.value]
+            )
         if condition.operator == "contains":
             return condition.value in str(actual)
         if condition.operator == "between":  # noqa: SIM102
             if isinstance(condition.value, (list, tuple)) and len(condition.value) == 2:
-                return isinstance(actual, (int, float)) and condition.value[0] <= actual <= condition.value[1]
+                return (
+                    isinstance(actual, (int, float))
+                    and condition.value[0] <= actual <= condition.value[1]
+                )
 
         return False

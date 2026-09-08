@@ -101,7 +101,9 @@ class SafetyBudget:
         """Percentage utilization of allocated resources."""
         return {
             "tokens": self._tokens / self.max_tokens if self.max_tokens else 0,
-            "time_seconds": self.elapsed_seconds / self.max_time_seconds if self.max_time_seconds else 0,
+            "time_seconds": self.elapsed_seconds / self.max_time_seconds
+            if self.max_time_seconds
+            else 0,
             "messages": self._messages / self.max_messages if self.max_messages else 0,
             "iterations": self._iterations / self.max_iterations if self.max_iterations else 0,
             "cost_usd": self._cost / self.max_cost_usd if self.max_cost_usd else 0,

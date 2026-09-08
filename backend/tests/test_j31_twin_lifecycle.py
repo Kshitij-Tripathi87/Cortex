@@ -64,9 +64,7 @@ from app.modules.world.state_repository import StateRepository
 from app.modules.world.world_models import StateVariable, StateVariableType
 
 
-async def _seed_production_world(
-    session: Any, workspace_id: str, world_id: str
-) -> tuple[Any, Any]:
+async def _seed_production_world(session: Any, workspace_id: str, world_id: str) -> tuple[Any, Any]:
     """Create a production world (v1) + snapshot with inventory/lead/demand vars."""
     repo = StateRepository(session)
     inv = StateVariable.from_raw_value(
@@ -208,7 +206,9 @@ class TestTwinLifecycleSQL:
         from sqlalchemy import update as sa_update
 
         await db_session.execute(
-            sa_update(TwinDB).where(TwinDB.twin_id == twin.twin_id).values(parent_world_id="world_TAMPERED")
+            sa_update(TwinDB)
+            .where(TwinDB.twin_id == twin.twin_id)
+            .values(parent_world_id="world_TAMPERED")
         )
         await db_session.commit()
 
@@ -231,9 +231,7 @@ class TestTwinLifecycleSQL:
         service = TwinService(db_session)
         # Missing snapshot.
         with pytest.raises(IsolationError):
-            await service.create(
-                workspace_id=ws, world_id=world, snapshot_id="nope", name="T"
-            )
+            await service.create(workspace_id=ws, world_id=world, snapshot_id="nope", name="T")
         # Snapshot belonging to a different world.
         _, other_snap = await _seed_production_world(db_session, ws, other_world)
         with pytest.raises(IsolationError):
@@ -323,9 +321,7 @@ class TestTwinLifecycleSQL:
         fork_state = await service.get_current_state(fork)
         # Un-run fork starts at the snapshot state (lead time = 10, inventory = 500).
         assert _raw_var_hash(fork_state, lead_time_var_id("sup_1")) == 10
-        assert (
-            _raw_var_hash(fork_state, inventory_var_id("wh_1", "comp_a")) == 500
-        )
+        assert _raw_var_hash(fork_state, inventory_var_id("wh_1", "comp_a")) == 500
 
     async def test_forks_are_independent_divergence(self, db_session) -> None:
         """IN-3: Twin A and Twin B diverge independently from the same snapshot."""

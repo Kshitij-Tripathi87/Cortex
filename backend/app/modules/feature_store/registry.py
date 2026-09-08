@@ -31,9 +31,7 @@ class FeatureDefinitionRecord(Base):
         {"schema": "analytics"},
     )
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     feature_type: Mapped[str] = mapped_column(String(32), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -59,7 +57,9 @@ class FeatureDefinitionRecord(Base):
     dependencies: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default=FeatureStatus.DRAFT.value)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=FeatureStatus.DRAFT.value
+    )
     version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
@@ -101,9 +101,7 @@ class FeatureStatisticsRecord(Base):
     )
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
-    workspace_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), nullable=False
-    )
+    workspace_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
     feature_name: Mapped[str] = mapped_column(String(128), nullable=False)
     snapshot_version: Mapped[int] = mapped_column(nullable=False)
 
@@ -207,9 +205,7 @@ class FeatureRegistry:
         records = result.scalars().all()
         return [self._to_definition(r) for r in records]
 
-    async def update_feature(
-        self, feature_id: UUID, updates: dict
-    ) -> FeatureDefinition | None:
+    async def update_feature(self, feature_id: UUID, updates: dict) -> FeatureDefinition | None:
         """Update a feature definition."""
         result = await self.db.execute(
             select(FeatureDefinitionRecord).where(FeatureDefinitionRecord.id == feature_id)
@@ -288,13 +284,9 @@ class FeatureRegistry:
             # Try to infer type
             first_val = valid[0]
             if isinstance(first_val, (int, float)):
-                stats.append(self._compute_numerical_stats(
-                    fname, valid, len(values), null_count
-                ))
+                stats.append(self._compute_numerical_stats(fname, valid, len(values), null_count))
             elif isinstance(first_val, str):
-                stats.append(self._compute_categorical_stats(
-                    fname, values, null_count
-                ))
+                stats.append(self._compute_categorical_stats(fname, values, null_count))
 
         # Persist
         records = []
@@ -323,8 +315,11 @@ class FeatureRegistry:
         await self.db.flush()
         return stats
 
-    def _compute_numerical_stats(self, name: str, values: list, total: int, null_count: int) -> FeatureStatistics:
+    def _compute_numerical_stats(
+        self, name: str, values: list, total: int, null_count: int
+    ) -> FeatureStatistics:
         import numpy as np
+
         arr = np.array([float(v) for v in values])
         return FeatureStatistics(
             feature_name=name,
@@ -344,8 +339,11 @@ class FeatureRegistry:
             },
         )
 
-    def _compute_categorical_stats(self, name: str, values: list, null_count: int) -> FeatureStatistics:
+    def _compute_categorical_stats(
+        self, name: str, values: list, null_count: int
+    ) -> FeatureStatistics:
         from collections import Counter
+
         total = len(values) + null_count
         valid = [v for v in values if v is not None]
         counts = Counter(str(v) for v in valid)
@@ -400,4 +398,9 @@ class FeatureRegistry:
         )
 
 
-__all__ = ["FeatureDefinitionRecord", "FeatureGroupRecord", "FeatureStatisticsRecord", "FeatureRegistry"]
+__all__ = [
+    "FeatureDefinitionRecord",
+    "FeatureGroupRecord",
+    "FeatureStatisticsRecord",
+    "FeatureRegistry",
+]

@@ -31,7 +31,9 @@ _workspace_instance = LiveNexusWorkspace(workspace_id="ws_default", organization
 
 
 class IngestRawRequest(BaseModel):
-    table_name: str = Field(..., description="Table name (e.g. orders, sellers, customers, order_items)")
+    table_name: str = Field(
+        ..., description="Table name (e.g. orders, sellers, customers, order_items)"
+    )
     csv_content: str = Field(..., description="Raw CSV content string")
     primary_key: str | None = Field(default=None)
     max_rows: int = Field(default=5000)
@@ -43,7 +45,9 @@ class StreamEventRequest(BaseModel):
 
 
 class DeliberateRequest(BaseModel):
-    incident_entity_id: str | None = Field(default=None, description="Target entity ID to investigate")
+    incident_entity_id: str | None = Field(
+        default=None, description="Target entity ID to investigate"
+    )
 
 
 @router.get("/state")
@@ -150,7 +154,9 @@ async def get_active_signals() -> dict[str, Any]:
     signals = [s.to_dict() for s in _workspace_instance.active_signals]
     blast_radius = None
     if _workspace_instance.active_signals:
-        blast = _workspace_instance.root_cause_engine.analyze_blast_radius(_workspace_instance.active_signals[0])
+        blast = _workspace_instance.root_cause_engine.analyze_blast_radius(
+            _workspace_instance.active_signals[0]
+        )
         blast_radius = blast.to_dict()
     return {"active_signals": signals, "primary_blast_radius": blast_radius}
 
@@ -216,7 +222,9 @@ async def ask_workspace_question(req: AskQuestionRequest) -> dict[str, Any]:
 
 
 @router.get("/query/readiness")
-async def check_query_readiness(query: str = Query(..., description="Query to evaluate answerability for")) -> dict[str, Any]:
+async def check_query_readiness(
+    query: str = Query(..., description="Query to evaluate answerability for"),
+) -> dict[str, Any]:
     """Preflight answerability check answering 'Can I answer this?' before execution."""
     rep = _workspace_instance.query_engine.readiness_checker.evaluate_answerability(
         query_text=query,
@@ -234,7 +242,9 @@ async def append_stream_event(req: StreamEventRequest) -> dict[str, Any]:
 
 
 @router.get("/graph/delta")
-async def get_graph_deltas(since_version: str = Query("", description="Previous graph version")) -> dict[str, Any]:
+async def get_graph_deltas(
+    since_version: str = Query("", description="Previous graph version"),
+) -> dict[str, Any]:
     """Returns list of incremental graph deltas since specified graph version."""
     deltas = _workspace_instance.delta_engine.get_deltas_since(since_version)
     return {"deltas_count": len(deltas), "deltas": [d.to_dict() for d in deltas]}
@@ -282,31 +292,29 @@ async def stream_workspace_events(
                 # Gap larger than the in-memory buffer can cover. Tell
                 # the client to do a full refresh; do NOT replay any
                 # deltas (they would form an incomplete sequence).
-                payload = json.dumps({
-                    'type': 'resync',
-                    'reason': 'since_seq_below_buffer',
-                    'min_known_seq': min_seq,
-                    'head_seq': engine.current_version_counter,
-                    'world_state_version': workspace.world_state_version,
-                })
-                yield (
-                    "event: resync\n"
-                    f"data: {payload}\n\n"
+                payload = json.dumps(
+                    {
+                        "type": "resync",
+                        "reason": "since_seq_below_buffer",
+                        "min_known_seq": min_seq,
+                        "head_seq": engine.current_version_counter,
+                        "world_state_version": workspace.world_state_version,
+                    }
                 )
+                yield (f"event: resync\ndata: {payload}\n\n")
             else:
                 # Replay in seq order, then fall through to live tailing.
                 for d in engine.get_deltas_since_seq(since_seq):
-                    payload = json.dumps({
-                        'type': 'graph_delta',
-                        'graph_version': d.new_graph_version,
-                        'world_state_version': d.world_state_version,
-                        'seq': d.seq,
-                        'delta': d.to_dict(),
-                    })
-                    yield (
-                        "event: graph_delta\n"
-                        f"data: {payload}\n\n"
+                    payload = json.dumps(
+                        {
+                            "type": "graph_delta",
+                            "graph_version": d.new_graph_version,
+                            "world_state_version": d.world_state_version,
+                            "seq": d.seq,
+                            "delta": d.to_dict(),
+                        }
                     )
+                    yield (f"event: graph_delta\ndata: {payload}\n\n")
 
         # ── Live tailing loop ───────────────────────────────────────
         last_counter = engine.current_version_counter
@@ -320,36 +328,34 @@ async def stream_workspace_events(
                 # In normal operation the latest delta is the one that
                 # bumped the counter; `delta_history[-1]` is correct.
                 latest = engine.delta_history[-1] if engine.delta_history else None
-                payload = json.dumps({
-                    'type': 'graph_delta',
-                    'graph_version': f'graph_v{counter}',
-                    'world_state_version': workspace.world_state_version,
-                    'seq': latest.seq if latest else counter,
-                    'delta': latest.to_dict() if latest else None,
-                })
-                yield (
-                    "event: graph_delta\n"
-                    f"data: {payload}\n\n"
+                payload = json.dumps(
+                    {
+                        "type": "graph_delta",
+                        "graph_version": f"graph_v{counter}",
+                        "world_state_version": workspace.world_state_version,
+                        "seq": latest.seq if latest else counter,
+                        "delta": latest.to_dict() if latest else None,
+                    }
                 )
+                yield (f"event: graph_delta\ndata: {payload}\n\n")
             else:
-                payload = json.dumps({
-                    'type': 'heartbeat',
-                    'graph_version': f'graph_v{counter}',
-                    'world_state_version': workspace.world_state_version,
-                    # Canonical E1 names — frontend prefers `nodes_count`
-                    # and `edges_count`. Legacy `total_graph_nodes` is
-                    # kept for backward compatibility with the
-                    # 1,337-test regression suite's openapi.json.
-                    'nodes_count': len(workspace.graph_engine.nodes),
-                    'edges_count': len(workspace.graph_engine.edges),
-                    'total_graph_nodes': len(workspace.graph_engine.nodes),
-                    'total_graph_edges': len(workspace.graph_engine.edges),
-                    'seq': counter,
-                })
-                yield (
-                    "event: heartbeat\n"
-                    f"data: {payload}\n\n"
+                payload = json.dumps(
+                    {
+                        "type": "heartbeat",
+                        "graph_version": f"graph_v{counter}",
+                        "world_state_version": workspace.world_state_version,
+                        # Canonical E1 names — frontend prefers `nodes_count`
+                        # and `edges_count`. Legacy `total_graph_nodes` is
+                        # kept for backward compatibility with the
+                        # 1,337-test regression suite's openapi.json.
+                        "nodes_count": len(workspace.graph_engine.nodes),
+                        "edges_count": len(workspace.graph_engine.edges),
+                        "total_graph_nodes": len(workspace.graph_engine.nodes),
+                        "total_graph_edges": len(workspace.graph_engine.edges),
+                        "seq": counter,
+                    }
                 )
+                yield (f"event: heartbeat\ndata: {payload}\n\n")
             await asyncio.sleep(2)
 
     return StreamingResponse(

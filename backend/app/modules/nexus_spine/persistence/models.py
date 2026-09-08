@@ -103,7 +103,7 @@ class DecisionRecordDB(Base):
         DateTime(timezone=True), default=_utc_now, onupdate=_utc_now, nullable=False
     )
 
-    transitions: Mapped[list["DecisionTransitionDB"]] = relationship(
+    transitions: Mapped[list[DecisionTransitionDB]] = relationship(
         back_populates="decision", cascade="all, delete-orphan"
     )
 
@@ -406,7 +406,7 @@ class EvidenceNodeDB(Base):
     source_entity_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
 
-    outgoing: Mapped[list["EvidenceEdgeDB"]] = relationship(
+    outgoing: Mapped[list[EvidenceEdgeDB]] = relationship(
         "EvidenceEdgeDB", foreign_keys="EvidenceEdgeDB.from_node_id", cascade="all, delete-orphan"
     )
 
@@ -464,7 +464,7 @@ class VanessaSessionDB(Base):
         DateTime(timezone=True), default=_utc_now, onupdate=_utc_now
     )
 
-    messages: Mapped[list["VanessaMessageDB"]] = relationship(
+    messages: Mapped[list[VanessaMessageDB]] = relationship(
         back_populates="session",
         cascade="all, delete-orphan",
         order_by="VanessaMessageDB.turn_number",

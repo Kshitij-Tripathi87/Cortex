@@ -33,6 +33,7 @@ from app.infrastructure import metrics, slo
 #    prefix is stripped
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRouteClassification:
     """``classify_route()`` is the gateway between the histogram label
     ``route`` and the SLO target. If it returns the wrong family,
@@ -80,15 +81,15 @@ class TestRouteClassification:
     def test_trailing_slash_does_not_change_family(self):
         # Defensive: a path with a trailing slash should classify
         # identically to the same path without one.
-        assert (
-            slo.classify_route("/api/v1/workspace/state/")
-            == slo.classify_route("/api/v1/workspace/state")
+        assert slo.classify_route("/api/v1/workspace/state/") == slo.classify_route(
+            "/api/v1/workspace/state"
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Latency targets — the frozen SLO table
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestLatencyTargets:
     """The P50/P95/P99 values are the contract. Any change requires
@@ -125,9 +126,7 @@ class TestLatencyTargets:
         # copy-paste bug.
         for family, targets in slo.LATENCY_TARGETS.items():
             for percentile, value in targets.items():
-                assert value > 0, (
-                    f"{family}.{percentile} must be > 0, got {value}"
-                )
+                assert value > 0, f"{family}.{percentile} must be > 0, got {value}"
 
     def test_pinned_realtime_targets(self):
         # Sanity check: realtime must be the tightest SLO.
@@ -148,6 +147,7 @@ class TestLatencyTargets:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Histogram bucket schema — the histogram and the SLO module agree
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHistogramBucketSchema:
     """The bucket list in LATENCY_HISTOGRAM_BUCKETS MUST match the
@@ -177,10 +177,7 @@ class TestHistogramBucketSchema:
     def test_bucket_boundaries_are_strictly_ascending(self):
         buckets = slo.LATENCY_HISTOGRAM_BUCKETS
         for prev, curr in zip(buckets, buckets[1:], strict=False):
-            assert curr > prev, (
-                f"Bucket boundaries must be strictly ascending: "
-                f"{prev} -> {curr}"
-            )
+            assert curr > prev, f"Bucket boundaries must be strictly ascending: {prev} -> {curr}"
 
     def test_bucket_count_is_reasonable(self):
         # The Prometheus default is ~12 buckets; we ship 10. Less
@@ -197,6 +194,7 @@ class TestHistogramBucketSchema:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Observation evaluator — single-shot within/outside decision
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestObservationEvaluator:
     """``evaluate_observation()`` is what a unit test would call to
@@ -245,6 +243,7 @@ class TestObservationEvaluator:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Bucket-snapshot evaluator — used by the scheduled job
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestBucketSnapshotEvaluator:
     """``compliance_from_buckets()`` is what a scheduled job calls
@@ -299,8 +298,7 @@ class TestBucketSnapshotEvaluator:
         }
         ratio = slo.compliance_from_buckets("workspace", bucket_counts, 100)
         assert ratio == pytest.approx(0.8), (
-            f"Expected 0.8, got {ratio}. "
-            f"The boundary used is the largest le ≤ P99 target."
+            f"Expected 0.8, got {ratio}. The boundary used is the largest le ≤ P99 target."
         )
 
     def test_realtime_tight_compliance(self):
@@ -324,9 +322,7 @@ class TestBucketSnapshotEvaluator:
 
     def test_unknown_family_returns_one(self):
         # A family not in LATENCY_TARGETS is not subject to burn.
-        ratio = slo.compliance_from_buckets(
-            "_unmatched", {0.50: 0}, 100
-        )
+        ratio = slo.compliance_from_buckets("_unmatched", {0.50: 0}, 100)
         assert ratio == 1.0
 
     def test_compliance_bounded_zero_to_one(self):

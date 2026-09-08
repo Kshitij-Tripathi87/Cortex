@@ -82,7 +82,9 @@ class DigitalTwinTrainingEnvironment:
             "shipment_id": f"ship_{uuid7()}",
             "route": "SHANGHAI_TO_LOS_ANGELES",
             "nominal_eta_days": 14,
-            "disruption_injected": "port_customs_hold_4_days" if "congestion" in scenario_name else "none",
+            "disruption_injected": "port_customs_hold_4_days"
+            if "congestion" in scenario_name
+            else "none",
             "initial_risk_score": 0.78 if "congestion" in scenario_name else 0.05,
         }
 
@@ -94,7 +96,9 @@ class CentralTrainingSupervisor:
         self.central_critic = CentralCritic()
         self._active_runs: dict[str, TrainingMetrics] = {}
 
-    async def execute_training_run(self, config: TrainingRunConfig) -> tuple[AgentArtifact, TrainingMetrics]:
+    async def execute_training_run(
+        self, config: TrainingRunConfig
+    ) -> tuple[AgentArtifact, TrainingMetrics]:
         """Execute complete CTDE training loop in isolated training environment."""
         env = DigitalTwinTrainingEnvironment(config.environment_scenarios)
         run_id = f"train_run_{uuid7()}"

@@ -358,7 +358,9 @@ async def test_realtime_state_pipeline_end_to_end():
     res = await pipeline.ingest_event_and_propagate(event, initial_state, ctx)
     assert res.success is True
     assert res.new_world_state.version == 2
-    assert res.latency_metrics.total_pipeline_latency_ms < 50.0  # <50ms end-to-end latency invariant
+    assert (
+        res.latency_metrics.total_pipeline_latency_ms < 50.0
+    )  # <50ms end-to-end latency invariant
 
     stats = pipeline.get_latency_stats()
     assert stats["sample_count"] >= 1

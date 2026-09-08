@@ -52,7 +52,9 @@ def rmse(gt_values: list[float], pred_values: list[float]) -> float:
     """Root Mean Square Error."""
     if not gt_values or len(gt_values) != len(pred_values):
         return 0.0
-    return math.sqrt(sum((g - p) ** 2 for g, p in zip(gt_values, pred_values, strict=False)) / len(gt_values))
+    return math.sqrt(
+        sum((g - p) ** 2 for g, p in zip(gt_values, pred_values, strict=False)) / len(gt_values)
+    )
 
 
 def calibration_ece(gt_probs: list[float], pred_probs: list[float], n_bins: int = 10) -> float:
@@ -118,22 +120,26 @@ def reliability_diagram(gt_probs: list[float], outcomes: list[int], n_bins: int 
     points = []
     for i, bin_samples in enumerate(bins):
         if not bin_samples:
-            points.append({
-                "bin": i,
-                "confidence": (i + 0.5) / n_bins,
-                "accuracy": 0.0,
-                "count": 0,
-            })
+            points.append(
+                {
+                    "bin": i,
+                    "confidence": (i + 0.5) / n_bins,
+                    "accuracy": 0.0,
+                    "count": 0,
+                }
+            )
             continue
 
         avg_confidence = sum(p for p, _ in bin_samples) / len(bin_samples)
         accuracy = sum(o for _, o in bin_samples) / len(bin_samples)
-        points.append({
-            "bin": i,
-            "confidence": avg_confidence,
-            "accuracy": accuracy,
-            "count": len(bin_samples),
-        })
+        points.append(
+            {
+                "bin": i,
+                "confidence": avg_confidence,
+                "accuracy": accuracy,
+                "count": len(bin_samples),
+            }
+        )
 
     return points
 
@@ -238,7 +244,9 @@ def mean_average_precision(gt_sets: list[set], pred_ranked_lists: list[list]) ->
     """Mean Average Precision across queries."""
     if not gt_sets or not pred_ranked_lists:
         return 0.0
-    return sum(average_precision(gt, pred) for gt, pred in zip(gt_sets, pred_ranked_lists, strict=False)) / len(gt_sets)
+    return sum(
+        average_precision(gt, pred) for gt, pred in zip(gt_sets, pred_ranked_lists, strict=False)
+    ) / len(gt_sets)
 
 
 def recommendation_rank_agreement(gt_ranking: list, pred_ranking: list) -> float:
@@ -281,11 +289,14 @@ def confidence_interval(data: list[float], confidence: float = 0.95) -> tuple[fl
     return (mean - margin, mean + margin)
 
 
-def bootstrap_ci(data: list[float], n_bootstrap: int = 1000, confidence: float = 0.95) -> tuple[float, float]:
+def bootstrap_ci(
+    data: list[float], n_bootstrap: int = 1000, confidence: float = 0.95
+) -> tuple[float, float]:
     """Bootstrap confidence interval."""
     if not data:
         return (0.0, 0.0)
     import random
+
     bootstrapped = []
     for _ in range(n_bootstrap):
         sample = [random.choice(data) for _ in data]  # noqa: S311 - bootstrap resampling, not crypto

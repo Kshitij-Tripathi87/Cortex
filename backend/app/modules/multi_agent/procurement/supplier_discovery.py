@@ -1,5 +1,4 @@
-"""Supplier Discovery & Evaluation Agents — Groups D1 & D2.
-"""
+"""Supplier Discovery & Evaluation Agents — Groups D1 & D2."""
 
 from __future__ import annotations
 
@@ -38,7 +37,9 @@ class SupplierDiscoveryAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def discover_alternatives(self, product_category: str, focal_seller_id: str) -> SupplierDiscoveryResult:
+    def discover_alternatives(
+        self, product_category: str, focal_seller_id: str
+    ) -> SupplierDiscoveryResult:
         res = DomainToolRegistry.query_gnn_supplier_similarity(product_category, focal_seller_id)
         candidates = res.data.get("candidate_suppliers", [])
         top = candidates[0]["seller_id"] if candidates else "seller_bb99112233"

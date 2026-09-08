@@ -48,12 +48,20 @@ class DecisionRecord:
             "operator_rationale": self.operator_rationale,
             "predicted_cost_usd": round(self.predicted_cost_usd, 2),
             "predicted_protected_revenue_usd": round(self.predicted_protected_revenue_usd, 2),
-            "actual_cost_usd": round(self.actual_cost_usd, 2) if self.actual_cost_usd is not None else None,
-            "actual_protected_revenue_usd": round(self.actual_protected_revenue_usd, 2) if self.actual_protected_revenue_usd is not None else None,
-            "prediction_error_pct": round(self.prediction_error_pct, 2) if self.prediction_error_pct is not None else None,
+            "actual_cost_usd": round(self.actual_cost_usd, 2)
+            if self.actual_cost_usd is not None
+            else None,
+            "actual_protected_revenue_usd": round(self.actual_protected_revenue_usd, 2)
+            if self.actual_protected_revenue_usd is not None
+            else None,
+            "prediction_error_pct": round(self.prediction_error_pct, 2)
+            if self.prediction_error_pct is not None
+            else None,
             "lesson_learned": self.lesson_learned,
             "created_at": self.created_at.isoformat(),
-            "outcome_recorded_at": self.outcome_recorded_at.isoformat() if self.outcome_recorded_at else None,
+            "outcome_recorded_at": self.outcome_recorded_at.isoformat()
+            if self.outcome_recorded_at
+            else None,
         }
 
 
@@ -81,9 +89,7 @@ class DecisionMemoryEngine:
 
         pred = record.predicted_protected_revenue_usd
         error_pct = (
-            abs(actual_protected_revenue_usd - pred) / max(1.0, pred) * 100.0
-            if pred > 0
-            else 0.0
+            abs(actual_protected_revenue_usd - pred) / max(1.0, pred) * 100.0 if pred > 0 else 0.0
         )
 
         updated = DecisionRecord(
@@ -109,20 +115,17 @@ class DecisionMemoryEngine:
         self._records[decision_id] = updated
         return updated
 
-    def query_by_workspace(
-        self, workspace_id: str, limit: int = 50
-    ) -> list[DecisionRecord]:
+    def query_by_workspace(self, workspace_id: str, limit: int = 50) -> list[DecisionRecord]:
         """Query decisions for workspace."""
-        results = [
-            r for r in self._records.values() if r.workspace_id == workspace_id
-        ]
+        results = [r for r in self._records.values() if r.workspace_id == workspace_id]
         results.sort(key=lambda x: x.created_at, reverse=True)
         return results[:limit]
 
     def get_calibration_summary(self, workspace_id: str) -> dict[str, Any]:
         """Compute calibration accuracy metrics across resolved decisions."""
         records = [
-            r for r in self._records.values()
+            r
+            for r in self._records.values()
             if r.workspace_id == workspace_id and r.outcome_recorded_at is not None
         ]
         if not records:

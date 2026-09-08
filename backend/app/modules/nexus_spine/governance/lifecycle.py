@@ -26,11 +26,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -374,11 +373,10 @@ def validate_world_state_consistent(
     state cannot execute safely. The world model changes underfoot; this
     function checks the decision was crafted from the right snapshot.
     """
-    if lifecycle.world_state_version != current_world_state_version:
-        return False
-    if lifecycle.world_state_hash != current_world_state_hash:
-        return False
-    return True
+    return (
+        lifecycle.world_state_version == current_world_state_version
+        and lifecycle.world_state_hash == current_world_state_hash
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -403,22 +401,16 @@ class DecisionLifecycleManager:
         self._lifecycles[lifecycle.decision_id] = lifecycle
 
     def list_by_phase(self, phase: DecisionPhase) -> list[DecisionLifecycle]:
-        return [
-            lc for lc in self._lifecycles.values() if lc.phase == phase
-        ]
+        return [lc for lc in self._lifecycles.values() if lc.phase == phase]
 
     def list_by_workspace(self, workspace_id: str) -> list[DecisionLifecycle]:
-        return [
-            lc for lc in self._lifecycles.values() if lc.workspace_id == workspace_id
-        ]
+        return [lc for lc in self._lifecycles.values() if lc.workspace_id == workspace_id]
 
     def prune_terminal(self, age_hours: int = 24) -> int:
         """Remove terminal lifecycles older than `age_hours`. Returns count."""
         cutoff = datetime.now(UTC) - __import__("datetime").timedelta(hours=age_hours)
         to_remove = [
-            k
-            for k, lc in self._lifecycles.items()
-            if lc.is_terminal() and lc.updated_at < cutoff
+            k for k, lc in self._lifecycles.items() if lc.is_terminal() and lc.updated_at < cutoff
         ]
         for k in to_remove:
             del self._lifecycles[k]

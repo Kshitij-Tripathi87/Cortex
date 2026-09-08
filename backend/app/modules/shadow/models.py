@@ -61,7 +61,9 @@ class ShadowInferenceEngine:
         self.comparisons: list[ShadowComparison] = []
         self.inference_history: list[ShadowInferenceResult] = []
 
-    def register_shadow_model(self, model_id: UUID, version: str, model_wrapper: ShadowModelWrapper) -> None:
+    def register_shadow_model(
+        self, model_id: UUID, version: str, model_wrapper: ShadowModelWrapper
+    ) -> None:
         """Register a shadow model."""
         key = f"{model_id}_{version}"
         self.shadow_models[key] = model_wrapper
@@ -250,7 +252,9 @@ class ShadowModelWrapper:
             "model_id": str(self.model_id),
             "version": self.version,
             "call_count": self.call_count,
-            "avg_latency_ms": (self.total_latency / self.call_count * 1000) if self.call_count > 0 else 0,
+            "avg_latency_ms": (self.total_latency / self.call_count * 1000)
+            if self.call_count > 0
+            else 0,
             "error_count": self.error_count,
             "error_rate": self.error_count / self.call_count if self.call_count > 0 else 0,
         }

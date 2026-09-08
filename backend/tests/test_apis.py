@@ -11,6 +11,7 @@ from __future__ import annotations
 def test_api_routes_import():
     """All Program J API modules import successfully."""
     from app.api.v1 import knowledge, simulation, twin, world
+
     assert world.router is not None
     assert twin.router is not None
     assert simulation.router is not None
@@ -20,6 +21,7 @@ def test_api_routes_import():
 def test_world_router_has_endpoints():
     """World router has expected endpoints."""
     from app.api.v1 import world
+
     routes = [r.path for r in world.router.routes]
     assert "/world/state" in routes
     assert "/world/event" in routes
@@ -33,6 +35,7 @@ def test_world_router_has_endpoints():
 def test_twin_router_has_endpoints():
     """Twin router has expected endpoints."""
     from app.api.v1 import twin
+
     routes = [r.path for r in twin.router.routes]
     assert "/twin/create" in routes
     assert "/twin/run" in routes
@@ -44,6 +47,7 @@ def test_twin_router_has_endpoints():
 def test_simulation_router_has_endpoints():
     """Simulation router has expected endpoints."""
     from app.api.v1 import simulation
+
     routes = [r.path for r in simulation.router.routes]
     assert "/simulation/run" in routes
     assert "/simulation/batch" in routes
@@ -53,6 +57,7 @@ def test_simulation_router_has_endpoints():
 def test_knowledge_router_has_endpoints():
     """Knowledge router has expected endpoints."""
     from app.api.v1 import knowledge
+
     routes = [r.path for r in knowledge.router.routes]
     assert "/knowledge/rules" in routes
     assert "/knowledge/constraints" in routes

@@ -20,7 +20,6 @@ from app.modules.nexus_spine.memory import get_decision_memory
 from app.modules.nexus_spine.ontology import (
     EntityKind,
     EntityQuery,
-    WorldModelRepository,
     get_world_model,
 )
 from app.modules.nexus_spine.ontology.core_types import EntityKind as _EK
@@ -31,7 +30,6 @@ from app.modules.nexus_spine.vanessa.tools import (
     ToolRegistry,
     ToolResult,
 )
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Input schemas
@@ -244,7 +242,10 @@ class GetSignalTool(Tool):
             sev = s.state.get("severity_score", 0.0)
             if sev < call.arguments.get("min_severity", 0.0):
                 continue
-            if call.arguments.get("entity_id") and s.state.get("affected_entity_id") != call.arguments["entity_id"]:
+            if (
+                call.arguments.get("entity_id")
+                and s.state.get("affected_entity_id") != call.arguments["entity_id"]
+            ):
                 continue
             out.append(
                 {
@@ -271,7 +272,9 @@ class GetSignalTool(Tool):
 
 class GetBlastRadiusTool(Tool):
     name = "get_blast_radius"
-    description = "Compute the supply-chain blast radius from a seed entity (typically a supplier or port)."
+    description = (
+        "Compute the supply-chain blast radius from a seed entity (typically a supplier or port)."
+    )
     permission = ToolPermission.ANALYST
     input_schema = GetBlastRadiusInput
 
@@ -334,7 +337,9 @@ class GetBlastRadiusTool(Tool):
 
 class GetForecastTool(Tool):
     name = "get_forecast"
-    description = "Produce a probabilistic demand forecast (P50/P80/P95 + drivers + confidence) for one SKU."
+    description = (
+        "Produce a probabilistic demand forecast (P50/P80/P95 + drivers + confidence) for one SKU."
+    )
     permission = ToolPermission.AUTHENTICATED
     input_schema = GetForecastInput
 
@@ -382,7 +387,9 @@ class CompareForecastActualTool(Tool):
 
 class GetSupplierRiskTool(Tool):
     name = "get_supplier_risk"
-    description = "List suppliers with their current risk_score and capacity_pct, optionally filtered."
+    description = (
+        "List suppliers with their current risk_score and capacity_pct, optionally filtered."
+    )
     permission = ToolPermission.AUTHENTICATED
     input_schema = GetSupplierRiskInput
 
@@ -402,7 +409,10 @@ class GetSupplierRiskTool(Tool):
             capacity = float(s.state.get("capacity_pct", 100.0))
             if risk < call.arguments.get("min_risk", 0.0):
                 continue
-            if call.arguments.get("supplier_entity_id") and str(s.entity_id) != call.arguments["supplier_entity_id"]:
+            if (
+                call.arguments.get("supplier_entity_id")
+                and str(s.entity_id) != call.arguments["supplier_entity_id"]
+            ):
                 continue
             out.append(
                 {
@@ -465,7 +475,11 @@ class GetOrdersAtRiskTool(Tool):
             call_id=call.call_id,
             tool_name=self.name,
             ok=True,
-            payload={"orders_at_risk": out, "count": len(out), "total_revenue_at_risk": round(sum(o["revenue"] for o in out), 2)},
+            payload={
+                "orders_at_risk": out,
+                "count": len(out),
+                "total_revenue_at_risk": round(sum(o["revenue"] for o in out), 2),
+            },
             evidence=["world_model_repository.query(kinds=[SALES_ORDER])"],
         )
 

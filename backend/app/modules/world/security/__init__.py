@@ -169,7 +169,7 @@ class AuditEvent:
 class AuditLogger:
     """Records security-relevant operations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._events: list[AuditEvent] = []
 
     def log(

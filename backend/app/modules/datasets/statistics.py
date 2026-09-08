@@ -48,7 +48,9 @@ class StatisticsComputer:
 
         # Distributions
         stats.supplier_tier_distribution = self._count_supplier_tiers(data.get("suppliers", []))
-        stats.component_category_distribution = self._count_component_categories(data.get("components", []))
+        stats.component_category_distribution = self._count_component_categories(
+            data.get("components", [])
+        )
         stats.inventory_by_tier = self._inventory_by_tier(
             data.get("inventory", []), data.get("components", [])
         )
@@ -109,18 +111,14 @@ class StatisticsComputer:
             counts[cat] += 1
         return dict(counts)
 
-    def _inventory_by_tier(
-        self, inventory: list[dict], components: list[dict]
-    ) -> dict[str, int]:
+    def _inventory_by_tier(self, inventory: list[dict], components: list[dict]) -> dict[str, int]:
         # Map component SKU to tier (via supplier)
         # For simplicity, just count total inventory by component
         tier_counts = Counter()
         for inv in self.data.get("inventory", []):
             # Could map through BOM -> product -> factory -> supplier -> tier
             # For now just aggregate
-            tier_counts["all"] = tier_counts.get("all", 0) + int(
-                inv.get("quantity", 0)
-            )
+            tier_counts["all"] = tier_counts.get("all", 0) + int(inv.get("quantity", 0))
         return dict(tier_counts)
 
     def _count_order_statuses(self, orders: list[dict]) -> dict[str, int]:
@@ -163,9 +161,7 @@ class StatisticsComputer:
         return len(component_edges) / max(1, len(component_nodes))
 
 
-def compute_statistics(
-    dataset_path: Path, schema_version: str = "2.0"
-) -> DatasetStatistics:
+def compute_statistics(dataset_path: Path, schema_version: str = "2.0") -> DatasetStatistics:
     """Convenience function to compute dataset statistics."""
     computer = StatisticsComputer(Path(dataset_path), SchemaVersion(schema_version))
     return computer.compute()

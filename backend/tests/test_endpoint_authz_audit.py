@@ -50,6 +50,13 @@ AUTH_HELPERS = (
 PUBLIC_PATHS: frozenset[str] = frozenset(
     {
         "/workflo/health",
+        # app/api/v1/auth.py — MVP login: issues the bearer token itself, so
+        # it cannot require one. Authenticates email+password against the
+        # user table before issuing a short-lived HS256 token. Invisible to
+        # earlier audit runs because auth.py carried a UTF-8 BOM that made
+        # ast.parse raise SyntaxError (silently skipped); the BOM was removed
+        # during the 2026-09 lint paydown. Audit note: D3h.
+        "/login",
     }
 )
 

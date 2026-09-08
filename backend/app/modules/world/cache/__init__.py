@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -290,10 +291,12 @@ class PerformanceBenchmark:
     - Diff: <100 ms
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._results: list[BenchmarkResult] = []
 
-    def benchmark_replay(self, replay_fn, *args, **kwargs) -> BenchmarkResult:
+    def benchmark_replay(
+        self, replay_fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> BenchmarkResult:
         """Benchmark replay operation. Target: <500 ms."""
         start = time.perf_counter()
         result = replay_fn(*args, **kwargs)
@@ -309,7 +312,9 @@ class PerformanceBenchmark:
         self._results.append(bench)
         return bench
 
-    def benchmark_clone(self, clone_fn, *args, **kwargs) -> BenchmarkResult:
+    def benchmark_clone(
+        self, clone_fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> BenchmarkResult:
         """Benchmark clone operation. Target: <200 ms."""
         start = time.perf_counter()
         result = clone_fn(*args, **kwargs)
@@ -325,7 +330,9 @@ class PerformanceBenchmark:
         self._results.append(bench)
         return bench
 
-    def benchmark_diff(self, diff_fn, *args, **kwargs) -> BenchmarkResult:
+    def benchmark_diff(
+        self, diff_fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> BenchmarkResult:
         """Benchmark diff operation. Target: <100 ms."""
         start = time.perf_counter()
         result = diff_fn(*args, **kwargs)

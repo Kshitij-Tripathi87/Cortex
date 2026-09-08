@@ -126,9 +126,7 @@ class RealtimeGateway:
             if session_id in self._sessions:
                 del self._sessions[session_id]
 
-    async def subscribe(
-        self, session_id: str, target_workspace_id: str, channel: str
-    ) -> bool:
+    async def subscribe(self, session_id: str, target_workspace_id: str, channel: str) -> bool:
         """Subscribe session to an authorized event channel."""
         async with self._lock:
             session = self._sessions.get(session_id)
@@ -150,18 +148,22 @@ class RealtimeGateway:
     ) -> int:
         """Broadcast an event locally and publish to Redis Pub/Sub for cluster synchronization."""
         channel_name = channel.value if isinstance(channel, RealtimeChannel) else channel
-        message_data = json.dumps({
-            "channel": channel_name,
-            "event_type": event_type,
-            "workspace_id": workspace_id,
-            "tenant_id": tenant_id,
-            "origin_node": origin_node_id or self.node_id,
-            "timestamp": datetime.now(UTC).isoformat(),
-            "payload": payload,
-        })
+        message_data = json.dumps(
+            {
+                "channel": channel_name,
+                "event_type": event_type,
+                "workspace_id": workspace_id,
+                "tenant_id": tenant_id,
+                "origin_node": origin_node_id or self.node_id,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "payload": payload,
+            }
+        )
 
         # 1. Local node fanout
-        recipient_count = await self._dispatch_local(tenant_id, workspace_id, channel_name, message_data)
+        recipient_count = await self._dispatch_local(
+            tenant_id, workspace_id, channel_name, message_data
+        )
 
         # 2. Clustered Redis pub/sub fanout to peer nodes (if not arriving from remote peer).
         # Step 4: fire-and-forget — the cluster publish is best-effort
@@ -186,7 +188,9 @@ class RealtimeGateway:
                 if (
                     sess.tenant_id == tenant_id
                     and sess.workspace_id == workspace_id
-                    and (channel_name in sess.subscribed_channels or "*" in sess.subscribed_channels)
+                    and (
+                        channel_name in sess.subscribed_channels or "*" in sess.subscribed_channels
+                    )
                 ):
                     try:
                         await sess.websocket.send_text(raw_json)

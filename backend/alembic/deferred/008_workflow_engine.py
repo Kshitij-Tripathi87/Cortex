@@ -6,9 +6,8 @@ Reason: Excluded from MVP wedge per cortex-mvp-execution-plan.md section 7.2
 Action: Do not import into production paths.
 
 Last touched: 2026-08-01
-"""
 
-"""Create workflow engine tables.
+Create workflow engine tables.
 
 Revision ID: 008
 Revises: 007

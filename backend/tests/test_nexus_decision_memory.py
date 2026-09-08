@@ -14,7 +14,6 @@ from datetime import UTC, datetime
 import pytest
 
 from app.modules.nexus_spine.memory import (
-    AnalogousDecision,
     DecisionMemory,
     DecisionRecord,
     get_decision_memory,
@@ -120,7 +119,8 @@ def test_find_analogous_isolated_by_workspace(mem: DecisionMemory):
     mem.record(_record("d1", "Supplier outage scenario", tenant="t-1", workspace="w-1"))
     mem.record(_record("d2", "Supplier outage scenario", tenant="t-2", workspace="w-2"))
     analogues = mem.find_analogous(
-        tenant_id="t-1", workspace_id="w-1",
+        tenant_id="t-1",
+        workspace_id="w-1",
         situation="Supplier outage scenario",
     )
     assert all(a.decision.tenant_id == "t-1" for a in analogues)
@@ -137,7 +137,8 @@ def test_recent_returns_decisions_in_executed_at_order(mem: DecisionMemory):
 def test_analogous_decision_to_dict_includes_similarity(mem: DecisionMemory):
     mem.record(_record("d1", "Supplier S-142 capacity outage"))
     analogues = mem.find_analogous(
-        tenant_id="tenant-1", workspace_id="ws-1",
+        tenant_id="tenant-1",
+        workspace_id="ws-1",
         situation="Supplier S-142 capacity outage",
     )
     if analogues:

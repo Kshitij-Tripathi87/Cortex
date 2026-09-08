@@ -1,5 +1,4 @@
-"""Consolidation & Network Rebalancing Agents — Groups C3 & C4.
-"""
+"""Consolidation & Network Rebalancing Agents — Groups C3 & C4."""
 
 from __future__ import annotations
 
@@ -16,7 +15,9 @@ class ConsolidationAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def evaluate_consolidation(self, exposed_order_ids: list[str], regional_hub: str = "Campinas_VCP") -> dict[str, Any]:
+    def evaluate_consolidation(
+        self, exposed_order_ids: list[str], regional_hub: str = "Campinas_VCP"
+    ) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "hub": regional_hub,
@@ -35,7 +36,9 @@ class NetworkRebalancingAgent:
         self.agent_id = self.manifest.agent_id
         self.version = self.manifest.version
 
-    def propose_rebalance(self, source_hub: str, target_hub: str, units: int = 50) -> dict[str, Any]:
+    def propose_rebalance(
+        self, source_hub: str, target_hub: str, units: int = 50
+    ) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "source_hub": source_hub,

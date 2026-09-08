@@ -345,9 +345,7 @@ class OperationalGraphEngine:
         """
         n = len(self.nodes)
         if n == 0:
-            cov = GraphCoverageMetrics(
-                0, 0, {}, {}, 0, 0, 0.0, graph_version, world_state_version
-            )
+            cov = GraphCoverageMetrics(0, 0, {}, {}, 0, 0, 0.0, graph_version, world_state_version)
             return GraphAnalyticsSummary(
                 graph_version, world_state_version, cov, 0.0, [], [], [], 0.0
             )
@@ -385,18 +383,22 @@ class OperationalGraphEngine:
                 if deg >= 5 or node.pagerank > (1.5 / n):
                     node.is_spof = True
                     spofs.append(nid)
-                    critical_suppliers.append({
-                        "supplier_id": nid,
-                        "order_volume": deg,
-                        "pagerank": round(node.pagerank, 6),
-                        "degree_centrality": round(node.degree_centrality, 5),
-                    })
+                    critical_suppliers.append(
+                        {
+                            "supplier_id": nid,
+                            "order_volume": deg,
+                            "pagerank": round(node.pagerank, 6),
+                            "degree_centrality": round(node.degree_centrality, 5),
+                        }
+                    )
             elif node.node_type == "ROUTE":
-                critical_routes.append({
-                    "route_id": nid,
-                    "active_orders": deg,
-                    "pagerank": round(node.pagerank, 6),
-                })
+                critical_routes.append(
+                    {
+                        "route_id": nid,
+                        "active_orders": deg,
+                        "pagerank": round(node.pagerank, 6),
+                    }
+                )
 
         critical_suppliers.sort(key=lambda s: s["pagerank"], reverse=True)
         critical_routes.sort(key=lambda r: r["pagerank"], reverse=True)
@@ -441,9 +443,7 @@ class OperationalGraphEngine:
     def _canonical_node_id(entity_type: str, raw_id: str) -> str:
         return f"{entity_type.lower()}_{raw_id}"
 
-    def _detect_id_fields(
-        self, canonical_dataset: CanonicalDataset
-    ) -> dict[EntityType, str]:
+    def _detect_id_fields(self, canonical_dataset: CanonicalDataset) -> dict[EntityType, str]:
         """Detect the primary ID column for each table.
 
         Candidates are ``*_id`` columns ranked by cardinality (a primary key
@@ -459,11 +459,7 @@ class OperationalGraphEngine:
                 continue
             sample = table.rows[0]
             preferred = f"{entity_type.value.lower()}_id"
-            candidates = [
-                col
-                for col in sample
-                if col.endswith("_id") and not col.startswith("_")
-            ]
+            candidates = [col for col in sample if col.endswith("_id") and not col.startswith("_")]
             if not candidates:
                 continue
 
@@ -603,9 +599,11 @@ class OperationalGraphEngine:
                 supplier_state = self._find_supplier_state_for_order(
                     str(raw_id), canonical_dataset, id_fields
                 )
-                customer_state = customer_states.get(
-                    self._canonical_node_id("CUSTOMER", str(cust_id)), ""
-                ) if cust_id else ""
+                customer_state = (
+                    customer_states.get(self._canonical_node_id("CUSTOMER", str(cust_id)), "")
+                    if cust_id
+                    else ""
+                )
                 if supplier_state and customer_state:
                     route_id = self._canonical_node_id(
                         "ROUTE", f"{supplier_state}_to_{customer_state}"

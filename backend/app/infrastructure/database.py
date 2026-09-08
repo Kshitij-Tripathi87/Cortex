@@ -50,6 +50,7 @@ async def init_db(dsn: str) -> None:
     # Import all Nexus models to register them with SQLAlchemy metadata,
     # then create tables (idempotent; safe for dev; Alembic migrations for prod).
     import app.modules.nexus_spine.persistence.models  # noqa: F401 — registers tables on Base.metadata
+
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

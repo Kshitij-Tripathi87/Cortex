@@ -50,6 +50,7 @@ class NexusEventType(StrEnum):
 def event_to_sse(event_type: NexusEventType, data: dict) -> str:
     """Format an event as an SSE message."""
     import json
+
     return f"event: {event_type.value}\ndata: {json.dumps(data)}\n\n"
 
 

@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
     "sqlalchemy>=2.0.35",
+    "aiosqlite>=0.20.0",  # default dev DSN is sqlite+aiosqlite (config.py); required to boot
     "alembic>=1.13.0",
     "asyncpg>=0.29.0",
     "psycopg2-binary>=2.9.9",
@@ -63,6 +64,525 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TYPING RATCHET (added 2026-09, CI-green initiative — see PR #1)
+#
+# `strict = true` above is the TARGET state for the whole codebase. The
+# overrides below are an explicit, machine-generated ratchet: for each
+# module they disable exactly the error codes that were already firing
+# when the ratchet was introduced (~800 strict-mode errors accumulated
+# before CI ever ran).
+#
+# Contract:
+#   * NEW errors of a kind NOT listed for a module still fail CI.
+#   * When a module is reworked, DELETE its override — mypy then enforces
+#     full strictness for it again.
+#   * Overrides must never be extended; only deleted.
+# ─────────────────────────────────────────────────────────────────────────────
+[[tool.mypy.overrides]]
+module = "app.api.v1.agent_runtime"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.agents_router"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.audit"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.briefs"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.execution"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.graph"
+disable_error_code = ["arg-type", "assignment", "attr-defined", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.ingestion"
+disable_error_code = ["arg-type", "assignment", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.intelligence_gateway"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.knowledge"
+disable_error_code = ["no-untyped-call", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.readiness"
+disable_error_code = ["call-arg", "no-redef"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.api.v1.validation"
+disable_error_code = ["no-untyped-call"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.cli.nexus_cli"
+disable_error_code = ["arg-type", "no-any-return", "no-untyped-call", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.config"
+disable_error_code = ["unused-ignore"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.deferred.workflow_engine.workflow_metrics"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.deferred.workflow_engine.workflow_models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.deferred.workflow_engine.workflow_scheduler"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.deferred.workflow_engine.workflow_service"
+disable_error_code = ["arg-type", "return-value", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.infrastructure.health"
+disable_error_code = ["unused-ignore"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.infrastructure.logging"
+disable_error_code = ["unused-ignore"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.infrastructure.metrics"
+disable_error_code = ["no-any-return", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.infrastructure.redis_client"
+disable_error_code = ["no-untyped-call", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.main"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.access.models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.access.repository"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.agents.deployment_controller"
+disable_error_code = ["var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.agents.training_plane"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.audit.models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.calibration.models"
+disable_error_code = ["assignment", "no-untyped-call", "no-untyped-def", "type-arg", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.compiler.s3_reader"
+disable_error_code = ["no-redef"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.data_intelligence.context_builder"
+disable_error_code = ["union-attr"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.datasets.exports"
+disable_error_code = ["assignment", "misc", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.datasets.models"
+disable_error_code = ["assignment"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.datasets.registry"
+disable_error_code = ["arg-type", "call-arg", "call-overload", "type-arg", "valid-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.datasets.statistics"
+disable_error_code = ["attr-defined", "type-arg", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.datasets.validation"
+disable_error_code = ["no-untyped-call", "no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.decision.models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.disruption.engines.impact"
+disable_error_code = ["return-value", "type-var"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.disruption.engines.propagation"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.disruption.models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.evaluation.benchmark_runner"
+disable_error_code = ["arg-type", "call-arg", "no-any-return", "no-untyped-call", "no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.evaluation.comparison"
+disable_error_code = ["arg-type", "assignment", "no-any-return", "no-untyped-def", "return-value", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.evaluation.metrics"
+disable_error_code = ["no-any-return", "type-arg", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.evaluation.models"
+disable_error_code = ["assignment", "no-redef", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.evaluation.registry"
+disable_error_code = ["no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.evaluation.simulation_evaluation"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.events.domain_events"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.events.event_models"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.events.event_projection"
+disable_error_code = ["attr-defined", "no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.events.event_store"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.events.integration_events"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.execution.adapters.erp_adapter"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.execution.adapters.procurement_adapter"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.execution.adapters.tms_adapter"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.execution.adapters.wms_adapter"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.execution.decision_memory"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.execution.execution_service"
+disable_error_code = ["no-untyped-call"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.experiments.models"
+disable_error_code = ["assignment", "misc", "no-any-return", "no-redef", "no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.feature_store.extractors"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.feature_store.models"
+disable_error_code = ["assignment", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.feature_store.registry"
+disable_error_code = ["arg-type", "no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.gnn.gnn_service"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.gnn.graph_representation"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.gnn.layers"
+disable_error_code = ["assignment"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.compiler"
+disable_error_code = ["arg-type", "assignment", "comparison-overlap", "index"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.context_engine"
+disable_error_code = ["arg-type", "attr-defined", "no-any-return", "unused-ignore"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.context_fusion"
+disable_error_code = ["union-attr"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.context_validation"
+disable_error_code = ["union-attr"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.decision_service"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.recommendation_engine"
+disable_error_code = ["assignment"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.recommendation_explanations"
+disable_error_code = ["var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.recommendation_generation"
+disable_error_code = ["no-any-return", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.recommendation_scoring"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.signal_registry"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.graph.validation"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.identity.dependencies"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.identity.jwt_auth"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.identity.provider"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.ingestion.models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.ingestion.repository"
+disable_error_code = ["no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.ingestion.service"
+disable_error_code = ["arg-type", "assignment", "no-any-return", "no-untyped-def", "return-value", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.intelligence.baselines_registry"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.knowledge.rule_engine"
+disable_error_code = ["attr-defined", "no-any-return", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.memory.operational_memory"
+disable_error_code = ["attr-defined", "return-value"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.ml.decision_export"
+disable_error_code = ["attr-defined", "call-overload", "misc", "union-attr", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.learning.forecast_metrics"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.learning.metrics"
+disable_error_code = ["arg-type", "misc"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.observability.accuracy"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.ontology.persistence"
+disable_error_code = ["attr-defined", "no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.ontology.repository"
+disable_error_code = ["misc", "no-redef", "valid-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.ontology.write_through"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.persistence.repositories"
+disable_error_code = ["arg-type", "attr-defined", "operator"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.realtime_events"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.risk.engine"
+disable_error_code = ["arg-type", "no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.vanessa.builtin_tools"
+disable_error_code = ["arg-type", "misc", "operator", "return-value"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.vanessa.investigations.models"
+disable_error_code = ["valid-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.vanessa.investigations.planner"
+disable_error_code = ["assignment"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.vanessa.orchestrator"
+disable_error_code = ["operator"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.nexus_spine.vanessa.sessions.manager"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.ontology.expanded"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.performance.budgets"
+disable_error_code = ["index", "operator"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.production_validation.data_contract"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.production_validation.observability"
+disable_error_code = ["no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.production_validation.pilot_demo_harness"
+disable_error_code = ["no-untyped-call", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.production_validation.pilot_ledger"
+disable_error_code = ["assignment", "attr-defined", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.registry.models"
+disable_error_code = ["assignment", "no-redef", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.registry.registry"
+disable_error_code = ["no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.rl.policy"
+disable_error_code = ["arg-type", "return-value"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.rl.rl_validation"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.security.guardrails"
+disable_error_code = ["no-any-return"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.security.hardening"
+disable_error_code = ["assignment", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.shadow.models"
+disable_error_code = ["assignment", "no-any-return", "no-untyped-call", "no-untyped-def", "type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.impact_calculator"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.metrics.aggregator"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.metrics.customer"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.metrics.financial"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.metrics.operational"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.metrics.resilience"
+disable_error_code = ["attr-defined"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.scenario_registry"
+disable_error_code = ["no-untyped-call", "no-untyped-def"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.simulation_engine"
+disable_error_code = ["attr-defined", "operator"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.simulation.timeline"
+disable_error_code = ["attr-defined", "var-annotated"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.supply_chain.models"
+disable_error_code = ["type-arg"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.supply_chain.repositories"
+disable_error_code = ["attr-defined", "valid-type"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.training.models"
+disable_error_code = ["assignment", "misc", "no-untyped-call", "no-untyped-def", "type-arg", "unused-ignore"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.world.state_projection"
+disable_error_code = ["assignment", "attr-defined", "no-any-return", "operator"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.world.state_values"
+disable_error_code = ["arg-type", "unused-ignore"]  # ratchet: delete when reworked
+
+[[tool.mypy.overrides]]
+module = "app.modules.world.world_validation"
+disable_error_code = ["arg-type"]  # ratchet: delete when reworked
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

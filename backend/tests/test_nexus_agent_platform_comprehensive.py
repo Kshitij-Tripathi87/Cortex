@@ -122,13 +122,35 @@ async def test_phase_e_f_i_shadow_and_progressive_canary():
     ctrl = AgentDeploymentController()
 
     telem = ShipmentTelemetry("s_live", "A", "B", "C", "OCEAN", 14.0, 7.0, 0.65, 0.2)
-    act_res, shd_res, div_metric = await shadow_pipe.evaluate_live_event("evt_1", telem, "v7", "v8", ctx)
+    act_res, shd_res, div_metric = await shadow_pipe.evaluate_live_event(
+        "evt_1", telem, "v7", "v8", ctx
+    )
     assert act_res is not None
     assert shd_res is not None
 
     # Deploy replicas and configure Canary
-    art_v7 = AgentArtifact("a_v7", "shipment_tracking", "v7", AgentDomain.SHIPMENT_TRACKING, "s3://v7", "p7", "d7", "r7", SignedCapabilityManifest("shipment_tracking", "v7", ["read"], []))
-    art_v8 = AgentArtifact("a_v8", "shipment_tracking", "v8", AgentDomain.SHIPMENT_TRACKING, "s3://v8", "p8", "d8", "r8", SignedCapabilityManifest("shipment_tracking", "v8", ["read"], []))
+    art_v7 = AgentArtifact(
+        "a_v7",
+        "shipment_tracking",
+        "v7",
+        AgentDomain.SHIPMENT_TRACKING,
+        "s3://v7",
+        "p7",
+        "d7",
+        "r7",
+        SignedCapabilityManifest("shipment_tracking", "v7", ["read"], []),
+    )
+    art_v8 = AgentArtifact(
+        "a_v8",
+        "shipment_tracking",
+        "v8",
+        AgentDomain.SHIPMENT_TRACKING,
+        "s3://v8",
+        "p8",
+        "d8",
+        "r8",
+        SignedCapabilityManifest("shipment_tracking", "v8", ["read"], []),
+    )
     ctrl.register_artifact(art_v7)
     ctrl.register_artifact(art_v8)
 
@@ -143,7 +165,7 @@ async def test_phase_e_f_i_shadow_and_progressive_canary():
     assert reps_v8[0].traffic_weight == 0.125  # 25% / 2 candidate replicas
 
     ctrl.configure_canary("shipment_tracking", "v8", "v7", 100.0)
-    assert reps_v8[0].traffic_weight == 0.50   # 100% / 2 candidate replicas
+    assert reps_v8[0].traffic_weight == 0.50  # 100% / 2 candidate replicas
     assert sum(r.traffic_weight for r in ctrl.list_replicas("shipment_tracking")) == 1.0
 
 
@@ -154,7 +176,17 @@ async def test_phase_e_f_i_shadow_and_progressive_canary():
 async def test_phase_h_j_k_health_hot_replacement_and_checkpoints():
     """Verify dual-track behavioral health, autonomous hot replacement, and recoverable state checkpoints."""
     ctrl = AgentDeploymentController()
-    art = AgentArtifact("a_v8", "shipment_tracking", "v8", AgentDomain.SHIPMENT_TRACKING, "s3://v8", "p8", "d8", "r8", SignedCapabilityManifest("shipment_tracking", "v8", ["read"], []))
+    art = AgentArtifact(
+        "a_v8",
+        "shipment_tracking",
+        "v8",
+        AgentDomain.SHIPMENT_TRACKING,
+        "s3://v8",
+        "p8",
+        "d8",
+        "r8",
+        SignedCapabilityManifest("shipment_tracking", "v8", ["read"], []),
+    )
     ctrl.register_artifact(art)
 
     reps = ctrl.deploy_replicas("shipment_tracking", "v8", "ws_austin", replica_count=2)
@@ -184,9 +216,39 @@ def test_phase_n_o_fleet_quotas():
     """Verify organization quota limit prevents unbounded fleet expansion."""
     restricted_ctrl = AgentDeploymentController(max_agents=2, max_replicas_per_agent=4)
 
-    art1 = AgentArtifact("a1", "agent_1", "v1", AgentDomain.SHIPMENT_TRACKING, "s3://1", "p1", "d1", "r1", SignedCapabilityManifest("agent_1", "v1", ["read"], []))
-    art2 = AgentArtifact("a2", "agent_2", "v1", AgentDomain.LOGISTICS_ROUTING, "s3://2", "p2", "d2", "r2", SignedCapabilityManifest("agent_2", "v1", ["read"], []))
-    art3 = AgentArtifact("a3", "agent_3", "v1", AgentDomain.INVENTORY_ALLOCATION, "s3://3", "p3", "d3", "r3", SignedCapabilityManifest("agent_3", "v1", ["read"], []))
+    art1 = AgentArtifact(
+        "a1",
+        "agent_1",
+        "v1",
+        AgentDomain.SHIPMENT_TRACKING,
+        "s3://1",
+        "p1",
+        "d1",
+        "r1",
+        SignedCapabilityManifest("agent_1", "v1", ["read"], []),
+    )
+    art2 = AgentArtifact(
+        "a2",
+        "agent_2",
+        "v1",
+        AgentDomain.LOGISTICS_ROUTING,
+        "s3://2",
+        "p2",
+        "d2",
+        "r2",
+        SignedCapabilityManifest("agent_2", "v1", ["read"], []),
+    )
+    art3 = AgentArtifact(
+        "a3",
+        "agent_3",
+        "v1",
+        AgentDomain.INVENTORY_ALLOCATION,
+        "s3://3",
+        "p3",
+        "d3",
+        "r3",
+        SignedCapabilityManifest("agent_3", "v1", ["read"], []),
+    )
 
     restricted_ctrl.register_artifact(art1)
     restricted_ctrl.register_artifact(art2)

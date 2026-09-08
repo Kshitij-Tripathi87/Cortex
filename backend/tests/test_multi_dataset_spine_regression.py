@@ -37,9 +37,27 @@ def build_dataset_a_ecommerce() -> CanonicalDataset:
     dataset.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": "S_SP1", "state": "SP", "city": "Sao Paulo", "_source_file": "suppliers.csv", "_source_row": 1},
-            {"supplier_id": "S_RJ1", "state": "RJ", "city": "Rio de Janeiro", "_source_file": "suppliers.csv", "_source_row": 2},
-            {"supplier_id": "S_MG1", "state": "MG", "city": "Belo Horizonte", "_source_file": "suppliers.csv", "_source_row": 3},
+            {
+                "supplier_id": "S_SP1",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "suppliers.csv",
+                "_source_row": 1,
+            },
+            {
+                "supplier_id": "S_RJ1",
+                "state": "RJ",
+                "city": "Rio de Janeiro",
+                "_source_file": "suppliers.csv",
+                "_source_row": 2,
+            },
+            {
+                "supplier_id": "S_MG1",
+                "state": "MG",
+                "city": "Belo Horizonte",
+                "_source_file": "suppliers.csv",
+                "_source_row": 3,
+            },
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
         source_file="suppliers.csv",
@@ -48,8 +66,20 @@ def build_dataset_a_ecommerce() -> CanonicalDataset:
     dataset.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": "C_SP1", "state": "SP", "city": "Sao Paulo", "_source_file": "customers.csv", "_source_row": 1},
-            {"customer_id": "C_RJ1", "state": "RJ", "city": "Rio de Janeiro", "_source_file": "customers.csv", "_source_row": 2},
+            {
+                "customer_id": "C_SP1",
+                "state": "SP",
+                "city": "Sao Paulo",
+                "_source_file": "customers.csv",
+                "_source_row": 1,
+            },
+            {
+                "customer_id": "C_RJ1",
+                "state": "RJ",
+                "city": "Rio de Janeiro",
+                "_source_file": "customers.csv",
+                "_source_row": 2,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="customers.csv",
@@ -58,9 +88,30 @@ def build_dataset_a_ecommerce() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": "ORD_E1", "customer_id": "C_SP1", "status": "delivered", "price": 150.0, "_source_file": "orders.csv", "_source_row": 1},
-            {"order_id": "ORD_E2", "customer_id": "C_RJ1", "status": "shipped", "price": 250.0, "_source_file": "orders.csv", "_source_row": 2},
-            {"order_id": "ORD_E3", "customer_id": "C_SP1", "status": "processing", "price": 75.0, "_source_file": "orders.csv", "_source_row": 3},
+            {
+                "order_id": "ORD_E1",
+                "customer_id": "C_SP1",
+                "status": "delivered",
+                "price": 150.0,
+                "_source_file": "orders.csv",
+                "_source_row": 1,
+            },
+            {
+                "order_id": "ORD_E2",
+                "customer_id": "C_RJ1",
+                "status": "shipped",
+                "price": 250.0,
+                "_source_file": "orders.csv",
+                "_source_row": 2,
+            },
+            {
+                "order_id": "ORD_E3",
+                "customer_id": "C_SP1",
+                "status": "processing",
+                "price": 75.0,
+                "_source_file": "orders.csv",
+                "_source_row": 3,
+            },
         ],
         column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float"},
         source_file="orders.csv",
@@ -69,11 +120,41 @@ def build_dataset_a_ecommerce() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"item_id": "ITM_E1", "order_id": "ORD_E1", "supplier_id": "S_SP1", "product_id": "P_APP", "price": 150.0, "_source_file": "items.csv", "_source_row": 1},
-            {"item_id": "ITM_E2", "order_id": "ORD_E2", "supplier_id": "S_RJ1", "product_id": "P_BOOK", "price": 250.0, "_source_file": "items.csv", "_source_row": 2},
-            {"item_id": "ITM_E3", "order_id": "ORD_E3", "supplier_id": "S_SP1", "product_id": "P_APP", "price": 75.0, "_source_file": "items.csv", "_source_row": 3},
+            {
+                "item_id": "ITM_E1",
+                "order_id": "ORD_E1",
+                "supplier_id": "S_SP1",
+                "product_id": "P_APP",
+                "price": 150.0,
+                "_source_file": "items.csv",
+                "_source_row": 1,
+            },
+            {
+                "item_id": "ITM_E2",
+                "order_id": "ORD_E2",
+                "supplier_id": "S_RJ1",
+                "product_id": "P_BOOK",
+                "price": 250.0,
+                "_source_file": "items.csv",
+                "_source_row": 2,
+            },
+            {
+                "item_id": "ITM_E3",
+                "order_id": "ORD_E3",
+                "supplier_id": "S_SP1",
+                "product_id": "P_APP",
+                "price": 75.0,
+                "_source_file": "items.csv",
+                "_source_row": 3,
+            },
         ],
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+        },
         source_file="items.csv",
     )
 
@@ -87,12 +168,48 @@ def build_dataset_b_semiconductor() -> CanonicalDataset:
     dataset.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": "S_TSMC", "state": "TW", "city": "Hsinchu", "_source_file": "semi_suppliers.csv", "_source_row": 1},
-            {"supplier_id": "S_SAMSUNG", "state": "KR", "city": "Suwon", "_source_file": "semi_suppliers.csv", "_source_row": 2},
-            {"supplier_id": "S_ASML", "state": "NL", "city": "Veldhoven", "_source_file": "semi_suppliers.csv", "_source_row": 3},
-            {"supplier_id": "S_INTEL_FAB", "state": "OR", "city": "Hillsboro", "_source_file": "semi_suppliers.csv", "_source_row": 4},
-            {"supplier_id": "S_FOXCONN", "state": "CN", "city": "Shenzhen", "_source_file": "semi_suppliers.csv", "_source_row": 5},
-            {"supplier_id": "S_TOKYO_ELEC", "state": "JP", "city": "Tokyo", "_source_file": "semi_suppliers.csv", "_source_row": 6},
+            {
+                "supplier_id": "S_TSMC",
+                "state": "TW",
+                "city": "Hsinchu",
+                "_source_file": "semi_suppliers.csv",
+                "_source_row": 1,
+            },
+            {
+                "supplier_id": "S_SAMSUNG",
+                "state": "KR",
+                "city": "Suwon",
+                "_source_file": "semi_suppliers.csv",
+                "_source_row": 2,
+            },
+            {
+                "supplier_id": "S_ASML",
+                "state": "NL",
+                "city": "Veldhoven",
+                "_source_file": "semi_suppliers.csv",
+                "_source_row": 3,
+            },
+            {
+                "supplier_id": "S_INTEL_FAB",
+                "state": "OR",
+                "city": "Hillsboro",
+                "_source_file": "semi_suppliers.csv",
+                "_source_row": 4,
+            },
+            {
+                "supplier_id": "S_FOXCONN",
+                "state": "CN",
+                "city": "Shenzhen",
+                "_source_file": "semi_suppliers.csv",
+                "_source_row": 5,
+            },
+            {
+                "supplier_id": "S_TOKYO_ELEC",
+                "state": "JP",
+                "city": "Tokyo",
+                "_source_file": "semi_suppliers.csv",
+                "_source_row": 6,
+            },
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
         source_file="semi_suppliers.csv",
@@ -101,10 +218,34 @@ def build_dataset_b_semiconductor() -> CanonicalDataset:
     dataset.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": "C_APPLE", "state": "CA", "city": "Cupertino", "_source_file": "semi_cust.csv", "_source_row": 1},
-            {"customer_id": "C_NVIDIA", "state": "CA", "city": "Santa Clara", "_source_file": "semi_cust.csv", "_source_row": 2},
-            {"customer_id": "C_TESLA", "state": "TX", "city": "Austin", "_source_file": "semi_cust.csv", "_source_row": 3},
-            {"customer_id": "C_BMW", "state": "BY", "city": "Munich", "_source_file": "semi_cust.csv", "_source_row": 4},
+            {
+                "customer_id": "C_APPLE",
+                "state": "CA",
+                "city": "Cupertino",
+                "_source_file": "semi_cust.csv",
+                "_source_row": 1,
+            },
+            {
+                "customer_id": "C_NVIDIA",
+                "state": "CA",
+                "city": "Santa Clara",
+                "_source_file": "semi_cust.csv",
+                "_source_row": 2,
+            },
+            {
+                "customer_id": "C_TESLA",
+                "state": "TX",
+                "city": "Austin",
+                "_source_file": "semi_cust.csv",
+                "_source_row": 3,
+            },
+            {
+                "customer_id": "C_BMW",
+                "state": "BY",
+                "city": "Munich",
+                "_source_file": "semi_cust.csv",
+                "_source_row": 4,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="semi_cust.csv",
@@ -113,11 +254,46 @@ def build_dataset_b_semiconductor() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": "ORD_SEMI_1", "customer_id": "C_APPLE", "status": "processing", "price": 4500000.0, "_source_file": "semi_orders.csv", "_source_row": 1},
-            {"order_id": "ORD_SEMI_2", "customer_id": "C_NVIDIA", "status": "processing", "price": 8200000.0, "_source_file": "semi_orders.csv", "_source_row": 2},
-            {"order_id": "ORD_SEMI_3", "customer_id": "C_TESLA", "status": "shipped", "price": 1200000.0, "_source_file": "semi_orders.csv", "_source_row": 3},
-            {"order_id": "ORD_SEMI_4", "customer_id": "C_BMW", "status": "delivered", "price": 950000.0, "_source_file": "semi_orders.csv", "_source_row": 4},
-            {"order_id": "ORD_SEMI_5", "customer_id": "C_NVIDIA", "status": "processing", "price": 3100000.0, "_source_file": "semi_orders.csv", "_source_row": 5},
+            {
+                "order_id": "ORD_SEMI_1",
+                "customer_id": "C_APPLE",
+                "status": "processing",
+                "price": 4500000.0,
+                "_source_file": "semi_orders.csv",
+                "_source_row": 1,
+            },
+            {
+                "order_id": "ORD_SEMI_2",
+                "customer_id": "C_NVIDIA",
+                "status": "processing",
+                "price": 8200000.0,
+                "_source_file": "semi_orders.csv",
+                "_source_row": 2,
+            },
+            {
+                "order_id": "ORD_SEMI_3",
+                "customer_id": "C_TESLA",
+                "status": "shipped",
+                "price": 1200000.0,
+                "_source_file": "semi_orders.csv",
+                "_source_row": 3,
+            },
+            {
+                "order_id": "ORD_SEMI_4",
+                "customer_id": "C_BMW",
+                "status": "delivered",
+                "price": 950000.0,
+                "_source_file": "semi_orders.csv",
+                "_source_row": 4,
+            },
+            {
+                "order_id": "ORD_SEMI_5",
+                "customer_id": "C_NVIDIA",
+                "status": "processing",
+                "price": 3100000.0,
+                "_source_file": "semi_orders.csv",
+                "_source_row": 5,
+            },
         ],
         column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float"},
         source_file="semi_orders.csv",
@@ -127,13 +303,59 @@ def build_dataset_b_semiconductor() -> CanonicalDataset:
         entity_type=EntityType.ORDER_ITEM,
         rows=[
             # Dominant supplier S_TSMC creates high concentration (Gini skew)
-            {"item_id": "ITM_S1", "order_id": "ORD_SEMI_1", "supplier_id": "S_TSMC", "product_id": "WAF_3NM", "price": 4500000.0, "_source_file": "semi_items.csv", "_source_row": 1},
-            {"item_id": "ITM_S2", "order_id": "ORD_SEMI_2", "supplier_id": "S_TSMC", "product_id": "GPU_H100", "price": 8200000.0, "_source_file": "semi_items.csv", "_source_row": 2},
-            {"item_id": "ITM_S3", "order_id": "ORD_SEMI_3", "supplier_id": "S_SAMSUNG", "product_id": "DRAM_HBM3", "price": 1200000.0, "_source_file": "semi_items.csv", "_source_row": 3},
-            {"item_id": "ITM_S4", "order_id": "ORD_SEMI_4", "supplier_id": "S_INTEL_FAB", "product_id": "MCU_AUTO", "price": 950000.0, "_source_file": "semi_items.csv", "_source_row": 4},
-            {"item_id": "ITM_S5", "order_id": "ORD_SEMI_5", "supplier_id": "S_TSMC", "product_id": "GPU_B200", "price": 3100000.0, "_source_file": "semi_items.csv", "_source_row": 5},
+            {
+                "item_id": "ITM_S1",
+                "order_id": "ORD_SEMI_1",
+                "supplier_id": "S_TSMC",
+                "product_id": "WAF_3NM",
+                "price": 4500000.0,
+                "_source_file": "semi_items.csv",
+                "_source_row": 1,
+            },
+            {
+                "item_id": "ITM_S2",
+                "order_id": "ORD_SEMI_2",
+                "supplier_id": "S_TSMC",
+                "product_id": "GPU_H100",
+                "price": 8200000.0,
+                "_source_file": "semi_items.csv",
+                "_source_row": 2,
+            },
+            {
+                "item_id": "ITM_S3",
+                "order_id": "ORD_SEMI_3",
+                "supplier_id": "S_SAMSUNG",
+                "product_id": "DRAM_HBM3",
+                "price": 1200000.0,
+                "_source_file": "semi_items.csv",
+                "_source_row": 3,
+            },
+            {
+                "item_id": "ITM_S4",
+                "order_id": "ORD_SEMI_4",
+                "supplier_id": "S_INTEL_FAB",
+                "product_id": "MCU_AUTO",
+                "price": 950000.0,
+                "_source_file": "semi_items.csv",
+                "_source_row": 4,
+            },
+            {
+                "item_id": "ITM_S5",
+                "order_id": "ORD_SEMI_5",
+                "supplier_id": "S_TSMC",
+                "product_id": "GPU_B200",
+                "price": 3100000.0,
+                "_source_file": "semi_items.csv",
+                "_source_row": 5,
+            },
         ],
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+        },
         source_file="semi_items.csv",
     )
 
@@ -147,10 +369,34 @@ def build_dataset_c_pharma_cold_chain() -> CanonicalDataset:
     dataset.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": "S_NOVARTIS", "state": "BS", "city": "Basel", "_source_file": "pharma_sup.csv", "_source_row": 1},
-            {"supplier_id": "S_ROCHE", "state": "BS", "city": "Basel", "_source_file": "pharma_sup.csv", "_source_row": 2},
-            {"supplier_id": "S_PFIZER", "state": "NY", "city": "New York", "_source_file": "pharma_sup.csv", "_source_row": 3},
-            {"supplier_id": "S_LONZA", "state": "VS", "city": "Visp", "_source_file": "pharma_sup.csv", "_source_row": 4},
+            {
+                "supplier_id": "S_NOVARTIS",
+                "state": "BS",
+                "city": "Basel",
+                "_source_file": "pharma_sup.csv",
+                "_source_row": 1,
+            },
+            {
+                "supplier_id": "S_ROCHE",
+                "state": "BS",
+                "city": "Basel",
+                "_source_file": "pharma_sup.csv",
+                "_source_row": 2,
+            },
+            {
+                "supplier_id": "S_PFIZER",
+                "state": "NY",
+                "city": "New York",
+                "_source_file": "pharma_sup.csv",
+                "_source_row": 3,
+            },
+            {
+                "supplier_id": "S_LONZA",
+                "state": "VS",
+                "city": "Visp",
+                "_source_file": "pharma_sup.csv",
+                "_source_row": 4,
+            },
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
         source_file="pharma_sup.csv",
@@ -159,9 +405,27 @@ def build_dataset_c_pharma_cold_chain() -> CanonicalDataset:
     dataset.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": "C_MAYO_CLINIC", "state": "MN", "city": "Rochester", "_source_file": "pharma_cust.csv", "_source_row": 1},
-            {"customer_id": "C_CHARITE", "state": "BE", "city": "Berlin", "_source_file": "pharma_cust.csv", "_source_row": 2},
-            {"customer_id": "C_HOPITAL_GEN", "state": "GE", "city": "Geneva", "_source_file": "pharma_cust.csv", "_source_row": 3},
+            {
+                "customer_id": "C_MAYO_CLINIC",
+                "state": "MN",
+                "city": "Rochester",
+                "_source_file": "pharma_cust.csv",
+                "_source_row": 1,
+            },
+            {
+                "customer_id": "C_CHARITE",
+                "state": "BE",
+                "city": "Berlin",
+                "_source_file": "pharma_cust.csv",
+                "_source_row": 2,
+            },
+            {
+                "customer_id": "C_HOPITAL_GEN",
+                "state": "GE",
+                "city": "Geneva",
+                "_source_file": "pharma_cust.csv",
+                "_source_row": 3,
+            },
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
         source_file="pharma_cust.csv",
@@ -170,10 +434,38 @@ def build_dataset_c_pharma_cold_chain() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": "ORD_PH_1", "customer_id": "C_MAYO_CLINIC", "status": "processing", "price": 125000.0, "_source_file": "pharma_ord.csv", "_source_row": 1},
-            {"order_id": "ORD_PH_2", "customer_id": "C_CHARITE", "status": "processing", "price": 88000.0, "_source_file": "pharma_ord.csv", "_source_row": 2},
-            {"order_id": "ORD_PH_3", "customer_id": "C_HOPITAL_GEN", "status": "shipped", "price": 45000.0, "_source_file": "pharma_ord.csv", "_source_row": 3},
-            {"order_id": "ORD_PH_4", "customer_id": "C_MAYO_CLINIC", "status": "processing", "price": 210000.0, "_source_file": "pharma_ord.csv", "_source_row": 4},
+            {
+                "order_id": "ORD_PH_1",
+                "customer_id": "C_MAYO_CLINIC",
+                "status": "processing",
+                "price": 125000.0,
+                "_source_file": "pharma_ord.csv",
+                "_source_row": 1,
+            },
+            {
+                "order_id": "ORD_PH_2",
+                "customer_id": "C_CHARITE",
+                "status": "processing",
+                "price": 88000.0,
+                "_source_file": "pharma_ord.csv",
+                "_source_row": 2,
+            },
+            {
+                "order_id": "ORD_PH_3",
+                "customer_id": "C_HOPITAL_GEN",
+                "status": "shipped",
+                "price": 45000.0,
+                "_source_file": "pharma_ord.csv",
+                "_source_row": 3,
+            },
+            {
+                "order_id": "ORD_PH_4",
+                "customer_id": "C_MAYO_CLINIC",
+                "status": "processing",
+                "price": 210000.0,
+                "_source_file": "pharma_ord.csv",
+                "_source_row": 4,
+            },
         ],
         column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float"},
         source_file="pharma_ord.csv",
@@ -182,12 +474,50 @@ def build_dataset_c_pharma_cold_chain() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"item_id": "ITM_P1", "order_id": "ORD_PH_1", "supplier_id": "S_NOVARTIS", "product_id": "MED_ONCO_A", "price": 125000.0, "_source_file": "pharma_itm.csv", "_source_row": 1},
-            {"item_id": "ITM_P2", "order_id": "ORD_PH_2", "supplier_id": "S_ROCHE", "product_id": "MED_IMMUNO_B", "price": 88000.0, "_source_file": "pharma_itm.csv", "_source_row": 2},
-            {"item_id": "ITM_P3", "order_id": "ORD_PH_3", "supplier_id": "S_LONZA", "product_id": "MED_BIOLOGIC_C", "price": 45000.0, "_source_file": "pharma_itm.csv", "_source_row": 3},
-            {"item_id": "ITM_P4", "order_id": "ORD_PH_4", "supplier_id": "S_PFIZER", "product_id": "MED_GENE_TX", "price": 210000.0, "_source_file": "pharma_itm.csv", "_source_row": 4},
+            {
+                "item_id": "ITM_P1",
+                "order_id": "ORD_PH_1",
+                "supplier_id": "S_NOVARTIS",
+                "product_id": "MED_ONCO_A",
+                "price": 125000.0,
+                "_source_file": "pharma_itm.csv",
+                "_source_row": 1,
+            },
+            {
+                "item_id": "ITM_P2",
+                "order_id": "ORD_PH_2",
+                "supplier_id": "S_ROCHE",
+                "product_id": "MED_IMMUNO_B",
+                "price": 88000.0,
+                "_source_file": "pharma_itm.csv",
+                "_source_row": 2,
+            },
+            {
+                "item_id": "ITM_P3",
+                "order_id": "ORD_PH_3",
+                "supplier_id": "S_LONZA",
+                "product_id": "MED_BIOLOGIC_C",
+                "price": 45000.0,
+                "_source_file": "pharma_itm.csv",
+                "_source_row": 3,
+            },
+            {
+                "item_id": "ITM_P4",
+                "order_id": "ORD_PH_4",
+                "supplier_id": "S_PFIZER",
+                "product_id": "MED_GENE_TX",
+                "price": 210000.0,
+                "_source_file": "pharma_itm.csv",
+                "_source_row": 4,
+            },
         ],
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+        },
         source_file="pharma_itm.csv",
     )
 
@@ -201,7 +531,13 @@ def build_dataset_d_agriculture_dispersed() -> CanonicalDataset:
     dataset.tables[EntityType.SUPPLIER] = CanonicalTable(
         entity_type=EntityType.SUPPLIER,
         rows=[
-            {"supplier_id": f"FARM_{i}", "state": "IA", "city": f"County_{i}", "_source_file": "farms.csv", "_source_row": i}
+            {
+                "supplier_id": f"FARM_{i}",
+                "state": "IA",
+                "city": f"County_{i}",
+                "_source_file": "farms.csv",
+                "_source_row": i,
+            }
             for i in range(1, 9)
         ],
         column_types={"supplier_id": "str", "state": "str", "city": "str"},
@@ -211,7 +547,13 @@ def build_dataset_d_agriculture_dispersed() -> CanonicalDataset:
     dataset.tables[EntityType.CUSTOMER] = CanonicalTable(
         entity_type=EntityType.CUSTOMER,
         rows=[
-            {"customer_id": f"DIST_{j}", "state": "IL", "city": f"Hub_{j}", "_source_file": "distributors.csv", "_source_row": j}
+            {
+                "customer_id": f"DIST_{j}",
+                "state": "IL",
+                "city": f"Hub_{j}",
+                "_source_file": "distributors.csv",
+                "_source_row": j,
+            }
             for j in range(1, 5)
         ],
         column_types={"customer_id": "str", "state": "str", "city": "str"},
@@ -221,7 +563,14 @@ def build_dataset_d_agriculture_dispersed() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER] = CanonicalTable(
         entity_type=EntityType.ORDER,
         rows=[
-            {"order_id": f"ORD_AG_{k}", "customer_id": f"DIST_{(k % 4) + 1}", "status": "processing" if k % 2 == 0 else "shipped", "price": 15000.0 + k * 1000, "_source_file": "ag_orders.csv", "_source_row": k}
+            {
+                "order_id": f"ORD_AG_{k}",
+                "customer_id": f"DIST_{(k % 4) + 1}",
+                "status": "processing" if k % 2 == 0 else "shipped",
+                "price": 15000.0 + k * 1000,
+                "_source_file": "ag_orders.csv",
+                "_source_row": k,
+            }
             for k in range(1, 9)
         ],
         column_types={"order_id": "str", "customer_id": "str", "status": "str", "price": "float"},
@@ -231,10 +580,24 @@ def build_dataset_d_agriculture_dispersed() -> CanonicalDataset:
     dataset.tables[EntityType.ORDER_ITEM] = CanonicalTable(
         entity_type=EntityType.ORDER_ITEM,
         rows=[
-            {"item_id": f"ITM_AG_{k}", "order_id": f"ORD_AG_{k}", "supplier_id": f"FARM_{k}", "product_id": "GRAIN_CORN", "price": 15000.0 + k * 1000, "_source_file": "ag_items.csv", "_source_row": k}
+            {
+                "item_id": f"ITM_AG_{k}",
+                "order_id": f"ORD_AG_{k}",
+                "supplier_id": f"FARM_{k}",
+                "product_id": "GRAIN_CORN",
+                "price": 15000.0 + k * 1000,
+                "_source_file": "ag_items.csv",
+                "_source_row": k,
+            }
             for k in range(1, 9)
         ],
-        column_types={"item_id": "str", "order_id": "str", "supplier_id": "str", "product_id": "str", "price": "float"},
+        column_types={
+            "item_id": "str",
+            "order_id": "str",
+            "supplier_id": "str",
+            "product_id": "str",
+            "price": "float",
+        },
         source_file="ag_items.csv",
     )
 
@@ -286,7 +649,9 @@ class TestMultiDatasetSpineRegression:
         gini_b = results["semiconductor"].graph_summary.get("supplier_concentration_gini", 0)
         gini_d = results["agriculture"].graph_summary.get("supplier_concentration_gini", 0)
         # Semiconductor has 1 heavy supplier (TSMC) while agriculture has 8 equal farms
-        assert gini_b > gini_d, f"Semiconductor Gini ({gini_b}) must exceed uniform agriculture Gini ({gini_d})"
+        assert gini_b > gini_d, (
+            f"Semiconductor Gini ({gini_b}) must exceed uniform agriculture Gini ({gini_d})"
+        )
 
         # ── 2. Assert Blast Radius & Revenue Risk Scaling ──
         br_a = results["ecommerce"].blast_radius or {}
@@ -299,7 +664,9 @@ class TestMultiDatasetSpineRegression:
 
         # ── 3. Assert Evidence Root Hash Divergence ──
         roots = {res.evidence_root_id for res in results.values()}
-        assert len(roots) == len(datasets), "Each dataset run must produce a distinct Evidence Root ID"
+        assert len(roots) == len(datasets), (
+            "Each dataset run must produce a distinct Evidence Root ID"
+        )
 
     @pytest.mark.asyncio
     async def test_deterministic_spine_replay_exact_equality(self) -> None:

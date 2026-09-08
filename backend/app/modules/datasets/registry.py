@@ -36,9 +36,7 @@ class DatasetRecord(Base):
         {"schema": "analytics"},
     )
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
     version: Mapped[int] = mapped_column(default=1)
     workspace_id: Mapped[UUID] = mapped_column(
         PgUUID(as_uuid=True),
@@ -72,16 +70,12 @@ class DatasetRecord(Base):
     last_validated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    archived_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     storage_size_bytes: Mapped[int] = mapped_column(default=0)
 
-    parent_dataset_id: Mapped[UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), nullable=True
-    )
+    parent_dataset_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
     # Relationships
@@ -120,9 +114,7 @@ class DatasetRegistry:
 
     async def get(self, dataset_id: UUID) -> DatasetMetadata | None:
         """Get dataset by ID."""
-        result = await self.db.execute(
-            select(DatasetRecord).where(DatasetRecord.id == dataset_id)
-        )
+        result = await self.db.execute(select(DatasetRecord).where(DatasetRecord.id == dataset_id))
         record = result.scalar_one_or_none()
         return self._to_metadata(record) if record else None
 
@@ -177,9 +169,7 @@ class DatasetRegistry:
         self, dataset_id: UUID, request: DatasetUpdateRequest
     ) -> DatasetMetadata | None:
         """Update dataset metadata."""
-        result = await self.db.execute(
-            select(DatasetRecord).where(DatasetRecord.id == dataset_id)
-        )
+        result = await self.db.execute(select(DatasetRecord).where(DatasetRecord.id == dataset_id))
         record = result.scalar_one_or_none()
         if not record:
             return None
@@ -215,9 +205,7 @@ class DatasetRegistry:
         generation_duration: float,
     ) -> DatasetMetadata | None:
         """Mark dataset as ready with final metadata."""
-        result = await self.db.execute(
-            select(DatasetRecord).where(DatasetRecord.id == dataset_id)
-        )
+        result = await self.db.execute(select(DatasetRecord).where(DatasetRecord.id == dataset_id))
         record = result.scalar_one_or_none()
         if not record:
             return None
@@ -238,9 +226,7 @@ class DatasetRegistry:
 
     async def archive(self, dataset_id: UUID) -> bool:
         """Archive a dataset."""
-        result = await self.db.execute(
-            select(DatasetRecord).where(DatasetRecord.id == dataset_id)
-        )
+        result = await self.db.execute(select(DatasetRecord).where(DatasetRecord.id == dataset_id))
         record = result.scalar_one_or_none()
         if not record:
             return False
@@ -253,9 +239,7 @@ class DatasetRegistry:
 
     async def delete(self, dataset_id: UUID) -> bool:
         """Hard delete a dataset (use with caution)."""
-        result = await self.db.execute(
-            select(DatasetRecord).where(DatasetRecord.id == dataset_id)
-        )
+        result = await self.db.execute(select(DatasetRecord).where(DatasetRecord.id == dataset_id))
         record = result.scalar_one_or_none()
         if not record:
             return False

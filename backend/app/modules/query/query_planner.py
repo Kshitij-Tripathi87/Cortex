@@ -57,53 +57,67 @@ class QueryPlanner:
         steps: list[QueryStep] = []
 
         if intent.intent_type == IntentType.FIND_CRITICAL_ENTITIES:
-            steps.append(QueryStep(
-                step_id="step_1_spof_scan",
-                target_engine="GRAPH_ENGINE",
-                operation="FILTER_CRITICAL_SPOF_NODES",
-                parameters={"node_type": "SUPPLIER", "min_pagerank": 0.02},
-            ))
-            steps.append(QueryStep(
-                step_id="step_2_signal_join",
-                target_engine="SIGNAL_ENGINE",
-                operation="SCAN_ACTIVE_DEGRADATION_SIGNALS",
-                parameters={"signal_types": ["SUPPLIER_DEGRADATION", "SLA_BREACH_RISK"]},
-            ))
+            steps.append(
+                QueryStep(
+                    step_id="step_1_spof_scan",
+                    target_engine="GRAPH_ENGINE",
+                    operation="FILTER_CRITICAL_SPOF_NODES",
+                    parameters={"node_type": "SUPPLIER", "min_pagerank": 0.02},
+                )
+            )
+            steps.append(
+                QueryStep(
+                    step_id="step_2_signal_join",
+                    target_engine="SIGNAL_ENGINE",
+                    operation="SCAN_ACTIVE_DEGRADATION_SIGNALS",
+                    parameters={"signal_types": ["SUPPLIER_DEGRADATION", "SLA_BREACH_RISK"]},
+                )
+            )
 
         elif intent.intent_type == IntentType.TRACE_BLAST_RADIUS:
-            steps.append(QueryStep(
-                step_id="step_1_graph_traversal",
-                target_engine="GRAPH_ENGINE",
-                operation="TRAVERSE_DOWNSTREAM_ORDERS_AND_CUSTOMERS",
-                parameters={"max_hops": 2},
-            ))
-            steps.append(QueryStep(
-                step_id="step_2_exposure_calc",
-                target_engine="FEATURE_STORE",
-                operation="AGGREGATE_REVENUE_AT_RISK",
-            ))
+            steps.append(
+                QueryStep(
+                    step_id="step_1_graph_traversal",
+                    target_engine="GRAPH_ENGINE",
+                    operation="TRAVERSE_DOWNSTREAM_ORDERS_AND_CUSTOMERS",
+                    parameters={"max_hops": 2},
+                )
+            )
+            steps.append(
+                QueryStep(
+                    step_id="step_2_exposure_calc",
+                    target_engine="FEATURE_STORE",
+                    operation="AGGREGATE_REVENUE_AT_RISK",
+                )
+            )
 
         elif intent.intent_type == IntentType.IDENTIFY_ROUTE_RISK:
-            steps.append(QueryStep(
-                step_id="step_1_route_centrality",
-                target_engine="GRAPH_ENGINE",
-                operation="SCAN_ROUTE_NODES_BY_BETWEENNESS",
-            ))
+            steps.append(
+                QueryStep(
+                    step_id="step_1_route_centrality",
+                    target_engine="GRAPH_ENGINE",
+                    operation="SCAN_ROUTE_NODES_BY_BETWEENNESS",
+                )
+            )
 
         elif intent.intent_type == IntentType.SCENARIO_SIMULATION:
-            steps.append(QueryStep(
-                step_id="step_1_clone_world_state",
-                target_engine="SIMULATION_ENGINE",
-                operation="EVALUATE_COUNTERFACTUAL_CANDIDATES",
-                parameters={"target_entity_id": intent.target_entity_id},
-            ))
+            steps.append(
+                QueryStep(
+                    step_id="step_1_clone_world_state",
+                    target_engine="SIMULATION_ENGINE",
+                    operation="EVALUATE_COUNTERFACTUAL_CANDIDATES",
+                    parameters={"target_entity_id": intent.target_entity_id},
+                )
+            )
 
         else:
-            steps.append(QueryStep(
-                step_id="step_1_generic_scan",
-                target_engine="GRAPH_ENGINE",
-                operation="EXTRACT_VIEWPORT_SUBGRAPH",
-            ))
+            steps.append(
+                QueryStep(
+                    step_id="step_1_generic_scan",
+                    target_engine="GRAPH_ENGINE",
+                    operation="EXTRACT_VIEWPORT_SUBGRAPH",
+                )
+            )
 
         return QueryExecutionPlan(
             plan_id=f"plan_{intent.intent_type.value.lower()[:10]}",

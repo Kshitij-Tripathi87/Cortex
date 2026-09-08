@@ -92,8 +92,12 @@ def main() -> None:
 
     # ── Products ─────────────────────────────────────────────────────────
     categories = [
-        "bed_bath_table", "health_beauty", "sports_leisure",
-        "computers_accessories", "housewares", "auto",
+        "bed_bath_table",
+        "health_beauty",
+        "sports_leisure",
+        "computers_accessories",
+        "housewares",
+        "auto",
     ]
     products = []
     for i in range(N_PRODUCTS):
@@ -106,7 +110,7 @@ def main() -> None:
                 "product_description_lenght": rng.randint(100, 3000),
                 "product_photos_qty": rng.randint(1, 5),
                 "product_weight_g": w,
-                "product_length_cm": max(5, int(w ** 0.5) % 60 + 5),
+                "product_length_cm": max(5, int(w**0.5) % 60 + 5),
                 "product_height_cm": rng.randint(5, 50),
                 "product_width_cm": rng.randint(5, 50),
             }
@@ -132,11 +136,19 @@ def main() -> None:
         purchase = base_date + timedelta(hours=i * 6, minutes=rng.randint(0, 59))
         approved = purchase + timedelta(hours=rng.randint(1, 20))
         if ORDER_STATUSES[i % len(ORDER_STATUSES)] == "delivered":
-            handoff_days = rng.uniform(6.5, 9.5) if order_supplier[i] == DEGRADED_SUPPLIER else rng.uniform(1.0, 3.0)
+            handoff_days = (
+                rng.uniform(6.5, 9.5)
+                if order_supplier[i] == DEGRADED_SUPPLIER
+                else rng.uniform(1.0, 3.0)
+            )
             carrier = purchase + timedelta(days=handoff_days)
             delivered = carrier + timedelta(days=rng.uniform(4.0, 12.0))
         elif ORDER_STATUSES[i % len(ORDER_STATUSES)] == "shipped":
-            handoff_days = rng.uniform(6.5, 9.5) if order_supplier[i] == DEGRADED_SUPPLIER else rng.uniform(1.0, 3.0)
+            handoff_days = (
+                rng.uniform(6.5, 9.5)
+                if order_supplier[i] == DEGRADED_SUPPLIER
+                else rng.uniform(1.0, 3.0)
+            )
             carrier = purchase + timedelta(days=handoff_days)
             delivered = ""
         else:
@@ -152,9 +164,15 @@ def main() -> None:
                 "customer_id": customer["customer_id"],
                 "order_status": ORDER_STATUSES[i % len(ORDER_STATUSES)],
                 "order_purchase_timestamp": _dt(purchase.strftime("%Y-%m-%d %H:%M:%S")),
-                "order_approved_at": _dt(approved.strftime("%Y-%m-%d %H:%M:%S")) if carrier or approved else "",
-                "order_delivered_carrier_date": _dt(carrier.strftime("%Y-%m-%d %H:%M:%S")) if carrier else "",
-                "order_delivered_customer_date": _dt(delivered.strftime("%Y-%m-%d %H:%M:%S")) if delivered else "",
+                "order_approved_at": _dt(approved.strftime("%Y-%m-%d %H:%M:%S"))
+                if carrier or approved
+                else "",
+                "order_delivered_carrier_date": _dt(carrier.strftime("%Y-%m-%d %H:%M:%S"))
+                if carrier
+                else "",
+                "order_delivered_customer_date": _dt(delivered.strftime("%Y-%m-%d %H:%M:%S"))
+                if delivered
+                else "",
                 "order_estimated_delivery_date": _dt(estimated.strftime("%Y-%m-%d %H:%M:%S")),
             }
         )
@@ -166,10 +184,14 @@ def main() -> None:
             items_rows.append(
                 {
                     "order_id": oid,
-                    "order_item_id": str(item_seq),  # globally unique sequence, as in the real dataset
+                    "order_item_id": str(
+                        item_seq
+                    ),  # globally unique sequence, as in the real dataset
                     "product_id": product["product_id"],
                     "seller_id": order_supplier[i],
-                    "shipping_limit_date": _dt((purchase + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")),
+                    "shipping_limit_date": _dt(
+                        (purchase + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
+                    ),
                     "price": f"{rng.uniform(39.9, 299.9):.2f}",
                     "freight_value": f"{rng.uniform(5.0, 35.0):.2f}",
                 }
@@ -192,34 +214,52 @@ def main() -> None:
         "olist_customers_dataset.csv",
         customers,
         [
-            "customer_id", "customer_unique_id", "customer_zip_code_prefix",
-            "customer_city", "customer_state",
+            "customer_id",
+            "customer_unique_id",
+            "customer_zip_code_prefix",
+            "customer_city",
+            "customer_state",
         ],
     )
     write_csv(
         "olist_orders_dataset.csv",
         orders_rows,
         [
-            "order_id", "customer_id", "order_status", "order_purchase_timestamp",
-            "order_approved_at", "order_delivered_carrier_date",
-            "order_delivered_customer_date", "order_estimated_delivery_date",
+            "order_id",
+            "customer_id",
+            "order_status",
+            "order_purchase_timestamp",
+            "order_approved_at",
+            "order_delivered_carrier_date",
+            "order_delivered_customer_date",
+            "order_estimated_delivery_date",
         ],
     )
     write_csv(
         "olist_order_items_dataset.csv",
         items_rows,
         [
-            "order_id", "order_item_id", "product_id", "seller_id",
-            "shipping_limit_date", "price", "freight_value",
+            "order_id",
+            "order_item_id",
+            "product_id",
+            "seller_id",
+            "shipping_limit_date",
+            "price",
+            "freight_value",
         ],
     )
     write_csv(
         "olist_products_dataset.csv",
         products,
         [
-            "product_id", "product_category_name", "product_name_lenght",
-            "product_description_lenght", "product_photos_qty",
-            "product_weight_g", "product_length_cm", "product_height_cm",
+            "product_id",
+            "product_category_name",
+            "product_name_lenght",
+            "product_description_lenght",
+            "product_photos_qty",
+            "product_weight_g",
+            "product_length_cm",
+            "product_height_cm",
             "product_width_cm",
         ],
     )

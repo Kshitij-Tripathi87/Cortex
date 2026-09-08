@@ -44,6 +44,7 @@ import pytest
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def in_memory_tracer():
     """Provide a tracer and an in-memory span exporter.
@@ -97,6 +98,7 @@ def in_memory_tracer():
 # 1. current_trace_id_hex / current_span_id_hex — audit log columns
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestCurrentTraceIdHex:
     """The audit log ``trace_id`` column must store the
     32-character hex form of the active OTel trace id (no
@@ -104,6 +106,7 @@ class TestCurrentTraceIdHex:
 
     def test_returns_none_when_no_span(self):
         from app.infrastructure.trace_context import current_trace_id_hex
+
         # No span active — should be None, not empty string
         # or a fake value. A non-None sentinel here would
         # silently corrupt the audit log.
@@ -111,10 +114,12 @@ class TestCurrentTraceIdHex:
 
     def test_returns_none_when_no_span_id(self):
         from app.infrastructure.trace_context import current_span_id_hex
+
         assert current_span_id_hex() is None
 
     def test_returns_32_char_hex_when_span_active(self, in_memory_tracer):
         from app.infrastructure.trace_context import current_trace_id_hex
+
         tracer, _ = in_memory_tracer
         # ``start_as_current_span`` both opens the span and
         # makes it the active span for the duration of the
@@ -133,6 +138,7 @@ class TestCurrentTraceIdHex:
 
     def test_returns_16_char_hex_when_span_active(self, in_memory_tracer):
         from app.infrastructure.trace_context import current_span_id_hex
+
         tracer, _ = in_memory_tracer
         with tracer.start_as_current_span("test_root"):
             span_id = current_span_id_hex()
@@ -145,19 +151,19 @@ class TestCurrentTraceIdHex:
 # 2. build_envelope — HTTP → queue hop
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestBuildEnvelope:
     """Building an envelope from a payload must add a
     ``__trace_parent__`` key carrying the W3C
     ``traceparent`` header. Without this, the worker can't
     resume the trace and the audit log row is orphaned."""
 
-    def test_envelope_carries_traceparent_when_span_active(
-        self, in_memory_tracer
-    ):
+    def test_envelope_carries_traceparent_when_span_active(self, in_memory_tracer):
         from app.infrastructure.trace_context import (
             build_envelope,
             current_trace_id_hex,
         )
+
         tracer, exporter = in_memory_tracer
         with tracer.start_as_current_span("http_request"):
             envelope = build_envelope({"job_kind": "twin", "id": "j_1"})
@@ -171,11 +177,9 @@ class TestBuildEnvelope:
         )
         traceparent = envelope["__trace_parent__"]
         # W3C traceparent format: 00-<32hex>-<16hex>-<2hex>
-        m = re.match(r"^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$",
-                     traceparent)
+        m = re.match(r"^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$", traceparent)
         assert m is not None, (
-            f"traceparent must be W3C format '00-<trace>-<span>-<flags>', "
-            f"got {traceparent!r}"
+            f"traceparent must be W3C format '00-<trace>-<span>-<flags>', got {traceparent!r}"
         )
         # The decoded trace id must match the active one.
         assert m.group(1) == http_trace_id
@@ -192,6 +196,7 @@ class TestBuildEnvelope:
 
     def test_envelope_does_not_mutate_payload(self, in_memory_tracer):
         from app.infrastructure.trace_context import build_envelope
+
         tracer, _ = in_memory_tracer
         payload = {"job_kind": "ingest", "id": "j_42"}
         with tracer.start_as_current_span("http_request"):
@@ -207,6 +212,7 @@ class TestBuildEnvelope:
 
     def test_envelope_without_span_has_no_trace_key(self):
         from app.infrastructure.trace_context import build_envelope
+
         # No active span — envelope MUST NOT carry a
         # __trace_parent__ key. Adding a fake one would
         # produce a broken traceparent value the worker
@@ -223,21 +229,21 @@ class TestBuildEnvelope:
 # 3. restore_from_envelope — queue → worker hop
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRestoreFromEnvelope:
     """Restoring an envelope on the worker side must make
     the worker's spans children of the original HTTP span.
     This is the only thing that turns three independent
     traces (HTTP, queue hop, worker) into one."""
 
-    def test_restored_context_produces_child_spans(
-        self, in_memory_tracer
-    ):
+    def test_restored_context_produces_child_spans(self, in_memory_tracer):
         from app.infrastructure.trace_context import (
             build_envelope,
             current_trace_id_hex,
             detach_context,
             restore_from_envelope,
         )
+
         tracer, exporter = in_memory_tracer
 
         # Simulate the HTTP request side: open a span, build
@@ -247,9 +253,7 @@ class TestRestoreFromEnvelope:
             http_trace_id = current_trace_id_hex()
         # The HTTP span was ended; pull the captured id out
         # of the exported tree.
-        http_captured = next(
-            s for s in exporter.get_finished_spans() if s.name == "http_request"
-        )
+        http_captured = next(s for s in exporter.get_finished_spans() if s.name == "http_request")
         http_span_id_int = http_captured.context.span_id
 
         # Simulate the worker side: restore, open a child
@@ -277,9 +281,7 @@ class TestRestoreFromEnvelope:
         # The parent/child relationship is actually wired up.
         spans = exporter.get_finished_spans()
         # Find the parent of the worker span.
-        parent_ids = [
-            s.parent.span_id if s.parent else None for s in spans
-        ]
+        parent_ids = [s.parent.span_id if s.parent else None for s in spans]
         # The worker span's parent must be the HTTP span.
         assert http_span_id_int in parent_ids, (
             "Worker span does not have the HTTP span as parent. "
@@ -288,6 +290,7 @@ class TestRestoreFromEnvelope:
 
     def test_envelope_without_trace_returns_none(self):
         from app.infrastructure.trace_context import restore_from_envelope
+
         # No __trace_parent__ key — the job was enqueued
         # before F3, or the enqueuer had no active span.
         # The correct behavior is to return None (so the
@@ -297,6 +300,7 @@ class TestRestoreFromEnvelope:
 
     def test_envelope_with_empty_trace_returns_none(self):
         from app.infrastructure.trace_context import restore_from_envelope
+
         # Empty string is the same as missing — never a
         # half-restored context.
         assert restore_from_envelope({"__trace_parent__": ""}) is None
@@ -308,6 +312,7 @@ class TestRestoreFromEnvelope:
             detach_context,
             restore_from_envelope,
         )
+
         tracer, _ = in_memory_tracer
 
         # 1. Open an HTTP span.
@@ -326,12 +331,12 @@ class TestRestoreFromEnvelope:
         #    The restored context must not leak into the
         #    next test.
         assert current_trace_id_hex() is None, (
-            "Detached context leaked — the next worker job "
-            "would inherit the wrong trace parent."
+            "Detached context leaked — the next worker job would inherit the wrong trace parent."
         )
 
     def test_detach_with_none_is_noop(self):
         from app.infrastructure.trace_context import detach_context
+
         # Must not raise on None — workers call this in
         # finally blocks and shouldn't have to check.
         detach_context(None)  # should not raise
@@ -342,6 +347,7 @@ class TestRestoreFromEnvelope:
             detach_context,
             restore_from_envelope,
         )
+
         tracer, _ = in_memory_tracer
         with tracer.start_as_current_span("http_request"):
             envelope = build_envelope({})
@@ -355,6 +361,7 @@ class TestRestoreFromEnvelope:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Round-trip — the F3 contract end-to-end
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestEndToEndRoundTrip:
     """The F3 contract is: a trace id that survives HTTP →
@@ -371,15 +378,18 @@ class TestEndToEndRoundTrip:
             detach_context,
             restore_from_envelope,
         )
+
         tracer, exporter = in_memory_tracer
 
         # ── HTTP side ────────────────────────────────────
         with tracer.start_as_current_span("http_request") as http_span:
             http_trace_id = current_trace_id_hex()
-            envelope = build_envelope({
-                "job_kind": "decision_emit",
-                "decision_id": "dec_abc",
-            })
+            envelope = build_envelope(
+                {
+                    "job_kind": "decision_emit",
+                    "decision_id": "dec_abc",
+                }
+            )
         http_span_id_int = http_span.get_span_context().span_id
 
         # ── Queue hop (no work) ─────────────────────────
@@ -413,9 +423,7 @@ class TestEndToEndRoundTrip:
         worker_ctx = worker_span.get_span_context()
         # Find the worker span and check its parent is the
         # HTTP span.
-        worker_captured = next(
-            s for s in spans if s.context.span_id == worker_ctx.span_id
-        )
+        worker_captured = next(s for s in spans if s.context.span_id == worker_ctx.span_id)
         assert worker_captured.parent is not None
         assert worker_captured.parent.span_id == http_span_id_int
 
@@ -423,6 +431,7 @@ class TestEndToEndRoundTrip:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. traced_section — worker hot path
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTracedSection:
     """The worker uses ``traced_section`` to wrap the
@@ -433,6 +442,7 @@ class TestTracedSection:
 
     def test_section_opens_named_span(self, in_memory_tracer):
         from app.infrastructure.trace_context import traced_section
+
         tracer, exporter = in_memory_tracer
         with tracer.start_as_current_span("worker_loop"), traced_section("process_job"):
             pass
@@ -442,6 +452,7 @@ class TestTracedSection:
 
     def test_section_sets_attributes(self, in_memory_tracer):
         from app.infrastructure.trace_context import traced_section
+
         tracer, exporter = in_memory_tracer
         attrs = {
             "job.kind": "twin",
@@ -467,6 +478,7 @@ class TestTracedSection:
         from opentelemetry.trace import StatusCode
 
         from app.infrastructure.trace_context import traced_section
+
         tracer, exporter = in_memory_tracer
         with pytest.raises(RuntimeError, match="boom"):  # noqa: SIM117 - span tree must outlive the raise
             with tracer.start_as_current_span("worker_loop"):
@@ -491,6 +503,7 @@ class TestTracedSection:
 
     def test_section_ends_span_even_on_exception(self, in_memory_tracer):
         from app.infrastructure.trace_context import traced_section
+
         tracer, exporter = in_memory_tracer
         # Even when the block raises, the span MUST be
         # ended (otherwise the SDK leaks it; repeated
@@ -505,6 +518,7 @@ class TestTracedSection:
 
     def test_section_ends_span_on_clean_exit(self, in_memory_tracer):
         from app.infrastructure.trace_context import traced_section
+
         tracer, exporter = in_memory_tracer
         with tracer.start_as_current_span("worker_loop"), traced_section("process_job"):
             pass
@@ -517,6 +531,7 @@ class TestTracedSection:
 # 6. Module-level invariants
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestModuleInvariants:
     """The frozen envelope key is a contract between the
     enqueuer and the worker. Renaming it would silently
@@ -524,6 +539,7 @@ class TestModuleInvariants:
 
     def test_envelope_trace_key_is_frozen_string(self):
         from app.infrastructure.trace_context import ENVELOPE_TRACE_KEY
+
         assert ENVELOPE_TRACE_KEY == "__trace_parent__"
 
     def test_envelope_trace_key_does_not_collide_with_job_keys(self):
@@ -533,6 +549,7 @@ class TestModuleInvariants:
         # not silently overwrite it. We test that
         # build_envelope preserves the payload's keys.
         from app.infrastructure.trace_context import build_envelope
+
         with pytest.MonkeyPatch.context() as m:
             # Force an active span by stubbing get_tracer.
             from opentelemetry import trace
@@ -541,24 +558,28 @@ class TestModuleInvariants:
             from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
                 InMemorySpanExporter,
             )
+
             provider = TracerProvider()
-            provider.add_span_processor(
-                SimpleSpanProcessor(InMemorySpanExporter())
+            provider.add_span_processor(SimpleSpanProcessor(InMemorySpanExporter()))
+            m.setattr(
+                trace,
+                "set_tracer_provider",
+                lambda p: trace._TRACER_PROVIDER_SET_ONCE._done if False else None,
             )
-            m.setattr(trace, "set_tracer_provider",
-                      lambda p: trace._TRACER_PROVIDER_SET_ONCE._done
-                      if False else None)
             # Simpler: just call with no span and verify
             # the behavior is well-defined (no __trace_parent__
             # added, payload untouched).
-            envelope = build_envelope({
-                "job_kind": "ingest",
-                "id": "j_99",
-            })
+            envelope = build_envelope(
+                {
+                    "job_kind": "ingest",
+                    "id": "j_99",
+                }
+            )
             assert envelope == {"job_kind": "ingest", "id": "j_99"}
 
     def test_get_tracer_returns_cortex_scoped_tracer(self):
         from app.infrastructure.trace_context import get_tracer
+
         # The default argument pins the tracer to the
         # cortex namespace. Renaming it would scatter spans
         # across multiple instrumentations and break the
@@ -568,4 +589,5 @@ class TestModuleInvariants:
         # may or may not expose it), but it MUST be a
         # valid Tracer object.
         from opentelemetry.trace import Tracer as OTelTracer
+
         assert isinstance(tracer, OTelTracer)

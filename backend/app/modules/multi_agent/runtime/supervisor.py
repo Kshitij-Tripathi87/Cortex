@@ -244,7 +244,9 @@ class AgentSupervisor:
                     )
                     return props
                 except TimeoutError:
-                    errors.append(f"Agent '{agent.name}' timed out after {self.config.agent_timeout_seconds}s")
+                    errors.append(
+                        f"Agent '{agent.name}' timed out after {self.config.agent_timeout_seconds}s"
+                    )
                     return []
                 except Exception as e:
                     errors.append(f"Agent '{agent.name}' failed proposal evaluation: {e}")
@@ -268,7 +270,9 @@ class AgentSupervisor:
             quorum_ratio = len(responding_agents) / max(1, len(self.specialists))
             if quorum_ratio < self.config.quorum_threshold and len(raw_proposals) == 0:
                 # Quorum failure fallback to deterministic NOOP
-                errors.append(f"Quorum failure ({quorum_ratio:.1%} < {self.config.quorum_threshold:.1%})")
+                errors.append(
+                    f"Quorum failure ({quorum_ratio:.1%} < {self.config.quorum_threshold:.1%})"
+                )
 
             # Emit proposals to message envelope stream
             for prop in raw_proposals:
@@ -326,7 +330,9 @@ class AgentSupervisor:
                             raw_critiques.append(critique)
 
                             critique_msg = create_envelope(
-                                message_type=MessageType.CHALLENGE if not critique.supports_proposal else MessageType.OBSERVATION,
+                                message_type=MessageType.CHALLENGE
+                                if not critique.supports_proposal
+                                else MessageType.OBSERVATION,
                                 organization_id=context.organization_id,
                                 workspace_id=context.workspace_id,
                                 agent_id=reviewer.name,
@@ -358,9 +364,7 @@ class AgentSupervisor:
                     if critiques_for_prop
                     else 1.0
                 )
-                net_value = max(
-                    0.0, prop.estimated_revenue_protected_usd - prop.estimated_cost_usd
-                )
+                net_value = max(0.0, prop.estimated_revenue_protected_usd - prop.estimated_cost_usd)
                 # Composite ranking: Net Value * Confidence * Feasibility
                 composite_score = net_value * prop.confidence_score * avg_feasibility
                 proposal_scores.append((composite_score, prop))
@@ -370,9 +374,7 @@ class AgentSupervisor:
             selected_actions = [p.proposed_action for p in selected_proposals]
 
             total_cost = sum(p.estimated_cost_usd for p in selected_proposals)
-            total_protected = sum(
-                p.estimated_revenue_protected_usd for p in selected_proposals
-            )
+            total_protected = sum(p.estimated_revenue_protected_usd for p in selected_proposals)
 
             if raw_critiques:
                 supported = sum(1 for c in raw_critiques if c.supports_proposal)

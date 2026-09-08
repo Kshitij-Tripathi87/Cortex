@@ -69,7 +69,9 @@ class AgentDeploymentController:
             raise ValueError(f"Artifact {agent_id}:{version} not found in registry.")
 
         if replica_count > self.max_replicas_per_agent:
-            raise ValueError(f"Requested {replica_count} replicas exceeds quota ({self.max_replicas_per_agent}).")
+            raise ValueError(
+                f"Requested {replica_count} replicas exceeds quota ({self.max_replicas_per_agent})."
+            )
 
         if agent_id not in self._replicas:
             self._replicas[agent_id] = []
@@ -95,7 +97,9 @@ class AgentDeploymentController:
         art.lifecycle_state = AgentLifecycleState.ACTIVE
         return new_replicas
 
-    def list_replicas(self, agent_id: str | None = None, workspace_id: str | None = None) -> list[AgentReplica]:
+    def list_replicas(
+        self, agent_id: str | None = None, workspace_id: str | None = None
+    ) -> list[AgentReplica]:
         """List active running replicas filtered by agent and workspace."""
         if agent_id:
             reps = self._replicas.get(agent_id, [])
@@ -153,7 +157,9 @@ class AgentDeploymentController:
             "status": "CANARY_ACTIVE",
         }
 
-    def autoscale_fleet(self, agent_id: str, workspace_id: str, current_queue_lag_ms: float) -> dict[str, Any]:
+    def autoscale_fleet(
+        self, agent_id: str, workspace_id: str, current_queue_lag_ms: float
+    ) -> dict[str, Any]:
         """Autoscale replicas based on current message queue lag."""
         reps = self.list_replicas(agent_id, workspace_id)
         current_count = len(reps)

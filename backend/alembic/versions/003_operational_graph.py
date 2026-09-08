@@ -40,8 +40,9 @@ def upgrade() -> None:
         sa.Column("valid_to", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("node_id"),
-        sa.UniqueConstraint("workspace_id", "entity_type", "entity_id",
-                            name="uq_graph_nodes_workspace_entity"),
+        sa.UniqueConstraint(
+            "workspace_id", "entity_type", "entity_id", name="uq_graph_nodes_workspace_entity"
+        ),
     )
     op.create_index("ix_graph_nodes_workspace_id", "graph_nodes", ["workspace_id"])
     op.create_index("ix_graph_nodes_tenant_id", "graph_nodes", ["tenant_id"])
@@ -62,9 +63,13 @@ def upgrade() -> None:
         sa.Column("valid_to", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("edge_id"),
-        sa.UniqueConstraint("workspace_id", "source_node_id", "target_node_id",
-                            "relationship_type",
-                            name="uq_graph_edges_workspace_source_target_rel"),
+        sa.UniqueConstraint(
+            "workspace_id",
+            "source_node_id",
+            "target_node_id",
+            "relationship_type",
+            name="uq_graph_edges_workspace_source_target_rel",
+        ),
     )
     op.create_index("ix_graph_edges_workspace_id", "graph_edges", ["workspace_id"])
     op.create_index("ix_graph_edges_tenant_id", "graph_edges", ["tenant_id"])
@@ -86,8 +91,7 @@ def upgrade() -> None:
         sa.Column("source_batch_id", sa.String(36), nullable=True),
         sa.Column("sealed_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("snapshot_id"),
-        sa.UniqueConstraint("workspace_id", "version",
-                            name="uq_graph_snapshots_workspace_version"),
+        sa.UniqueConstraint("workspace_id", "version", name="uq_graph_snapshots_workspace_version"),
     )
     op.create_index("ix_graph_snapshots_workspace_id", "graph_snapshots", ["workspace_id"])
     op.create_index("ix_graph_snapshots_tenant_id", "graph_snapshots", ["tenant_id"])
@@ -122,12 +126,18 @@ def upgrade() -> None:
         sa.Column("claim_id", sa.String(36), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("link_id"),
-        sa.UniqueConstraint("graph_element_type", "graph_element_id", "claim_id",
-                            name="uq_provenance_links_element_claim"),
+        sa.UniqueConstraint(
+            "graph_element_type",
+            "graph_element_id",
+            "claim_id",
+            name="uq_provenance_links_element_claim",
+        ),
     )
     op.create_index("ix_provenance_links_workspace_id", "provenance_links", ["workspace_id"])
     op.create_index("ix_provenance_links_tenant_id", "provenance_links", ["tenant_id"])
-    op.create_index("ix_provenance_links_graph_element_id", "provenance_links", ["graph_element_id"])
+    op.create_index(
+        "ix_provenance_links_graph_element_id", "provenance_links", ["graph_element_id"]
+    )
     op.create_index("ix_provenance_links_claim_id", "provenance_links", ["claim_id"])
 
     # Enable + force RLS on new tables

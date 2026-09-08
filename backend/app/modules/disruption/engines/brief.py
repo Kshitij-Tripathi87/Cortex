@@ -1,4 +1,4 @@
-﻿"""Morning Brief orchestrator — runs all engines and persists an ImpactReport.
+"""Morning Brief orchestrator — runs all engines and persists an ImpactReport.
 
 This is the single entry-point that ties together the five pure-functional
 engines (propagation, impact, confidence, recommendations, timeline) and
@@ -63,18 +63,9 @@ def run_morning_brief(
 
     evidence_keys = tuple(
         sorted(
-            set(
-                str(c.component_id)
-                for c in propagation.affected_components
-            )
-            | set(
-                str(p.product_id)
-                for p in propagation.affected_products
-            )
-            | set(
-                str(o.order_id)
-                for o in propagation.open_orders_at_risk
-            )
+            set(str(c.component_id) for c in propagation.affected_components)
+            | set(str(p.product_id) for p in propagation.affected_products)
+            | set(str(o.order_id) for o in propagation.open_orders_at_risk)
         )
     )
 

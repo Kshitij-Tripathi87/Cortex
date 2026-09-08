@@ -7,6 +7,7 @@ Revises: 005
 Create Date: 2026-07-21
 
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -33,7 +34,12 @@ def upgrade() -> None:
         sa.Column("feature_value", sa.Float, nullable=False),
         sa.Column("feature_version", sa.String(16), nullable=False, default="1.0.0"),
         sa.Column("snapshot_version", sa.Integer, nullable=True),
-        sa.Column("computed_at", sa.DateTime(timezone=True), nullable=False, server_default=text("(CURRENT_TIMESTAMP)")),
+        sa.Column(
+            "computed_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=text("(CURRENT_TIMESTAMP)"),
+        ),
         sa.Column("metadata", sa.JSON, nullable=False, default=dict),
         sa.PrimaryKeyConstraint("feature_id"),
     )
@@ -46,7 +52,12 @@ def upgrade() -> None:
         sa.Column("description", sa.Text, nullable=False),
         sa.Column("feature_names", sa.JSON, nullable=False, default=list),
         sa.Column("version", sa.String(16), nullable=False, default="1.0.0"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=text("(CURRENT_TIMESTAMP)")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=text("(CURRENT_TIMESTAMP)"),
+        ),
         sa.Column("created_by", sa.String(36), nullable=True),
         sa.Column("metadata", sa.JSON, nullable=False, default=dict),
         sa.PrimaryKeyConstraint("group_id"),
@@ -67,7 +78,12 @@ def upgrade() -> None:
         sa.Column("metrics", sa.JSON, nullable=False, default=dict),
         sa.Column("artifact_path", sa.String(512), nullable=True),
         sa.Column("parent_model_id", sa.String(36), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=text("(CURRENT_TIMESTAMP)")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=text("(CURRENT_TIMESTAMP)"),
+        ),
         sa.Column("created_by", sa.String(36), nullable=True),
         sa.Column("metadata", sa.JSON, nullable=False, default=dict),
         sa.PrimaryKeyConstraint("model_id"),
@@ -82,7 +98,12 @@ def upgrade() -> None:
         sa.Column("dataset_version", sa.String(64), nullable=False),
         sa.Column("metrics", sa.JSON, nullable=False, default=dict),
         sa.Column("confusion_matrix", sa.JSON, nullable=True),
-        sa.Column("evaluated_at", sa.DateTime(timezone=True), nullable=False, server_default=text("(CURRENT_TIMESTAMP)")),
+        sa.Column(
+            "evaluated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=text("(CURRENT_TIMESTAMP)"),
+        ),
         sa.Column("evaluated_by", sa.String(36), nullable=True),
         sa.Column("metadata", sa.JSON, nullable=False, default=dict),
         sa.PrimaryKeyConstraint("evaluation_id"),
@@ -100,16 +121,29 @@ def upgrade() -> None:
         sa.Column("confidence", sa.Float, nullable=True),
         sa.Column("actual_outcome", sa.JSON, nullable=True),
         sa.Column("matched", sa.Boolean, nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=text("(CURRENT_TIMESTAMP)")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=text("(CURRENT_TIMESTAMP)"),
+        ),
         sa.Column("metadata", sa.JSON, nullable=False, default=dict),
         sa.PrimaryKeyConstraint("prediction_id"),
     )
 
     # Create indexes for performance
-    op.create_index("ix_ml_feature_store_entity", "ml_feature_store", ["workspace_id", "entity_type", "entity_id"])
+    op.create_index(
+        "ix_ml_feature_store_entity",
+        "ml_feature_store",
+        ["workspace_id", "entity_type", "entity_id"],
+    )
     op.create_index("ix_ml_feature_store_name", "ml_feature_store", ["feature_name"])
-    op.create_index("ix_ml_model_registry_name_version", "ml_model_registry", ["model_name", "version"])
-    op.create_index("ix_ml_shadow_predictions_model", "ml_shadow_predictions", ["model_id", "model_version"])
+    op.create_index(
+        "ix_ml_model_registry_name_version", "ml_model_registry", ["model_name", "version"]
+    )
+    op.create_index(
+        "ix_ml_shadow_predictions_model", "ml_shadow_predictions", ["model_id", "model_version"]
+    )
 
 
 def downgrade() -> None:

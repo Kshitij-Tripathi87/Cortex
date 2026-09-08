@@ -18,6 +18,9 @@ Operational context adjusts severity and confidence:
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from app.common.ids import uuid7
 from app.modules.graph.context_fusion import EnrichedNodeState, EnrichedSnapshot
 from app.modules.graph.signal_models import (
@@ -294,7 +297,7 @@ def detect_isolation_signals(
             continue
 
         feature_evidence = {
-            "total_degree": 0,
+            "total_degree": 0.0,
         }
 
         # Base severity based on entity type
@@ -402,7 +405,7 @@ def detect_criticality_signals(
 
 
 # Registry of detector functions
-DETECTORS: dict[str, callable] = {
+DETECTORS: dict[str, Callable[..., Any]] = {
     "single_point_of_failure_alert": detect_spof_signals,
     "concentration_risk_alert": detect_concentration_signals,
     "bottleneck_alert": detect_bottleneck_signals,
@@ -411,6 +414,6 @@ DETECTORS: dict[str, callable] = {
 }
 
 
-def get_detector(signal_name: str) -> callable | None:
+def get_detector(signal_name: str) -> Callable[..., Any] | None:
     """Retrieve a detector function by signal name."""
     return DETECTORS.get(signal_name)

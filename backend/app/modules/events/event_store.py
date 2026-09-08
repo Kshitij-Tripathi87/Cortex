@@ -397,6 +397,8 @@ class EventStore:
             event=event,
             payload=db_event.payload,
             event_hash=str(meta.get("event_hash", "")),
-            prev_event_hash=(str(meta["prev_event_hash"]) if meta.get("prev_event_hash") is not None else None),
+            prev_event_hash=(
+                str(meta["prev_event_hash"]) if meta.get("prev_event_hash") is not None else None
+            ),
             sequence=int(meta.get("sequence", 0)),
         )

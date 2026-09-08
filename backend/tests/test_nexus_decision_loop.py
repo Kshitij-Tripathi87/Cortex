@@ -20,15 +20,11 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.modules.nexus_spine.demand import (
-    HistoricalDemandPoint,
-    get_demand_engine,
     reset_demand_engine,
 )
 from app.modules.nexus_spine.governance import (
     DecisionLifecycle,
-    DecisionLifecycleManager,
     DecisionPhase,
-    get_decision_lifecycle_manager,
     reset_decision_lifecycle_manager,
     validate_world_state_consistent,
 )
@@ -38,8 +34,6 @@ from app.modules.nexus_spine.memory import (
     reset_decision_memory,
 )
 from app.modules.nexus_spine.ontology import (
-    EntityKind,
-    EntityQuery,
     RelationshipEdge,
     RelationshipKind,
     SalesOrderEntity,
@@ -55,7 +49,6 @@ from app.modules.nexus_spine.scenarios import (
     ScenarioMutation,
     get_scenario_studio,
 )
-
 
 TENANT = UUID("11111111-1111-1111-1111-111111111111")
 WORKSPACE = UUID("22222222-2222-2222-2222-222222222222")
@@ -86,23 +79,37 @@ def populated_world():
     wm = get_world_model()
 
     supplier = SupplierEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SUP-142", name="Acme Components", source="evidence_importer",
-        capacity_pct=55.0, risk_score=0.82, lead_time_days=12.0,
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SUP-142",
+        name="Acme Components",
+        source="evidence_importer",
+        capacity_pct=55.0,
+        risk_score=0.82,
+        lead_time_days=12.0,
         on_time_rate=0.71,
     )
     wm.upsert(supplier, actor="import")
 
     orders = []
-    for i, (rev, sla) in enumerate([
-        (200_000.0, 0.85), (150_000.0, 0.70), (100_000.0, 0.60),
-    ]):
+    for i, (rev, sla) in enumerate(
+        [
+            (200_000.0, 0.85),
+            (150_000.0, 0.70),
+            (100_000.0, 0.60),
+        ]
+    ):
         order = SalesOrderEntity.create(
-            tenant_id=TENANT, workspace_id=WORKSPACE,
-            natural_key=f"SO-{i+1}", name=f"Order {i+1}", source="test",
-            quantity=100, customer_id=uuid4(),
+            tenant_id=TENANT,
+            workspace_id=WORKSPACE,
+            natural_key=f"SO-{i + 1}",
+            name=f"Order {i + 1}",
+            source="test",
+            quantity=100,
+            customer_id=uuid4(),
             promised_delivery=datetime.now(UTC) + timedelta(days=14),
-            revenue=rev, sla_risk_pct=sla,
+            revenue=rev,
+            sla_risk_pct=sla,
         )
         wm.upsert(order, actor="import")
         orders.append(order)
@@ -116,10 +123,14 @@ def populated_world():
         )
 
     sig = SignalEntity.create(
-        tenant_id=TENANT, workspace_id=WORKSPACE,
-        natural_key="SIG-SUP142", name="Supplier capacity drop",
-        source="horizon_sensor", affected_entity_id=supplier.entity_id,
-        severity_score=0.75, signal_type="capacity_loss",
+        tenant_id=TENANT,
+        workspace_id=WORKSPACE,
+        natural_key="SIG-SUP142",
+        name="Supplier capacity drop",
+        source="horizon_sensor",
+        affected_entity_id=supplier.entity_id,
+        severity_score=0.75,
+        signal_type="capacity_loss",
         description="Acme Components capacity dropped 45% over weekend",
     )
     wm.upsert(sig, actor="signal_detection")
@@ -223,7 +234,7 @@ class TestGoldenDecisionLoop:
             tenant_id=str(TENANT),
             workspace_id=str(WORKSPACE),
             world_state_version=world_snapshot_version,
-            world_state_hash=hash((str(world_snapshot_version) + str(supplier.entity_id))),
+            world_state_hash=hash(str(world_snapshot_version) + str(supplier.entity_id)),
             proposal_id=sig.state.get("signal_name", "unknown"),
             options=options,
             chosen_option=chosen,
@@ -310,7 +321,9 @@ class TestGoldenDecisionLoop:
         consistent = validate_world_state_consistent(
             lifecycle, world_snapshot_version, lifecycle.world_state_hash
         )
-        assert consistent, f"Lifecycle wsp_version={lifecycle.world_state_version}, hash={lifecycle.world_state_hash}"
+        assert consistent, (
+            f"Lifecycle wsp_version={lifecycle.world_state_version}, hash={lifecycle.world_state_hash}"
+        )
 
         # ── Step 11: No stale-addon results ────────────────────────────────
         # Once in OUTCOME_RECORDED, no valid transitions remain
@@ -329,7 +342,8 @@ class TestGoldenDecisionLoop:
         supplier = populated_world["supplier"]
         studio = get_scenario_studio()
         s1 = ScenarioDefinition(
-            workspace_id=str(WORKSPACE), tenant_id=str(TENANT),
+            workspace_id=str(WORKSPACE),
+            tenant_id=str(TENANT),
             name="A",
             mutations=[
                 ScenarioMutation(
@@ -340,7 +354,8 @@ class TestGoldenDecisionLoop:
             ],
         )
         s2 = ScenarioDefinition(
-            workspace_id=str(WORKSPACE), tenant_id=str(TENANT),
+            workspace_id=str(WORKSPACE),
+            tenant_id=str(TENANT),
             name="A",
             mutations=[
                 ScenarioMutation(
@@ -357,12 +372,15 @@ class TestGoldenDecisionLoop:
     def test_compare_scenarios_matrix_output(self, populated_world):
         studio = get_scenario_studio()
         baseline = ScenarioDefinition(
-            workspace_id=str(WORKSPACE), tenant_id=str(TENANT),
-            name="Baseline", mutations=[],
+            workspace_id=str(WORKSPACE),
+            tenant_id=str(TENANT),
+            name="Baseline",
+            mutations=[],
         )
         candidates = [
             ScenarioDefinition(
-                workspace_id=str(WORKSPACE), tenant_id=str(TENANT),
+                workspace_id=str(WORKSPACE),
+                tenant_id=str(TENANT),
                 name=f"Candidate {i}",
                 mutations=[
                     ScenarioMutation(

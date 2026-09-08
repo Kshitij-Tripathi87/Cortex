@@ -286,7 +286,9 @@ def _build_domain_event(body: SubmitEventRequest) -> WorldEvent:
             entity_type=body.entity_type,
             entity_id=body.entity_id,
             capacity_pct=float(p.get("capacity_pct", 0.0)),
-            estimated_recovery_days=int(p["estimated_recovery_days"]) if "estimated_recovery_days" in p else None,
+            estimated_recovery_days=int(p["estimated_recovery_days"])
+            if "estimated_recovery_days" in p
+            else None,
             cause=p.get("cause", "emergency"),
             caused_by_event_id=body.caused_by_event_id,
             metadata=body.metadata,
@@ -491,9 +493,7 @@ async def get_state_diff(
 
     repo = StateRepository(db)
     try:
-        comparison = await compare_states(
-            repo, world_id, workspace_id, from_version, to_version
-        )
+        comparison = await compare_states(repo, world_id, workspace_id, from_version, to_version)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

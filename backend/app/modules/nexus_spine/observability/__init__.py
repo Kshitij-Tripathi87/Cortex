@@ -1,8 +1,8 @@
 """Nexus observability — public exports."""
 
 from app.modules.nexus_spine.observability.accuracy import (
-    ObservationStore,
     CalibrationMetrics,
+    ObservationStore,
     get_observation,
     register_accuracy_snapshot,
     reset_observation,

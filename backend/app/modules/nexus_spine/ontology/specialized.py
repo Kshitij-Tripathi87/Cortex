@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
 
 from app.modules.nexus_spine.ontology.core_types import EntityKind
 from app.modules.nexus_spine.ontology.entities import Entity
@@ -57,7 +57,7 @@ class SupplierEntity(Entity):
         on_time_rate: float = 0.95,
         risk_score: float = 0.0,
         country: str = "",
-    ) -> "SupplierEntity":
+    ) -> SupplierEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -89,7 +89,7 @@ class WarehouseEntity(Entity):
         source: str,
         capacity_pct: float = 80.0,
         location: str = "",
-    ) -> "WarehouseEntity":
+    ) -> WarehouseEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -115,7 +115,7 @@ class PlantEntity(Entity):
         source: str,
         utilization_pct: float = 75.0,
         capacity_units_per_day: float = 0.0,
-    ) -> "PlantEntity":
+    ) -> PlantEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -149,7 +149,7 @@ class ProductEntity(Entity):
         source: str,
         unit_price: float = 0.0,
         is_perishable: bool = False,
-    ) -> "ProductEntity":
+    ) -> ProductEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -177,7 +177,7 @@ class ComponentEntity(Entity):
         name: str,
         source: str,
         unit_cost: float = 0.0,
-    ) -> "ComponentEntity":
+    ) -> ComponentEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -210,7 +210,7 @@ class PurchaseOrderEntity(Entity):
         supplier_id: UUID,
         expected_delivery: datetime,
         unit_cost: float = 0.0,
-    ) -> "PurchaseOrderEntity":
+    ) -> PurchaseOrderEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -245,7 +245,7 @@ class SalesOrderEntity(Entity):
         promised_delivery: datetime,
         revenue: float = 0.0,
         sla_risk_pct: float = 0.0,
-    ) -> "SalesOrderEntity":
+    ) -> SalesOrderEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -280,7 +280,7 @@ class InventoryPositionEntity(Entity):
         warehouse_id: UUID,
         on_hand_qty: float,
         safety_stock_qty: float,
-    ) -> "InventoryPositionEntity":
+    ) -> InventoryPositionEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -324,7 +324,7 @@ class SignalEntity(Entity):
         signal_type: str,
         confidence: float = 0.85,
         description: str = "",
-    ) -> "SignalEntity":
+    ) -> SignalEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -364,7 +364,7 @@ class DisruptionEntity(Entity):
         affected_entity_ids: list[UUID],
         severity: str,
         expected_duration_hours: float,
-    ) -> "DisruptionEntity":
+    ) -> DisruptionEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -407,7 +407,7 @@ class ForecastEntity(Entity):
         primary_drivers: list[str],
         model_version: str,
         backtest_wape: float = 0.0,
-    ) -> "ForecastEntity":
+    ) -> ForecastEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -453,7 +453,7 @@ class DecisionEntity(Entity):
         evidence_ids: list[UUID],
         policy_id: str,
         chosen_option_id: str | None = None,
-    ) -> "DecisionEntity":
+    ) -> DecisionEntity:
         return cls(
             tenant_id=tenant_id,
             workspace_id=workspace_id,

@@ -16,13 +16,8 @@ can verify how trustworthy Nexus's predictions actually are.
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-from uuid import UUID
-
-from app.modules.nexus_spine.demand import get_truth_loop
-from app.modules.nexus_spine.memory import get_decision_memory
-from app.modules.nexus_spine.ontology import get_world_model
 
 
 def _utc_now() -> datetime.datetime:
@@ -32,6 +27,7 @@ def _utc_now() -> datetime.datetime:
 @dataclass
 class CalibrationMetrics:
     """Aggregated calibration stats for one (sku, model_version) segment."""
+
     sku: str
     model_version: str
     sample_count: int
@@ -63,7 +59,9 @@ class ObservationStore:
         # Keep a sliding window of forecasts-evaluations per sku+model_version
         self._window: list[dict[str, Any]] = []
 
-    def record(self, forecast_eval: dict[str, Any], forecast_id: str, sku: str, model_version: str) -> None:
+    def record(
+        self, forecast_eval: dict[str, Any], forecast_id: str, sku: str, model_version: str
+    ) -> None:
         """Record a forecast-vs-actual evaluation for tracking."""
         entry = {
             "forecast_id": forecast_id,
@@ -79,12 +77,15 @@ class ObservationStore:
         }
         self._window.append(entry)
 
-    def calibration_for(self, model_version: str, sku: str | None = None) -> CalibrationMetrics | None:
+    def calibration_for(
+        self, model_version: str, sku: str | None = None
+    ) -> CalibrationMetrics | None:
         """Aggregate calibration statistics for one model.
 
         Considers the last N observations per sku (sliding window)."""
         sleeve = [
-            e for e in self._window
+            e
+            for e in self._window
             if (sku is None or e["sku"] == sku) and e["model_version"] == model_version
         ]
         if not sleeve:
@@ -168,36 +169,10 @@ def reset_observation() -> None:
 # Truth-loop integration helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def record_via_forecast_channel(
-    forecast_id: str,
-    sku: str,
-    model_version: str,
-    evaluation: dict[str, Any],
+
+def register_accuracy_snapshot(
+    model_version: str, sku: str, abs_error: float, actual: float
 ) -> None:
-    """Store the evaluation of a single forecast's accuracy."""
-    engine = get_demand_engine()
-    truth_loop = get_truth_loop()
-
-    loop_eval = {
-        "forecast_id": forecast_id,
-        "sku": sku,
-        "model_version": model_version,
-        "predicted_p50": evaluation.get("p50"),
-        "actual": evaluation.get("actual"),
-        "absolute_error": evaluation.get("absolute_error"),
-        "percentage_error": evaluation.get("percentage_error"),
-        "bias": evaluation.get("bias"),
-        "world_state_version": get_world_model().world_state_version,
-    }
-    truth_loop._store = truth_loop._store or {}
-    if forecast_id not in truth_loop._store:
-        truth_loop._store[forecast_id] = {}
-    # Only store if all required keys defined by the consumer
-    if None not in ("predicted_p50", "absolute_error", "bias"):
-        truth_loop._store[forecast_id].update(loop_eval)
-
-
-def register_accuracy_snapshot(model_version: str, sku: str, abs_error: float, actual: float) -> None:
     """Record a simple snapshot observation (not full forecast loop)."""
     obs = get_observation()
     obs.record(
