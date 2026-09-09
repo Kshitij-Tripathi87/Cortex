@@ -72,6 +72,20 @@ CANONICAL_NEXUS_PATHS = {
     ("POST", "/api/v1/nexus/inference/demand"),
     ("POST", "/api/v1/nexus/inference/risk"),
     ("POST", "/api/v1/nexus/vanessa/ask"),
+    # v0.8.5-B3 — golden-path registries (risks/signals/scenarios/evidence/approvals)
+    ("POST", "/api/v1/nexus/risks"),
+    ("GET", "/api/v1/nexus/risks"),
+    ("GET", "/api/v1/nexus/risks/{risk_id}"),
+    ("PATCH", "/api/v1/nexus/risks/{risk_id}"),
+    ("GET", "/api/v1/nexus/signals"),
+    ("POST", "/api/v1/nexus/scenarios"),
+    ("GET", "/api/v1/nexus/scenarios"),
+    ("GET", "/api/v1/nexus/scenarios/{scenario_id}"),
+    ("POST", "/api/v1/nexus/scenarios/{scenario_id}/simulate"),
+    ("POST", "/api/v1/nexus/decisions/{decision_id}/evidence/nodes"),
+    ("POST", "/api/v1/nexus/decisions/{decision_id}/evidence/edges"),
+    ("GET", "/api/v1/nexus/decisions/{decision_id}/evidence"),
+    ("GET", "/api/v1/nexus/decisions/{decision_id}/approvals"),
 }
 
 # Authoritative operations that used to live on the v0.7 in-memory router

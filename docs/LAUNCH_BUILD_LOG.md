@@ -126,3 +126,85 @@ AuthProvider, validated `next`, no OAuth/SSO/MFA (deferred per spec).
 Canonical persistent signals/risks/scenarios/evidence/approval endpoints
 (tables exist; endpoints don't) + ApprovalRecordDB writes in the advance
 path. F3 from the register.
+
+## Slice v0.8.5-B3 — Golden-path API completion (Day 7–10)
+
+**Branch:** `arena/01a08657-cortex` · **Blockers:** B4 (F3, §1 rows 6,7,9,14),
+B8 (§1 row 11).
+
+### Recon verdicts (shaped the design)
+
+- `RiskRepository` / `ScenarioRepository` / `EvidenceRepository` exist but
+  are called by NOTHING (not even tests) — pure promotion work.
+- `RiskEngine.compute`, `ScenarioStudio.run`, `GetSignalTool` all read the
+  in-memory `get_world_model()` singleton → canonical endpoints MUST NOT
+  call them as-is (would violate the canonical "no singletons" contract).
+  Promotion strategy: persist + serve registries; simulate runs the twin's
+  PURE mutation/KPI core against an explicit caller-supplied snapshot
+  (`run_with_snapshot` refactor; legacy `run()` delegates unchanged).
+- `/graph/signals` is factorable + PG-backed → canonical `GET /nexus/signals`
+  delegates to the same `SignalEngine` construction (detection-on-read,
+  documented; no new table).
+- §1 row 9 "BROKEN" is dead code: `fetchScenarios`/`simulateScenario` have
+  zero importers (the live scenarios page uses `/graph/scenarios`). B3
+  repoints + retypes the client to the honest canonical contract.
+- `POST /simulation/result/{id}` is an acknowledged 501; not in B3 scope.
+- Authz `check()` denies unknown tools → new tools registered explicitly.
+- Cockpit `demoRisks` stays hardcoded in B3 (777-line flagship; rewire is a
+  dedicated slice with e2e cover). Canonical risk responses mirror the
+  `RiskItem` shape so the rewire is trivial.
+
+### Planned endpoints (all gated + enveloped, `extra="forbid"` bodies)
+
+Risks: `POST /nexus/risks` (upsert, `RISK_CHANGED`), `GET /nexus/risks`
+(filters), `GET /nexus/risks/{id}`, `PATCH /nexus/risks/{id}` (status).
+Signals: `GET /nexus/signals` (PG-backed detection-on-read).
+Scenarios: `POST/GET /nexus/scenarios`, `GET /nexus/scenarios/{id}`,
+`POST /nexus/scenarios/{id}/simulate` (`SCENARIO_COMPLETED`).
+Evidence: `POST .../decisions/{id}/evidence/nodes|edges`
+(`EVIDENCE_APPENDED`, new enum member), `GET .../evidence` (graph), plus
+AUTO nodes on approval/execution/outcome transitions (same txn).
+Approvals (B8): `advance()` writes `ApprovalRecordDB` for
+APPROVED/REJECTED/AUTHORIZED (actor + role + decision hash);
+`GET .../decisions/{id}/approvals` reads the trail.
+
+### Explicit non-goals
+
+RiskEngine/Studio singleton→PG-world projection (deep project, later
+slice); cockpit/UI rewire (dedicated slice); GNN augmentation wiring
+(`gnn_risk_score` accepted, not computed).
+
+### Shipped
+
+| Area | Change |
+|---|---|
+| `POST/GET/PATCH /nexus/risks` | Persisted risk registry (upsert on open entity risk, severity/status filters, triage); emits `RISK_CHANGED`. Response mirrors the cockpit `RiskItem` shape for the future rewire. |
+| `GET /nexus/signals` | Canonical detection-on-read over PG-backed graph/operational state (same `SignalEngine` construction as `/graph/signals`); no signal table by design. |
+| `POST/GET /nexus/scenarios` + `.../simulate` | Scenario records + twin simulation against caller-supplied snapshots (`run_with_snapshot`; legacy `run()` delegates unchanged); emits `SCENARIO_COMPLETED`. |
+| Decision evidence DAG | Manual node/edge append + graph read (emits `EVIDENCE_APPENDED`, new enum member); lifecycle transitions self-append approval/execution/outcome nodes in-transaction. |
+| B8 approval trail | `advance()` writes `ApprovalRecordDB` (actor + role + decision hash + policy checks) for APPROVED/REJECTED/AUTHORIZED; `GET .../approvals` reads it. `approver_role` NULL = programmatic advance without a principal (annotation-only; column already nullable, no migration). |
+| Authz | 10 new tools registered (`nexus.risk.*`, `nexus.signal.read`, `nexus.scenario.*`, `nexus.evidence.*`, `nexus.approval.read`); reads viewer-open, recording analyst+, triage operator+. |
+| Frontend | `lib/api/scenarios.ts` repointed to the canonical contract (was calling nonexistent `/scenarios`; zero importers so zero fallout). |
+| Tests | `test_nexus_golden_path.py` (21 tests, real PG + real JWTs): full lifecycles, deterministic KPI assertions, outbox emission proofs, 403/404 isolation matrix, restart-persistence. Pinned `CANONICAL_NEXUS_PATHS` extended (deliberate surface change). |
+
+### Verification
+
+- Backend full suite **1917/1917** on real PG (incl. 21 new; the one
+  routing-flip pin update is the designed-for surface-change workflow).
+- `ruff check` + `ruff format` clean; `mypy` clean on touched services
+  (one real catch: `uuid7()` returns `str`, not `UUID`).
+- `tsc --noEmit` + `next build` + `next lint` clean.
+- OpenAPI/TS regen is purely additive (+10 paths; `api.ts` reorder lines
+  are diff-alignment artifacts, verified by inspection).
+- Suite-ordering catch worth recording: B3 tests originally signed up
+  over HTTP and exhausted the shared per-process signup bucket (429) when
+  run after B1 in one process. Fixed by provisioning identities directly
+  + minting real JWTs via `issue_token` (signup HTTP stays B1's covered
+  territory; strict-path verification unchanged).
+
+### Next: slice v0.8.5-B4 — Outbox relay + realtime resync (B2)
+
+Host the dormant `OutboxPublisher` sweeper (lifespan/CLI/k8s) + frontend
+seq-gap detection/resync/replay. F2 from the register. (Rewire prerequisite
+found in B3: `setNexusAuthToken` has zero callers — the rewire slice must
+bridge AuthProvider → legacy `http.ts` client.)

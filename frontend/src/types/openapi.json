@@ -9223,6 +9223,716 @@
         }
       }
     },
+    "/api/v1/nexus/risks": {
+      "post": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Record Risk",
+        "operationId": "record_risk_api_v1_nexus_risks_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskRecordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Record Risk Api V1 Nexus Risks Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "List Risks",
+        "operationId": "list_risks_api_v1_nexus_risks_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "min_severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Severity"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "open|mitigated|closed|stale|all",
+              "default": "open",
+              "title": "Status"
+            },
+            "description": "open|mitigated|closed|stale|all"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Risks Api V1 Nexus Risks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/risks/{risk_id}": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Risk",
+        "operationId": "get_risk_api_v1_nexus_risks__risk_id__get",
+        "parameters": [
+          {
+            "name": "risk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Risk Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Risk Api V1 Nexus Risks  Risk Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Triage Risk",
+        "operationId": "triage_risk_api_v1_nexus_risks__risk_id__patch",
+        "parameters": [
+          {
+            "name": "risk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Risk Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Triage Risk Api V1 Nexus Risks  Risk Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/signals": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "List Signals",
+        "operationId": "list_signals_api_v1_nexus_signals_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "signal_names",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated signal names",
+              "title": "Signal Names"
+            },
+            "description": "Comma-separated signal names"
+          },
+          {
+            "name": "min_confidence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "default": 0.0,
+              "title": "Min Confidence"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Signals Api V1 Nexus Signals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/scenarios": {
+      "post": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Create Scenario",
+        "operationId": "create_scenario_api_v1_nexus_scenarios_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Scenario Api V1 Nexus Scenarios Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "List Scenarios",
+        "operationId": "list_scenarios_api_v1_nexus_scenarios_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "decision_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Scenarios Api V1 Nexus Scenarios Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/scenarios/{scenario_id}": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Scenario",
+        "operationId": "get_scenario_api_v1_nexus_scenarios__scenario_id__get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Scenario Api V1 Nexus Scenarios  Scenario Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/scenarios/{scenario_id}/simulate": {
+      "post": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Simulate Scenario",
+        "description": "Run the stored scenario against the caller-supplied entity snapshot.",
+        "operationId": "simulate_scenario_api_v1_nexus_scenarios__scenario_id__simulate_post",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioSimulateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Simulate Scenario Api V1 Nexus Scenarios  Scenario Id  Simulate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/decisions/{decision_id}/evidence/nodes": {
+      "post": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Append Evidence Node",
+        "operationId": "append_evidence_node_api_v1_nexus_decisions__decision_id__evidence_nodes_post",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceNodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Append Evidence Node Api V1 Nexus Decisions  Decision Id  Evidence Nodes Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/decisions/{decision_id}/evidence/edges": {
+      "post": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Append Evidence Edge",
+        "operationId": "append_evidence_edge_api_v1_nexus_decisions__decision_id__evidence_edges_post",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceEdgeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Append Evidence Edge Api V1 Nexus Decisions  Decision Id  Evidence Edges Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/decisions/{decision_id}/evidence": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Evidence Graph",
+        "operationId": "get_evidence_graph_api_v1_nexus_decisions__decision_id__evidence_get",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Evidence Graph Api V1 Nexus Decisions  Decision Id  Evidence Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/decisions/{decision_id}/approvals": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "List Approvals",
+        "operationId": "list_approvals_api_v1_nexus_decisions__decision_id__approvals_get",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Approvals Api V1 Nexus Decisions  Decision Id  Approvals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "summary": "Healthz",
@@ -11640,6 +12350,185 @@
         ],
         "title": "EdgeResponse"
       },
+      "Entity": {
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntityKind"
+          },
+          "natural_key": {
+            "type": "string",
+            "title": "Natural Key",
+            "description": "Stable, source-system identifier (e.g. SAP supplier code)"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "System that produced this entity"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          },
+          "confidence_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Reason"
+          },
+          "state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State"
+          },
+          "state_history": {
+            "items": {
+              "$ref": "#/components/schemas/StateSnapshot"
+            },
+            "type": "array",
+            "title": "State History"
+          },
+          "relationships_out": {
+            "items": {
+              "$ref": "#/components/schemas/RelationshipEdge"
+            },
+            "type": "array",
+            "title": "Relationships Out"
+          },
+          "relationships_in": {
+            "items": {
+              "$ref": "#/components/schemas/RelationshipEdge"
+            },
+            "type": "array",
+            "title": "Relationships In"
+          },
+          "provenance": {
+            "items": {
+              "$ref": "#/components/schemas/ProvenanceRecord"
+            },
+            "type": "array",
+            "title": "Provenance"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrant"
+            },
+            "type": "array",
+            "title": "Permissions"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "workspace_id",
+          "kind",
+          "natural_key",
+          "name",
+          "source"
+        ],
+        "title": "Entity",
+        "description": "The base world-model entity.\n\nSubclasses specialize `state` for each kind (supplier state, order state,\ninventory state, etc.). All entities share the identity, provenance,\nhistory, and permission envelope defined here."
+      },
+      "EntityKind": {
+        "type": "string",
+        "enum": [
+          "organization",
+          "workspace",
+          "team",
+          "user",
+          "supplier",
+          "manufacturer",
+          "plant",
+          "factory",
+          "warehouse",
+          "port",
+          "product",
+          "sku",
+          "component",
+          "material",
+          "bill_of_materials",
+          "purchase_order",
+          "sales_order",
+          "shipment",
+          "route",
+          "carrier",
+          "inventory_position",
+          "customer",
+          "contract",
+          "capacity",
+          "demand",
+          "forecast",
+          "lead_time",
+          "disruption",
+          "signal",
+          "scenario",
+          "simulation",
+          "decision",
+          "recommendation",
+          "execution",
+          "outcome",
+          "evidence",
+          "agent",
+          "tool",
+          "policy",
+          "approval"
+        ],
+        "title": "EntityKind",
+        "description": "Closed vocabulary of entity types in the Nexus world model.\n\nEvery entity, signal, decision, and scenario is typed by exactly one of\nthese values. New entity types require a deliberate migration step."
+      },
       "EvaluateAgentRequest": {
         "properties": {
           "agent_id": {
@@ -11772,6 +12661,81 @@
           "has_blocking_violations"
         ],
         "title": "EvaluateResponse"
+      },
+      "EvidenceEdgeRequest": {
+        "properties": {
+          "from_node_id": {
+            "type": "string",
+            "title": "From Node Id"
+          },
+          "to_node_id": {
+            "type": "string",
+            "title": "To Node Id"
+          },
+          "relation": {
+            "type": "string",
+            "title": "Relation"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight",
+            "default": 1.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "from_node_id",
+          "to_node_id",
+          "relation"
+        ],
+        "title": "EvidenceEdgeRequest"
+      },
+      "EvidenceNodeRequest": {
+        "properties": {
+          "node_type": {
+            "type": "string",
+            "title": "Node Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checksum"
+          },
+          "source_entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Entity Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node_type",
+          "label"
+        ],
+        "title": "EvidenceNodeRequest"
       },
       "ExecuteRequest": {
         "properties": {
@@ -13932,6 +14896,59 @@
         "title": "OutcomeResponse",
         "description": "An outcome record."
       },
+      "PermissionGrant": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "description": "Role granted access (e.g. 'analyst')"
+          },
+          "can_read": {
+            "type": "boolean",
+            "title": "Can Read",
+            "default": true
+          },
+          "can_write": {
+            "type": "boolean",
+            "title": "Can Write",
+            "default": false
+          },
+          "can_approve": {
+            "type": "boolean",
+            "title": "Can Approve",
+            "default": false
+          },
+          "granted_by": {
+            "type": "string",
+            "title": "Granted By",
+            "description": "Who granted the permission"
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Granted At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "granted_by"
+        ],
+        "title": "PermissionGrant",
+        "description": "A single read/write permission grant on an entity.\n\nPermissions are scoped to (tenant, workspace, role). The combination of\ntenant + workspace is enforced via RLS at the DB layer; this model\ncarries the higher-level (role-based) permissions."
+      },
       "PlanActionRequest": {
         "properties": {
           "workspace_id": {
@@ -14447,6 +15464,82 @@
           "steps"
         ],
         "title": "PropagationTreeResponse"
+      },
+      "ProvenanceRecord": {
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Step Id"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor",
+            "description": "User/agent/system identifier"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "create | update | delete | import | derive"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "System/process that produced the change"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Human-readable rationale"
+          },
+          "previous_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Hash"
+          },
+          "new_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Hash"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "actor",
+          "action",
+          "source"
+        ],
+        "title": "ProvenanceRecord",
+        "description": "One step in an entity's chain of custody.\n\nEvery mutation to an entity appends a ProvenanceRecord. This gives the\nsystem an immutable audit trail suitable for evidence retrieval, compliance\nreview, and root-cause analysis."
       },
       "RLActionRequest": {
         "properties": {
@@ -15396,6 +16489,95 @@
         "title": "RecommendationTradeOffResponse",
         "description": "A trade-off for a recommendation."
       },
+      "RelationshipEdge": {
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Edge Id"
+          },
+          "from_entity_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "From Entity Id"
+          },
+          "to_entity_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "To Entity Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RelationshipKind"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvenanceRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Attributes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_entity_id",
+          "to_entity_id",
+          "kind"
+        ],
+        "title": "RelationshipEdge",
+        "description": "A typed, directed edge from one entity to another.\n\nThe world model's graph view is a collection of these edges. Every edge\ncarries provenance + confidence so the system can reason about the\nreliability of the connection (e.g. \"inferred from supply tender\" vs\n\"confirmed via direct integration\")."
+      },
+      "RelationshipKind": {
+        "type": "string",
+        "enum": [
+          "supplies",
+          "used_in",
+          "produces",
+          "holds",
+          "ships_to",
+          "ordered_by",
+          "contains",
+          "requires",
+          "travels_via",
+          "passes_through",
+          "carried_by",
+          "affects",
+          "causes",
+          "impacts",
+          "mitigated_by",
+          "derived_from",
+          "evidenced_by",
+          "recommends",
+          "approves",
+          "executes",
+          "resulted_in",
+          "has_capacity",
+          "has_lead_time",
+          "forecasts",
+          "demands"
+        ],
+        "title": "RelationshipKind",
+        "description": "Closed vocabulary of relationships between entities.\n\nRelationships are directed (from -> to). Every world-model edge carries\nexactly one of these values. Closed vocabulary enables deterministic\ngraph traversal in O(1) per edge."
+      },
       "ReplayRequest": {
         "properties": {
           "workspace_id": {
@@ -15643,6 +16825,126 @@
           "epicenter_entity_id"
         ],
         "title": "RiskPropagationRequest"
+      },
+      "RiskRecordRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "entity_kind": {
+            "type": "string",
+            "title": "Entity Kind"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "world_state_version": {
+            "type": "integer",
+            "title": "World State Version"
+          },
+          "risk_score": {
+            "type": "number",
+            "title": "Risk Score",
+            "default": 0.0
+          },
+          "gnn_risk_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gnn Risk Score"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "blast_radius_count": {
+            "type": "integer",
+            "title": "Blast Radius Count",
+            "default": 0
+          },
+          "revenue_exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Exposure"
+          },
+          "sla_risk_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sla Risk Pct"
+          },
+          "root_causes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Root Causes"
+          },
+          "hidden_dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hidden Dependencies"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "entity_id",
+          "entity_kind",
+          "severity",
+          "title",
+          "world_state_version"
+        ],
+        "title": "RiskRecordRequest"
+      },
+      "RiskStatusRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "status"
+        ],
+        "title": "RiskStatusRequest"
       },
       "RollbackRequest": {
         "properties": {
@@ -16197,6 +17499,70 @@
         ],
         "title": "ScenarioBlock"
       },
+      "ScenarioCreateRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "world_state_version": {
+            "type": "integer",
+            "title": "World State Version"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "parent_scenario_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Scenario Id"
+          },
+          "is_baseline": {
+            "type": "boolean",
+            "title": "Is Baseline",
+            "default": false
+          },
+          "mutations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Mutations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "name",
+          "world_state_version"
+        ],
+        "title": "ScenarioCreateRequest"
+      },
       "ScenarioDefinitionModel": {
         "properties": {
           "scenario_id": {
@@ -16532,6 +17898,32 @@
           "events"
         ],
         "title": "ScenarioResponse"
+      },
+      "ScenarioSimulateRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/Entity"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "world_state_version": {
+            "type": "integer",
+            "title": "World State Version",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id"
+        ],
+        "title": "ScenarioSimulateRequest"
       },
       "ScenarioSnapshotResponse": {
         "properties": {
@@ -17640,6 +19032,51 @@
           "summary"
         ],
         "title": "StateDiffResponse"
+      },
+      "StateSnapshot": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State"
+          },
+          "state_hash": {
+            "type": "string",
+            "title": "State Hash",
+            "description": "Content hash of the canonicalized state"
+          },
+          "world_state_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "World State Version",
+            "description": "World-state version when snapshot was taken"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "state_hash",
+          "world_state_version"
+        ],
+        "title": "StateSnapshot",
+        "description": "A snapshot of an entity's state at a specific point in time.\n\nState snapshots form the historical state vector \u2014 every entity has one\ncurrent snapshot and an append-only history. Snapshots are content-hashed\nso the truth-loop (forecast vs reality) can correlate predictions with\nactual world state."
       },
       "StateVariableResponse": {
         "properties": {

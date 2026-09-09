@@ -3629,6 +3629,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nexus/risks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Risks */
+        get: operations["list_risks_api_v1_nexus_risks_get"];
+        put?: never;
+        /** Record Risk */
+        post: operations["record_risk_api_v1_nexus_risks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/risks/{risk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Risk */
+        get: operations["get_risk_api_v1_nexus_risks__risk_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Triage Risk */
+        patch: operations["triage_risk_api_v1_nexus_risks__risk_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/nexus/signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Signals */
+        get: operations["list_signals_api_v1_nexus_signals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Scenarios */
+        get: operations["list_scenarios_api_v1_nexus_scenarios_get"];
+        put?: never;
+        /** Create Scenario */
+        post: operations["create_scenario_api_v1_nexus_scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/scenarios/{scenario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Scenario */
+        get: operations["get_scenario_api_v1_nexus_scenarios__scenario_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/scenarios/{scenario_id}/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate Scenario
+         * @description Run the stored scenario against the caller-supplied entity snapshot.
+         */
+        post: operations["simulate_scenario_api_v1_nexus_scenarios__scenario_id__simulate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/evidence/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append Evidence Node */
+        post: operations["append_evidence_node_api_v1_nexus_decisions__decision_id__evidence_nodes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/evidence/edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append Evidence Edge */
+        post: operations["append_evidence_edge_api_v1_nexus_decisions__decision_id__evidence_edges_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Evidence Graph */
+        get: operations["get_evidence_graph_api_v1_nexus_decisions__decision_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/decisions/{decision_id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Approvals */
+        get: operations["list_approvals_api_v1_nexus_decisions__decision_id__approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -4647,6 +4823,95 @@ export interface components {
             /** Last Modified Version */
             last_modified_version: number;
         };
+        /**
+         * Entity
+         * @description The base world-model entity.
+         *
+         *     Subclasses specialize `state` for each kind (supplier state, order state,
+         *     inventory state, etc.). All entities share the identity, provenance,
+         *     history, and permission envelope defined here.
+         */
+        Entity: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id?: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+            kind: components["schemas"]["EntityKind"];
+            /**
+             * Natural Key
+             * @description Stable, source-system identifier (e.g. SAP supplier code)
+             */
+            natural_key: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at?: string;
+            /**
+             * Source
+             * @description System that produced this entity
+             */
+            source: string;
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Confidence Reason */
+            confidence_reason?: string | null;
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            };
+            /** State History */
+            state_history?: components["schemas"]["StateSnapshot"][];
+            /** Relationships Out */
+            relationships_out?: components["schemas"]["RelationshipEdge"][];
+            /** Relationships In */
+            relationships_in?: components["schemas"]["RelationshipEdge"][];
+            /** Provenance */
+            provenance?: components["schemas"]["ProvenanceRecord"][];
+            /** Permissions */
+            permissions?: components["schemas"]["PermissionGrant"][];
+            /** Tags */
+            tags?: string[];
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * EntityKind
+         * @description Closed vocabulary of entity types in the Nexus world model.
+         *
+         *     Every entity, signal, decision, and scenario is typed by exactly one of
+         *     these values. New entity types require a deliberate migration step.
+         * @enum {string}
+         */
+        EntityKind: "organization" | "workspace" | "team" | "user" | "supplier" | "manufacturer" | "plant" | "factory" | "warehouse" | "port" | "product" | "sku" | "component" | "material" | "bill_of_materials" | "purchase_order" | "sales_order" | "shipment" | "route" | "carrier" | "inventory_position" | "customer" | "contract" | "capacity" | "demand" | "forecast" | "lead_time" | "disruption" | "signal" | "scenario" | "simulation" | "decision" | "recommendation" | "execution" | "outcome" | "evidence" | "agent" | "tool" | "policy" | "approval";
         /** EvaluateAgentRequest */
         EvaluateAgentRequest: {
             /** Agent Id */
@@ -4695,6 +4960,35 @@ export interface components {
             }[];
             /** Has Blocking Violations */
             has_blocking_violations: boolean;
+        };
+        /** EvidenceEdgeRequest */
+        EvidenceEdgeRequest: {
+            /** From Node Id */
+            from_node_id: string;
+            /** To Node Id */
+            to_node_id: string;
+            /** Relation */
+            relation: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /** EvidenceNodeRequest */
+        EvidenceNodeRequest: {
+            /** Node Type */
+            node_type: string;
+            /** Label */
+            label: string;
+            /** Payload */
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** Checksum */
+            checksum?: string | null;
+            /** Source Entity Id */
+            source_entity_id?: string | null;
         };
         /** ExecuteRequest */
         ExecuteRequest: {
@@ -5584,6 +5878,48 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * PermissionGrant
+         * @description A single read/write permission grant on an entity.
+         *
+         *     Permissions are scoped to (tenant, workspace, role). The combination of
+         *     tenant + workspace is enforced via RLS at the DB layer; this model
+         *     carries the higher-level (role-based) permissions.
+         */
+        PermissionGrant: {
+            /**
+             * Role
+             * @description Role granted access (e.g. 'analyst')
+             */
+            role: string;
+            /**
+             * Can Read
+             * @default true
+             */
+            can_read: boolean;
+            /**
+             * Can Write
+             * @default false
+             */
+            can_write: boolean;
+            /**
+             * Can Approve
+             * @default false
+             */
+            can_approve: boolean;
+            /**
+             * Granted By
+             * @description Who granted the permission
+             */
+            granted_by: string;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at?: string;
+            /** Expires At */
+            expires_at?: string | null;
+        };
         /** PlanActionRequest */
         PlanActionRequest: {
             /** Workspace Id */
@@ -5768,6 +6104,54 @@ export interface components {
             source_node_type: string;
             /** Steps */
             steps: components["schemas"]["PropagationStepResponse"][];
+        };
+        /**
+         * ProvenanceRecord
+         * @description One step in an entity's chain of custody.
+         *
+         *     Every mutation to an entity appends a ProvenanceRecord. This gives the
+         *     system an immutable audit trail suitable for evidence retrieval, compliance
+         *     review, and root-cause analysis.
+         */
+        ProvenanceRecord: {
+            /**
+             * Step Id
+             * Format: uuid
+             */
+            step_id?: string;
+            /**
+             * Actor
+             * @description User/agent/system identifier
+             */
+            actor: string;
+            /**
+             * Action
+             * @description create | update | delete | import | derive
+             */
+            action: string;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp?: string;
+            /**
+             * Source
+             * @description System/process that produced the change
+             */
+            source: string;
+            /**
+             * Reason
+             * @description Human-readable rationale
+             */
+            reason?: string | null;
+            /** Previous Hash */
+            previous_hash?: string | null;
+            /** New Hash */
+            new_hash?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
         };
         /** RLActionRequest */
         RLActionRequest: {
@@ -6141,6 +6525,58 @@ export interface components {
             /** Quantified Loss */
             quantified_loss?: number | null;
         };
+        /**
+         * RelationshipEdge
+         * @description A typed, directed edge from one entity to another.
+         *
+         *     The world model's graph view is a collection of these edges. Every edge
+         *     carries provenance + confidence so the system can reason about the
+         *     reliability of the connection (e.g. "inferred from supply tender" vs
+         *     "confirmed via direct integration").
+         */
+        RelationshipEdge: {
+            /**
+             * Edge Id
+             * Format: uuid
+             */
+            edge_id?: string;
+            /**
+             * From Entity Id
+             * Format: uuid
+             */
+            from_entity_id: string;
+            /**
+             * To Entity Id
+             * Format: uuid
+             */
+            to_entity_id: string;
+            kind: components["schemas"]["RelationshipKind"];
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp?: string;
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            provenance?: components["schemas"]["ProvenanceRecord"] | null;
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * RelationshipKind
+         * @description Closed vocabulary of relationships between entities.
+         *
+         *     Relationships are directed (from -> to). Every world-model edge carries
+         *     exactly one of these values. Closed vocabulary enables deterministic
+         *     graph traversal in O(1) per edge.
+         * @enum {string}
+         */
+        RelationshipKind: "supplies" | "used_in" | "produces" | "holds" | "ships_to" | "ordered_by" | "contains" | "requires" | "travels_via" | "passes_through" | "carried_by" | "affects" | "causes" | "impacts" | "mitigated_by" | "derived_from" | "evidenced_by" | "recommends" | "approves" | "executes" | "resulted_in" | "has_capacity" | "has_lead_time" | "forecasts" | "demands";
         /** ReplayRequest */
         ReplayRequest: {
             /** Workspace Id */
@@ -6242,6 +6678,53 @@ export interface components {
              * @default 100
              */
             initial_severity_pct: number;
+        };
+        /** RiskRecordRequest */
+        RiskRecordRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Kind */
+            entity_kind: string;
+            /** Severity */
+            severity: string;
+            /** Title */
+            title: string;
+            /** World State Version */
+            world_state_version: number;
+            /**
+             * Risk Score
+             * @default 0
+             */
+            risk_score: number;
+            /** Gnn Risk Score */
+            gnn_risk_score?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Blast Radius Count
+             * @default 0
+             */
+            blast_radius_count: number;
+            /** Revenue Exposure */
+            revenue_exposure?: number | null;
+            /** Sla Risk Pct */
+            sla_risk_pct?: number | null;
+            /** Root Causes */
+            root_causes?: string[];
+            /** Hidden Dependencies */
+            hidden_dependencies?: string[];
+        };
+        /** RiskStatusRequest */
+        RiskStatusRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Status */
+            status: string;
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -6463,6 +6946,33 @@ export interface components {
             /** Description */
             description: string | null;
         };
+        /** ScenarioCreateRequest */
+        ScenarioCreateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Name */
+            name: string;
+            /** World State Version */
+            world_state_version: number;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Parent Scenario Id */
+            parent_scenario_id?: string | null;
+            /**
+             * Is Baseline
+             * @default false
+             */
+            is_baseline: boolean;
+            /** Mutations */
+            mutations?: {
+                [key: string]: unknown;
+            }[];
+        };
         /** ScenarioDefinitionModel */
         ScenarioDefinitionModel: {
             /** Scenario Id */
@@ -6580,6 +7090,18 @@ export interface components {
             events: {
                 [key: string]: unknown;
             }[];
+        };
+        /** ScenarioSimulateRequest */
+        ScenarioSimulateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Entities */
+            entities?: components["schemas"]["Entity"][];
+            /**
+             * World State Version
+             * @default 0
+             */
+            world_state_version: number;
         };
         /** ScenarioSnapshotResponse */
         ScenarioSnapshotResponse: {
@@ -7098,6 +7620,43 @@ export interface components {
             summary: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * StateSnapshot
+         * @description A snapshot of an entity's state at a specific point in time.
+         *
+         *     State snapshots form the historical state vector — every entity has one
+         *     current snapshot and an append-only history. Snapshots are content-hashed
+         *     so the truth-loop (forecast vs reality) can correlate predictions with
+         *     actual world state.
+         */
+        StateSnapshot: {
+            /** Version */
+            version: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp?: string;
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            };
+            /**
+             * State Hash
+             * @description Content hash of the canonicalized state
+             */
+            state_hash: string;
+            /**
+             * World State Version
+             * @description World-state version when snapshot was taken
+             */
+            world_state_version: number;
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
         };
         /** StateVariableResponse */
         StateVariableResponse: {
@@ -13768,6 +14327,466 @@ export interface operations {
                 "application/json": components["schemas"]["VanessaAskRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_risks_api_v1_nexus_risks_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                min_severity?: string | null;
+                /** @description open|mitigated|closed|stale|all */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_risk_api_v1_nexus_risks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_risk_api_v1_nexus_risks__risk_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                risk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    triage_risk_api_v1_nexus_risks__risk_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                risk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_signals_api_v1_nexus_signals_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                /** @description Comma-separated signal names */
+                signal_names?: string | null;
+                min_confidence?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scenarios_api_v1_nexus_scenarios_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                decision_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_scenario_api_v1_nexus_scenarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_scenario_api_v1_nexus_scenarios__scenario_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    simulate_scenario_api_v1_nexus_scenarios__scenario_id__simulate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioSimulateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    append_evidence_node_api_v1_nexus_decisions__decision_id__evidence_nodes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvidenceNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    append_evidence_edge_api_v1_nexus_decisions__decision_id__evidence_edges_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvidenceEdgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evidence_graph_api_v1_nexus_decisions__decision_id__evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_approvals_api_v1_nexus_decisions__decision_id__approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

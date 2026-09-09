@@ -31,6 +31,7 @@ from sqlalchemy import Float, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.nexus_spine.persistence.models import (
+    ApprovalRecordDB,
     DecisionRecordDB,
     DecisionTransitionDB,
     EventRecordDB,
@@ -548,6 +549,7 @@ class RiskRepository:
         tenant_id: str,
         workspace_id: str,
         min_severity: str | None = None,
+        status: str | None = "open",
     ) -> list[RiskRecordDB]:
         severity_order = {"WATCH": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
         stmt = (
@@ -555,10 +557,11 @@ class RiskRepository:
             .where(
                 RiskRecordDB.tenant_id == tenant_id,
                 RiskRecordDB.workspace_id == workspace_id,
-                RiskRecordDB.status == "open",
             )
             .order_by(RiskRecordDB.risk_score.desc())
         )
+        if status is not None:
+            stmt = stmt.where(RiskRecordDB.status == status)
         result = await session.execute(stmt)
         risks = list(result.scalars().all())
         if min_severity and min_severity in severity_order:
@@ -570,6 +573,20 @@ class RiskRepository:
         stmt = select(RiskRecordDB).where(RiskRecordDB.risk_id == risk_id)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def set_status(
+        self, session: AsyncSession, risk_id: str, status: str
+    ) -> RiskRecordDB | None:
+        """Triage a risk (open|mitigated|closed|stale). Returns None if missing."""
+        stmt = select(RiskRecordDB).where(RiskRecordDB.risk_id == risk_id)
+        result = await session.execute(stmt)
+        rec = result.scalar_one_or_none()
+        if rec is None:
+            return None
+        rec.status = status
+        rec.updated_at = _utc_now()
+        await session.flush()
+        return rec
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -612,6 +629,52 @@ class ScenarioRepository:
             select(ScenarioRecordDB)
             .where(ScenarioRecordDB.decision_id == decision_id)
             .order_by(ScenarioRecordDB.created_at)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_by_workspace(
+        self, session: AsyncSession, tenant_id: str, workspace_id: str
+    ) -> list[ScenarioRecordDB]:
+        stmt = (
+            select(ScenarioRecordDB)
+            .where(
+                ScenarioRecordDB.tenant_id == tenant_id,
+                ScenarioRecordDB.workspace_id == workspace_id,
+            )
+            .order_by(ScenarioRecordDB.created_at)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def mark_running(self, session: AsyncSession, scenario_id: str) -> ScenarioRecordDB:
+        scenario = await self.get(session, scenario_id)
+        if not scenario:
+            raise ValueError(f"Scenario {scenario_id} not found")
+        scenario.status = "running"
+        scenario.started_at = _utc_now()
+        await session.flush()
+        return scenario
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Approval Repository (v0.8.5-B3: the B8 approver identity trail)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ApprovalRepository:
+    async def record(self, session: AsyncSession, record: ApprovalRecordDB) -> ApprovalRecordDB:
+        session.add(record)
+        await session.flush()
+        return record
+
+    async def list_by_decision(
+        self, session: AsyncSession, decision_id: str
+    ) -> list[ApprovalRecordDB]:
+        stmt = (
+            select(ApprovalRecordDB)
+            .where(ApprovalRecordDB.decision_id == decision_id)
+            .order_by(ApprovalRecordDB.created_at)
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())
@@ -1014,6 +1077,7 @@ _model_repo: ModelRegistryRepository | None = None
 _risk_repo: RiskRepository | None = None
 _scenario_repo: ScenarioRepository | None = None
 _evidence_repo: EvidenceRepository | None = None
+_approval_repo: ApprovalRepository | None = None
 _vanessa_session_repo: VanessaSessionRepository | None = None
 _recommendation_repo: RecommendationRepository | None = None
 _event_repo: EventRepository | None = None
@@ -1061,6 +1125,13 @@ def get_evidence_repository() -> EvidenceRepository:
     return _evidence_repo
 
 
+def get_approval_repository() -> ApprovalRepository:
+    global _approval_repo
+    if _approval_repo is None:
+        _approval_repo = ApprovalRepository()
+    return _approval_repo
+
+
 def get_vanessa_session_repository() -> VanessaSessionRepository:
     global _vanessa_session_repo
     if _vanessa_session_repo is None:
@@ -1085,12 +1156,14 @@ def get_event_repository() -> EventRepository:
 def reset_repositories() -> None:
     global _decision_repo, _forecast_repo, _model_repo, _risk_repo, _scenario_repo
     global _evidence_repo, _vanessa_session_repo, _recommendation_repo, _event_repo
+    global _approval_repo
     _decision_repo = None
     _forecast_repo = None
     _model_repo = None
     _risk_repo = None
     _scenario_repo = None
     _evidence_repo = None
+    _approval_repo = None
     _vanessa_session_repo = None
     _recommendation_repo = None
     _event_repo = None
@@ -1103,6 +1176,7 @@ __all__ = [
     "RiskRepository",
     "ScenarioRepository",
     "EvidenceRepository",
+    "ApprovalRepository",
     "VanessaSessionRepository",
     "RecommendationRepository",
     "EventRepository",
@@ -1112,6 +1186,7 @@ __all__ = [
     "get_risk_repository",
     "get_scenario_repository",
     "get_evidence_repository",
+    "get_approval_repository",
     "get_vanessa_session_repository",
     "get_recommendation_repository",
     "get_event_repository",

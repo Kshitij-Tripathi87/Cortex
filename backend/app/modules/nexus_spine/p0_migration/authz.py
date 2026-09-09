@@ -95,6 +95,39 @@ TOOL_PERMISSIONS: dict[str, set[NexusRole]] = {
     "nexus.model.rollback": {NexusRole.OPERATOR, NexusRole.ADMIN},
     "nexus.forecast.create": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
     "nexus.inference.run": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    # v0.8.5-B3 — golden-path registries (risks / signals / scenarios /
+    # evidence / approvals). Reads are viewer-open like the other registry
+    # reads; recording is analyst work; risk triage is operational.
+    "nexus.risk.read": {NexusRole.VIEWER, NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.risk.record": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.risk.triage": {NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.signal.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
+    "nexus.scenario.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
+    "nexus.scenario.create": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.scenario.simulate": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.evidence.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
+    "nexus.evidence.append": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.approval.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
     # Admin
     "nexus.admin.configure": {NexusRole.ADMIN},
     "nexus.admin.roles": {NexusRole.ADMIN},

@@ -297,9 +297,32 @@ class ScenarioStudio:
 
         wm = get_world_model()
         all_entities = list(wm.iter_entities(tid, wid))
+        return self.run_with_snapshot(
+            scenario, all_entities, world_state_version=wm.world_state_version
+        )
+
+    def run_with_snapshot(
+        self,
+        scenario: ScenarioDefinition,
+        entities: list[Entity],
+        *,
+        tenant_id: UUID | None = None,
+        workspace_id: UUID | None = None,
+        world_state_version: int = 0,
+    ) -> ScenarioResult:
+        """Execute `scenario` against an explicit entity snapshot.
+
+        v0.8.5-B3: the canonical (persistent) simulation path. Pure with
+        respect to the world model — reads NOTHING from the process-local
+        singleton; the caller supplies the snapshot (e.g. sourced from the
+        PG-backed world state). Deterministic: same snapshot + mutations →
+        identical KPIs.
+        """
+        tid = tenant_id or UUID(scenario.tenant_id)
+        wid = workspace_id or UUID(scenario.workspace_id)
 
         twin = DigitalTwin(wid, tid)
-        twin.load_snapshot(all_entities)
+        twin.load_snapshot(entities)
 
         assumption_notes: list[str] = []
         affected: set[str] = set()
@@ -323,7 +346,7 @@ class ScenarioStudio:
             affected_entity_ids=sorted(affected),
             assumption_notes=assumption_notes,
             execution_time_ms=round(elapsed, 2),
-            world_state_version=wm.world_state_version,
+            world_state_version=world_state_version,
         )
 
     def compare(

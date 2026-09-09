@@ -127,6 +127,7 @@ from app.modules.nexus_spine.ontology import (
 
 # Nexus v0.7 — Production Intelligence & Learning
 from app.modules.nexus_spine.persistence import (
+    ApprovalRepository,
     DecisionRepository,
     EventRepository,
     EvidenceRepository,
@@ -136,6 +137,7 @@ from app.modules.nexus_spine.persistence import (
     RiskRepository,
     ScenarioRepository,
     VanessaSessionRepository,
+    get_approval_repository,
     get_decision_repository,
     get_event_repository,
     get_evidence_repository,
@@ -216,6 +218,7 @@ __all__ = [
     "AnalogousDecision",
     "CalibrationBucket",
     # v0.7 — Persistence
+    "ApprovalRepository",
     "DecisionRepository",
     "EvidenceRepository",
     "EventRepository",
@@ -225,6 +228,7 @@ __all__ = [
     "RiskRepository",
     "ScenarioRepository",
     "VanessaSessionRepository",
+    "get_approval_repository",
     "get_decision_repository",
     "get_evidence_repository",
     "get_event_repository",
