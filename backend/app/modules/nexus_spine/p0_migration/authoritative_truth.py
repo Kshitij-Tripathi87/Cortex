@@ -1,4 +1,4 @@
-"""Nexus v1.0 P0 — Authoritative Truth Loop.
+"""Nexus v1.0 P0 / v0.8.4 — Authoritative Truth Loop.
 
 PostgreSQL-backed forecast → observation → error → calibration → bias → drift.
 The observations table is AUTHORITATIVE; calibration aggregates are PROJECTIONs
@@ -12,10 +12,13 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.ids import uuid7
+from app.infrastructure.outbox_publisher import allocate_outbox_seq
 from app.modules.nexus_spine.persistence.models import (
+    EventRecordDB,
     ForecastRecordDB,
     ObservationRecordDB,
 )
@@ -62,15 +65,19 @@ class AuthoritativeTruthLoop:
         supplier_id: str | None = None,
         region: str | None = None,
         product_family: str | None = None,
+        model_id: str | None = None,
         model_version: str = "baseline-v1",
         world_state_version: int = 0,
         horizon_days: int = 14,
+        confidence: float | None = None,
+        feature_hash: str | None = None,
         features: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         rec = ForecastRecordDB(
             forecast_id=forecast_id,
             tenant_id=tenant_id,
             workspace_id=workspace_id,
+            model_id=model_id,
             sku=sku,
             supplier_id=supplier_id,
             region=region,
@@ -88,6 +95,8 @@ class AuthoritativeTruthLoop:
             p99=p99 or p50 * 1.35,
             mean=mean,
             std_dev=std_dev,
+            confidence=confidence,
+            feature_hash=feature_hash,
             features=features or {},
         )
         session.add(rec)
@@ -98,11 +107,13 @@ class AuthoritativeTruthLoop:
                 "p80": p80,
                 "p95": p95,
                 "sku": sku,
+                "model_id": model_id,
                 "model_version": model_version,
             }
         return {
             "forecast_id": forecast_id,
             "sku": sku,
+            "model_id": model_id,
             "p50": p50,
             "p80": p80,
             "p95": p95,
@@ -147,8 +158,10 @@ class AuthoritativeTruthLoop:
             supplier_id = supplier_id or forecast.supplier_id
             region = region or forecast.region
 
+        obs_id = f"OBS-{uuid4().hex[:10]}"
+        now = _utc_now()
         obs = ObservationRecordDB(
-            observation_id=f"OBS-{uuid4().hex[:10]}",
+            observation_id=obs_id,
             forecast_id=forecast_id if forecast else None,
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -157,7 +170,7 @@ class AuthoritativeTruthLoop:
             region=region,
             observation_type=observation_type,
             actual_value=actual_value,
-            observed_at=observed_at or _utc_now(),
+            observed_at=observed_at or now,
             predicted_p50=predicted_p50,
             predicted_p80=predicted_p80,
             predicted_p95=predicted_p95,
@@ -169,6 +182,35 @@ class AuthoritativeTruthLoop:
         )
         session.add(obs)
         await session.flush()
+
+        # Emit outbox event
+        outbox_seq = await allocate_outbox_seq(session, tenant_id, workspace_id)
+        outbox_event = EventRecordDB(
+            event_id=f"EVT-{uuid7()}",
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            seq=outbox_seq,
+            event_type="observation.recorded",
+            entity_type="observation",
+            entity_id=obs_id,
+            correlation_id=f"CORR-{uuid4().hex[:8]}",
+            payload={
+                "observation_id": obs_id,
+                "forecast_id": forecast_id if forecast else None,
+                "sku": sku,
+                "actual_value": actual_value,
+                "absolute_error": abs_err,
+                "percentage_error": pct_err,
+                "within_p80": within_p80,
+                "within_p95": within_p95,
+            },
+            world_state_version=forecast.world_state_version if forecast else None,
+            published=False,
+            created_at=now,
+        )
+        session.add(outbox_event)
+        await session.flush()
+
         with self._lock:
             self._calibration_loaded = False  # invalidate cached calibration
             self._pending.pop(forecast_id, None)
@@ -176,6 +218,7 @@ class AuthoritativeTruthLoop:
         if forecast is None:
             return None
         return {
+            "observation_id": obs_id,
             "forecast_id": forecast_id,
             "sku": sku,
             "predicted_p50": predicted_p50,
@@ -202,12 +245,8 @@ class AuthoritativeTruthLoop:
         ]
         if sku:
             conditions.append(ObservationRecordDB.sku == sku)
-        if model_version:
-            # Need join with forecast
-            pass
 
-        # Group by (sku, model_version) via join
-        from sqlalchemy import Float, and_, cast
+        from sqlalchemy import case
 
         stmt = (
             select(
@@ -216,8 +255,12 @@ class AuthoritativeTruthLoop:
                 func.avg(func.abs(ObservationRecordDB.absolute_error)).label("mae"),
                 func.avg(ObservationRecordDB.percentage_error).label("mpe"),
                 func.avg(ObservationRecordDB.bias).label("bias"),
-                func.avg(cast(ObservationRecordDB.within_p80, Float)).label("p80_cov"),
-                func.avg(cast(ObservationRecordDB.within_p95, Float)).label("p95_cov"),
+                func.avg(case((ObservationRecordDB.within_p80.is_(True), 1.0), else_=0.0)).label(
+                    "p80_cov"
+                ),
+                func.avg(case((ObservationRecordDB.within_p95.is_(True), 1.0), else_=0.0)).label(
+                    "p95_cov"
+                ),
             )
             .where(and_(*conditions))
             .group_by(ObservationRecordDB.sku)
@@ -273,6 +316,73 @@ class AuthoritativeTruthLoop:
                 )
         return flagged
 
+    async def detect_drift(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        workspace_id: str,
+        model_id: str | None = None,
+        min_samples: int = 5,
+        wape_drift_threshold: float = 0.15,
+        bias_threshold: float = 0.08,
+    ) -> dict[str, Any]:
+        """Analyze recent observation errors for model degradation or systematic drift."""
+        buckets = await self.calibration_for(session, tenant_id, workspace_id)
+        if not buckets:
+            return {
+                "status": "healthy",
+                "drift_detected": False,
+                "overall_wape": 0.0,
+                "overall_mpe": 0.0,
+                "flagged_skus": [],
+                "sample_count": 0,
+            }
+
+        total_samples = sum(b["sample_count"] for b in buckets)
+        weighted_wape = sum(b["wape"] * b["sample_count"] for b in buckets) / max(1, total_samples)
+        weighted_mpe = sum(b["mean_percentage_error"] * b["sample_count"] for b in buckets) / max(
+            1, total_samples
+        )
+
+        flagged = [
+            b
+            for b in buckets
+            if b["sample_count"] >= min_samples
+            and (
+                b["wape"] > wape_drift_threshold or abs(b["mean_percentage_error"]) > bias_threshold
+            )
+        ]
+
+        drift_detected = (
+            weighted_wape > wape_drift_threshold
+            or abs(weighted_mpe) > bias_threshold
+            or len(flagged) > 0
+        )
+
+        status = (
+            "degraded"
+            if weighted_wape > wape_drift_threshold * 1.5
+            else ("drift_detected" if drift_detected else "healthy")
+        )
+
+        return {
+            "status": status,
+            "drift_detected": drift_detected,
+            "overall_wape": round(weighted_wape, 4),
+            "overall_mpe": round(weighted_mpe, 4),
+            "sample_count": total_samples,
+            "flagged_skus": [
+                {
+                    "sku": f["sku"],
+                    "wape": f["wape"],
+                    "bias": f["bias"],
+                    "sample_count": f["sample_count"],
+                }
+                for f in flagged
+            ],
+            "analyzed_at": _utc_now().isoformat(),
+        }
+
 
 _singleton: AuthoritativeTruthLoop | None = None
 
@@ -282,3 +392,6 @@ def get_authoritative_truth_loop() -> AuthoritativeTruthLoop:
     if _singleton is None:
         _singleton = AuthoritativeTruthLoop()
     return _singleton
+
+
+__all__ = ["AuthoritativeTruthLoop", "get_authoritative_truth_loop"]

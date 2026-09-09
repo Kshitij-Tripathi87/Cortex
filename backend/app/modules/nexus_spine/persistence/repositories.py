@@ -374,9 +374,9 @@ class ForecastRepository:
 
 class ModelRegistryRepository:
     LIFECYCLE_TRANSITIONS = {
-        "training": {"evaluating"},
-        "evaluating": {"shadow", "archived"},
-        "shadow": {"calibrating", "archived"},
+        "training": {"evaluating", "shadow", "archived"},
+        "evaluating": {"shadow", "calibrating", "archived"},
+        "shadow": {"calibrating", "approved", "archived"},
         "calibrating": {"approved", "shadow", "archived"},
         "approved": {"deployed", "archived"},
         "deployed": {"monitoring", "rolled_back"},
@@ -398,19 +398,38 @@ class ModelRegistryRepository:
         return result.scalar_one_or_none()
 
     async def get_by_name_version(
-        self, session: AsyncSession, name: str, version: str
+        self,
+        session: AsyncSession,
+        name: str,
+        version: str,
+        tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> ModelRegistryEntryDB | None:
-        stmt = select(ModelRegistryEntryDB).where(
+        conditions = [
             ModelRegistryEntryDB.name == name,
             ModelRegistryEntryDB.version == version,
-        )
+        ]
+        if tenant_id:
+            conditions.append(ModelRegistryEntryDB.tenant_id == tenant_id)
+        if workspace_id:
+            conditions.append(ModelRegistryEntryDB.workspace_id == workspace_id)
+        stmt = select(ModelRegistryEntryDB).where(*conditions)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def list_by_status(
-        self, session: AsyncSession, status: str | None = None, model_type: str | None = None
+        self,
+        session: AsyncSession,
+        status: str | None = None,
+        model_type: str | None = None,
+        tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> list[ModelRegistryEntryDB]:
         conditions = []
+        if tenant_id:
+            conditions.append(ModelRegistryEntryDB.tenant_id == tenant_id)
+        if workspace_id:
+            conditions.append(ModelRegistryEntryDB.workspace_id == workspace_id)
         if status:
             conditions.append(ModelRegistryEntryDB.status == status)
         if model_type:
@@ -447,6 +466,8 @@ class ModelRegistryRepository:
             model.approved_by = actor
         elif target_status == "rolled_back":
             model.rolled_back_at = _utc_now()
+            if reason:
+                model.rollback_reason = reason
         await session.flush()
         return model
 
@@ -462,14 +483,23 @@ class ModelRegistryRepository:
         return model
 
     async def get_deployed(
-        self, session: AsyncSession, model_type: str
+        self,
+        session: AsyncSession,
+        model_type: str,
+        tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> ModelRegistryEntryDB | None:
+        conditions = [
+            ModelRegistryEntryDB.model_type == model_type,
+            ModelRegistryEntryDB.status == "deployed",
+        ]
+        if tenant_id:
+            conditions.append(ModelRegistryEntryDB.tenant_id == tenant_id)
+        if workspace_id:
+            conditions.append(ModelRegistryEntryDB.workspace_id == workspace_id)
         stmt = (
             select(ModelRegistryEntryDB)
-            .where(
-                ModelRegistryEntryDB.model_type == model_type,
-                ModelRegistryEntryDB.status == "deployed",
-            )
+            .where(*conditions)
             .order_by(ModelRegistryEntryDB.deployed_at.desc())
             .limit(1)
         )
@@ -882,6 +912,7 @@ class EventRepository:
         tenant_id: str,
         workspace_id: str,
         event_type: str,
+        seq: int | None = None,
         entity_type: str | None = None,
         entity_id: str | None = None,
         correlation_id: str | None = None,
@@ -889,9 +920,14 @@ class EventRepository:
         payload: dict[str, Any] | None = None,
         world_state_version: int | None = None,
     ) -> EventRecordDB:
+        if seq is None:
+            from app.infrastructure.outbox_publisher import allocate_outbox_seq
+
+            seq = await allocate_outbox_seq(session, tenant_id=tenant_id, workspace_id=workspace_id)
         event = EventRecordDB(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
+            seq=seq,
             event_type=event_type,
             entity_type=entity_type,
             entity_id=entity_id,
@@ -909,20 +945,25 @@ class EventRepository:
         stmt = (
             select(EventRecordDB)
             .where(
-                EventRecordDB.published == False,  # noqa: E712
+                (EventRecordDB.published_at.is_(None)) | (EventRecordDB.published == False),  # noqa: E712
             )
-            .order_by(EventRecordDB.created_at)
+            .order_by(EventRecordDB.workspace_id, EventRecordDB.seq)
             .limit(limit)
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def mark_published(self, session: AsyncSession, event_id: str) -> None:
+    async def mark_published(
+        self, session: AsyncSession, event_id: str, published_by: str | None = None
+    ) -> None:
         stmt = select(EventRecordDB).where(EventRecordDB.event_id == event_id)
         result = await session.execute(stmt)
         evt = result.scalar_one_or_none()
         if evt:
             evt.published = True
+            evt.published_at = datetime.now(UTC)
+            if published_by:
+                evt.published_by = published_by
             await session.flush()
 
     async def get_recent(
@@ -938,9 +979,27 @@ class EventRepository:
                 EventRecordDB.tenant_id == tenant_id,
                 EventRecordDB.workspace_id == workspace_id,
             )
-            .order_by(EventRecordDB.created_at.desc())
+            .order_by(EventRecordDB.seq.desc())
             .limit(limit)
         )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_since_seq(
+        self,
+        session: AsyncSession,
+        workspace_id: str,
+        since_seq: int,
+        tenant_id: str | None = None,
+        limit: int = 500,
+    ) -> list[EventRecordDB]:
+        stmt = select(EventRecordDB).where(
+            EventRecordDB.workspace_id == workspace_id,
+            EventRecordDB.seq > since_seq,
+        )
+        if tenant_id is not None:
+            stmt = stmt.where(EventRecordDB.tenant_id == tenant_id)
+        stmt = stmt.order_by(EventRecordDB.seq.asc()).limit(limit)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 

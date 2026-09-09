@@ -61,6 +61,16 @@ CANONICAL_NEXUS_PATHS = {
     ("POST", "/api/v1/nexus/observations"),
     ("GET", "/api/v1/nexus/calibration"),
     ("GET", "/api/v1/nexus/bias"),
+    ("POST", "/api/v1/nexus/models/register"),
+    ("GET", "/api/v1/nexus/models"),
+    ("GET", "/api/v1/nexus/models/health"),
+    ("GET", "/api/v1/nexus/models/drift"),
+    ("GET", "/api/v1/nexus/models/{model_id}"),
+    ("POST", "/api/v1/nexus/models/{model_id}/evaluate"),
+    ("POST", "/api/v1/nexus/models/{model_id}/promote"),
+    ("POST", "/api/v1/nexus/models/{model_id}/rollback"),
+    ("POST", "/api/v1/nexus/inference/demand"),
+    ("POST", "/api/v1/nexus/inference/risk"),
     ("POST", "/api/v1/nexus/vanessa/ask"),
 }
 

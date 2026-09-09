@@ -27,9 +27,33 @@ from app.modules.nexus_spine.p0_migration.authoritative_decisions import (
     StaleWorldStateError,
     get_authoritative_decision_service,
 )
+from app.modules.nexus_spine.p0_migration.authoritative_inference import (
+    AuthoritativeInferenceEngine,
+    DemandPredictionOutput,
+    GNNRiskScorer,
+    ProbabilisticDemandForecaster,
+    RiskPredictionOutput,
+    compute_feature_hash,
+    get_authoritative_inference_engine,
+)
 from app.modules.nexus_spine.p0_migration.authoritative_memory import (
     AuthoritativeDecisionMemory,
     get_authoritative_decision_memory,
+)
+from app.modules.nexus_spine.p0_migration.authoritative_models import (
+    ALLOWED_MODEL_TRANSITIONS,
+    AuthoritativeModelRegistry,
+    DuplicateModelVersionError,
+    InvalidModelTransitionError,
+    ModelGovernanceError,
+    ModelLifecycleStatus,
+    ModelNotFoundError,
+    ModelRollbackError,
+    PromotionGateConfig,
+    PromotionGateFailedError,
+    PromotionGateResult,
+    get_authoritative_model_registry,
+    validate_promotion_gates,
 )
 from app.modules.nexus_spine.p0_migration.authoritative_truth import (
     AuthoritativeTruthLoop,
@@ -61,8 +85,27 @@ __all__ = [
     "AuthoritativeDecisionService",
     "AuthoritativeDecisionMemory",
     "AuthoritativeTruthLoop",
+    "AuthoritativeModelRegistry",
+    "AuthoritativeInferenceEngine",
     "InvalidTransitionError",
     "StaleWorldStateError",
+    # Model governance & inference
+    "ModelLifecycleStatus",
+    "ALLOWED_MODEL_TRANSITIONS",
+    "PromotionGateConfig",
+    "PromotionGateResult",
+    "ModelGovernanceError",
+    "ModelNotFoundError",
+    "DuplicateModelVersionError",
+    "InvalidModelTransitionError",
+    "PromotionGateFailedError",
+    "ModelRollbackError",
+    "validate_promotion_gates",
+    "ProbabilisticDemandForecaster",
+    "GNNRiskScorer",
+    "DemandPredictionOutput",
+    "RiskPredictionOutput",
+    "compute_feature_hash",
     # AuthZ
     "AuthorizationService",
     "NexusRole",
@@ -84,4 +127,6 @@ __all__ = [
     "get_authoritative_decision_service",
     "get_authoritative_decision_memory",
     "get_authoritative_truth_loop",
+    "get_authoritative_model_registry",
+    "get_authoritative_inference_engine",
 ]

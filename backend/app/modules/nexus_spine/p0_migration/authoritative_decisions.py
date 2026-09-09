@@ -43,6 +43,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.outbox_publisher import allocate_outbox_seq
 from app.modules.nexus_spine.governance.lifecycle import (
     ALLOWED_TRANSITIONS,
     DecisionPhase,
@@ -261,10 +262,12 @@ class AuthoritativeDecisionService:
             )
         )
         # Outbox event
+        seq = await allocate_outbox_seq(session, tenant_id=tenant_id, workspace_id=workspace_id)
         session.add(
             EventRecordDB(
                 tenant_id=tenant_id,
                 workspace_id=workspace_id,
+                seq=seq,
                 event_type=NexusEventType.DECISION_CREATED.value,
                 entity_type="decision",
                 entity_id=decision_id,
@@ -339,10 +342,14 @@ class AuthoritativeDecisionService:
                     reason="world_state_drift_detected_on_advance",
                 )
             )
+            seq = await allocate_outbox_seq(
+                session, tenant_id=rec.tenant_id, workspace_id=rec.workspace_id
+            )
             session.add(
                 EventRecordDB(
                     tenant_id=rec.tenant_id,
                     workspace_id=rec.workspace_id,
+                    seq=seq,
                     event_type=NexusEventType.DECISION_INVALIDATED.value,
                     entity_type="decision",
                     entity_id=decision_id,
@@ -384,10 +391,14 @@ class AuthoritativeDecisionService:
         # Publish corresponding event
         event_type = self._phase_event_type(target_phase)
         if event_type:
+            seq = await allocate_outbox_seq(
+                session, tenant_id=rec.tenant_id, workspace_id=rec.workspace_id
+            )
             session.add(
                 EventRecordDB(
                     tenant_id=rec.tenant_id,
                     workspace_id=rec.workspace_id,
+                    seq=seq,
                     event_type=event_type,
                     entity_type="decision",
                     entity_id=decision_id,
@@ -468,10 +479,14 @@ class AuthoritativeDecisionService:
                 reason="outcome_recorded",
             )
         )
+        seq = await allocate_outbox_seq(
+            session, tenant_id=rec.tenant_id, workspace_id=rec.workspace_id
+        )
         session.add(
             EventRecordDB(
                 tenant_id=rec.tenant_id,
                 workspace_id=rec.workspace_id,
+                seq=seq,
                 event_type=NexusEventType.OUTCOME_RECORDED.value,
                 entity_type="decision",
                 entity_id=decision_id,

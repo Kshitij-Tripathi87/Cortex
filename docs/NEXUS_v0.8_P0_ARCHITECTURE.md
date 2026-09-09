@@ -236,12 +236,26 @@ P2 (v0.95 Enterprise Beta):
 
 v1.0 Launch: live customers, SLOs, DR, security, ROI, ops support.
 
+## Milestone Status
+
+**v0.8.3 — Realtime Outbox & Distributed Event Fabric: CLOSED** (2026-09-09)
+- Invariant: A committed World State change must not disappear from the realtime stream.
+- Database (`nexus_events` + migration 013) is the per-workspace sequence authority (`UNIQUE(tenant_id, workspace_id, seq)`).
+- `OutboxPublisher` with `FOR UPDATE SKIP LOCKED` sweeper ensures multi-worker safety and peer reclaim.
+- Realtime bus consumes DB-allocated sequence numbers (`publish_from_outbox`); durable `replay_since`.
+- Acceptance matrix A1–A15 fully verified in `backend/tests/test_nexus_v083_outbox_acceptance.py` against real PostgreSQL.
+
+**v0.8.4 — Real ML Inference & Model Promotion: CLOSED** (2026-09-09)
+- Invariant: A trained model is a governed, immutable production dependency with complete prediction provenance and closed-loop feedback.
+- `AuthoritativeModelRegistry` with strict lifecycle state machine and promotion gate hurdles (WAPE, RMSE, F1, Quantile Coverage, Shadow Parity).
+- `AuthoritativeInferenceEngine` with deterministic probabilistic demand forecasting, GNN graph risk scoring, and SHA-256 feature hashing.
+- Complete prediction provenance persisted in `nexus_forecasts` with outbox event `forecast.generated`.
+- Closed-loop feedback & drift detection via `AuthoritativeTruthLoop` (residual tracking, quantile containment, systematic bias alerts).
+- Acceptance matrix M1–M15 fully verified in `backend/tests/test_nexus_v084_ml_acceptance.py` against real PostgreSQL.
+
+---
+
 ## Next milestone
 
-**v0.8.3 — Realtime Outbox & Distributed Event Fabric**: design at
-`docs/NEXUS_v0.8.3_OUTBOX_EVENT_FABRIC.md`. Core invariant: a committed World
-State change must not disappear from the realtime stream — the outbox event is
-written transactionally with the state change and the database becomes the
-per-workspace sequence authority (replacing the Redis INCR / local-fallback
-dual space; see the seq-source stickiness handoff note in
-`app/infrastructure/realtime_bus.py`).
+**v0.8.5 — Live Operational Cockpit Backed by Production Truth**
+
