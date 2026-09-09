@@ -110,8 +110,8 @@ AuthProvider, validated `next`, no OAuth/SSO/MFA (deferred per spec).
   not product bugs (token-injecting tests bypassed the onboarding ack gate
   and correctly landed on `/onboarding` instead of `/app`; fixed by acking
   in the `setSession` helper; the ack-UI path itself passed in the gate
-  test). Re-run pending at push time.
-- Remaining gate: CI on PR #4 (updated).
+  test). Re-run: **26/26 E2E green, 0 flaky; all 15 PR checks green.**
+- Remaining gate: none — B2 done; PR #4 still draft pending B3+.
 
 ### Honest limitations (carried)
 
