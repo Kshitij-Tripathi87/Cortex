@@ -136,7 +136,13 @@ path. F3 from the register.
 - Post-merge `main` CI: 6/7 green; E2E failed at the *install* step
   (Playwright browser fetch, before any test) — proven environmental:
   `git diff 9e87677 50fcbfd` is EMPTY (merged tree == green PR HEAD
-  tree). Re-validation rides the next PR's full CI (below).
+  tree), `cdn.playwright.dev` connection-dead from repeated probes while
+  `registry.npmjs.org` is healthy. Same failure repeated on PR #5's first
+  run (two consecutive CDN-side failures after three 26/26 greens).
+- **CI hardening (this push):** Playwright browsers cached in `e2e.yml`
+  (`actions/cache@v5`, keyed on `package-lock.json`) so the CDN is only
+  needed on version bumps. E2E re-runs on every PR push and will go green
+  once the CDN recovers; all other gates re-validate immediately.
 - Working branch `arena/01a08657-cortex` re-synced to post-merge `main`
   (merge commit on the branch); B4+ continues from here.
 
