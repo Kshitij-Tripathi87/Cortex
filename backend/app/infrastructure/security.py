@@ -102,7 +102,9 @@ class AuthContext:
 def _is_strict_env() -> bool:
     """True when auth must be enforced (prod / pilot)."""
     settings = get_settings()
-    return settings.cortex_env in {"prod", "pilot"}
+    # "production" accepted defensively: k8s manifests historically set
+    # CORTEX_ENV=production (normalized to "prod" in v0.8.5-B).
+    return settings.env in {"prod", "production", "pilot"}
 
 
 def _header(request: Request, name: str) -> str | None:

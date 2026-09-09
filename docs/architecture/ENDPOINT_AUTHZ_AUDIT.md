@@ -155,3 +155,13 @@ All 29 legacy debt routes have been gated with AST-verifiable authorization help
   against the user table (verifying the Argon2/bcrypt hash) before issuing a
   short-lived HS256 token, and returns 401 on any mismatch. Rate limiting is
   the open hardening item (tracked separately), not an authz gate.
+- **D3i — `/signup`, `/reset/request`, `/reset/confirm` (auth.py) classified
+  PUBLIC**: v0.8.5-B launch onboarding routes. Classification: **PUBLIC by
+  design** — credential-establishing routes cannot require a bearer token
+  (`/signup` creates the first credential; `/reset/*` recovers one).
+  Compensating controls (all verified in
+  `tests/test_auth_onboarding.py`): per-email/per-instance rate limits,
+  uniform error messages (no user-enumeration oracle), single-use expiring
+  reset tokens (hash-only storage), and no token disclosure outside
+  dev/test. `/me`, `/logout`, and `/change-password` in the same file are
+  GATED via `get_current_user`.

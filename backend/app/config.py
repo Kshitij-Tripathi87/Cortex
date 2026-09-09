@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     """Runtime configuration loaded from environment. No silent defaults."""
 
     # Core
-    cortex_env: str = Field(default="dev", description="dev|staging|pilot|prod")
+    # NOTE: the field MUST stay named `env` (not `cortex_env`): with
+    # env_prefix="CORTEX_" a field named `cortex_env` binds to
+    # `CORTEX_CORTEX_ENV`, silently ignoring the documented `CORTEX_ENV`
+    # variable — which kept every deployment in dev identity mode
+    # (v0.8.5-B fix; per-field prefix opt-out is not supported).
+    env: str = Field(default="dev", description="dev|test|staging|pilot|prod")
     log_level: str = Field(default="info", description="trace|debug|info|warn|error")
     app_name: str = "cortex-backend"
 
@@ -131,7 +136,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production_requirements(self) -> Settings:
         """Fail fast on missing required secrets in production-like environments."""
-        if self.cortex_env in {"pilot", "prod", "staging"}:
+        if self.env in {"pilot", "prod", "production", "staging"}:
             if not self.jwt_secret:
                 raise ValueError(
                     "CORTEX_JWT_SECRET must be set when CORTEX_ENV is pilot, prod, or staging"
@@ -140,7 +145,12 @@ class Settings(BaseSettings):
                 raise ValueError("CORTEX_JWT_SECRET must be at least 32 characters for HS256")
         return self
 
-    model_config = {"env_prefix": "CORTEX_", "env_file": ".env", "extra": "ignore"}
+    model_config = {
+        "env_prefix": "CORTEX_",
+        "env_file": ".env",
+        "extra": "ignore",
+        "populate_by_name": True,
+    }
 
 
 @lru_cache
