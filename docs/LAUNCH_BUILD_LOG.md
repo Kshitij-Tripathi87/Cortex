@@ -127,6 +127,19 @@ Canonical persistent signals/risks/scenarios/evidence/approval endpoints
 (tables exist; endpoints don't) + ApprovalRecordDB writes in the advance
 path. F3 from the register.
 
+## Ship record
+
+- **PR #4 MERGED to `main`** (2026-09-09, squash `50fcbfd`): slices B1
+  (backend onboarding) + B2 (auth UI/guards) + B3 (golden-path APIs,
+  closes B4/B8/F3). Pre-merge gate: 15/15 checks, E2E 26/26, backend
+  suite 1917/1917.
+- Post-merge `main` CI: 6/7 green; E2E failed at the *install* step
+  (Playwright browser fetch, before any test) — proven environmental:
+  `git diff 9e87677 50fcbfd` is EMPTY (merged tree == green PR HEAD
+  tree). Re-validation rides the next PR's full CI (below).
+- Working branch `arena/01a08657-cortex` re-synced to post-merge `main`
+  (merge commit on the branch); B4+ continues from here.
+
 ## Slice v0.8.5-B3 — Golden-path API completion (Day 7–10)
 
 **Branch:** `arena/01a08657-cortex` · **Blockers:** B4 (F3, §1 rows 6,7,9,14),
