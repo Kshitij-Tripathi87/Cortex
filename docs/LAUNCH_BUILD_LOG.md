@@ -106,8 +106,11 @@ AuthProvider, validated `next`, no OAuth/SSO/MFA (deferred per spec).
 - Live stack rehearsal (uvicorn + `next start` + migrated PG): all 6 routes
   200; matrix me/own-200, foreign-403, forged-401, anon-unchanged ✔.
 - Playwright spec could NOT run locally (browser CDN blocked in sandbox);
-  CI e2e is the gate — spec bugs, if any, will show there and be fixed
-  before merge.
+  CI e2e is the gate. First CI run: 23/26 — the 3 failures were spec bugs,
+  not product bugs (token-injecting tests bypassed the onboarding ack gate
+  and correctly landed on `/onboarding` instead of `/app`; fixed by acking
+  in the `setSession` helper; the ack-UI path itself passed in the gate
+  test). Re-run pending at push time.
 - Remaining gate: CI on PR #4 (updated).
 
 ### Honest limitations (carried)

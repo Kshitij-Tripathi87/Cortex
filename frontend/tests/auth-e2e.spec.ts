@@ -66,11 +66,19 @@ async function loginViaApi(
   };
 }
 
-async function setSession(page: Page, accessToken: string): Promise<void> {
+async function setSession(page: Page, accessToken: string, userId?: string): Promise<void> {
   await page.goto('/auth/login');
-  await page.evaluate((token) => {
-    window.localStorage.setItem('cortex:access_token', token);
-  }, accessToken);
+  await page.evaluate(
+    ({ token, user }) => {
+      window.localStorage.setItem('cortex:access_token', token);
+      // /app sits behind the onboarding ack gate; tests that bypass the
+      // onboarding UI (covered end-to-end by the gate test) ack it directly.
+      if (user) {
+        window.localStorage.setItem(`cortex:onboarding_ack:${user}`, '1');
+      }
+    },
+    { token: accessToken, user: userId ?? null },
+  );
 }
 
 test.describe('B2 auth gate', () => {
@@ -170,8 +178,8 @@ test.describe('B2 auth gate', () => {
   });
 
   test('corrupted token → 401 invalidates the session', async ({ page, request }) => {
-    const { accessToken } = await signupViaApi(request, 'corrupt');
-    await setSession(page, accessToken);
+    const { accessToken, userId } = await signupViaApi(request, 'corrupt');
+    await setSession(page, accessToken, userId);
     await page.goto('/app');
     await expect(page.getByTestId('app-user-email')).toBeVisible();
     // Simulate expiry/revocation: the next /auth/me answers 401.
@@ -187,7 +195,7 @@ test.describe('B2 auth gate', () => {
   test('403 from the API keeps the session alive', async ({ page, request }) => {
     const alice = await signupViaApi(request, 'alice403');
     const bob = await signupViaApi(request, 'bob403');
-    await setSession(page, alice.accessToken);
+    await setSession(page, alice.accessToken, alice.userId);
     await page.goto('/app');
     await expect(page.getByTestId('app-user-email')).toHaveText(alice.email);
     // Cross-workspace canonical call from the page context.
@@ -257,7 +265,8 @@ test.describe('B2 auth gate', () => {
 
   test('change-password rotates the credential from /app', async ({ page, request }) => {
     const { email, password } = await signupViaApi(request, 'chpw');
-    await setSession(page, (await loginViaApi(request, email, password)).accessToken);
+    const login = await loginViaApi(request, email, password);
+    await setSession(page, login.accessToken, login.userId);
     await page.goto('/app');
     await expect(page.getByTestId('change-password-card')).toBeVisible();
     await page.getByLabel('Current password').fill(password);
