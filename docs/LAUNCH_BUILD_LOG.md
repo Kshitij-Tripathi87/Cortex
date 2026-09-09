@@ -202,6 +202,11 @@ slice); cockpit/UI rewire (dedicated slice); GNN augmentation wiring
   + minting real JWTs via `issue_token` (signup HTTP stays B1's covered
   territory; strict-path verification unchanged).
 
+### CI verdict
+
+**15/15 checks green, E2E 26/26, 0 flaky** (first run — no spec fixes
+needed this time). B3 done; PR #4 still draft pending B4+.
+
 ### Next: slice v0.8.5-B4 — Outbox relay + realtime resync (B2)
 
 Host the dormant `OutboxPublisher` sweeper (lifespan/CLI/k8s) + frontend
