@@ -5207,11 +5207,8 @@ export interface components {
         };
         /** LoginRequest */
         LoginRequest: {
-            /**
-             * Workspace Id
-             * Format: uuid
-             */
-            workspace_id: string;
+            /** Workspace Id */
+            workspace_id?: string | null;
             /** Email */
             email: string;
             /** Password */

@@ -65,7 +65,61 @@ B7 (login/logout/me) — backend half. Frontend auth UI follows in slice B2.
 - **L4 — frontend still calls stale auth contract** (`/auth/logout`+`/auth/me`
   now exist; `LoginRequest` shape + pages pending slice B2).
 
-### Next: slice v0.8.5-B2 — Auth UI + route guards
+### Next: slice v0.8.5-B2 — Auth UI + route guards (below)
 
-Login/signup pages, auth guard for `/workspace/*` + `/nexus/*`, logout,
-`auth.ts` contract alignment, single API base-URL config, session-expiry UX.
+## Slice v0.8.5-B2 — Auth UI + route guards (Day 3–4, part 2)
+
+**Branch:** `arena/01a08657-cortex` · **Blockers:** B1 + B7, frontend half
+(closes both). Follows the B2 spec: server-derived auth state, single
+AuthProvider, validated `next`, no OAuth/SSO/MFA (deferred per spec).
+
+### Shipped
+
+| Area | Change |
+|---|---|
+| `lib/auth/` library | `client.ts` (central apiClient: Bearer injection, 15s timeout, X-Request-ID, normalized `ApiClientError`, single 401 hook), `errors.ts` (kind mapping + safe form messages), `token.ts` (single storage key, multi-tab logout sync, per-user onboarding ack), `next.ts` (double-decode-proof internal-path validator), `validation.ts` (zod mirrors of server policy), `types.ts` (B1 contracts). |
+| `AuthProvider` | UNKNOWN→CHECKING→AUTHENTICATED/ANONYMOUS; boot resolves `/auth/me` iff a token exists; login/signup hydrate via `/auth/me`; logout best-effort + local clear; central 401 invalidation with protected-route bounce (`?next=` preserved). |
+| Guards | `RequireAuth` (loader until resolved, anonymous → login?next=), `RequireAnonymous` (authed → next or /app); Suspense-safe for prerendering. |
+| Pages | `/auth/login` (generic failures, email preserved, no double-submit, `?reset=1` notice), `/auth/signup` (exact B1 fields, backend creates everything), `/auth/forgot-password` (uniform message incl. on backend failure — no oracle), `/auth/reset-password` (uniform token errors), `/onboarding` (server-created org/workspace/trial verification + ack), `/app` (identity summary, live canonical `/nexus/decisions` status card distinguishing 403-stays-logged-in, change-password, logout). |
+| Guards wired | `/app/*` (auth + ack gate), `/workspace/*` (auth; demo-context rewire stays B3+), root layout mounts `AuthProvider` (zero requests for anonymous visitors). |
+| `lib/api/auth.ts` | Rewritten to the B1 contract (was stale: called nonexistent `/logout`, `/me`; zero importers so no fallout). |
+| Base-URL config | Single knob `NEXT_PUBLIC_API_URL` for all new code; legacy `NEXT_PUBLIC_API_BASE_URL` honored as override (`http.ts` fallback added; legacy pages untouched — B3). |
+| E2E | `tests/auth-e2e.spec.ts` (12 tests: full gate, guards, external-`next` rejection, generic failures, duplicate signup, expiry invalidation, 403-keeps-session, 429 UI, uniform forgot, reset round-trip, change-password). Workflow runs both specs in one invocation; `CORTEX_JWT_SECRET` added to e2e backend env (signup/login fail closed without it). |
+
+### Backend changes in B2 (contract mismatches the slice exposed)
+
+1. **Login without `workspace_id`** (`auth.py`, backward compatible). Users
+   don't know their workspace UUID; signup's global email uniqueness makes
+   email+password sufficient. Scoped lookup preserved when provided. +1 test.
+2. **Dev/test verify-if-present** (`security.py`). Non-strict envs ignored
+   Bearer tokens entirely, so login was unusable in dev/test/e2e. Now: a
+   presented token MUST verify (shared strict-rules helper, 401 otherwise);
+   anonymous + header callers byte-for-byte unchanged. Verified: no
+   pre-existing test sends Bearer tokens over real HTTP. +4 tests.
+
+### Verification (this slice)
+
+- Backend 21/21 on real PG (17 B1 incl. login-without-workspace + 4 dev-mode token tests).
+- `npm run build` clean; `tsc --noEmit` clean; `next lint` clean for new files.
+- Auth logic unit-probed in Node (28 assertions: `next` attacks incl.
+  double-encoding, error mapping, zod schemas) — 28/28.
+- Live stack rehearsal (uvicorn + `next start` + migrated PG): all 6 routes
+  200; matrix me/own-200, foreign-403, forged-401, anon-unchanged ✔.
+- Playwright spec could NOT run locally (browser CDN blocked in sandbox);
+  CI e2e is the gate — spec bugs, if any, will show there and be fixed
+  before merge.
+- Remaining gate: CI on PR #4 (updated).
+
+### Honest limitations (carried)
+
+- L1–L3 (revocation, per-process limits, admin-assisted reset) unchanged.
+- Legacy `lib/api.ts` + top-level pages still use their own client/fetch;
+  full migration rides the B3 `/workspace`→`/nexus` rewire.
+- Onboarding "ack" is a per-user localStorage flag (UI progress only;
+  identity always re-resolves server-side).
+
+### Next: slice v0.8.5-B3 — Golden-path API completion (B4 + B8)
+
+Canonical persistent signals/risks/scenarios/evidence/approval endpoints
+(tables exist; endpoints don't) + ApprovalRecordDB writes in the advance
+path. F3 from the register.

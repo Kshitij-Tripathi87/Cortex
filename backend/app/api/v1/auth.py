@@ -84,7 +84,11 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    workspace_id: UUID
+    # Optional since v0.8.5-B2: signup enforces global email uniqueness, so
+    # email alone identifies the account. Omitting it is the normal UX (users
+    # don't know their workspace UUID); providing it keeps the strict
+    # workspace-scoped lookup. Either way the failure is a uniform 401.
+    workspace_id: UUID | None = None
     email: str = Field(min_length=3, max_length=320)
     password: str
 
@@ -324,7 +328,9 @@ async def signup(
 async def login(
     body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
-    stmt = select(User).where(User.workspace_id == body.workspace_id, User.email == body.email)
+    stmt = select(User).where(User.email == body.email)
+    if body.workspace_id is not None:
+        stmt = stmt.where(User.workspace_id == body.workspace_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(body.password, user.password_hash):
         raise _invalid_credentials()

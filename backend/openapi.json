@@ -12941,8 +12941,15 @@
       "LoginRequest": {
         "properties": {
           "workspace_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Workspace Id"
           },
           "email": {
@@ -12958,7 +12965,6 @@
         },
         "type": "object",
         "required": [
-          "workspace_id",
           "email",
           "password"
         ],

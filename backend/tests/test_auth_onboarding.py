@@ -130,6 +130,7 @@ async def dev_client(pg_engine, dev_auth_env):
     maker = async_sessionmaker(pg_engine, class_=AsyncSession, expire_on_commit=False)
     test_app = FastAPI()
     test_app.include_router(auth_router_module.router, prefix="/api/v1/auth")
+    test_app.include_router(nexus_persistent.router, prefix="/api/v1")
 
     async def _override_get_db():
         async with maker() as session:
@@ -220,6 +221,17 @@ class TestLogin:
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["user_id"] == signed.json()["user_id"]
+
+    async def test_login_without_workspace_id(self, api_client) -> None:
+        """v0.8.5-B2: email+password alone identifies the account (globally
+        unique at signup), so the login form needs no workspace UUID."""
+        client, _ = api_client
+        signed, email, password = await _signup(client)
+        assert signed.status_code == 201, signed.text
+
+        resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["workspace_id"] == signed.json()["workspace_id"]
 
     async def test_login_failures_are_uniform_401(self, api_client) -> None:
         client, _ = api_client
@@ -380,6 +392,49 @@ class TestPasswordReset:
             json={"token": "forged-token-value-0123456789", "new_password": "Anotherpass1"},
         )
         assert resp.status_code == 400
+
+
+class TestDevModeVerifyIfPresent:
+    """v0.8.5-B2: in non-strict envs a presented Bearer token verifies
+    (same rules as strict); anonymous/header callers are unchanged."""
+
+    async def test_valid_token_authenticates_in_dev(self, dev_client) -> None:
+        client, _ = dev_client
+        signed, email, _ = await _signup(client)
+        assert signed.status_code == 201, signed.text
+        me = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {signed.json()['access_token']}"}
+        )
+        assert me.status_code == 200, me.text
+        assert me.json()["user"]["email"] == email
+
+    async def test_forged_token_is_401_not_anonymous(self, dev_client) -> None:
+        client, _ = dev_client
+        resp = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": "Bearer forged-token-value"}
+        )
+        assert resp.status_code == 401
+
+    async def test_dev_token_is_workspace_scoped(self, dev_client) -> None:
+        client, _ = dev_client
+        a, _, _ = await _signup(client, org="Dev Org A")
+        b, _, _ = await _signup(client, org="Dev Org B")
+        assert a.status_code == 201 and b.status_code == 201
+        foreign = await client.get(
+            "/api/v1/nexus/decisions",
+            params={"workspace_id": b.json()["workspace_id"]},
+            headers={"Authorization": f"Bearer {a.json()['access_token']}"},
+        )
+        assert foreign.status_code == 403
+
+    async def test_anonymous_dev_callers_unchanged(self, dev_client) -> None:
+        client, _ = dev_client
+        # No Bearer, no headers: the legacy anonymous dev principal still
+        # resolves (any-workspace). /me rejects it (no user id) exactly as
+        # before — this pins the unchanged anonymous path.
+        resp = await client.get("/api/v1/auth/me")
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Authentication required"
 
 
 class TestCrossWorkspaceIsolation:

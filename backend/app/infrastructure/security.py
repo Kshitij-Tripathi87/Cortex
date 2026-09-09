@@ -123,11 +123,30 @@ def _comma_list(value: str | None) -> list[str]:
     return [part.strip() for part in value.split(",") if part.strip()]
 
 
+def _auth_context_from_claims(claims: dict[str, Any]) -> AuthContext:
+    """Build the request principal from verified JWT claims (shared by the
+    strict path and the dev/test verify-if-present path)."""
+    roles = claims.get("roles", [])
+    return AuthContext(
+        user_id=str(claims["sub"]),
+        email=str(claims.get("email") or "") or None,
+        roles=[str(role) for role in roles] if isinstance(roles, list) else [],
+        workspace_ids=[str(claims["workspace_id"])],
+        is_anonymous=False,
+    )
+
+
 async def get_current_user(request: Request) -> AuthContext:
     """Resolve verified Bearer-token identity in strict environments.
 
     Development and tests retain header identity solely as a local fixture.
     Pilot/production never trust caller-supplied identity headers.
+
+    v0.8.5-B2: in non-strict environments a PRESENTED Bearer token is still
+    verified (same rules as strict mode). This lets real login/signup/token
+    flows work in dev/test/e2e while anonymous + header-driven callers keep
+    their existing behavior. A presented token that does not verify is a
+    401 — it is never silently downgraded to the anonymous dev principal.
     """
     if _is_strict_env():
         authorization = _header(request, "Authorization")
@@ -147,14 +166,23 @@ async def get_current_user(request: Request) -> AuthContext:
                 detail=str(exc),
                 headers={"WWW-Authenticate": "Bearer"},
             ) from exc
-        roles = claims.get("roles", [])
-        return AuthContext(
-            user_id=str(claims["sub"]),
-            email=str(claims.get("email") or "") or None,
-            roles=[str(role) for role in roles] if isinstance(roles, list) else [],
-            workspace_ids=[str(claims["workspace_id"])],
-            is_anonymous=False,
-        )
+        return _auth_context_from_claims(claims)
+
+    # Non-strict environments (dev/test): header identity stays the default,
+    # but a presented Bearer token must verify — see the docstring above.
+    authorization = _header(request, "Authorization")
+    if authorization is not None and authorization.startswith("Bearer "):
+        from app.modules.identity.jwt_auth import verify_token
+
+        try:
+            claims = verify_token(authorization.removeprefix("Bearer ").strip())
+        except PermissionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(exc),
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
+        return _auth_context_from_claims(claims)
 
     from app.modules.identity.dependencies import get_current_user as resolve_user
 
