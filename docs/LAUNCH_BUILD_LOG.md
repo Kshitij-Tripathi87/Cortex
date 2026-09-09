@@ -141,8 +141,9 @@ path. F3 from the register.
   run (two consecutive CDN-side failures after three 26/26 greens).
 - **CI hardening (this push):** Playwright browsers cached in `e2e.yml`
   (`actions/cache@v5`, keyed on `package-lock.json`) so the CDN is only
-  needed on version bumps. E2E re-runs on every PR push and will go green
-  once the CDN recovers; all other gates re-validate immediately.
+  needed on version bumps. Re-validation complete: PR #5 CI **15/15
+  green, E2E 26/26, 0 flaky** on the merged tree + hardening (CDN had
+  recovered by that run; the cache now covers the next outage).
 - Working branch `arena/01a08657-cortex` re-synced to post-merge `main`
   (merge commit on the branch); B4+ continues from here.
 
