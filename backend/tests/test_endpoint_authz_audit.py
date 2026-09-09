@@ -57,6 +57,15 @@ PUBLIC_PATHS: frozenset[str] = frozenset(
         # ast.parse raise SyntaxError (silently skipped); the BOM was removed
         # during the 2026-09 lint paydown. Audit note: D3h.
         "/login",
+        # app/api/v1/auth.py — v0.8.5-B launch onboarding (audit note D3i):
+        # credential-establishing routes. They cannot require a bearer
+        # token: /signup creates the first credential, /reset/* recovers
+        # one. Each is per-email/per-instance rate-limited, returns
+        # uniform errors (no user enumeration), and /reset/request never
+        # discloses token material outside dev/test. Audit note: D3i.
+        "/signup",
+        "/reset/request",
+        "/reset/confirm",
     }
 )
 

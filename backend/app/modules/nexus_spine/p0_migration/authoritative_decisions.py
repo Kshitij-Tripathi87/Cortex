@@ -43,15 +43,18 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.ids import uuid7
 from app.infrastructure.outbox_publisher import allocate_outbox_seq
 from app.modules.nexus_spine.governance.lifecycle import (
     ALLOWED_TRANSITIONS,
     DecisionPhase,
 )
 from app.modules.nexus_spine.persistence.models import (
+    ApprovalRecordDB,
     DecisionRecordDB,
     DecisionTransitionDB,
     EventRecordDB,
+    EvidenceNodeDB,
 )
 from app.modules.nexus_spine.realtime_events import NexusEventType
 
@@ -288,6 +291,7 @@ class AuthoritativeDecisionService:
         target_phase: DecisionPhase,
         *,
         actor: str,
+        actor_role: str | None = None,
         reason: str | None = None,
         metadata: dict[str, Any] | None = None,
         current_world_state_version: int | None = None,
@@ -300,6 +304,12 @@ class AuthoritativeDecisionService:
           - Transition is in ALLOWED_TRANSITIONS
           - If staleness check provided, world state hasn't drifted
           - Record is SELECTed FOR UPDATE (implicit via flush ordering)
+
+        v0.8.5-B3 (B8): transitions into APPROVED / REJECTED / AUTHORIZED
+        also append an ``ApprovalRecordDB`` row (approver identity trail)
+        plus a matching ``EvidenceNodeDB`` ``approval`` node, in the same
+        transaction. EXECUTED appends an ``execution`` node and a direct
+        advance into OUTCOME_RECORDED appends an ``outcome`` node.
         """
         # Load with row lock (FOR UPDATE)
         # SQLAlchemy's with_for_update() on the select
@@ -387,6 +397,62 @@ class AuthoritativeDecisionService:
                 metadata_=metadata or {},
             )
         )
+
+        # B8 approver identity trail + self-assembling evidence DAG.
+        if target_phase in {
+            DecisionPhase.APPROVED,
+            DecisionPhase.REJECTED,
+            DecisionPhase.AUTHORIZED,
+        }:
+            approval_id = f"apr-{uuid7()}"
+            approved = target_phase != DecisionPhase.REJECTED
+            policy_checks: dict[str, Any] = (metadata or {}).get("policy_checks", {})
+            if not isinstance(policy_checks, dict):
+                policy_checks = {}
+            session.add(
+                ApprovalRecordDB(
+                    approval_id=approval_id,
+                    decision_id=decision_id,
+                    tenant_id=rec.tenant_id,
+                    workspace_id=rec.workspace_id,
+                    approver_id=actor,
+                    approver_role=actor_role,
+                    decision_hash=rec.deterministic_hash,
+                    approved=approved,
+                    rejection_reason=reason if not approved else None,
+                    policy_checks=policy_checks,
+                )
+            )
+            self._add_evidence_node(
+                session,
+                rec=rec,
+                node_type="approval",
+                label=f"Decision {target_phase.value} by {actor}",
+                payload={
+                    "approval_id": approval_id,
+                    "phase": target_phase.value,
+                    "actor": actor,
+                    "actor_role": actor_role,
+                    "approved": approved,
+                    "reason": reason,
+                },
+            )
+        elif target_phase == DecisionPhase.EXECUTED:
+            self._add_evidence_node(
+                session,
+                rec=rec,
+                node_type="execution",
+                label=f"Decision executed by {actor}",
+                payload={"actor": actor, "reason": reason},
+            )
+        elif target_phase == DecisionPhase.OUTCOME_RECORDED:
+            self._add_evidence_node(
+                session,
+                rec=rec,
+                node_type="outcome",
+                label="Outcome recorded via advance",
+                payload={"actor": actor, "reason": reason},
+            )
 
         # Publish corresponding event
         event_type = self._phase_event_type(target_phase)
@@ -479,6 +545,19 @@ class AuthoritativeDecisionService:
                 reason="outcome_recorded",
             )
         )
+        self._add_evidence_node(
+            session,
+            rec=rec,
+            node_type="outcome",
+            label=f"Outcome recorded: {outcome_status}",
+            payload={
+                "outcome_status": outcome_status,
+                "actual_nev": actual_nev,
+                "actual_sla": actual_sla,
+                "actual_cost": actual_cost,
+                "financial_impact": financial_impact,
+            },
+        )
         seq = await allocate_outbox_seq(
             session, tenant_id=rec.tenant_id, workspace_id=rec.workspace_id
         )
@@ -510,6 +589,43 @@ class AuthoritativeDecisionService:
             self._cache.clear()
 
     # ── Internals ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def _add_evidence_node(
+        session: AsyncSession,
+        *,
+        rec: DecisionRecordDB,
+        node_type: str,
+        label: str,
+        payload: dict[str, Any],
+    ) -> str:
+        """Append one lifecycle evidence node in-transaction. Returns node_id."""
+        node_id = f"evd-{uuid7()}"
+        checksum = hashlib.sha256(
+            json.dumps(
+                {
+                    "decision_id": rec.decision_id,
+                    "node_type": node_type,
+                    "label": label,
+                    "payload": payload,
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        session.add(
+            EvidenceNodeDB(
+                node_id=node_id,
+                decision_id=rec.decision_id,
+                tenant_id=rec.tenant_id,
+                workspace_id=rec.workspace_id,
+                node_type=node_type,
+                label=label,
+                checksum=checksum,
+                payload=payload,
+                source_entity_id=rec.decision_id,
+            )
+        )
+        return node_id
 
     @staticmethod
     def _phase_event_type(phase: DecisionPhase) -> str | None:

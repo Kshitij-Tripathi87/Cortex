@@ -115,7 +115,7 @@ minio:
 
 # Environment configuration
 config:
-  CORTEX_ENV: production
+  CORTEX_ENV: prod
   CORTEX_HOST: 0.0.0.0
   CORTEX_PORT: 8000
   OTEL_SERVICE_NAME: cortex-backend

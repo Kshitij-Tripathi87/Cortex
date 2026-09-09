@@ -40,6 +40,7 @@ class NexusEventType(StrEnum):
     EXECUTION_COMPLETED = "execution_completed"
     EXECUTION_FAILED = "execution_failed"
     OUTCOME_RECORDED = "outcome_recorded"
+    EVIDENCE_APPENDED = "evidence_appended"
     VANESSA_RESPONSE = "vanessa_response"
     MODEL_DEPLOYED = "model_deployed"
     MODEL_ROLLED_BACK = "model_rolled_back"

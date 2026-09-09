@@ -1,4 +1,4 @@
-﻿"""Security infrastructure â€” auth context, authorization, and protective middleware.
+"""Security infrastructure â€” auth context, authorization, and protective middleware.
 
 This module provides the security primitives referenced by ``app/main.py`` and
 ``app/api/v1/graph.py``:
@@ -102,7 +102,8 @@ class AuthContext:
 def _is_strict_env() -> bool:
     """True when auth must be enforced (prod / pilot)."""
     settings = get_settings()
-    return settings.cortex_env in {"prod", "pilot"}
+    # "production" accepted defensively (see app/infrastructure/security.py).
+    return settings.env in {"prod", "production", "pilot"}
 
 
 def _header(request: Request, name: str) -> str | None:

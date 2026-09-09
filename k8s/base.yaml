@@ -12,7 +12,7 @@ metadata:
   name: cortex-config
   namespace: cortex
 data:
-  CORTEX_ENV: "production"
+  CORTEX_ENV: "prod"
   CORTEX_HOST: "0.0.0.0"
   CORTEX_PORT: "8000"
   CORTEX_DB_DSN: "postgresql+asyncpg://$(DB_USER):$(DB_PASSWORD)@cortex-postgres:5432/cortex"

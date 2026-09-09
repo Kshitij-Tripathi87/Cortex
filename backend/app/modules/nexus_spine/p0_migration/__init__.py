@@ -55,6 +55,12 @@ from app.modules.nexus_spine.p0_migration.authoritative_models import (
     get_authoritative_model_registry,
     validate_promotion_gates,
 )
+from app.modules.nexus_spine.p0_migration.authoritative_registries import (
+    AuthoritativeRegistryService,
+    RegistryConflictError,
+    RegistryValidationError,
+    get_authoritative_registry_service,
+)
 from app.modules.nexus_spine.p0_migration.authoritative_truth import (
     AuthoritativeTruthLoop,
     get_authoritative_truth_loop,
@@ -87,6 +93,9 @@ __all__ = [
     "AuthoritativeTruthLoop",
     "AuthoritativeModelRegistry",
     "AuthoritativeInferenceEngine",
+    "AuthoritativeRegistryService",
+    "RegistryConflictError",
+    "RegistryValidationError",
     "InvalidTransitionError",
     "StaleWorldStateError",
     # Model governance & inference
@@ -129,4 +138,5 @@ __all__ = [
     "get_authoritative_truth_loop",
     "get_authoritative_model_registry",
     "get_authoritative_inference_engine",
+    "get_authoritative_registry_service",
 ]

@@ -1,46 +1,51 @@
 /**
- * Cortex Nexus — Identity & Auth Typed API Client (Track X2)
+ * Auth API — B1 contract (v0.8.5-B1/B2). Thin typed wrappers over the
+ * centralized client; session semantics live in AuthProvider.
+ *
+ *   POST /auth/signup | POST /auth/login | GET /auth/me | POST /auth/logout
+ *   POST /auth/change-password | POST /auth/reset/request | POST /auth/reset/confirm
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
+import { apiClient } from "@/lib/auth/client";
+import type { LoginRequest, LoginResponse, MeResponse, SignupRequest } from "@/lib/auth/types";
 
-export interface LoginRequest {
-  email: string;
-  password?: string;
-  tenant_id?: string;
+export async function signup(payload: SignupRequest): Promise<LoginResponse> {
+  return apiClient.post<LoginResponse>("/auth/signup", payload, { anonymous: true });
 }
 
-export interface AuthResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-    organization_id: string;
-    capabilities: string[];
-  };
+export async function login(payload: LoginRequest): Promise<LoginResponse> {
+  return apiClient.post<LoginResponse>("/auth/login", payload, { anonymous: true });
 }
 
-export async function login(req: LoginRequest): Promise<AuthResponse> {
-  const resp = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
-  if (!resp.ok) throw new Error("Authentication failed");
-  return resp.json();
+export async function fetchCurrentUser(): Promise<MeResponse> {
+  return apiClient.get<MeResponse>("/auth/me");
 }
 
 export async function logout(): Promise<{ success: boolean }> {
-  const resp = await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
-  if (!resp.ok) throw new Error("Logout failed");
-  return resp.json();
+  return apiClient.post<{ success: boolean }>("/auth/logout");
 }
 
-export async function fetchCurrentUser(): Promise<AuthResponse["user"]> {
-  const resp = await fetch(`${API_BASE}/auth/me`, { cache: "no-store" });
-  if (!resp.ok) throw new Error("Failed to fetch current user");
-  return resp.json();
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiClient.post("/auth/change-password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+}
+
+export interface ResetRequestResult {
+  requested: boolean;
+  /** Present only when the backend runs in dev/test. Never rendered. */
+  reset_token: string | null;
+}
+
+export async function requestPasswordReset(email: string): Promise<ResetRequestResult> {
+  return apiClient.post<ResetRequestResult>("/auth/reset/request", { email }, { anonymous: true });
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  await apiClient.post(
+    "/auth/reset/confirm",
+    { token, new_password: newPassword },
+    { anonymous: true },
+  );
 }

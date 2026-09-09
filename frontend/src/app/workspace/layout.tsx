@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { RequireAuth } from "@/lib/auth";
 import { WorkspaceProvider, useNexusWorkspace } from "@/lib/state/WorkspaceContext";
 import { NexusHeader } from "@/components/shell/NexusHeader";
 import { NexusSidebar } from "@/components/shell/NexusSidebar";
@@ -54,9 +55,13 @@ export default function WorkspaceLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // B2: the workspace shell requires an authenticated session. Anonymous
+  // visitors bounce to /auth/login?next=... before any workspace state boots.
   return (
-    <WorkspaceProvider>
-      <WorkspaceShellInner>{children}</WorkspaceShellInner>
-    </WorkspaceProvider>
+    <RequireAuth>
+      <WorkspaceProvider>
+        <WorkspaceShellInner>{children}</WorkspaceShellInner>
+      </WorkspaceProvider>
+    </RequireAuth>
   );
 }

@@ -11,6 +11,11 @@ mounted only when CORTEX_NEXUS_V07_LEGACY_ROUTES is explicitly enabled):
   - memory     : record / analogous / recent
   - forecasts  : record / observations (closes truth loop) / calibration / bias
   - vanessa    : ask (LLM pipeline with AuthZ)
+  - risks      : record (upsert) / list / get / triage-status (v0.8.5-B3)
+  - signals    : canonical detection-on-read over PG state (v0.8.5-B3)
+  - scenarios  : create / list / get / simulate-against-snapshot (v0.8.5-B3)
+  - evidence   : append nodes+edges / read decision DAG (v0.8.5-B3)
+  - approvals  : approver identity trail written by advance() (v0.8.5-B3, B8)
 
 Every authoritative operation terminates at:
 
@@ -40,6 +45,7 @@ from app.common.ids import uuid7
 from app.infrastructure.database import get_db
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.nexus_spine.governance.lifecycle import DecisionPhase
+from app.modules.nexus_spine.ontology.entities import Entity
 from app.modules.nexus_spine.p0_migration import (
     AuthoritativeDecisionMemory,
     AuthoritativeDecisionService,
@@ -53,12 +59,15 @@ from app.modules.nexus_spine.p0_migration import (
     Principal,
     PromotionGateConfig,
     PromotionGateFailedError,
+    RegistryConflictError,
+    RegistryValidationError,
     StaleWorldStateError,
     VanessaPipeline,
     get_authoritative_decision_memory,
     get_authoritative_decision_service,
     get_authoritative_inference_engine,
     get_authoritative_model_registry,
+    get_authoritative_registry_service,
     get_authoritative_truth_loop,
     get_authz,
 )
@@ -307,6 +316,7 @@ async def advance_decision(
             decision_id=decision_id,
             target_phase=target,
             actor=p.user_id,
+            actor_role=p.role.value,
             reason=body.reason,
             metadata=body.metadata,
             current_world_state_version=body.expected_world_state_version,
@@ -351,6 +361,7 @@ async def execute_decision(
                 decision_id=decision_id,
                 target_phase=phase,
                 actor=p.user_id,
+                actor_role=p.role.value,
                 reason="executed via API",
             )
         await session.commit()
@@ -1033,6 +1044,503 @@ async def vanessa_ask(
 
     response = await pipeline.handle(p, body.query, workspace_id=workspace_id)
     return _envelope(request, response.to_dict(), correlation_id=response.trace_id)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /risks — record / list / get / triage (v0.8.5-B3)
+#
+# The persisted risk registry. Detectors (risk engine, GNN, humans,
+# external systems) record assessments; the registry upserts on the open
+# risk for (tenant, workspace, entity).
+# ─────────────────────────────────────────────────────────────────────
+
+
+class RiskRecordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+    entity_id: str
+    entity_kind: str
+    severity: str  # CRITICAL|HIGH|MEDIUM|LOW|WATCH
+    title: str
+    world_state_version: int
+    risk_score: float = 0.0
+    gnn_risk_score: float | None = None
+    description: str = ""
+    blast_radius_count: int = 0
+    revenue_exposure: float | None = None
+    sla_risk_pct: float | None = None
+    root_causes: list[str] = Field(default_factory=list)
+    hidden_dependencies: list[str] = Field(default_factory=list)
+
+
+class RiskStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+    status: str  # open|mitigated|closed|stale
+
+
+@router.post("/risks", status_code=201)
+async def record_risk(
+    body: RiskRecordRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(body.workspace_id, auth)
+    p = _principal(auth, body.workspace_id)
+    _authz_check(p, "nexus.risk.record", body.workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        result = await svc.record_risk(
+            session,
+            tenant_id=p.tenant_id,
+            workspace_id=body.workspace_id,
+            entity_id=body.entity_id,
+            entity_kind=body.entity_kind,
+            severity=body.severity,
+            title=body.title,
+            world_state_version=body.world_state_version,
+            risk_score=body.risk_score,
+            gnn_risk_score=body.gnn_risk_score,
+            description=body.description,
+            blast_radius_count=body.blast_radius_count,
+            revenue_exposure=body.revenue_exposure,
+            sla_risk_pct=body.sla_risk_pct,
+            root_causes=body.root_causes,
+            hidden_dependencies=body.hidden_dependencies,
+        )
+        await session.commit()
+    except RegistryValidationError as e:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _envelope(request, {"risk": result})
+
+
+@router.get("/risks")
+async def list_risks(
+    request: Request,
+    workspace_id: str = Query(...),
+    min_severity: str | None = Query(None),
+    status: str = Query("open", description="open|mitigated|closed|stale|all"),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.risk.read", workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        risks = await svc.list_risks(
+            session,
+            tenant_id=p.tenant_id,
+            workspace_id=workspace_id,
+            min_severity=min_severity,
+            status=None if status == "all" else status,
+        )
+    except RegistryValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _envelope(request, {"risks": risks, "count": len(risks)})
+
+
+@router.get("/risks/{risk_id}")
+async def get_risk(
+    risk_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.risk.read", workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        risk = await svc.get_risk(session, risk_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="risk not found") from None
+    if risk["workspace_id"] != workspace_id or risk["tenant_id"] != p.tenant_id:
+        raise HTTPException(status_code=404, detail="risk not found")
+    return _envelope(request, {"risk": risk})
+
+
+@router.patch("/risks/{risk_id}")
+async def triage_risk(
+    risk_id: str,
+    body: RiskStatusRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(body.workspace_id, auth)
+    p = _principal(auth, body.workspace_id)
+    _authz_check(p, "nexus.risk.triage", body.workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        risk = await svc.get_risk(session, risk_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="risk not found") from None
+    if risk["workspace_id"] != body.workspace_id or risk["tenant_id"] != p.tenant_id:
+        raise HTTPException(status_code=404, detail="risk not found")
+    try:
+        updated = await svc.set_risk_status(session, risk_id, body.status)
+        await session.commit()
+    except RegistryValidationError as e:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _envelope(request, {"risk": updated})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /signals — canonical detection-on-read (v0.8.5-B3)
+#
+# Signals are computed from live PG-backed graph/operational state on every
+# read (same SignalEngine construction as GET /graph/signals) — there is no
+# persisted signal table by design. Persisted derivatives live in the risk
+# registry and the evidence DAG.
+# ─────────────────────────────────────────────────────────────────────
+
+
+@router.get("/signals")
+async def list_signals(
+    request: Request,
+    workspace_id: str = Query(...),
+    signal_names: str | None = Query(None, description="Comma-separated signal names"),
+    min_confidence: float = Query(0.0, ge=0.0, le=1.0),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.signal.read", workspace_id)
+    from app.modules.graph.cache import create_cache
+    from app.modules.graph.context_engine import (
+        OperationalStateEngine,
+        SqlOperationalStateRepository,
+        create_context_cache,
+    )
+    from app.modules.graph.feature_engine import FeatureEngine
+    from app.modules.graph.repository import SqlGraphRepository
+    from app.modules.graph.service import GraphService
+    from app.modules.graph.signal_engine import SignalEngine
+
+    repo = SqlGraphRepository(session)
+    service = GraphService(repo)
+    feature_engine = FeatureEngine(service, create_cache())
+    context_engine = OperationalStateEngine(
+        SqlOperationalStateRepository(session, create_context_cache()),
+        context_cache=create_context_cache(),
+    )
+    signal_engine = SignalEngine(feature_engine, context_engine)
+
+    signals_to_compute = signal_names.split(",") if signal_names else None
+    result = await signal_engine.detect_signals(workspace_id, signal_names=signals_to_compute)
+    ss = result.snapshot
+    signals = [
+        {
+            "signal_id": sig.signal_id,
+            "signal_name": sig.signal_name,
+            "signal_version": sig.signal_version,
+            "workspace_id": sig.workspace_id,
+            "snapshot_version": sig.snapshot_version,
+            "snapshot_hash": sig.snapshot_hash,
+            "severity": sig.severity.value,
+            "confidence": sig.confidence,
+            "category": sig.category.value,
+            "affected_node_ids": sig.affected_node_ids,
+            "affected_entity_types": sig.affected_entity_types,
+            "affected_entity_ids": sig.affected_entity_ids,
+            "propagation_scope": sig.propagation_scope,
+            "feature_evidence": sig.feature_evidence,
+            "explanation": sig.explanation,
+            "created_at": sig.created_at.isoformat(),
+        }
+        for sig in ss.signals
+        if sig.confidence >= min_confidence
+    ]
+    return _envelope(
+        request,
+        {
+            "workspace_id": ss.workspace_id,
+            "snapshot_version": ss.snapshot_version,
+            "snapshot_hash": ss.snapshot_hash,
+            "signals": signals,
+            "count": len(signals),
+            "metadata": ss.metadata,
+        },
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /scenarios — create / list / get / simulate (v0.8.5-B3)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class ScenarioCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+    name: str
+    world_state_version: int
+    description: str = ""
+    decision_id: str | None = None
+    parent_scenario_id: str | None = None
+    is_baseline: bool = False
+    mutations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ScenarioSimulateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+    entities: list[Entity] = Field(default_factory=list)
+    world_state_version: int = 0
+
+
+@router.post("/scenarios", status_code=201)
+async def create_scenario(
+    body: ScenarioCreateRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(body.workspace_id, auth)
+    p = _principal(auth, body.workspace_id)
+    _authz_check(p, "nexus.scenario.create", body.workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        result = await svc.create_scenario(
+            session,
+            tenant_id=p.tenant_id,
+            workspace_id=body.workspace_id,
+            name=body.name,
+            world_state_version=body.world_state_version,
+            description=body.description,
+            decision_id=body.decision_id,
+            parent_scenario_id=body.parent_scenario_id,
+            is_baseline=body.is_baseline,
+            mutations=body.mutations,
+        )
+        await session.commit()
+    except RegistryValidationError as e:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _envelope(request, {"scenario": result})
+
+
+@router.get("/scenarios")
+async def list_scenarios(
+    request: Request,
+    workspace_id: str = Query(...),
+    decision_id: str | None = Query(None),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.scenario.read", workspace_id)
+    svc = get_authoritative_registry_service()
+    scenarios = await svc.list_scenarios(
+        session,
+        tenant_id=p.tenant_id,
+        workspace_id=workspace_id,
+        decision_id=decision_id,
+    )
+    return _envelope(request, {"scenarios": scenarios, "count": len(scenarios)})
+
+
+@router.get("/scenarios/{scenario_id}")
+async def get_scenario(
+    scenario_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.scenario.read", workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        scenario = await svc.get_scenario(session, scenario_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="scenario not found") from None
+    if scenario["workspace_id"] != workspace_id or scenario["tenant_id"] != p.tenant_id:
+        raise HTTPException(status_code=404, detail="scenario not found")
+    return _envelope(request, {"scenario": scenario})
+
+
+@router.post("/scenarios/{scenario_id}/simulate")
+async def simulate_scenario(
+    scenario_id: str,
+    body: ScenarioSimulateRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Run the stored scenario against the caller-supplied entity snapshot."""
+    require_workspace_access(body.workspace_id, auth)
+    p = _principal(auth, body.workspace_id)
+    _authz_check(p, "nexus.scenario.simulate", body.workspace_id)
+    svc = get_authoritative_registry_service()
+    try:
+        scenario = await svc.get_scenario(session, scenario_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="scenario not found") from None
+    if scenario["workspace_id"] != body.workspace_id or scenario["tenant_id"] != p.tenant_id:
+        raise HTTPException(status_code=404, detail="scenario not found")
+    try:
+        outcome = await svc.simulate_scenario(
+            session,
+            scenario_id,
+            body.entities,
+            world_state_version=body.world_state_version,
+        )
+        await session.commit()
+    except RegistryValidationError as e:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _envelope(request, outcome)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /decisions/{id}/evidence + /approvals (v0.8.5-B3)
+#
+# Decision-scoped: the workspace is derived from the decision (same routing
+# pattern as advance()). Manual appends emit EVIDENCE_APPENDED; lifecycle
+# transitions additionally self-append approval/execution/outcome nodes.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class EvidenceNodeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    node_type: (
+        str  # observation|signal|forecast|risk|scenario|decision|approval|execution|outcome|claim
+    )
+    label: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    checksum: str | None = None
+    source_entity_id: str | None = None
+
+
+class EvidenceEdgeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    from_node_id: str
+    to_node_id: str
+    relation: str  # supports|causes|informs|contradicts|proves|derived_from
+    weight: float = 1.0
+
+
+async def _decision_scope(
+    session: AsyncSession, auth: AuthContext, decision_id: str, tool: str
+) -> tuple[Principal, dict[str, Any]]:
+    """Resolve (principal, decision) for decision-scoped endpoints."""
+    svc = get_authoritative_decision_service()
+    dec = await svc.get(session, decision_id=decision_id)
+    if dec is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    require_workspace_access(dec["workspace_id"], auth)
+    p = _principal(auth, dec["workspace_id"])
+    _authz_check(p, tool, dec["workspace_id"])
+    if dec["tenant_id"] != p.tenant_id:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return p, dec
+
+
+@router.post("/decisions/{decision_id}/evidence/nodes", status_code=201)
+async def append_evidence_node(
+    decision_id: str,
+    body: EvidenceNodeRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    _p, dec = await _decision_scope(session, auth, decision_id, "nexus.evidence.append")
+    svc = get_authoritative_registry_service()
+    try:
+        node = await svc.append_evidence_node(
+            session,
+            tenant_id=dec["tenant_id"],
+            workspace_id=dec["workspace_id"],
+            decision_id=decision_id,
+            node_type=body.node_type,
+            label=body.label,
+            payload=body.payload,
+            checksum=body.checksum,
+            source_entity_id=body.source_entity_id,
+        )
+        await session.commit()
+    except RegistryValidationError as e:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _envelope(request, {"node": node})
+
+
+@router.post("/decisions/{decision_id}/evidence/edges", status_code=201)
+async def append_evidence_edge(
+    decision_id: str,
+    body: EvidenceEdgeRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    _p, dec = await _decision_scope(session, auth, decision_id, "nexus.evidence.append")
+    svc = get_authoritative_registry_service()
+    try:
+        edge = await svc.append_evidence_edge(
+            session,
+            tenant_id=dec["tenant_id"],
+            workspace_id=dec["workspace_id"],
+            decision_id=decision_id,
+            from_node_id=body.from_node_id,
+            to_node_id=body.to_node_id,
+            relation=body.relation,
+            weight=body.weight,
+        )
+        await session.commit()
+    except RegistryConflictError as e:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except RegistryValidationError as e:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ValueError as e:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return _envelope(request, {"edge": edge})
+
+
+@router.get("/decisions/{decision_id}/evidence")
+async def get_evidence_graph(
+    decision_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    await _decision_scope(session, auth, decision_id, "nexus.evidence.read")
+    svc = get_authoritative_registry_service()
+    graph = await svc.get_evidence_graph(session, decision_id)
+    graph["node_count"] = len(graph["nodes"])
+    graph["edge_count"] = len(graph["edges"])
+    return _envelope(request, graph)
+
+
+@router.get("/decisions/{decision_id}/approvals")
+async def list_approvals(
+    decision_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    await _decision_scope(session, auth, decision_id, "nexus.approval.read")
+    svc = get_authoritative_registry_service()
+    approvals = await svc.list_approvals(session, decision_id)
+    return _envelope(
+        request, {"decision_id": decision_id, "approvals": approvals, "count": len(approvals)}
+    )
 
 
 __all__ = ["router"]

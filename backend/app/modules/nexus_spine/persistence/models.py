@@ -159,7 +159,10 @@ class ApprovalRecordDB(Base):
     tenant_id: Mapped[str] = mapped_column(String(64), index=True)
     workspace_id: Mapped[str] = mapped_column(String(64), index=True)
     approver_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    approver_role: Mapped[str] = mapped_column(String(64), default="operator")
+    # NULL = role unknown (programmatic advance without a principal); the HTTP
+    # advance path always records the real role. Annotation-only: the column
+    # was already nullable, so no migration is required.
+    approver_role: Mapped[str | None] = mapped_column(String(64), default="operator")
     decision_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -22,6 +22,7 @@ from app.modules.nexus_spine.persistence.models import (
     VanessaSessionDB,
 )
 from app.modules.nexus_spine.persistence.repositories import (
+    ApprovalRepository,
     DecisionRepository,
     EventRepository,
     EvidenceRepository,
@@ -31,6 +32,7 @@ from app.modules.nexus_spine.persistence.repositories import (
     RiskRepository,
     ScenarioRepository,
     VanessaSessionRepository,
+    get_approval_repository,
     get_decision_repository,
     get_event_repository,
     get_evidence_repository,
@@ -45,6 +47,7 @@ from app.modules.nexus_spine.persistence.repositories import (
 
 __all__ = [
     "ApprovalRecordDB",
+    "ApprovalRepository",
     "DecisionRecordDB",
     "DecisionTransitionDB",
     "DecisionRepository",
@@ -69,6 +72,7 @@ __all__ = [
     "VanessaMessageDB",
     "VanessaSessionDB",
     "VanessaSessionRepository",
+    "get_approval_repository",
     "get_decision_repository",
     "get_evidence_repository",
     "get_event_repository",

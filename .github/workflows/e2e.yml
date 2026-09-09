@@ -62,6 +62,9 @@ jobs:
           echo "::notice title=readyz at boot::$(curl -s http://localhost:8000/readyz | head -c 400)"
         env:
           CORTEX_ENV: test
+          # Test-only signing secret: signup/login issue JWTs and fail closed
+          # without one (v0.8.5-B1). Never reuse outside CI.
+          CORTEX_JWT_SECRET: e2e-test-secret-0123456789abcdef0123456789
           CORTEX_DB_DSN: postgresql+asyncpg://cortex:cortex_secure_prod_2026!@localhost:5432/cortex
           # Compose redis requires auth (docker-compose.prod.yml
           # --requirepass); a passwordless URL made /readyz return 503
@@ -95,7 +98,7 @@ jobs:
         run: |
           cd frontend
           set +e
-          npx playwright test tests/critical-path-e2e.spec.ts
+          npx playwright test tests/critical-path-e2e.spec.ts tests/auth-e2e.spec.ts
           rc=$?
           set -e
           # Surface run summary and each failed test as check-run

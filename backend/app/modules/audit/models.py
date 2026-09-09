@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.ids import uuid7
@@ -31,5 +31,8 @@ class AuditEvent(Base):
     correlation_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     request_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    occurred_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(UTC))
+    # timestamptz per migration 001 (emit() always passes tz-aware datetimes).
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
