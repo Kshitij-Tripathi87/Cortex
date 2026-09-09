@@ -893,9 +893,7 @@ class EventRepository:
         if seq is None:
             from app.infrastructure.outbox_publisher import allocate_outbox_seq
 
-            seq = await allocate_outbox_seq(
-                session, tenant_id=tenant_id, workspace_id=workspace_id
-            )
+            seq = await allocate_outbox_seq(session, tenant_id=tenant_id, workspace_id=workspace_id)
         event = EventRecordDB(
             tenant_id=tenant_id,
             workspace_id=workspace_id,

@@ -42,12 +42,16 @@ def upgrade() -> None:
             sa.Column("world_state_version", sa.Integer(), nullable=True),
             sa.Column("published", sa.Boolean(), nullable=False, server_default=sa.text("false")),
             sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
-            sa.Column("publish_attempts", sa.Integer(), nullable=False, server_default=sa.text("0")),
+            sa.Column(
+                "publish_attempts", sa.Integer(), nullable=False, server_default=sa.text("0")
+            ),
             sa.Column("published_by", sa.String(length=128), nullable=True),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("event_id", name="uq_nexus_events_event_id"),
-            sa.UniqueConstraint("tenant_id", "workspace_id", "seq", name="uq_nexus_events_tenant_workspace_seq"),
+            sa.UniqueConstraint(
+                "tenant_id", "workspace_id", "seq", name="uq_nexus_events_tenant_workspace_seq"
+            ),
         )
         op.create_index("ix_nexus_events_tenant_id", "nexus_events", ["tenant_id"])
         op.create_index("ix_nexus_events_workspace_id", "nexus_events", ["workspace_id"])
@@ -62,17 +66,33 @@ def upgrade() -> None:
     else:
         cols = [c["name"] for c in inspector.get_columns("nexus_events")]
         if "seq" not in cols:
-            op.add_column("nexus_events", sa.Column("seq", sa.BigInteger(), nullable=False, server_default=sa.text("1")))
+            op.add_column(
+                "nexus_events",
+                sa.Column("seq", sa.BigInteger(), nullable=False, server_default=sa.text("1")),
+            )
         if "published_at" not in cols:
-            op.add_column("nexus_events", sa.Column("published_at", sa.DateTime(timezone=True), nullable=True))
+            op.add_column(
+                "nexus_events", sa.Column("published_at", sa.DateTime(timezone=True), nullable=True)
+            )
         if "publish_attempts" not in cols:
-            op.add_column("nexus_events", sa.Column("publish_attempts", sa.Integer(), nullable=False, server_default=sa.text("0")))
+            op.add_column(
+                "nexus_events",
+                sa.Column(
+                    "publish_attempts", sa.Integer(), nullable=False, server_default=sa.text("0")
+                ),
+            )
         if "published_by" not in cols:
-            op.add_column("nexus_events", sa.Column("published_by", sa.String(length=128), nullable=True))
+            op.add_column(
+                "nexus_events", sa.Column("published_by", sa.String(length=128), nullable=True)
+            )
 
         existing_uqs = [uq["name"] for uq in inspector.get_unique_constraints("nexus_events")]
         if "uq_nexus_events_tenant_workspace_seq" not in existing_uqs:
-            op.create_unique_constraint("uq_nexus_events_tenant_workspace_seq", "nexus_events", ["tenant_id", "workspace_id", "seq"])
+            op.create_unique_constraint(
+                "uq_nexus_events_tenant_workspace_seq",
+                "nexus_events",
+                ["tenant_id", "workspace_id", "seq"],
+            )
 
 
 def downgrade() -> None:

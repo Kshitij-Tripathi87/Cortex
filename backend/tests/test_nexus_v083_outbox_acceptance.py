@@ -364,7 +364,7 @@ class TestA6WorkerRestart:
                     s,
                     tenant_id=TENANT_A,
                     workspace_id=WS_1,
-                    event_type=f"TICK_{i+2}",
+                    event_type=f"TICK_{i + 2}",
                     payload={"worker": 2},
                 )
                 await s.commit()
@@ -474,9 +474,7 @@ class TestA8A9A10MissedEventsAndGaps:
 
         # Resync from 1042
         async with sessionmaker() as s:
-            restored = await bus.replay_since(
-                workspace_id="WS-RESYNC", since_seq=1042, session=s
-            )
+            restored = await bus.replay_since(workspace_id="WS-RESYNC", since_seq=1042, session=s)
 
         assert len(restored) == 2
         assert restored[0].seq == 1043
