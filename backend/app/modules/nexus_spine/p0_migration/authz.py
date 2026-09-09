@@ -87,6 +87,14 @@ TOOL_PERMISSIONS: dict[str, set[NexusRole]] = {
     # Truth loop / audit
     "nexus.truth.read": {NexusRole.VIEWER, NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
     "nexus.audit.read": {NexusRole.VIEWER, NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    # Model Governance & Inference (v0.8.4)
+    "nexus.model.read": {NexusRole.VIEWER, NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.model.register": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.model.evaluate": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.model.promote": {NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.model.rollback": {NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.forecast.create": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.inference.run": {NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
     # Admin
     "nexus.admin.configure": {NexusRole.ADMIN},
     "nexus.admin.roles": {NexusRole.ADMIN},

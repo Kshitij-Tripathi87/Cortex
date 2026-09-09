@@ -147,12 +147,16 @@ class ModelRegistry:
         world_state_version: int | None = None,
         metrics: dict[str, Any] | None = None,
         model_config: dict[str, Any] | None = None,
+        tenant_id: str = "default",
+        workspace_id: str = "default",
         created_by: str = "system",
     ) -> ModelRegistryEntryDB:
         with self._lock:
             model_id = f"MDL-{uuid4().hex[:8]}"
             kwargs: dict[str, Any] = {
                 "model_id": model_id,
+                "tenant_id": tenant_id,
+                "workspace_id": workspace_id,
                 "name": name,
                 "version": version,
                 "model_type": model_type,

@@ -44,14 +44,21 @@ from app.modules.nexus_spine.p0_migration import (
     AuthoritativeDecisionMemory,
     AuthoritativeDecisionService,
     AuthoritativeTruthLoop,
+    DuplicateModelVersionError,
+    InvalidModelTransitionError,
     InvalidTransitionError,
+    ModelNotFoundError,
     NexusRole,
     PermissionDenied,
     Principal,
+    PromotionGateConfig,
+    PromotionGateFailedError,
     StaleWorldStateError,
     VanessaPipeline,
     get_authoritative_decision_memory,
     get_authoritative_decision_service,
+    get_authoritative_inference_engine,
+    get_authoritative_model_registry,
     get_authoritative_truth_loop,
     get_authz,
 )
@@ -625,6 +632,342 @@ async def get_systematic_bias(
         bias_threshold=bias_threshold,
     )
     return _envelope(request, {"flagged": flagged, "count": len(flagged)})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /models & /inference — Governed Model Registry & Real ML Inference (v0.8.4)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class ModelRegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+    model_type: str = Field(min_length=1)  # forecast|risk|gnn|rl|eta|sla
+    description: str = ""
+    training_dataset: str | None = None
+    feature_schema: dict[str, Any] = Field(default_factory=dict)
+    world_state_version: int | None = None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    calibration: dict[str, Any] = Field(default_factory=dict)
+    gnn_config: dict[str, Any] | None = None
+    rl_config: dict[str, Any] | None = None
+    promotion_gates: dict[str, Any] | None = None
+
+
+class ModelEvaluateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    metrics: dict[str, Any]
+    shadow_metrics: dict[str, Any] | None = None
+    calibration: dict[str, Any] | None = None
+    target_status: str = "shadow"
+
+
+class ModelPromoteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    skip_gate_validation: bool = False
+    custom_gates: dict[str, Any] | None = None
+
+
+class ModelRollbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1)
+    fallback_model_id: str | None = None
+
+
+class DemandInferenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(min_length=1)
+    features: dict[str, Any] = Field(default_factory=dict)
+    horizon_days: int = Field(default=14, ge=1, le=90)
+    world_state_version: int = Field(default=1, ge=0)
+    supplier_id: str | None = None
+    region: str | None = None
+    product_family: str | None = None
+
+
+class RiskInferenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entity_id: str = Field(min_length=1)
+    features: dict[str, Any] = Field(default_factory=dict)
+    world_state_version: int = Field(default=1, ge=0)
+
+
+@router.post("/models/register", status_code=201)
+async def register_model(
+    body: ModelRegisterRequest,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.register", workspace_id)
+    registry = get_authoritative_model_registry()
+    try:
+        model = await registry.register_candidate(
+            session,
+            tenant_id=p.tenant_id,
+            workspace_id=workspace_id,
+            name=body.name,
+            version=body.version,
+            model_type=body.model_type,
+            description=body.description,
+            training_dataset=body.training_dataset,
+            feature_schema=body.feature_schema,
+            world_state_version=body.world_state_version,
+            metrics=body.metrics,
+            calibration=body.calibration,
+            gnn_config=body.gnn_config,
+            rl_config=body.rl_config,
+            promotion_gates=body.promotion_gates,
+            actor_principal=p,
+        )
+        await session.commit()
+    except DuplicateModelVersionError as e:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return _envelope(request, {"model": model})
+
+
+@router.get("/models")
+async def list_models(
+    request: Request,
+    workspace_id: str = Query(...),
+    status: str | None = Query(default=None),
+    model_type: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.read", workspace_id)
+    registry = get_authoritative_model_registry()
+    models = await registry.list_models(
+        session,
+        tenant_id=p.tenant_id,
+        workspace_id=workspace_id,
+        status=status,
+        model_type=model_type,
+    )
+    return _envelope(request, {"models": models, "count": len(models)})
+
+
+@router.get("/models/health")
+async def get_models_health(
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.read", workspace_id)
+    registry = get_authoritative_model_registry()
+    summary = await registry.health_summary(
+        session, tenant_id=p.tenant_id, workspace_id=workspace_id
+    )
+    return _envelope(request, {"health": summary})
+
+
+@router.get("/models/drift")
+async def get_models_drift(
+    request: Request,
+    workspace_id: str = Query(...),
+    model_id: str | None = Query(default=None),
+    min_samples: int = Query(default=5, ge=1),
+    wape_threshold: float = Query(default=0.15, ge=0.0, le=1.0),
+    bias_threshold: float = Query(default=0.08, ge=0.0, le=1.0),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.read", workspace_id)
+    truth = get_authoritative_truth_loop()
+    report = await truth.detect_drift(
+        session,
+        tenant_id=p.tenant_id,
+        workspace_id=workspace_id,
+        model_id=model_id,
+        min_samples=min_samples,
+        wape_drift_threshold=wape_threshold,
+        bias_threshold=bias_threshold,
+    )
+    return _envelope(request, {"drift": report})
+
+
+@router.get("/models/{model_id}")
+async def get_model(
+    model_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.read", workspace_id)
+    registry = get_authoritative_model_registry()
+    model = await registry.get_model(session, model_id)
+    if not model or model["tenant_id"] != p.tenant_id or model["workspace_id"] != workspace_id:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
+    return _envelope(request, {"model": model})
+
+
+@router.post("/models/{model_id}/evaluate")
+async def evaluate_model(
+    model_id: str,
+    body: ModelEvaluateRequest,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.evaluate", workspace_id)
+    registry = get_authoritative_model_registry()
+    try:
+        model = await registry.evaluate_candidate(
+            session,
+            model_id=model_id,
+            metrics=body.metrics,
+            shadow_metrics=body.shadow_metrics,
+            calibration=body.calibration,
+            target_status=body.target_status,
+            actor_principal=p,
+        )
+        await session.commit()
+    except ModelNotFoundError as e:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except InvalidModelTransitionError as e:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return _envelope(request, {"model": model})
+
+
+@router.post("/models/{model_id}/promote")
+async def promote_model(
+    model_id: str,
+    body: ModelPromoteRequest,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.promote", workspace_id)
+    registry = get_authoritative_model_registry()
+    gates = PromotionGateConfig(**body.custom_gates) if body.custom_gates else None
+    try:
+        result = await registry.promote_model(
+            session,
+            model_id=model_id,
+            actor_principal=p,
+            custom_gates=gates,
+            skip_gate_validation=body.skip_gate_validation,
+        )
+        await session.commit()
+    except ModelNotFoundError as e:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except PromotionGateFailedError as e:
+        await session.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": str(e),
+                "failures": e.failures,
+                "evaluated_metrics": e.evaluated_metrics,
+            },
+        ) from e
+    return _envelope(request, result)
+
+
+@router.post("/models/{model_id}/rollback")
+async def rollback_model(
+    model_id: str,
+    body: ModelRollbackRequest,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.model.rollback", workspace_id)
+    registry = get_authoritative_model_registry()
+    try:
+        result = await registry.rollback_model(
+            session,
+            model_id=model_id,
+            actor_principal=p,
+            reason=body.reason,
+            fallback_model_id=body.fallback_model_id,
+        )
+        await session.commit()
+    except ModelNotFoundError as e:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return _envelope(request, result)
+
+
+@router.post("/inference/demand", status_code=201)
+async def predict_demand(
+    body: DemandInferenceRequest,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.inference.run", workspace_id)
+    engine = get_authoritative_inference_engine()
+    result = await engine.predict_demand(
+        session,
+        tenant_id=p.tenant_id,
+        workspace_id=workspace_id,
+        sku=body.sku,
+        features=body.features,
+        horizon_days=body.horizon_days,
+        world_state_version=body.world_state_version,
+        supplier_id=body.supplier_id,
+        region=body.region,
+        product_family=body.product_family,
+        actor_principal=p,
+    )
+    await session.commit()
+    return _envelope(request, {"prediction": result})
+
+
+@router.post("/inference/risk", status_code=201)
+async def predict_risk(
+    body: RiskInferenceRequest,
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.inference.run", workspace_id)
+    engine = get_authoritative_inference_engine()
+    result = await engine.predict_risk(
+        session,
+        tenant_id=p.tenant_id,
+        workspace_id=workspace_id,
+        entity_id=body.entity_id,
+        features=body.features,
+        world_state_version=body.world_state_version,
+        actor_principal=p,
+    )
+    await session.commit()
+    return _envelope(request, {"prediction": result})
 
 
 # ─────────────────────────────────────────────────────────────────────

@@ -243,6 +243,7 @@ class ForecastRecordDB(Base):
     forecast_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(64), index=True)
     workspace_id: Mapped[str] = mapped_column(String(64), index=True)
+    model_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     sku: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
     supplier_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     region: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
@@ -262,6 +263,8 @@ class ForecastRecordDB(Base):
 
     mean: Mapped[float] = mapped_column(Float)
     std_dev: Mapped[float] = mapped_column(Float)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    feature_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     features: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
@@ -270,6 +273,7 @@ class ForecastRecordDB(Base):
 
     __table_args__ = (
         Index("ix_nexus_forecasts_sku_model_created", "sku", "model_version", "created_at"),
+        Index("ix_nexus_forecasts_tenant_ws_model", "tenant_id", "workspace_id", "model_id"),
     )
 
 
@@ -506,6 +510,8 @@ class ModelRegistryEntryDB(Base):
     __tablename__ = "nexus_model_registry"
 
     model_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True, default="default")
+    workspace_id: Mapped[str] = mapped_column(String(64), index=True, default="default")
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     version: Mapped[str] = mapped_column(String(64), nullable=False)
     model_type: Mapped[str] = mapped_column(
@@ -538,16 +544,29 @@ class ModelRegistryEntryDB(Base):
         String(40), default="pending", index=True
     )  # pending|approved|rejected
 
-    # Shadow metrics
+    # Shadow & Promotion Gates
     shadow_metrics: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    promotion_gates: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     created_by: Mapped[str] = mapped_column(String(128), default="system")
     approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
     deployed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rolled_back_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rollback_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    __table_args__ = (UniqueConstraint("name", "version", name="uq_model_name_version"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "workspace_id", "name", "version", name="uq_nexus_model_tenant_ws_name_ver"
+        ),
+        Index(
+            "ix_nexus_model_tenant_ws_type_status",
+            "tenant_id",
+            "workspace_id",
+            "model_type",
+            "status",
+        ),
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

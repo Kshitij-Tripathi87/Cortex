@@ -374,9 +374,9 @@ class ForecastRepository:
 
 class ModelRegistryRepository:
     LIFECYCLE_TRANSITIONS = {
-        "training": {"evaluating"},
-        "evaluating": {"shadow", "archived"},
-        "shadow": {"calibrating", "archived"},
+        "training": {"evaluating", "shadow", "archived"},
+        "evaluating": {"shadow", "calibrating", "archived"},
+        "shadow": {"calibrating", "approved", "archived"},
         "calibrating": {"approved", "shadow", "archived"},
         "approved": {"deployed", "archived"},
         "deployed": {"monitoring", "rolled_back"},
@@ -398,19 +398,38 @@ class ModelRegistryRepository:
         return result.scalar_one_or_none()
 
     async def get_by_name_version(
-        self, session: AsyncSession, name: str, version: str
+        self,
+        session: AsyncSession,
+        name: str,
+        version: str,
+        tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> ModelRegistryEntryDB | None:
-        stmt = select(ModelRegistryEntryDB).where(
+        conditions = [
             ModelRegistryEntryDB.name == name,
             ModelRegistryEntryDB.version == version,
-        )
+        ]
+        if tenant_id:
+            conditions.append(ModelRegistryEntryDB.tenant_id == tenant_id)
+        if workspace_id:
+            conditions.append(ModelRegistryEntryDB.workspace_id == workspace_id)
+        stmt = select(ModelRegistryEntryDB).where(*conditions)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def list_by_status(
-        self, session: AsyncSession, status: str | None = None, model_type: str | None = None
+        self,
+        session: AsyncSession,
+        status: str | None = None,
+        model_type: str | None = None,
+        tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> list[ModelRegistryEntryDB]:
         conditions = []
+        if tenant_id:
+            conditions.append(ModelRegistryEntryDB.tenant_id == tenant_id)
+        if workspace_id:
+            conditions.append(ModelRegistryEntryDB.workspace_id == workspace_id)
         if status:
             conditions.append(ModelRegistryEntryDB.status == status)
         if model_type:
@@ -447,6 +466,8 @@ class ModelRegistryRepository:
             model.approved_by = actor
         elif target_status == "rolled_back":
             model.rolled_back_at = _utc_now()
+            if reason:
+                model.rollback_reason = reason
         await session.flush()
         return model
 
@@ -462,14 +483,23 @@ class ModelRegistryRepository:
         return model
 
     async def get_deployed(
-        self, session: AsyncSession, model_type: str
+        self,
+        session: AsyncSession,
+        model_type: str,
+        tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> ModelRegistryEntryDB | None:
+        conditions = [
+            ModelRegistryEntryDB.model_type == model_type,
+            ModelRegistryEntryDB.status == "deployed",
+        ]
+        if tenant_id:
+            conditions.append(ModelRegistryEntryDB.tenant_id == tenant_id)
+        if workspace_id:
+            conditions.append(ModelRegistryEntryDB.workspace_id == workspace_id)
         stmt = (
             select(ModelRegistryEntryDB)
-            .where(
-                ModelRegistryEntryDB.model_type == model_type,
-                ModelRegistryEntryDB.status == "deployed",
-            )
+            .where(*conditions)
             .order_by(ModelRegistryEntryDB.deployed_at.desc())
             .limit(1)
         )
