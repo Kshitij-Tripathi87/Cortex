@@ -29,6 +29,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -603,6 +604,12 @@ class EventRecordDB(Base):
     the SSE fan-out reads from this table (or subscribes via NOTIFY)."""
 
     __tablename__ = "nexus_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "workspace_id", "seq", name="uq_nexus_events_tenant_workspace_seq"
+        ),
+        Index("ix_nexus_events_unpublished", "published_at", "seq"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     event_id: Mapped[str] = mapped_column(
@@ -610,6 +617,7 @@ class EventRecordDB(Base):
     )
     tenant_id: Mapped[str] = mapped_column(String(64), index=True)
     workspace_id: Mapped[str] = mapped_column(String(64), index=True)
+    seq: Mapped[int] = mapped_column(BigInteger, default=1, index=True)
     event_type: Mapped[str] = mapped_column(String(64), index=True)
     entity_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
     entity_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
@@ -618,6 +626,11 @@ class EventRecordDB(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     world_state_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    publish_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    published_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, index=True
     )

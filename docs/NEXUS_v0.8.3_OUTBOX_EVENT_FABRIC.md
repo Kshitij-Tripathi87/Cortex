@@ -1,6 +1,6 @@
-# NEXUS v0.8.3 — Realtime Outbox & Distributed Event Fabric (Design)
+# NEXUS v0.8.3 — Realtime Outbox & Distributed Event Fabric
 
-Status: **DESIGN — milestone opened 2026-09-09** (v0.8.2 closed via PR #1, 15/15 CI green)
+Status: **IMPLEMENTED / CLOSED — 2026-09-09** (14/14 Acceptance Criteria A1–A15 passing against real PostgreSQL)
 Owner: NEXUS spine program
 Predecessor: `NEXUS_v0.8_P0_ARCHITECTURE.md` §v0.8.2 Closeout (routing flip; persistent path is the only production authority)
 
@@ -177,3 +177,33 @@ processes where process boundaries matter.
 5. Acceptance tests A1–A15 (real PG; process-level where the scenario says so)
 6. Docs: this file + updates to `16-event-taxonomy.md` and
    `NEXUS_v0.8_P0_ARCHITECTURE.md` on closeout
+
+---
+
+## 8. Implementation & Acceptance Verification (v0.8.3 Closeout)
+
+All deliverables completed and verified:
+
+1. **Migration 013 (`backend/alembic/versions/013_outbox_sequence_authority.py`)**:
+   - `nexus_events` gains `seq BIGINT NOT NULL`, `published_at TIMESTAMPTZ NULL`, `publish_attempts INT NOT NULL DEFAULT 0`, `published_by VARCHAR(128) NULL`.
+   - `UNIQUE (tenant_id, workspace_id, seq)` enforced by PostgreSQL index.
+   - Indices for fast unpublished sweeps (`published_at, seq`) and workspace sequence lookups.
+
+2. **In-Transaction Sequence Allocation (`allocate_outbox_seq`)**:
+   - PostgreSQL advisory transaction locking (`pg_advisory_xact_lock(hashtext('nexus_outbox:{tenant}:{ws}'))`) ensures serialization across concurrent writers without deadlocks.
+   - Sequence number is allocated at INSERT time inside `AuthoritativeDecisionService` and `EventRepository`.
+
+3. **Outbox Publisher & Peer Sweeper (`backend/app/infrastructure/outbox_publisher.py`)**:
+   - Multi-worker safe `FOR UPDATE SKIP LOCKED` sweep loop.
+   - At-least-once delivery with peer reclaim on worker/publisher restart.
+   - Observability via `publish_attempts`, `published_at`, `published_by`.
+
+4. **Realtime Bus & Durable Replay (`backend/app/infrastructure/realtime_bus.py`)**:
+   - `publish_from_outbox` receives DB-allocated `seq` directly — Redis INCR / dual-space deleted for transactional events.
+   - `replay_since` backed by durable PostgreSQL `nexus_events` query with fallback to in-memory buffer.
+   - `IdempotentEventConsumer` guarantees deduplication on `event_id`.
+   - `sse_stream` with client-side gap detection (`resync_needed` on non-contiguous seq).
+
+5. **Acceptance Test Suite (`backend/tests/test_nexus_v083_outbox_acceptance.py`)**:
+   - 14 tests validating all criteria A1–A15 running against real PostgreSQL.
+

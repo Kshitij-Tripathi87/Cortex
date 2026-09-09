@@ -51,8 +51,23 @@ async def init_db(dsn: str) -> None:
     # then create tables (idempotent; safe for dev; Alembic migrations for prod).
     import app.modules.nexus_spine.persistence.models  # noqa: F401 — registers tables on Base.metadata
 
-    async with _engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if "sqlite" in dsn:
+        sqlite_metadata = MetaData()
+        for table in Base.metadata.sorted_tables:
+            if table.schema is None or table.name.startswith("nexus_"):
+                table.to_metadata(sqlite_metadata)
+        for table in sqlite_metadata.tables.values():
+            table.schema = None
+            for col in table.columns:
+                for fk in list(col.foreign_keys):
+                    if fk._colspec and fk._colspec.count(".") == 2:
+                        parts = fk._colspec.split(".")
+                        fk._colspec = f"{parts[1]}.{parts[2]}"
+        async with _engine.begin() as conn:
+            await conn.run_sync(sqlite_metadata.create_all)
+    else:
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db() -> None:

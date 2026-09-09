@@ -882,6 +882,7 @@ class EventRepository:
         tenant_id: str,
         workspace_id: str,
         event_type: str,
+        seq: int | None = None,
         entity_type: str | None = None,
         entity_id: str | None = None,
         correlation_id: str | None = None,
@@ -889,9 +890,16 @@ class EventRepository:
         payload: dict[str, Any] | None = None,
         world_state_version: int | None = None,
     ) -> EventRecordDB:
+        if seq is None:
+            from app.infrastructure.outbox_publisher import allocate_outbox_seq
+
+            seq = await allocate_outbox_seq(
+                session, tenant_id=tenant_id, workspace_id=workspace_id
+            )
         event = EventRecordDB(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
+            seq=seq,
             event_type=event_type,
             entity_type=entity_type,
             entity_id=entity_id,
@@ -909,20 +917,25 @@ class EventRepository:
         stmt = (
             select(EventRecordDB)
             .where(
-                EventRecordDB.published == False,  # noqa: E712
+                (EventRecordDB.published_at.is_(None)) | (EventRecordDB.published == False),  # noqa: E712
             )
-            .order_by(EventRecordDB.created_at)
+            .order_by(EventRecordDB.workspace_id, EventRecordDB.seq)
             .limit(limit)
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def mark_published(self, session: AsyncSession, event_id: str) -> None:
+    async def mark_published(
+        self, session: AsyncSession, event_id: str, published_by: str | None = None
+    ) -> None:
         stmt = select(EventRecordDB).where(EventRecordDB.event_id == event_id)
         result = await session.execute(stmt)
         evt = result.scalar_one_or_none()
         if evt:
             evt.published = True
+            evt.published_at = datetime.now(UTC)
+            if published_by:
+                evt.published_by = published_by
             await session.flush()
 
     async def get_recent(
@@ -938,9 +951,27 @@ class EventRepository:
                 EventRecordDB.tenant_id == tenant_id,
                 EventRecordDB.workspace_id == workspace_id,
             )
-            .order_by(EventRecordDB.created_at.desc())
+            .order_by(EventRecordDB.seq.desc())
             .limit(limit)
         )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_since_seq(
+        self,
+        session: AsyncSession,
+        workspace_id: str,
+        since_seq: int,
+        tenant_id: str | None = None,
+        limit: int = 500,
+    ) -> list[EventRecordDB]:
+        stmt = select(EventRecordDB).where(
+            EventRecordDB.workspace_id == workspace_id,
+            EventRecordDB.seq > since_seq,
+        )
+        if tenant_id is not None:
+            stmt = stmt.where(EventRecordDB.tenant_id == tenant_id)
+        stmt = stmt.order_by(EventRecordDB.seq.asc()).limit(limit)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 

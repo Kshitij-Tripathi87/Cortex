@@ -1,34 +1,24 @@
-"""Nexus v1.0 P0 — Multi-worker realtime bus.
+"""Nexus v1.0 P0 / v0.8.3 — Multi-worker realtime bus & Outbox Fabric.
 
 Implements the production realtime fabric on top of Redis Pub/Sub with
-exactly-once processing guarantees for clients:
+outbox durability and exactly-once processing guarantees for clients:
 
-    Outbox (PG tx)
+    Outbox (PG tx with in-transaction seq allocation)
+       ↓
+    Outbox Publisher (FOR UPDATE SKIP LOCKED sweeper)
        ↓
     Redis Pub/Sub (per-workspace channel)
        ↓
     Nexus workers (fan-out)
        ↓
-    SSE / WebSocket (with sequence numbers, gap detection, replay)
+    SSE / WebSocket (with monotonic sequence numbers, gap detection, durable replay)
 
 Guarantees:
-    at-least-once delivery     events persist in PG outbox; can be replayed
+    at-least-once delivery     events persist in PG outbox table (`nexus_events`)
     idempotent consumer        clients key off event_id; duplicates are no-ops
-    sequence numbers           per-workspace monotonic sequence
+    sequence numbers           per-workspace monotonic DB-allocated sequence
     gap detection              clients detect missed sequence numbers and resync
-    replay/resync              on connect or gap, client replays from cursor
-
-Client protocol:
-    On connect:
-      -> client sends last_seen_version
-      <- server sends all events since last_seen_version (catch-up)
-      <- server begins streaming live events
-
-    Per event:
-      {event_id, seq, type, payload, world_state_version}
-
-    On gap detection (missing seq between prev and next):
-      client disconnects + reconnects with last known seq to trigger replay
+    replay/resync              on connect or gap, client replays from outbox cursor
 """
 
 from __future__ import annotations
@@ -40,15 +30,14 @@ import threading
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-# Note: NexusEventType is imported by callers that need typed events; we
-# don't import it here because the bus is intentionally type-agnostic.
-
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 CHANNEL_PREFIX = "nexus:events:"  # + workspace_id
-SEQ_KEY_PREFIX = "nexus:seq:"  # + workspace_id  → INCR counter
+SEQ_KEY_PREFIX = "nexus:seq:"  # + workspace_id (legacy non-outbox paths only)
 
 
 class Event:
@@ -114,19 +103,49 @@ class Event:
         }
 
 
+class IdempotentEventConsumer:
+    """Idempotent consumer wrapper keyed off event_id.
+
+    Replays and duplicate deliveries of the same event_id are ignored.
+    """
+
+    def __init__(self, max_seen: int = 10000) -> None:
+        self._seen: set[str] = set()
+        self._order: list[str] = []
+        self._max_seen = max_seen
+        self._lock = threading.Lock()
+
+    def is_duplicate(self, event_id: str) -> bool:
+        with self._lock:
+            return event_id in self._seen
+
+    def record(self, event_id: str) -> bool:
+        """Record an event_id. Returns True if fresh (applied), False if duplicate."""
+        with self._lock:
+            if event_id in self._seen:
+                return False
+            self._seen.add(event_id)
+            self._order.append(event_id)
+            if len(self._order) > self._max_seen:
+                oldest = self._order.pop(0)
+                self._seen.discard(oldest)
+            return True
+
+    def clear(self) -> None:
+        with self._lock:
+            self._seen.clear()
+            self._order.clear()
+
+
 class RealtimeBus:
     """Multi-worker realtime event bus.
 
-    One instance per process. After a DB transaction commits an event to
-    the outbox, the API worker calls `publish_from_outbox` which:
-      1. Allocates a per-workspace monotonic sequence number (Redis INCR)
-      2. Publishes the event to the Redis Pub/Sub channel for the workspace
-      3. Fans out to all local SSE subscribers on this worker
-      4. Marks the outbox event as published
-
-    Each worker subscribes to Redis channels for the workspaces it has
-    active SSE connections on. When it receives a Redis message, it fans
-    it out to local subscribers.
+    In v0.8.3, sequence numbers are allocated in-transaction by the database
+    outbox. When `publish_from_outbox` is called by the `OutboxPublisher`:
+      1. Sequence number arrives with the event (DB-allocated authority)
+      2. Publishes to Redis Pub/Sub for cross-node fanout
+      3. Fans out to local subscribers on this worker
+      4. Buffers for immediate catch-up replay
     """
 
     def __init__(self) -> None:
@@ -134,15 +153,6 @@ class RealtimeBus:
         self._lock = threading.RLock()
         self._redis_tasks: dict[str, asyncio.Task[None]] = {}
         self._redis_client: Any = None  # RedisClient | False | None
-        # Seq-source stickiness: the workspace whose first allocation fell
-        # back to the local counter stays on the local counter for the
-        # process lifetime. Mixing the Redis sequence space (1..N) with the
-        # local fallback space (1e9+n) WITHIN one workspace breaks the
-        # documented per-workspace monotonicity contract the moment a
-        # single Redis INCR hiccups (e.g. a cold-connect timeout on the
-        # first command). Pinned by
-        # tests/test_realtime_bus_seq_fallback.py; the real cross-process
-        # fix is the v0.8.3 outbox (DB-backed monotonic seq).
         self._local_seq_workspaces: set[str] = set()
 
     def _get_redis(self) -> Any:
@@ -223,7 +233,7 @@ class RealtimeBus:
                         event = Event(
                             event_id=data["event_id"],
                             seq=data["seq"],
-                            event_type=data["event_type"],
+                            event_type=data.get("type") or data.get("event_type", "UNKNOWN"),
                             entity_type=data.get("entity_type"),
                             entity_id=data.get("entity_id"),
                             payload=data.get("payload", {}),
@@ -233,18 +243,80 @@ class RealtimeBus:
                         )
                         await self._fan_out_local(workspace_id, event)
                     except Exception:  # noqa: BLE001, PERF203, S112
-                        # Malformed message; skip
                         continue
             finally:
                 await pubsub.unsubscribe(channel)
         except asyncio.CancelledError:
             pass
         except Exception:  # noqa: BLE001, S110
-            # Redis connection failed; local subscribers will detect gap
-            # and resync on their next SSE connection.
             pass
 
-    # ── Publishing (called after DB commit) ────────────────────────
+    # ── Outbox-First Publishing (v0.8.3 Authority) ─────────────────
+
+    async def publish_from_outbox(
+        self,
+        event: Any,
+        *,
+        workspace_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> Event:
+        """Publish an outbox event. Monotonic sequence is allocated by the DB.
+
+        Accepts an `EventRecordDB` instance, an `Event` object, or a dict.
+        """
+        if isinstance(event, Event):
+            ev = event
+            ws = workspace_id or ev.payload.get("workspace_id") or "default"
+        elif hasattr(event, "event_id") and hasattr(event, "seq"):
+            # EventRecordDB or compatible model
+            ev = Event(
+                event_id=event.event_id,
+                seq=event.seq,
+                event_type=getattr(event, "event_type", "outbox_event"),
+                entity_type=getattr(event, "entity_type", None),
+                entity_id=getattr(event, "entity_id", None),
+                payload=getattr(event, "payload", {}) or {},
+                world_state_version=getattr(event, "world_state_version", None),
+                correlation_id=getattr(event, "correlation_id", None),
+                timestamp=(
+                    event.created_at.isoformat()
+                    if getattr(event, "created_at", None)
+                    else datetime.now(UTC).isoformat()
+                ),
+            )
+            ws = workspace_id or getattr(event, "workspace_id", None) or "default"
+        elif isinstance(event, dict):
+            ev = Event(
+                event_id=event["event_id"],
+                seq=event["seq"],
+                event_type=event.get("event_type") or event.get("type", "outbox_event"),
+                entity_type=event.get("entity_type"),
+                entity_id=event.get("entity_id"),
+                payload=event.get("payload", {}),
+                world_state_version=event.get("world_state_version"),
+                correlation_id=event.get("correlation_id"),
+                timestamp=event.get("timestamp"),
+            )
+            ws = workspace_id or event.get("workspace_id") or "default"
+        else:
+            raise TypeError(f"Cannot publish event of type {type(event)}")
+
+        # Publish to Redis fabric
+        r = self._get_redis()
+        if r is not None and ws:
+            channel = CHANNEL_PREFIX + ws
+            # If Redis publish fails, exception propagates to OutboxPublisher
+            # so publish_attempts can be incremented and retried.
+            await r.publish(channel, json.dumps(ev.to_dict()))
+
+        # Local worker fanout
+        if ws:
+            await self._fan_out_local(ws, ev)
+            self.buffer_for_replay(ws, ev)
+
+        return ev
+
+    # ── Legacy/Demo Publishing (Non-outbox paths) ───────────────────
 
     async def publish(
         self,
@@ -258,8 +330,7 @@ class RealtimeBus:
         world_state_version: int | None = None,
         correlation_id: str | None = None,
     ) -> Event:
-        """Publish an event. Allocates a monotonic seq per workspace."""
-        # Allocate sequence number (Redis if available, else local counter)
+        """Publish an ephemeral event (non-outbox path)."""
         r = None if workspace_id in self._local_seq_workspaces else self._get_redis()
         seq_key = SEQ_KEY_PREFIX + workspace_id
         seq = None
@@ -283,38 +354,68 @@ class RealtimeBus:
             correlation_id=correlation_id,
         )
 
-        # Publish to Redis (best-effort — if Redis is down local fan-out still works)
         if r is not None:
             channel = CHANNEL_PREFIX + workspace_id
             with contextlib.suppress(Exception):
                 await r.publish(channel, json.dumps(event.to_dict()))
 
-        # Fan out to local subscribers on THIS worker
         await self._fan_out_local(workspace_id, event)
         self.buffer_for_replay(workspace_id, event)
         return event
 
-    # ── Replay from outbox ─────────────────────────────────────────
+    # ── Replay from DB outbox / in-memory buffer ───────────────────
 
     async def replay_since(
         self,
         workspace_id: str,
         since_seq: int,
         limit: int = 500,
+        session: AsyncSession | None = None,
+        tenant_id: str | None = None,
     ) -> list[Event]:
-        """Replay events since a given sequence number from Redis sorted set
-        or in-memory buffer. For v1 we also keep a short in-memory buffer
-        for immediate catch-up.
+        """Replay events for a workspace since a given sequence number.
+
+        When a database session is provided, queries the durable `nexus_events`
+        table. Otherwise, falls back to the in-memory circular replay buffer.
         """
-        # Try to use the local event buffer first; PG outbox is the source of
-        # truth for deep replays, but for SSE reconnect this covers most cases.
+        if session is not None:
+            from sqlalchemy import select
+
+            from app.modules.nexus_spine.persistence.models import EventRecordDB
+
+            stmt = select(EventRecordDB).where(
+                EventRecordDB.workspace_id == workspace_id,
+                EventRecordDB.seq > since_seq,
+            )
+            if tenant_id is not None:
+                stmt = stmt.where(EventRecordDB.tenant_id == tenant_id)
+
+            stmt = stmt.order_by(EventRecordDB.seq.asc()).limit(limit)
+            result = await session.execute(stmt)
+            records = result.scalars().all()
+            return [
+                Event(
+                    event_id=r.event_id,
+                    seq=r.seq,
+                    event_type=r.event_type,
+                    entity_type=r.entity_type,
+                    entity_id=r.entity_id,
+                    payload=r.payload or {},
+                    world_state_version=r.world_state_version,
+                    correlation_id=r.correlation_id,
+                    timestamp=r.created_at.isoformat() if r.created_at else None,
+                )
+                for r in records
+            ]
+
+        # In-memory buffer fallback
         with self._lock:
             buf = _replay_buffers.get(workspace_id, [])
         results = [e for e in buf if e.seq > since_seq]
-        return results[-limit:]
+        return results[:limit]
 
     def buffer_for_replay(self, workspace_id: str, event: Event) -> None:
-        """Add event to short circular replay buffer."""
+        """Add event to circular replay buffer."""
         with self._lock:
             buf = _replay_buffers.setdefault(workspace_id, [])
             buf.append(event)
@@ -322,7 +423,7 @@ class RealtimeBus:
                 del buf[: len(buf) - 1000]
 
 
-# Per-process fallback sequence counter (when Redis is unavailable)
+# Per-process fallback sequence counter (for ephemeral non-transactional paths)
 _local_counters: dict[str, int] = defaultdict(int)
 _counter_lock = threading.Lock()
 
@@ -330,11 +431,10 @@ _counter_lock = threading.Lock()
 def _local_seq(workspace_id: str) -> int:
     with _counter_lock:
         _local_counters[workspace_id] += 1
-        # Offset high to avoid collisions with Redis-issued seqs
         return 1_000_000_000 + _local_counters[workspace_id]
 
 
-# Short per-workspace circular replay buffer
+# In-memory circular replay buffer
 _replay_buffers: dict[str, list[Event]] = {}
 
 
@@ -342,35 +442,42 @@ _replay_buffers: dict[str, list[Event]] = {}
 async def sse_stream(
     workspace_id: str,
     last_seen_seq: int = 0,
+    session: AsyncSession | None = None,
+    tenant_id: str | None = None,
+    bus: RealtimeBus | None = None,
 ) -> AsyncIterator[str]:
     """Generate an SSE stream for a workspace with gap-resilient semantics."""
-    bus = get_realtime_bus()
-
-    # First send a sync point
-    yield f"event: connected\ndata: {json.dumps({'workspace_id': workspace_id, 'last_seen_seq': last_seen_seq})}\n\n"
-
-    # Replay missed events
-    missed = await bus.replay_since(workspace_id, last_seen_seq)
-    for event in missed:
-        yield event.to_sse()
-
-    # Subscribe for live events
-    queue = bus.subscribe(workspace_id)
-    prev_seq = last_seen_seq if not missed else missed[-1].seq
+    b = bus or get_realtime_bus()
+    queue = b.subscribe(workspace_id)
     try:
+        # Initial connection handshake
+        yield f"event: connected\ndata: {json.dumps({'workspace_id': workspace_id, 'last_seen_seq': last_seen_seq})}\n\n"
+
+        # Replay missed events from outbox / buffer
+        missed = await b.replay_since(
+            workspace_id=workspace_id,
+            since_seq=last_seen_seq,
+            session=session,
+            tenant_id=tenant_id,
+        )
+        for event in missed:
+            yield event.to_sse()
+
+        prev_seq = last_seen_seq if not missed else missed[-1].seq
         while True:
             event = await queue.get()
-            # Gap detection
+            # Skip events already seen or covered in replay
+            if event.seq <= prev_seq:
+                continue
+            # Gap detection: if next sequence is not strictly prev_seq + 1
             if prev_seq > 0 and event.seq > prev_seq + 1:
-                # Gap detected — send a resync_request and break;
-                # client should reconnect with last known seq
                 yield f"event: resync_needed\ndata: {json.dumps({'from_seq': prev_seq, 'to_seq': event.seq})}\n\n"
                 break
             yield event.to_sse()
-            bus.buffer_for_replay(workspace_id, event)
+            b.buffer_for_replay(workspace_id, event)
             prev_seq = event.seq
     finally:
-        bus.unsubscribe(workspace_id, queue)
+        b.unsubscribe(workspace_id, queue)
 
 
 _singleton: RealtimeBus | None = None
