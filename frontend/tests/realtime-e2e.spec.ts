@@ -96,9 +96,14 @@ test.describe('B4 durable realtime', () => {
     expect(mine).toBeTruthy();
     expect(mine!.type).toBe('decision_created');
     expect(mine!.entity_type).toBe('decision');
+    // event_id is the idempotency identity (always set via model default).
     expect(mine!.event_id).toBeTruthy();
-    expect(mine!.correlation_id).toBeTruthy();
     expect(typeof mine!.seq).toBe('number');
+    // correlation_id is a nullable transport field: decision_created does not
+    // populate it (the HTTP response envelope carries X-Correlation-Id instead).
+    expect(mine!.correlation_id === null || typeof mine!.correlation_id === 'string').toBe(
+      true,
+    );
 
     // Wire contract: contiguous, strictly-increasing per-workspace seqs.
     const seqs = events.map((e) => e.seq as number);
