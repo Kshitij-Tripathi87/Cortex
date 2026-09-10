@@ -113,6 +113,102 @@ worker_jobs = Gauge(
     ["state"],
 )
 
+# ─────────────────────────────────────────────────────────────────────
+# Outbox relay metrics (v0.8.5-B4 — durable outbox → Redis → SSE/WS)
+# ─────────────────────────────────────────────────────────────────────
+outbox_pending_count = Gauge(
+    "cortex_outbox_pending_count",
+    "Outbox rows awaiting delivery (published_at IS NULL)",
+)
+
+outbox_oldest_pending_age_seconds = Gauge(
+    "cortex_outbox_oldest_pending_age_seconds",
+    "Age of the oldest undelivered outbox row",
+)
+
+outbox_publish_total = Counter(
+    "cortex_outbox_publish_total",
+    "Outbox publish outcomes",
+    ["result"],  # success | failure
+)
+
+outbox_publish_attempts_total = Counter(
+    "cortex_outbox_publish_attempts_total",
+    "Outbox publish attempts (claims)",
+)
+
+outbox_reclaimed_total = Counter(
+    "cortex_outbox_reclaimed_total",
+    "Outbox rows reclaimed from expired leases (crashed peers)",
+)
+
+outbox_publish_latency_seconds = Histogram(
+    "cortex_outbox_publish_latency_seconds",
+    "Outbox claim-to-acknowledged-publish latency",
+    buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5],
+)
+
+outbox_poison_total = Counter(
+    "cortex_outbox_poison_total",
+    "Outbox rows exceeding max attempts (flagged, still retried, never dropped)",
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# Realtime delivery metrics (v0.8.5-B4)
+# ─────────────────────────────────────────────────────────────────────
+realtime_connections = Gauge(
+    "cortex_realtime_connections",
+    "Active realtime client connections",
+    ["transport"],  # sse | ws
+)
+
+realtime_events_published_total = Counter(
+    "cortex_realtime_events_published_total",
+    "Events handed to the realtime fabric (Redis + local fan-out)",
+)
+
+realtime_events_delivered_total = Counter(
+    "cortex_realtime_events_delivered_total",
+    "Events delivered to connected clients",
+    ["transport"],  # sse | ws | replay
+)
+
+realtime_duplicate_events_total = Counter(
+    "cortex_realtime_duplicate_events_total",
+    "Duplicate/stale events suppressed (idempotency + sequence gate)",
+)
+
+realtime_gap_detected_total = Counter(
+    "cortex_realtime_gap_detected_total",
+    "Sequence gaps detected on live streams",
+    ["transport"],  # sse | ws
+)
+
+realtime_replay_total = Counter(
+    "cortex_realtime_replay_total",
+    "Replay operations served (catch-up + reconnect)",
+    ["transport"],  # sse | ws | http
+)
+
+realtime_resync_total = Counter(
+    "cortex_realtime_resync_total",
+    "Full resyncs required (gap exceeds threshold)",
+    ["transport"],  # sse | ws | http
+)
+
+realtime_reconnect_total = Counter(
+    "cortex_realtime_reconnect_total",
+    "Client reconnects with a cursor (after_seq > 0)",
+    ["transport"],  # sse | ws
+)
+
+realtime_delivery_latency_seconds = Histogram(
+    "cortex_realtime_delivery_latency_seconds",
+    "Event commit-to-handoff latency (outbox created_at → fabric/client frame)",
+    ["transport"],  # fabric | sse | ws | replay
+    buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+)
+
 
 def start_metrics_server(port: int = 8001) -> None:
     """Start Prometheus metrics HTTP server."""

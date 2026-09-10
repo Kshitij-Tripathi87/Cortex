@@ -37,12 +37,20 @@ import uuid as _uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.ids import uuid7
-from app.infrastructure.database import get_db
+from app.config import get_settings
+from app.infrastructure.database import get_db, get_session_factory
+from app.infrastructure.outbox_publisher import (
+    commit_and_notify,
+    current_outbox_publisher,
+    get_backlog_stats,
+)
+from app.infrastructure.realtime_bus import sse_stream
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.nexus_spine.governance.lifecycle import DecisionPhase
 from app.modules.nexus_spine.ontology.entities import Entity
@@ -214,7 +222,7 @@ async def create_decision(
             recommended_option_id=body.recommended_option_id,
             policy_id=body.policy_id,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except Exception as exc:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -326,7 +334,7 @@ async def advance_decision(
         if target == DecisionPhase.APPROVED and body.chosen_option:
             # record chosen_option via advance metadata (stored in transition)
             pass
-        await session.commit()
+        await commit_and_notify(session)
     except InvalidTransitionError as e:
         await session.rollback()
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -364,7 +372,7 @@ async def execute_decision(
                 actor_role=p.role.value,
                 reason="executed via API",
             )
-        await session.commit()
+        await commit_and_notify(session)
         final = await svc.get(session, decision_id=decision_id)
     except (InvalidTransitionError, StaleWorldStateError) as e:
         await session.rollback()
@@ -410,7 +418,7 @@ async def record_outcome(
             actual_sla=body.actual_sla,
             actual_cost=body.actual_cost,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except InvalidTransitionError as e:
         await session.rollback()
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -462,7 +470,7 @@ async def record_memory(
         chosen_option_id=dec.get("chosen_option") or "",
         policy_id=dec.get("policy_id") or "",
     )
-    await session.commit()
+    await commit_and_notify(session)
     return _envelope(request, {"recorded": True, "decision_id": decision_id})
 
 
@@ -569,7 +577,7 @@ async def record_forecast(
         world_state_version=body.world_state_version,
         horizon_days=body.horizon_days,
     )
-    await session.commit()
+    await commit_and_notify(session)
     return _envelope(request, {"forecast": result})
 
 
@@ -597,7 +605,7 @@ async def record_observation(
         supplier_id=body.supplier_id,
         region=body.region,
     )
-    await session.commit()
+    await commit_and_notify(session)
     if result is None:
         # Observation recorded but no matching forecast (forecast-less actual).
         return _envelope(request, {"observed": True, "evaluation": None})
@@ -735,7 +743,7 @@ async def register_model(
             promotion_gates=body.promotion_gates,
             actor_principal=p,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except DuplicateModelVersionError as e:
         await session.rollback()
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -850,7 +858,7 @@ async def evaluate_model(
             target_status=body.target_status,
             actor_principal=p,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except ModelNotFoundError as e:
         await session.rollback()
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -882,7 +890,7 @@ async def promote_model(
             custom_gates=gates,
             skip_gate_validation=body.skip_gate_validation,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except ModelNotFoundError as e:
         await session.rollback()
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -920,7 +928,7 @@ async def rollback_model(
             reason=body.reason,
             fallback_model_id=body.fallback_model_id,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except ModelNotFoundError as e:
         await session.rollback()
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -952,7 +960,7 @@ async def predict_demand(
         product_family=body.product_family,
         actor_principal=p,
     )
-    await session.commit()
+    await commit_and_notify(session)
     return _envelope(request, {"prediction": result})
 
 
@@ -977,7 +985,7 @@ async def predict_risk(
         world_state_version=body.world_state_version,
         actor_principal=p,
     )
-    await session.commit()
+    await commit_and_notify(session)
     return _envelope(request, {"prediction": result})
 
 
@@ -1111,7 +1119,7 @@ async def record_risk(
             root_causes=body.root_causes,
             hidden_dependencies=body.hidden_dependencies,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except RegistryValidationError as e:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1185,7 +1193,7 @@ async def triage_risk(
         raise HTTPException(status_code=404, detail="risk not found")
     try:
         updated = await svc.set_risk_status(session, risk_id, body.status)
-        await session.commit()
+        await commit_and_notify(session)
     except RegistryValidationError as e:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1322,7 +1330,7 @@ async def create_scenario(
             is_baseline=body.is_baseline,
             mutations=body.mutations,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except RegistryValidationError as e:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1397,7 +1405,7 @@ async def simulate_scenario(
             body.entities,
             world_state_version=body.world_state_version,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except RegistryValidationError as e:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1472,7 +1480,7 @@ async def append_evidence_node(
             checksum=body.checksum,
             source_entity_id=body.source_entity_id,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except RegistryValidationError as e:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1500,7 +1508,7 @@ async def append_evidence_edge(
             relation=body.relation,
             weight=body.weight,
         )
-        await session.commit()
+        await commit_and_notify(session)
     except RegistryConflictError as e:
         await session.rollback()
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -1540,6 +1548,277 @@ async def list_approvals(
     approvals = await svc.list_approvals(session, decision_id)
     return _envelope(
         request, {"decision_id": decision_id, "approvals": approvals, "count": len(approvals)}
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /realtime — durable replay, live SSE, relay health (v0.8.5-B4)
+#
+# The realtime contract (single envelope everywhere — HTTP replay, SSE,
+# WebSocket):
+#     {event_id, seq, type, entity_type, entity_id, payload,
+#      world_state_version, correlation_id, timestamp}
+#   * event_id = identity (idempotency key; at-least-once safe)
+#   * seq      = per-workspace order (PG-allocated, never reinvented)
+#   * world_state_version = authoritative state version for reconciliation
+#
+# AuthZ boundaries (each enforced independently; 403 never logs out):
+#   connect (stream) / subscribe (WS) / replay (events) / resync (snapshot).
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _outbox_row_to_wire(row: Any) -> dict[str, Any]:
+    """Render an EventRecordDB row in the canonical realtime envelope."""
+    created = getattr(row, "created_at", None)
+    return {
+        "event_id": row.event_id,
+        "seq": row.seq,
+        "type": row.event_type,
+        "entity_type": row.entity_type,
+        "entity_id": row.entity_id,
+        "payload": row.payload or {},
+        "world_state_version": row.world_state_version,
+        "correlation_id": row.correlation_id,
+        "timestamp": created.isoformat() if created is not None else None,
+    }
+
+
+async def _resolve_stream_identity(
+    request: Request,
+    token: str | None,
+    workspace_id: str,
+) -> tuple[AuthContext, str, str]:
+    """Resolve (auth, workspace_id, tenant_id) for the SSE handshake.
+
+    Mirrors the WebSocket handshake (``_resolve_ws_identity``): EventSource
+    cannot set headers, so a ``?token=`` JWT is accepted. A PRESENTED token
+    must verify (fail-closed 401); the workspace is taken from verified
+    claims — the query value is never trusted when a token is present.
+    Without a token, the standard header/strict identity applies and the
+    query workspace must be authorized (403 otherwise — which never
+    destroys the caller's session).
+    """
+    settings = get_settings()
+    if token:
+        if not settings.jwt_secret:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token verification is not configured",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        from app.modules.identity.jwt_auth import verify_token
+
+        try:
+            claims = verify_token(token, settings)
+        except PermissionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(exc),
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
+        user_id = claims.get("sub")
+        verified_ws = claims.get("workspace_id")
+        if not isinstance(user_id, str) or not isinstance(verified_ws, str):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has no identity/workspace claims",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        roles = claims.get("roles", [])
+        # Server decides: the authorized workspace comes from verified
+        # claims; the query value is never trusted when a token is present.
+        auth = AuthContext(
+            user_id=user_id,
+            email=str(claims.get("email") or "") or None,
+            roles=[str(r) for r in roles] if isinstance(roles, list) else [],
+            workspace_ids=[verified_ws],
+            is_anonymous=False,
+        )
+        principal = _principal(auth, verified_ws)
+        _authz_check(principal, "nexus.realtime.read", verified_ws)
+        return auth, verified_ws, principal.tenant_id
+
+    auth = await get_current_user(request)
+    require_workspace_access(workspace_id, auth)
+    principal = _principal(auth, workspace_id)
+    _authz_check(principal, "nexus.realtime.read", workspace_id)
+    return auth, workspace_id, principal.tenant_id
+
+
+@router.get("/realtime/events")
+async def realtime_events(
+    request: Request,
+    workspace_id: str = Query(...),
+    after_seq: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=5000),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Durable replay: events for a workspace with ``seq > after_seq``.
+
+    Returns the reconciliation envelope ``{events, from_seq, to_seq,
+    latest_seq, world_state_version, has_more, resync_required}``. When the
+    gap exceeds ``CORTEX_REALTIME_RESYNC_THRESHOLD`` the server refuses the
+    page-by-page replay (``resync_required=true``) and the client must take
+    an authoritative snapshot instead.
+    """
+    from app.infrastructure import metrics as _metrics
+    from app.modules.nexus_spine.persistence.repositories import get_event_repository
+
+    require_workspace_access(workspace_id, auth)
+    principal = _principal(auth, workspace_id)
+    _authz_check(principal, "nexus.realtime.read", workspace_id)
+
+    settings = get_settings()
+    repo = get_event_repository()
+    latest_seq, latest_wsv = await repo.get_head(
+        session, tenant_id=principal.tenant_id, workspace_id=workspace_id
+    )
+    if latest_seq - after_seq > settings.realtime_resync_threshold:
+        _metrics.realtime_resync_total.labels(transport="http").inc()
+        return _envelope(
+            request,
+            {
+                "events": [],
+                "from_seq": after_seq,
+                "to_seq": after_seq,
+                "latest_seq": latest_seq,
+                "world_state_version": latest_wsv,
+                "has_more": True,
+                "resync_required": True,
+            },
+        )
+
+    rows = await repo.get_since_seq(
+        session,
+        workspace_id=workspace_id,
+        since_seq=after_seq,
+        tenant_id=principal.tenant_id,
+        limit=min(limit, settings.realtime_replay_limit),
+    )
+    events = [_outbox_row_to_wire(r) for r in rows]
+    to_seq = events[-1]["seq"] if events else after_seq
+    _metrics.realtime_replay_total.labels(transport="http").inc()
+    return _envelope(
+        request,
+        {
+            "events": events,
+            "from_seq": after_seq,
+            "to_seq": to_seq,
+            "latest_seq": latest_seq,
+            "world_state_version": latest_wsv,
+            "has_more": to_seq < latest_seq,
+            "resync_required": False,
+        },
+    )
+
+
+@router.get("/realtime/stream")
+async def realtime_stream(
+    request: Request,
+    workspace_id: str = Query(...),
+    after_seq: int = Query(default=0, ge=0),
+    token: str | None = Query(default=None),
+) -> StreamingResponse:
+    """Live SSE: ``connected`` → durable catch-up → live tail with gap gate.
+
+    Identity resolves BEFORE the first byte: 401/403 surface as JSON, never
+    as a 200 stream. Reconnects pass the last confirmed ``after_seq`` and
+    receive exactly the missed events before the live tail resumes. A
+    ``resync_needed`` frame means the client must replay-or-resnapshot.
+    """
+    _, authorized_ws, tenant_id = await _resolve_stream_identity(request, token, workspace_id)
+    settings = get_settings()
+    gen = sse_stream(
+        workspace_id=authorized_ws,
+        last_seen_seq=after_seq,
+        session_factory=get_session_factory(),
+        tenant_id=tenant_id,
+        heartbeat_s=settings.realtime_sse_heartbeat_s,
+        replay_limit=settings.realtime_replay_limit,
+    )
+    return StreamingResponse(
+        gen,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/realtime/health")
+async def realtime_health(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Operational relay health: API/DB/Redis/Outbox/Worker.
+
+    Aggregate-only (no tenant/workspace data). ``/readyz`` stays the K8s
+    traffic gate; this endpoint is the on-call truth for the relay: a dead
+    relay with a growing backlog reads BACKLOGGING/DEGRADED here instead of
+    hiding behind a green ``/healthz``.
+    """
+    stats = await get_backlog_stats(session)
+
+    try:
+        from app.infrastructure.cache_manager import get_cache_manager
+
+        redis_ok = await get_cache_manager().is_redis_available()
+    except Exception:  # noqa: BLE001 — probe failure IS the signal
+        redis_ok = False
+
+    pub = current_outbox_publisher()
+    if pub is None:
+        worker_status, worker_detail = "UNKNOWN", "no publisher in this process"
+        heartbeat: dict[str, Any] | None = None
+    else:
+        heartbeat = pub.heartbeat()
+        last = pub.last_sweep_at
+        stale_after = max(3.0 * pub.sweep_interval, 5.0)
+        if last is not None and last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        age = (datetime.now(UTC) - last).total_seconds() if last else None
+        if not pub.running:
+            worker_status, worker_detail = "DEGRADED", "publisher stopped"
+        elif pub.last_sweep_error:
+            worker_status, worker_detail = "DEGRADED", pub.last_sweep_error[:200]
+        elif age is not None and age > stale_after:
+            worker_status, worker_detail = "DEGRADED", f"last sweep {age:.0f}s ago"
+        else:
+            worker_status, worker_detail = "HEALTHY", "sweeping"
+
+    pending = stats.pending_count
+    oldest_age = stats.oldest_pending_age_s
+    # A fleeting row between commit and fast-path delivery is not an outage;
+    # a backlog older than a few sweep intervals is.
+    if pending == 0 or (oldest_age is not None and oldest_age <= 5.0):
+        outbox_status = "HEALTHY"
+    else:
+        outbox_status = "BACKLOGGING"
+
+    return _envelope(
+        request,
+        {
+            "api": {"status": "HEALTHY"},
+            "db": {"status": "HEALTHY"},
+            "redis": {
+                "status": "HEALTHY" if redis_ok else "DEGRADED",
+                "detail": "reachable" if redis_ok else "unreachable",
+            },
+            "outbox": {
+                "status": outbox_status,
+                "pending_count": pending,
+                "oldest_pending_age_s": oldest_age,
+            },
+            "worker": {
+                "status": worker_status,
+                "detail": worker_detail,
+                "heartbeat": heartbeat,
+            },
+        },
     )
 
 

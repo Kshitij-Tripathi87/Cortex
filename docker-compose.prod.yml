@@ -171,6 +171,34 @@ services:
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # 7b. Cortex Outbox Relay Worker (v0.8.5-B4 — durable outbox → Redis → SSE/WS)
+  #
+  # Dedicated relay process for deployments that want delivery isolated from
+  # API replicas. Safe to scale (SKIP LOCKED + per-workspace exclusion +
+  # leases); safe to omit (the API runs the same sweeper in-process unless
+  # CORTEX_OUTBOX_PUBLISHER_ENABLED=false). Needs DB + Redis only.
+  # ─────────────────────────────────────────────────────────────────────────────
+  outbox-relay:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cortex-outbox-relay-prod
+    command: python -m app.workers.outbox_relay
+    environment:
+      CORTEX_ENV: prod
+      CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:-cortex_secure_prod_2026!}@postgres:5432/${CORTEX_DB_NAME:-cortex}
+      CORTEX_REDIS_URL: redis://:${CORTEX_REDIS_PASSWORD:-cortex_redis_secure_2026!}@redis:6379/0
+      CORTEX_OUTBOX_PUBLISHER_ID: ${CORTEX_OUTBOX_PUBLISHER_ID:-outbox-relay-prod}
+      CORTEX_OUTBOX_SWEEP_INTERVAL_S: ${CORTEX_OUTBOX_SWEEP_INTERVAL_S:-1.0}
+      CORTEX_OUTBOX_BATCH_SIZE: ${CORTEX_OUTBOX_BATCH_SIZE:-100}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # 8. Cortex Digital Twin & Simulation Worker
   # ─────────────────────────────────────────────────────────────────────────────
   simulation-worker:

@@ -35,11 +35,12 @@ import { fetchCounterfactuals } from "@/lib/api/scenarios";
 import { fetchEvidenceForDecision, fetchEvidenceGraph } from "@/lib/api/evidence";
 import { deliberate as fetchAgentDeliberation, fetchAgentMessages } from "@/lib/api/agents";
 import { executeDecision } from "@/lib/api/execution";
-import { nexusRealtime, RealtimeEventType } from "@/lib/api/realtime";
+import { RealtimeClient } from "@/lib/realtime/client";
+import { getAuthToken } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
 
-export type RealtimeStatus = "LIVE" | "RECONNECTING" | "OFFLINE";
+export type RealtimeStatus = "LIVE" | "RECONNECTING" | "SYNCING" | "OFFLINE";
 
 interface WorkspaceContextValue {
   // Proportional Operational World State
@@ -221,73 +222,111 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   // Realtime WebSocket Connection
   const [wsConnected, setWsConnected] = useState(false);
 
-  // Initialize WebSocket connection
+  // B4 centralized realtime: sequence-gated SSE with cursor resume.
+  // Wire types are the canonical outbox types (decision_created,
+  // risk_changed, forecast_updated, …); reactions mirror the legacy
+  // handlers (refetch authoritative state, flip decision validity).
   useEffect(() => {
-    const unsubscribeState = nexusRealtime.onStateChange((state) => {
-      setWsConnected(state === "connected");
-      if (state === "connected") setRealtimeStatus("LIVE");
-      else if (state === "reconnecting") setRealtimeStatus("RECONNECTING");
+    const workspaceId = process.env.NEXT_PUBLIC_NEXUS_WORKSPACE_ID || "default_workspace";
+    const cursorKey = `cortex:realtime_seq:${workspaceId}`;
+    let initialSeq = 0;
+    try {
+      initialSeq = Number(window.localStorage.getItem(cursorKey) || 0) || 0;
+    } catch {
+      initialSeq = 0;
+    }
+    const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID;
+    const client = new RealtimeClient({
+      workspaceId,
+      baseUrl: API_BASE.replace(/\/api\/v1\/?$/, ""),
+      initialSeq,
+      getToken: () => getAuthToken(),
+      // Dev (`header` identity) carries X-User-* headers; prod (`jwt`
+      // identity) falls back to the stored bearer token automatically.
+      authHeaders: () => {
+        const headers: Record<string, string> = {};
+        if (devUserId) {
+          headers["X-User-Id"] = devUserId;
+          headers["X-User-Workspaces"] =
+            process.env.NEXT_PUBLIC_DEV_WORKSPACES || workspaceId;
+          headers["X-User-Roles"] = process.env.NEXT_PUBLIC_DEV_ROLES || "operator";
+        }
+        return headers;
+      },
+      // Unpageable gap: refetch the authoritative snapshot, then resume.
+      onResyncRequired: () => {
+        refreshLiveState();
+      },
+    });
+
+    const unsubscribeState = client.onStatus((state) => {
+      setWsConnected(state === "live");
+      if (state === "live") setRealtimeStatus("LIVE");
+      else if (state === "syncing") setRealtimeStatus("SYNCING");
+      else if (state === "reconnecting" || state === "connecting")
+        setRealtimeStatus("RECONNECTING");
       else setRealtimeStatus("OFFLINE");
     });
 
-    // Subscribe to realtime events
-    const unsubGraphDelta = nexusRealtime.on("graph.delta", (event) => {
-      console.log("Graph delta received:", event.payload);
-      // Refresh graph data on delta
-      refreshLiveState();
+    // Persist the cursor: a browser refresh resumes, never replays all.
+    const persistCursor = client.onAny((event) => {
+      try {
+        window.localStorage.setItem(cursorKey, String(event.seq));
+      } catch {
+        // Private mode: resume-from-zero still converges via replay.
+      }
+      if (typeof event.world_state_version === "number") {
+        setWorldStateVersion((prev) => Math.max(prev, event.world_state_version as number));
+        setWorldStateUpdatedAt("just now");
+      }
     });
 
-    const unsubSignalUpdate = nexusRealtime.on("signal.update", (event) => {
-      console.log("Signal update received:", event.payload);
-      // Refresh signals
+    const unsubSignal = client.on("risk.inferred", () => {
       fetchActiveSignals().then(setSignals).catch(() => {});
     });
-
-    const unsubDecisionInvalidated = nexusRealtime.on("decision.invalidated", (event) => {
-      console.log("Decision invalidated:", event.payload);
+    const unsubRisk = client.on("risk_changed", () => {
+      fetchActiveSignals().then(setSignals).catch(() => {});
+    });
+    const unsubDecisionInvalidated = client.on("decision_invalidated", (event) => {
+      const reason =
+        (event.payload?.reason as string | undefined) ||
+        "Decision invalidated by world state drift";
       setIsDecisionValid(false);
-      setInvalidationReason(event.payload.reason);
+      setInvalidationReason(reason);
       setDecisionLifecycleState("INVALIDATED");
       setDecisionFreshnessState("INVALIDATED");
-      setDecisionFreshnessExplanation(event.payload.reason);
+      setDecisionFreshnessExplanation(reason);
     });
-
-    const unsubAgentMessage = nexusRealtime.on("agent.message", (event) => {
-      console.log("Agent message received:", event.payload);
-      setAgentMessages((prev) => [
-        ...prev,
-        {
-          message_id: event.payload.message_id,
-          sender_role: event.payload.agent_id,
-          sender_name: event.payload.agent_id,
-          sender_version: "v4",
-          content: event.payload.content,
-          evidence_refs: event.payload.evidence_refs,
-          phase: event.payload.phase,
-          timestamp: event.timestamp,
-        },
-      ]);
+    const unsubDecisionCreated = client.on("decision_created", () => {
+      refreshLiveState();
     });
-
-    const unsubWorldState = nexusRealtime.on("world_state.update", (event) => {
-      console.log("World state update:", event.payload);
-      setWorldStateVersion(event.payload.version);
-      setWorldStateUpdatedAt("just now");
+    const unsubForecast = client.on("forecast_updated", () => {
+      refreshLiveState();
+    });
+    const unsubObservation = client.on("observation.recorded", () => {
+      refreshLiveState();
+    });
+    const unsubScenario = client.on("scenario_completed", () => {
+      refreshLiveState();
+    });
+    const unsubForecastGen = client.on("forecast.generated", () => {
       refreshLiveState();
     });
 
-    // Connect to WebSocket
-    nexusRealtime.connect();
+    client.connect();
 
-    // Cleanup
     return () => {
-      unsubGraphDelta();
-      unsubSignalUpdate();
+      persistCursor();
+      unsubSignal();
+      unsubRisk();
       unsubDecisionInvalidated();
-      unsubAgentMessage();
-      unsubWorldState();
+      unsubDecisionCreated();
+      unsubForecast();
+      unsubForecastGen();
+      unsubObservation();
+      unsubScenario();
       unsubscribeState();
-      nexusRealtime.disconnect();
+      client.disconnect();
     };
   }, []);
 

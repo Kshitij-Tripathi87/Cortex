@@ -216,40 +216,54 @@ class RealtimeBus:
             task.cancel()
 
     async def _redis_listener(self, workspace_id: str) -> None:
-        """Listen for Redis messages for a workspace and fan out locally."""
+        """Listen for Redis messages for a workspace and fan out locally.
+
+        B4: reconnect loop with capped backoff. A Redis outage must pause
+        cross-node fan-in — not silently kill it. The task ends only when
+        cancelled (last local subscriber gone). Live-tail gap detection +
+        durable replay cover events missed during the outage.
+        """
         channel = CHANNEL_PREFIX + workspace_id
-        try:
-            r = self._get_redis()
-            if r is None:
-                return  # Redis unavailable; local-only mode
-            pubsub = r._redis.pubsub()
-            await pubsub.subscribe(channel)
+        backoff_s = 0.5
+        while True:
             try:
-                async for message in pubsub.listen():
-                    if message["type"] != "message":
-                        continue
-                    try:
-                        data = json.loads(message["data"])
-                        event = Event(
-                            event_id=data["event_id"],
-                            seq=data["seq"],
-                            event_type=data.get("type") or data.get("event_type", "UNKNOWN"),
-                            entity_type=data.get("entity_type"),
-                            entity_id=data.get("entity_id"),
-                            payload=data.get("payload", {}),
-                            world_state_version=data.get("world_state_version"),
-                            correlation_id=data.get("correlation_id"),
-                            timestamp=data.get("timestamp"),
-                        )
-                        await self._fan_out_local(workspace_id, event)
-                    except Exception:  # noqa: BLE001, PERF203, S112
-                        continue
-            finally:
-                await pubsub.unsubscribe(channel)
-        except asyncio.CancelledError:
-            pass
-        except Exception:  # noqa: BLE001, S110
-            pass
+                r = self._get_redis()
+                if r is None:
+                    await asyncio.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 30.0)
+                    continue
+                pubsub = r._redis.pubsub()
+                await pubsub.subscribe(channel)
+                backoff_s = 0.5
+                try:
+                    async for message in pubsub.listen():
+                        if message["type"] != "message":
+                            continue
+                        try:
+                            data = json.loads(message["data"])
+                            event = Event(
+                                event_id=data["event_id"],
+                                seq=data["seq"],
+                                event_type=data.get("type") or data.get("event_type", "UNKNOWN"),
+                                entity_type=data.get("entity_type"),
+                                entity_id=data.get("entity_id"),
+                                payload=data.get("payload", {}),
+                                world_state_version=data.get("world_state_version"),
+                                correlation_id=data.get("correlation_id"),
+                                timestamp=data.get("timestamp"),
+                            )
+                            await self._fan_out_local(workspace_id, event)
+                        except Exception:  # noqa: BLE001, PERF203, S112
+                            continue
+                finally:
+                    with contextlib.suppress(Exception):
+                        await pubsub.unsubscribe(channel)
+            except asyncio.CancelledError:
+                break
+            except Exception:  # noqa: BLE001, S110 — sleep, then resubscribe
+                await asyncio.sleep(backoff_s)
+                backoff_s = min(backoff_s * 2.0, 30.0)
+                continue
 
     # ── Outbox-First Publishing (v0.8.3 Authority) ─────────────────
 
@@ -314,6 +328,12 @@ class RealtimeBus:
             await self._fan_out_local(ws, ev)
             self.buffer_for_replay(ws, ev)
 
+        # B4 observability: fabric handoff counted once per successful publish.
+        from app.infrastructure import metrics as _m
+
+        _m.realtime_events_published_total.inc()
+        _observe_delivery_latency("fabric", ev)
+
         return ev
 
     # ── Legacy/Demo Publishing (Non-outbox paths) ───────────────────
@@ -330,7 +350,14 @@ class RealtimeBus:
         world_state_version: int | None = None,
         correlation_id: str | None = None,
     ) -> Event:
-        """Publish an ephemeral event (non-outbox path)."""
+        """Publish an ephemeral event (non-outbox path).
+
+        QUARANTINE (B4): this path mints Redis-``INCR``/local sequence numbers
+        and is NOT durable, NOT ordered across writers, and NOT replayable.
+        Authoritative domain events MUST flow through the transactional outbox
+        (``EventRepository.publish`` + ``OutboxPublisher``). This method exists
+        only for demos, legacy callers, and tests — never for domain state.
+        """
         r = None if workspace_id in self._local_seq_workspaces else self._get_redis()
         seq_key = SEQ_KEY_PREFIX + workspace_id
         seq = None
@@ -438,46 +465,115 @@ def _local_seq(workspace_id: str) -> int:
 _replay_buffers: dict[str, list[Event]] = {}
 
 
+def _observe_delivery_latency(transport: str, event: Event) -> None:
+    """Observe commit→handoff latency from the event's authoritative timestamp."""
+    try:
+        from app.infrastructure import metrics as _m
+
+        ts = datetime.fromisoformat(event.timestamp) if event.timestamp else None
+        if ts is None:
+            return
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        age = max(0.0, (datetime.now(UTC) - ts).total_seconds())
+        _m.realtime_delivery_latency_seconds.labels(transport=transport).observe(age)
+    except Exception:  # noqa: BLE001, S110 — metrics must never break delivery
+        pass
+
+
 # SSE streaming helper
 async def sse_stream(
     workspace_id: str,
     last_seen_seq: int = 0,
     session: AsyncSession | None = None,
+    session_factory: Any | None = None,
     tenant_id: str | None = None,
     bus: RealtimeBus | None = None,
+    heartbeat_s: float = 15.0,
+    replay_limit: int = 500,
 ) -> AsyncIterator[str]:
-    """Generate an SSE stream for a workspace with gap-resilient semantics."""
+    """Generate an SSE stream for a workspace with gap-resilient semantics.
+
+    Order of operations is load-bearing:
+      1. subscribe first (live events queue while we replay; replayed seqs
+         are skipped in the tail via the ``<= prev`` guard — no loss, no dup);
+      2. ``connected`` handshake;
+      3. durable replay (explicit ``session`` > short-lived ``session_factory``
+         session > in-memory buffer fallback);
+      4. live tail with the sequence gate (skip stale, resync on gap).
+
+    A ``: ping`` comment heartbeat keeps intermediaries from idling out the
+    connection. All stream behavior is metriced (connections, delivered,
+    duplicates, gaps, replays, reconnects).
+    """
+    from app.infrastructure import metrics as _m
+
     b = bus or get_realtime_bus()
     queue = b.subscribe(workspace_id)
+    _m.realtime_connections.labels(transport="sse").inc()
     try:
         # Initial connection handshake
         yield f"event: connected\ndata: {json.dumps({'workspace_id': workspace_id, 'last_seen_seq': last_seen_seq})}\n\n"
 
-        # Replay missed events from outbox / buffer
-        missed = await b.replay_since(
-            workspace_id=workspace_id,
-            since_seq=last_seen_seq,
-            session=session,
-            tenant_id=tenant_id,
-        )
-        for event in missed:
-            yield event.to_sse()
+        # Replay missed events from the durable outbox (preferred) or the
+        # in-memory buffer. A factory-backed session is short-lived: replay
+        # must never hold a pooled DB connection for the stream lifetime.
+        if session is not None:
+            missed = await b.replay_since(
+                workspace_id=workspace_id,
+                since_seq=last_seen_seq,
+                limit=replay_limit,
+                session=session,
+                tenant_id=tenant_id,
+            )
+        elif session_factory is not None:
+            async with session_factory() as replay_session:
+                missed = await b.replay_since(
+                    workspace_id=workspace_id,
+                    since_seq=last_seen_seq,
+                    limit=replay_limit,
+                    session=replay_session,
+                    tenant_id=tenant_id,
+                )
+        else:
+            missed = await b.replay_since(
+                workspace_id=workspace_id,
+                since_seq=last_seen_seq,
+                limit=replay_limit,
+            )
+        if missed:
+            _m.realtime_replay_total.labels(transport="sse").inc()
+            for event in missed:
+                yield event.to_sse()
+                _m.realtime_events_delivered_total.labels(transport="sse").inc()
+                _observe_delivery_latency("sse", event)
+        if last_seen_seq > 0:
+            _m.realtime_reconnect_total.labels(transport="sse").inc()
 
         prev_seq = last_seen_seq if not missed else missed[-1].seq
         while True:
-            event = await queue.get()
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=heartbeat_s)
+            except TimeoutError:
+                yield ": ping\n\n"
+                continue
             # Skip events already seen or covered in replay
             if event.seq <= prev_seq:
+                _m.realtime_duplicate_events_total.inc()
                 continue
             # Gap detection: if next sequence is not strictly prev_seq + 1
             if prev_seq > 0 and event.seq > prev_seq + 1:
+                _m.realtime_gap_detected_total.labels(transport="sse").inc()
                 yield f"event: resync_needed\ndata: {json.dumps({'from_seq': prev_seq, 'to_seq': event.seq})}\n\n"
                 break
             yield event.to_sse()
+            _m.realtime_events_delivered_total.labels(transport="sse").inc()
+            _observe_delivery_latency("sse", event)
             b.buffer_for_replay(workspace_id, event)
             prev_seq = event.seq
     finally:
         b.unsubscribe(workspace_id, queue)
+        _m.realtime_connections.labels(transport="sse").dec()
 
 
 _singleton: RealtimeBus | None = None

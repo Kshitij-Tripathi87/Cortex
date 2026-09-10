@@ -1,4 +1,9 @@
 /**
+ * @deprecated B4: superseded by the centralized client in
+ * `@/lib/realtime/client` (sequence gate, cursor resume, replay/resync).
+ * Kept for reference; new code must use `RealtimeClient`.
+ */
+/**
  * Nexus Real-Time Streaming Client — WebSocket connection for live Cockpit updates.
  *
  * Streams:

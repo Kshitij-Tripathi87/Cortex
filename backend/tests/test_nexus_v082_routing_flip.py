@@ -86,6 +86,10 @@ CANONICAL_NEXUS_PATHS = {
     ("POST", "/api/v1/nexus/decisions/{decision_id}/evidence/edges"),
     ("GET", "/api/v1/nexus/decisions/{decision_id}/evidence"),
     ("GET", "/api/v1/nexus/decisions/{decision_id}/approvals"),
+    # v0.8.5-B4 — durable realtime: replay, SSE stream, relay health
+    ("GET", "/api/v1/nexus/realtime/events"),
+    ("GET", "/api/v1/nexus/realtime/stream"),
+    ("GET", "/api/v1/nexus/realtime/health"),
 }
 
 # Authoritative operations that used to live on the v0.7 in-memory router

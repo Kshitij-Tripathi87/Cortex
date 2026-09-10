@@ -43,6 +43,9 @@ AUTH_HELPERS = (
     "get_current_principal",
     "get_workspace_auth",
     "AuthContext",
+    # B4 SSE handshake: resolves header-or-?token= identity and raises
+    # 401/403 before the first byte (pinned by A13b/A16b stream tests).
+    "_resolve_stream_identity",
 )
 
 # Paths that are explicitly PUBLIC. Adding a new entry requires an
