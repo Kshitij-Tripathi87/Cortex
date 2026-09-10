@@ -213,3 +213,36 @@ Host the dormant `OutboxPublisher` sweeper (lifespan/CLI/k8s) + frontend
 seq-gap detection/resync/replay. F2 from the register. (Rewire prerequisite
 found in B3: `setNexusAuthToken` has zero callers — the rewire slice must
 bridge AuthProvider → legacy `http.ts` client.)
+
+## Slice v0.8.5-B4 — Launch reliability: durable outbox → live delivery (B2)
+
+**Branch:** `arena/01a08ce7-cortex` (cherry-pick of `1fb3d66` from
+`arena/01a0894d-cortex`, rebased onto `main`).
+
+### Shipped
+
+| Area | Change |
+|---|---|
+| Outbox claim/lease | Migration `016_outbox_claim_lease` (claim/lease/retry columns); `OutboxPublisher` `SKIP LOCKED` claim + lease + per-workspace publish exclusion + head-of-line backoff + poison flag (never dropped); fast-path `commit_and_notify()` wake. |
+| Relay hosting | In-process sweeper in `app.main` lifespan (`CORTEX_OUTBOX_PUBLISHER_ENABLED`, default on) + dedicated `app.workers.outbox_relay` process. Compose `outbox-relay` service + `k8s/workers.yaml` Deployment (2 replicas, pod-name publisher id). |
+| Canonical transport | `GET /nexus/realtime/events` (durable replay), `GET /nexus/realtime/stream` (SSE), `GET /nexus/realtime/health` (aggregate relay truth), `/api/v1/realtime/ws` catch-up + live tail + gap/resync. Single envelope `{event_id, seq, type, entity_type, entity_id, payload, world_state_version, correlation_id, timestamp}`. |
+| Client | `frontend/src/lib/realtime/client.ts` sequence gate + gap/replay/resync/reconnect; `useRealtime.ts`; `WorkspaceContext` cursor persistence (`cortex:realtime_seq:<ws>`); header LIVE/RECONNECTING/SYNCING/OFFLINE pill. |
+| Tests | `test_nexus_v085_b4_reliability.py` (A1–A20 + B4.1 + C1–C5 chaos + L1–L2 load + metrics/secrets pins); `frontend/src/lib/realtime/client.test.ts` (FE1–FE14, vitest). |
+| Realtime E2E re-enabled | `frontend/tests/realtime-e2e.spec.ts` rewritten against the B4 protocol (real `decision_created` mutations; durable replay, WS live delivery, SSE replay, 403/401/4401 boundaries) and added to the e2e.yml run list. |
+
+### Verification
+
+- Landing PR CI is the gate: full backend suite (incl. B4 acceptance),
+  `client.test.ts` (vitest) + `tsc --noEmit`, the three E2E specs
+  (critical-path + auth + realtime), lint/security/typecheck/build/docker.
+- Migration `016` up/down verified against the 001→015 ritual (B1).
+- Chaos (C1–C5) and load (L1/L2) numbers are printed by the B4 suite and
+  recorded here once the PR CI run completes.
+
+### Honest limitations (carried, not hidden)
+
+- Ephemeral gateway events (`world_state_updated`,
+  `agent.deliberation.completed`) remain unsequenced/legacy (out of B4 scope).
+- `realtime-e2e.spec.ts` drives the wire protocol directly (API + WS/SSE);
+  the cockpit UI rewire (B3/B6) is the slice that will assert the header pill
+  through the app itself.
