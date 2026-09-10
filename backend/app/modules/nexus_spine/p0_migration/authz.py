@@ -128,6 +128,15 @@ TOOL_PERMISSIONS: dict[str, set[NexusRole]] = {
         NexusRole.OPERATOR,
         NexusRole.ADMIN,
     },
+    # v0.8.5-B4 — realtime replay/stream reads are viewer-open like the
+    # other registry reads; the workspace boundary is enforced separately
+    # by require_workspace_access.
+    "nexus.realtime.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
     # Admin
     "nexus.admin.configure": {NexusRole.ADMIN},
     "nexus.admin.roles": {NexusRole.ADMIN},

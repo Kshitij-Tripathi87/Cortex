@@ -22,6 +22,7 @@ from app.modules.nexus_spine.persistence.models import (
     ForecastRecordDB,
     ObservationRecordDB,
 )
+from app.modules.nexus_spine.realtime_events import NexusEventType
 
 
 def _utc_now() -> datetime:
@@ -101,6 +102,31 @@ class AuthoritativeTruthLoop:
         )
         session.add(rec)
         await session.flush()
+
+        # B4: every recorded forecast is a realtime event, in the same
+        # transaction as the forecast row (commit → both, rollback → neither).
+        outbox_seq = await allocate_outbox_seq(session, tenant_id, workspace_id)
+        session.add(
+            EventRecordDB(
+                tenant_id=tenant_id,
+                workspace_id=workspace_id,
+                seq=outbox_seq,
+                event_type=NexusEventType.FORECAST_UPDATED.value,
+                entity_type="forecast",
+                entity_id=forecast_id,
+                payload={
+                    "forecast_id": forecast_id,
+                    "sku": sku,
+                    "p50": p50,
+                    "p80": p80,
+                    "p95": p95,
+                    "model_version": model_version,
+                },
+                world_state_version=world_state_version,
+            )
+        )
+        await session.flush()
+
         with self._lock:
             self._pending[forecast_id] = {
                 "p50": p50,

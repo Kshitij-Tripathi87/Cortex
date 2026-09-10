@@ -78,6 +78,52 @@ spec:
               cpu: "4000m"
               memory: "8Gi"
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-outbox-relay
+  namespace: cortex
+  labels:
+    app: cortex-outbox-relay
+    tier: worker
+spec:
+  # The relay is horizontally safe (SKIP LOCKED + per-workspace exclusion +
+  # leases). 2 replicas survive a single-pod outage with zero event loss.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cortex-outbox-relay
+  template:
+    metadata:
+      labels:
+        app: cortex-outbox-relay
+        tier: worker
+    spec:
+      containers:
+        - name: outbox-relay
+          image: cortex-backend:latest
+          command: ["python", "-m", "app.workers.outbox_relay"]
+          envFrom:
+            - configMapRef:
+                name: cortex-config
+          env:
+            - name: CORTEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: DB_PASSWORD
+            - name: CORTEX_OUTBOX_PUBLISHER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

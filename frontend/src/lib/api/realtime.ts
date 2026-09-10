@@ -1,4 +1,9 @@
 /**
+ * @deprecated B4: superseded by the centralized client in
+ * `@/lib/realtime/client` (sequence gate, cursor resume, replay/resync).
+ * Kept for reference; new code must use `RealtimeClient`.
+ */
+/**
  * Cortex Nexus — WebSocket Real-time Client (Track X2 & X6)
  *
  * Handles:

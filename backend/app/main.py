@@ -15,7 +15,7 @@ from opentelemetry import trace
 from app.api.v1.router import api_router
 from app.common.ids import uuid7
 from app.config import get_settings
-from app.infrastructure.database import close_db, init_db
+from app.infrastructure.database import close_db, get_session_factory, init_db
 from app.infrastructure.logging import setup_logging
 from app.infrastructure.metrics import MetricsMiddleware, start_metrics_server
 from app.infrastructure.security import (
@@ -40,6 +40,31 @@ async def lifespan(app: FastAPI):
     start_metrics_server()
     await init_db(settings.db_dsn)
 
+    # B4: start the outbox relay sweeper in-process (env-gated). SKIP LOCKED
+    # + per-workspace exclusion make N API replicas a safe publisher pool.
+    # Deployments that prefer an isolated relay run app.workers.outbox_relay
+    # and set CORTEX_OUTBOX_PUBLISHER_ENABLED=false here.
+    outbox_publisher = None
+    if settings.outbox_publisher_enabled:
+        try:
+            from app.infrastructure.outbox_publisher import get_outbox_publisher
+
+            # The process singleton: commit_and_notify() wakes exactly this
+            # instance, and the realtime health endpoint reads its heartbeat.
+            outbox_publisher = get_outbox_publisher(session_factory=get_session_factory())
+            outbox_publisher.apply_settings(settings)
+            await outbox_publisher.start()
+        except Exception:
+            # The API must boot even if the relay cannot start (mutations
+            # still commit durably; the backlog drains when a publisher
+            # appears). The realtime health endpoint exposes the outage.
+            import logging as _logging
+
+            _logging.getLogger("nexus.outbox_publisher").exception(
+                "OutboxPublisher failed to start; continuing without relay"
+            )
+            outbox_publisher = None
+
     # Setup signal handlers for graceful shutdown
     _shutdown_event = asyncio.Event()
 
@@ -58,6 +83,11 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        # Shutdown - stop the relay first (lets an in-flight sweep finish
+        # its commit; the task cancel is bounded by stop()), then drain.
+        if outbox_publisher is not None:
+            with contextlib.suppress(Exception):
+                await outbox_publisher.stop()
         # Shutdown - wait for signal or explicit close
         if _shutdown_event and not _shutdown_event.is_set():
             # Give in-flight requests time to complete

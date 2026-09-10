@@ -3805,6 +3805,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nexus/realtime/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Realtime Events
+         * @description Durable replay: events for a workspace with ``seq > after_seq``.
+         *
+         *     Returns the reconciliation envelope ``{events, from_seq, to_seq,
+         *     latest_seq, world_state_version, has_more, resync_required}``. When the
+         *     gap exceeds ``CORTEX_REALTIME_RESYNC_THRESHOLD`` the server refuses the
+         *     page-by-page replay (``resync_required=true``) and the client must take
+         *     an authoritative snapshot instead.
+         */
+        get: operations["realtime_events_api_v1_nexus_realtime_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/realtime/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Realtime Stream
+         * @description Live SSE: ``connected`` → durable catch-up → live tail with gap gate.
+         *
+         *     Identity resolves BEFORE the first byte: 401/403 surface as JSON, never
+         *     as a 200 stream. Reconnects pass the last confirmed ``after_seq`` and
+         *     receive exactly the missed events before the live tail resumes. A
+         *     ``resync_needed`` frame means the client must replay-or-resnapshot.
+         */
+        get: operations["realtime_stream_api_v1_nexus_realtime_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/realtime/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Realtime Health
+         * @description Operational relay health: API/DB/Redis/Outbox/Worker.
+         *
+         *     Aggregate-only (no tenant/workspace data). ``/readyz`` stays the K8s
+         *     traffic gate; this endpoint is the on-call truth for the relay: a dead
+         *     relay with a growing backlog reads BACKLOGGING/DEGRADED here instead of
+         *     hiding behind a green ``/healthz``.
+         */
+        get: operations["realtime_health_api_v1_nexus_realtime_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -7341,6 +7417,72 @@ export interface components {
              * @default 1
              */
             retry_delay_s: number;
+            /**
+             * Outbox Publisher Enabled
+             * @description Run the OutboxPublisher sweeper in this process
+             * @default true
+             */
+            outbox_publisher_enabled: boolean;
+            /**
+             * Outbox Publisher Id
+             * @description Stable publisher identity (dedicated relay worker); empty = random per-process id
+             * @default
+             */
+            outbox_publisher_id: string;
+            /**
+             * Outbox Sweep Interval S
+             * @description Idle delay between outbox sweep passes
+             * @default 1
+             */
+            outbox_sweep_interval_s: number;
+            /**
+             * Outbox Batch Size
+             * @description Max outbox rows claimed per sweep pass
+             * @default 100
+             */
+            outbox_batch_size: number;
+            /**
+             * Outbox Lease S
+             * @description Claim lease: a claimed-but-unpublished row becomes reclaimable by a peer after this long (worker-crash recovery)
+             * @default 30
+             */
+            outbox_lease_s: number;
+            /**
+             * Outbox Retry Base S
+             * @description Failed-publish backoff base (doubles per attempt)
+             * @default 1
+             */
+            outbox_retry_base_s: number;
+            /**
+             * Outbox Retry Max S
+             * @description Failed-publish backoff cap
+             * @default 60
+             */
+            outbox_retry_max_s: number;
+            /**
+             * Outbox Max Attempts
+             * @description Attempts after which an unpublished row is flagged poison (loudly metriced; still retried with capped backoff, never dropped)
+             * @default 50
+             */
+            outbox_max_attempts: number;
+            /**
+             * Realtime Replay Limit
+             * @description Max events per replay page
+             * @default 500
+             */
+            realtime_replay_limit: number;
+            /**
+             * Realtime Resync Threshold
+             * @description Gap size above which clients must snapshot/resync instead of replaying event-by-event
+             * @default 1000
+             */
+            realtime_resync_threshold: number;
+            /**
+             * Realtime Sse Heartbeat S
+             * @description SSE keepalive comment interval
+             * @default 15
+             */
+            realtime_sse_heartbeat_s: number;
             /**
              * Rate Limit Default Rps
              * @default 10
@@ -14806,6 +14948,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    realtime_events_api_v1_nexus_realtime_events_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                after_seq?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    realtime_stream_api_v1_nexus_realtime_stream_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                after_seq?: number;
+                token?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    realtime_health_api_v1_nexus_realtime_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

@@ -1,10 +1,11 @@
 import React from "react";
 
-export type StatusDotState = "live" | "reconnecting" | "offline" | "idle";
+export type StatusDotState = "live" | "reconnecting" | "syncing" | "offline" | "idle";
 
 const COLORS: Record<StatusDotState, string> = {
   live: "bg-accent",
   reconnecting: "bg-warning",
+  syncing: "bg-warning",
   offline: "bg-critical",
   idle: "bg-ink-muted",
 };
