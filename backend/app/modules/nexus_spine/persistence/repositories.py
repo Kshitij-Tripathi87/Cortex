@@ -1066,6 +1066,32 @@ class EventRepository:
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_head(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        workspace_id: str,
+    ) -> tuple[int, int]:
+        """Return ``(latest_seq, latest_world_state_version)`` for a workspace.
+
+        ``(0, 0)`` when the workspace has no outbox rows. Powers the replay
+        envelope (``latest_seq``/``world_state_version``/``has_more``) and the
+        resync-threshold decision.
+        """
+        stmt = (
+            select(EventRecordDB.seq, EventRecordDB.world_state_version)
+            .where(
+                EventRecordDB.tenant_id == tenant_id,
+                EventRecordDB.workspace_id == workspace_id,
+            )
+            .order_by(EventRecordDB.seq.desc())
+            .limit(1)
+        )
+        row = (await session.execute(stmt)).first()
+        if row is None:
+            return (0, 0)
+        return (int(row[0]), int(row[1] or 0))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Singleton accessors (process-wide)

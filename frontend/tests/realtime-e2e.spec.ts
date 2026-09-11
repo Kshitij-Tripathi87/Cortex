@@ -1,297 +1,300 @@
-import { test, expect } from '@playwright/test';
+/**
+ * B4 realtime acceptance (Playwright, runs against the real stack in CI e2e).
+ *
+ * Proves the B4 durable-realtime wire contract end-to-end on the canonical
+ * path: PG commit → outbox → relay → Redis → SSE/WS → sequence gate. Every
+ * event under test is produced by a REAL mutation of the canonical
+ * `/api/v1/nexus/decisions` API — no demo data, no hand-crafted frames.
+ *
+ * Protocol under test (docs/NEXUS_v0.8.5_B4_LAUNCH_RELIABILITY.md):
+ *   - GET /api/v1/nexus/realtime/events?workspace_id&after_seq   durable replay
+ *   - GET /api/v1/nexus/realtime/stream?workspace_id&after_seq&token  SSE
+ *   - WS  /api/v1/realtime/ws?token&workspace_id&after_seq       live + catch-up
+ *
+ * Auth boundaries are exercised explicitly (foreign workspace → 403, bad
+ * token → 401/4401) because "403 must never log out" is a launch invariant.
+ */
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-const NEXUS_BACKEND_URL = process.env.NEXUS_BACKEND_URL || 'http://localhost:8000';
-const WS_URL = process.env.NEXUS_WS_URL || 'ws://localhost:8000/ws/realtime';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
-test.describe('Nexus Realtime E2E', () => {
-  test.beforeAll(async () => {
-    // Verify backend and WS are reachable
-    try {
-      const health = await fetch(`${NEXUS_BACKEND_URL}/v1/health`);
-      if (!health.ok) {
-        test.skip(true, 'Backend not available');
-      }
-      // Try WS connection
-      const ws = new WebSocket(WS_URL);
-      await new Promise((resolve, reject) => {
-        ws.onopen = () => { ws.close(); resolve(true); };
-        ws.onerror = () => reject(new Error('WS failed'));
-        setTimeout(() => reject(new Error('WS timeout')), 5000);
-      });
-    } catch {
-      test.skip(true, 'Backend/WS not available');
+const BACKEND = process.env.BACKEND_URL || 'http://localhost:8000';
+const WS_URL = process.env.NEXUS_WS_URL || 'ws://localhost:8000/api/v1/realtime/ws';
+
+interface Identity {
+  email: string;
+  password: string;
+  accessToken: string;
+  workspaceId: string;
+  userId: string;
+}
+
+function uniqueEmail(tag: string): string {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `b4-${tag}-${Date.now()}-${rand}@example.com`;
+}
+
+async function signupViaApi(request: APIRequestContext, tag: string): Promise<Identity> {
+  const email = uniqueEmail(tag);
+  const password = 'E2esecures1';
+  const resp = await request.post(`${BACKEND}/api/v1/auth/signup`, {
+    data: { organization_name: `B4 Org ${tag}`, email, password, full_name: 'B4 Realtime Tester' },
+  });
+  expect(resp.status()).toBe(201);
+  const body = await resp.json();
+  return {
+    email,
+    password,
+    accessToken: body.access_token as string,
+    workspaceId: body.workspace_id as string,
+    userId: body.user_id as string,
+  };
+}
+
+async function createDecisionViaApi(
+  request: APIRequestContext,
+  id: Identity,
+): Promise<string> {
+  const resp = await request.post(`${BACKEND}/api/v1/nexus/decisions`, {
+    headers: { Authorization: `Bearer ${id.accessToken}` },
+    data: { workspace_id: id.workspaceId, situation: 'B4 realtime e2e' },
+  });
+  expect(resp.status()).toBe(201);
+  const body = await resp.json();
+  const decisionId = body?.data?.decision?.decision_id as string;
+  expect(decisionId).toBeTruthy();
+  return decisionId;
+}
+
+test.describe('B4 durable realtime', () => {
+  // Two identities, shared across the suite: orgA is the subject; orgB is a
+  // foreign workspace used to prove the tenant boundary.
+  let orgA: Identity;
+  let orgB: Identity;
+
+  test.beforeAll(async ({ request }) => {
+    orgA = await signupViaApi(request, 'a');
+    orgB = await signupViaApi(request, 'b');
+  });
+
+  test('durable replay serves a committed decision_created with contiguous seqs', async ({
+    request,
+  }) => {
+    const decisionId = await createDecisionViaApi(request, orgA);
+
+    const resp = await request.get(`${BACKEND}/api/v1/nexus/realtime/events`, {
+      headers: { Authorization: `Bearer ${orgA.accessToken}` },
+      params: { workspace_id: orgA.workspaceId, after_seq: '0', limit: '100' },
+    });
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    const envelope = body.data;
+    const events: Array<Record<string, unknown>> = envelope.events ?? [];
+    expect(events.length).toBeGreaterThan(0);
+
+    // The committed decision must be replayable from the durable outbox.
+    const mine = events.find((e) => e.entity_id === decisionId);
+    expect(mine).toBeTruthy();
+    expect(mine!.type).toBe('decision_created');
+    expect(mine!.entity_type).toBe('decision');
+    // event_id is the idempotency identity (always set via model default).
+    expect(mine!.event_id).toBeTruthy();
+    expect(typeof mine!.seq).toBe('number');
+    // correlation_id is a nullable transport field: decision_created does not
+    // populate it (the HTTP response envelope carries X-Correlation-Id instead).
+    expect(mine!.correlation_id === null || typeof mine!.correlation_id === 'string').toBe(
+      true,
+    );
+
+    // Wire contract: contiguous, strictly-increasing per-workspace seqs.
+    const seqs = events.map((e) => e.seq as number);
+    for (let i = 1; i < seqs.length; i += 1) {
+      expect(seqs[i]).toBe(seqs[i - 1] + 1);
     }
+
+    // Replay envelope sanity.
+    expect(envelope.resync_required).toBe(false);
+    expect(envelope.latest_seq).toBeGreaterThanOrEqual(mine!.seq as number);
   });
 
-  test('graph.delta → UI mutation without refresh', async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/graph`);
-    await page.waitForLoadState('networkidle');
+  test('WebSocket delivers a live decision_created after catch-up completes', async ({
+    request,
+    page,
+  }) => {
+    // Give the page a real origin, then open a native WS with ?token= auth.
+    // Resolve only once catch-up completes: the live bridge subscribes after
+    // catch-up, so a mutation created before catchup_complete could otherwise
+    // race the subscription and be missed (correctly surfaced as a gap).
+    await page.goto('/company');
+    const wsUrl =
+      `${WS_URL}?token=${encodeURIComponent(orgA.accessToken)}` +
+      `&workspace_id=${encodeURIComponent(orgA.workspaceId)}&after_seq=0`;
 
-    // Get initial node count
-    const initialCount = await page.locator('[data-testid="node-count"]').textContent();
-    expect(initialCount).toBeTruthy();
+    await page.evaluate(
+      ({ url }) => {
+        const w = window as unknown as Record<string, unknown>;
+        const frames: Array<Record<string, unknown>> = [];
+        w.__b4_frames = frames;
+        return new Promise<void>((resolve, reject) => {
+          const ws = new WebSocket(url);
+          w.__b4_ws = ws;
+          ws.onmessage = (ev: MessageEvent) => {
+            let msg: Record<string, unknown>;
+            try {
+              msg = JSON.parse(ev.data as string);
+            } catch {
+              return;
+            }
+            frames.push(msg);
+            if (msg.type === 'catchup_complete') resolve();
+          };
+          ws.onerror = () => reject(new Error('WS connection failed'));
+          setTimeout(() => reject(new Error('WS catchup_complete timeout')), 8000);
+        });
+      },
+      { url: wsUrl },
+    );
 
-    // Connect to WebSocket and send graph.delta event
-    const wsConnected = await page.evaluate(async (wsUrl) => {
-      const ws = new WebSocket(wsUrl);
-      return new Promise<boolean>((resolve) => {
-        ws.onopen = () => resolve(true);
-        ws.onerror = () => resolve(false);
-        setTimeout(() => resolve(false), 5000);
-      });
-    }, WS_URL);
+    // Now mutate: the canonical API commits a decision → outbox → live frame.
+    const decisionId = await createDecisionViaApi(request, orgA);
 
-    if (!wsConnected) {
-      test.skip(true, 'WebSocket connection failed');
-    }
+    const live = await page.evaluate(
+      ({ decisionId }) =>
+        new Promise<Record<string, unknown>>((resolve, reject) => {
+          const w = window as unknown as { __b4_frames: Array<Record<string, unknown>> };
+          const deadline = Date.now() + 20000;
+          const poll = () => {
+            const hit = w.__b4_frames.find(
+              (f) => f.type === 'decision_created' && f.entity_id === decisionId,
+            );
+            if (hit) return resolve(hit);
+            if (Date.now() > deadline) {
+              return reject(new Error('live decision_created not delivered within 20s'));
+            }
+            setTimeout(poll, 200);
+          };
+          poll();
+        }),
+      { decisionId },
+    );
 
-    // Send graph.delta event via backend API or direct WS
-    await page.evaluate(async (wsUrl) => {
-      const ws = new WebSocket(wsUrl);
-      await new Promise<void>((resolve) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            event_id: 'test-delta-1',
-            event_type: 'graph.delta',
-            timestamp: new Date().toISOString(),
-            world_state_version: 2,
-            graph_version: 'v2',
-            payload: {
-              added_nodes: ['new-node-1'],
-              removed_nodes: [],
-              added_edges: [],
-              removed_edges: [],
-              updated_nodes: [],
-              updated_edges: [],
-            },
-          }));
-          setTimeout(() => { ws.close(); resolve(); }, 1000);
-        };
-      });
-    }, WS_URL);
+    expect(live.entity_id).toBe(decisionId);
+    expect(live.type).toBe('decision_created');
+    expect(typeof live.seq).toBe('number');
+    expect((live.seq as number) > 0).toBe(true);
 
-    // Wait for UI to update (via refreshLiveState)
-    await page.waitForTimeout(2000);
-
-    // Verify graph mutated without page refresh
-    const updatedCount = await page.locator('[data-testid="node-count"]').textContent();
-    expect(updatedCount).toBeTruthy();
-
-    // Verify mutation indicator appears
-    await expect(page.locator('[data-testid="graph-mutation-indicator"]')).toBeVisible({ timeout: 3000 });
-
-    test.info().annotations.push({
-      type: 'category: realtime',
-      description: 'graph.delta → UI mutation without refresh',
-    });
-  });
-
-  test('signal.update → signals panel refresh', async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/cockpit`);
-    await page.waitForLoadState('networkidle');
-
-    // Get initial signal count
-    const initialSignals = await page.locator('[data-testid="signal-count"]').textContent();
-
-    // Send signal.update event
-    await page.evaluate(async (wsUrl) => {
-      const ws = new WebSocket(wsUrl);
-      await new Promise<void>((resolve) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            event_id: 'test-signal-1',
-            event_type: 'signal.update',
-            timestamp: new Date().toISOString(),
-            world_state_version: 2,
-            graph_version: 'v2',
-            payload: {
-              signal_id: 'new-signal-1',
-              action: 'created',
-              signal: {
-                id: 'new-signal-1',
-                signal_type: 'RISK',
-                severity: 'HIGH',
-                description: 'New risk detected',
-                confidence: 0.9,
-              },
-            },
-          }));
-          setTimeout(() => { ws.close(); resolve(); }, 1000);
-        };
-      });
-    }, WS_URL);
-
-    // Wait for signals refresh
-    await page.waitForTimeout(2000);
-
-    // Verify signals panel updated
-    const updatedSignals = await page.locator('[data-testid="signal-count"]').textContent();
-    expect(updatedSignals).toBeTruthy();
-
-    test.info().annotations.push({
-      type: 'category: realtime',
-      description: 'signal.update → signals panel refresh',
+    // Clean up the socket we left open on the page.
+    await page.evaluate(() => {
+      const w = window as unknown as { __b4_ws?: WebSocket };
+      w.__b4_ws?.close();
     });
   });
 
-  test('decision.invalidated → invalidation banner appears', async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/cockpit`);
-    await page.waitForLoadState('networkidle');
+  test('SSE stream replays the committed event after the connected handshake', async ({
+    request,
+    page,
+  }) => {
+    const decisionId = await createDecisionViaApi(request, orgA);
 
-    // Send decision.invalidated event
-    await page.evaluate(async (wsUrl) => {
-      const ws = new WebSocket(wsUrl);
-      await new Promise<void>((resolve) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            event_id: 'test-invalid-1',
-            event_type: 'decision.invalidated',
-            timestamp: new Date().toISOString(),
-            world_state_version: 2,
-            graph_version: 'v2',
-            payload: {
-              decision_id: 'dec-123',
-              reason: 'World state mutated after decision',
-              dependent_entities: ['entity-1'],
-              dependent_signals: ['signal-1'],
-            },
-          }));
-          setTimeout(() => { ws.close(); resolve(); }, 1000);
-        };
-      });
-    }, WS_URL);
+    await page.goto('/company');
+    const streamUrl =
+      `${BACKEND}/api/v1/nexus/realtime/stream?workspace_id=${encodeURIComponent(orgA.workspaceId)}` +
+      `&after_seq=0&token=${encodeURIComponent(orgA.accessToken)}`;
 
-    // Wait for invalidation state
-    await page.waitForTimeout(1000);
+    const result = await page.evaluate(
+      ({ url, decisionId }) =>
+        new Promise<{ connected: Record<string, unknown>; event: Record<string, unknown> }>(
+          (resolve, reject) => {
+            const es = new EventSource(url);
+            let connected: Record<string, unknown> | null = null;
+            const deadline = Date.now() + 20000;
+            es.addEventListener('connected', (ev: MessageEvent) => {
+              connected = JSON.parse(ev.data as string);
+            });
+            es.addEventListener('decision_created', (ev: MessageEvent) => {
+              const data = JSON.parse(ev.data as string);
+              if (data.entity_id === decisionId && connected) {
+                es.close();
+                resolve({ connected, event: data });
+              }
+            });
+            es.onerror = () => {
+              if (Date.now() > deadline) {
+                es.close();
+                reject(new Error('SSE connected/replay not received within 20s'));
+              }
+            };
+            setTimeout(() => {
+              es.close();
+              reject(new Error('SSE connected/replay timeout'));
+            }, 20000);
+          },
+        ),
+      { url: streamUrl, decisionId },
+    );
 
-    // Verify invalidation banner appears
-    await expect(page.locator('[data-testid="decision-invalidated-banner"]')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('[data-testid="decision-invalidated-banner"]')).toContainText('World state mutated');
-
-    // Verify redeliberate action available
-    await expect(page.locator('[data-testid="redeliberate-btn"]')).toBeVisible();
-
-    test.info().annotations.push({
-      type: 'category: realtime',
-      description: 'decision.invalidated → invalidation banner → redeliberate',
-    });
+    // Handshake is server-side authoritative: the streamed workspace comes
+    // from the verified token, never the (possibly forged) query value.
+    expect(result.connected.workspace_id).toBe(orgA.workspaceId);
+    expect(result.event.entity_id).toBe(decisionId);
+    expect(result.event.type).toBe('decision_created');
+    expect(typeof result.event.seq).toBe('number');
   });
 
-  test('agent.message → agent messages panel updates', async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/agents`);
-    await page.waitForLoadState('networkidle');
-
-    // Get initial message count
-    const initialMessages = await page.locator('[data-testid="agent-message-count"]').textContent();
-
-    // Send agent.message event
-    await page.evaluate(async (wsUrl) => {
-      const ws = new WebSocket(wsUrl);
-      await new Promise<void>((resolve) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            event_id: 'test-agent-msg-1',
-            event_type: 'agent.message',
-            timestamp: new Date().toISOString(),
-            world_state_version: 2,
-            graph_version: 'v2',
-            payload: {
-              message_id: 'msg-456',
-              agent_id: 'supervisor',
-              content: 'Starting risk analysis...',
-              phase: 'ANALYSIS',
-              evidence_refs: ['ev-1', 'ev-2'],
-            },
-          }));
-          setTimeout(() => { ws.close(); resolve(); }, 1000);
-        };
-      });
-    }, WS_URL);
-
-    // Wait for message to appear
-    await page.waitForTimeout(1000);
-
-    // Verify agent message added
-    await expect(page.locator('[data-testid="agent-messages-list"]')).toContainText('Starting risk analysis');
-    await expect(page.locator('[data-testid="agent-message-supervisor"]')).toBeVisible();
-
-    test.info().annotations.push({
-      type: 'category: realtime',
-      description: 'agent.message → agent messages panel update',
+  test('realtime boundaries: foreign workspace → 403, bad token → 401/4401', async ({
+    request,
+    page,
+  }) => {
+    // 1. Valid token, foreign workspace: the server must 403 (never leak).
+    const foreign = await request.get(`${BACKEND}/api/v1/nexus/realtime/events`, {
+      headers: { Authorization: `Bearer ${orgA.accessToken}` },
+      params: { workspace_id: orgB.workspaceId, after_seq: '0' },
     });
-  });
+    expect(foreign.status()).toBe(403);
 
-  test('world_state.update → full state reconciliation', async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/graph`);
-    await page.waitForLoadState('networkidle');
-
-    const initialVersion = await page.locator('[data-testid="world-state-version"]').textContent();
-
-    // Send world_state.update event
-    await page.evaluate(async (wsUrl) => {
-      const ws = new WebSocket(wsUrl);
-      await new Promise<void>((resolve) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            event_id: 'test-ws-1',
-            event_type: 'world_state.update',
-            timestamp: new Date().toISOString(),
-            world_state_version: 99,
-            graph_version: 'v99',
-            payload: {
-              version: 99,
-              changed_entities: ['entity-1', 'entity-2'],
-              changed_signals: ['signal-1'],
-            },
-          }));
-          setTimeout(() => { ws.close(); resolve(); }, 1000);
-        };
-      });
-    }, WS_URL);
-
-    // Wait for reconciliation
-    await page.waitForTimeout(2000);
-
-    // Verify world state version updated
-    const updatedVersion = await page.locator('[data-testid="world-state-version"]').textContent();
-    expect(updatedVersion).toContain('99');
-
-    // Verify state-reconciled indicator
-    await expect(page.locator('[data-testid="state-reconciled"]')).toBeVisible({ timeout: 3000 });
-
-    test.info().annotations.push({
-      type: 'category: realtime',
-      description: 'world_state.update → full state reconciliation',
+    // 2. Garbage token on the HTTP replay: fail-closed 401.
+    const badHttp = await request.get(`${BACKEND}/api/v1/nexus/realtime/events`, {
+      headers: { Authorization: 'Bearer definitely-not-a-valid-jwt' },
+      params: { workspace_id: orgA.workspaceId, after_seq: '0' },
     });
-  });
+    expect(badHttp.status()).toBe(401);
 
-  test('WS reconnection after disconnect', async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/cockpit`);
-    await page.waitForLoadState('networkidle');
-
-    // Verify initial connection
-    await expect(page.locator('[data-testid="ws-status"]')).toContainText('LIVE');
-
-    // Force disconnect
-    await page.evaluate(async () => {
-      // Access the realtime client and disconnect
-      if ((window as any).__NEXUS_REALTIME__) {
-        (window as any).__NEXUS_REALTIME__.disconnect();
-      }
+    // 3. Garbage token on the SSE stream: identity resolves BEFORE the first
+    //    byte — a 401 surfaces as JSON, never as a 200 stream.
+    const badSse = await request.get(`${BACKEND}/api/v1/nexus/realtime/stream`, {
+      params: {
+        workspace_id: orgA.workspaceId,
+        after_seq: '0',
+        token: 'definitely-not-a-valid-jwt',
+      },
     });
+    expect(badSse.status()).toBe(401);
 
-    // Wait for reconnecting state
-    await page.waitForTimeout(1000);
-    await expect(page.locator('[data-testid="ws-status"]')).toContainText('RECONNECTING');
-
-    // Wait for reconnection (exponential backoff)
-    await page.waitForTimeout(5000);
-    await expect(page.locator('[data-testid="ws-status"]')).toContainText('LIVE');
-
-    test.info().annotations.push({
-      type: 'category: realtime',
-      description: 'WS reconnection after disconnect',
-    });
+    // 4. Garbage token on the WS handshake: the server refuses to establish
+    //    a session (never emits connection_established; socket closes).
+    //    Browser-observed code is 1006 (handshake rejected before accept);
+    //    the app-level 4401 is asserted by the backend's own A16d test.
+    const wsResult = await page.evaluate(
+      ({ url }) =>
+        new Promise<{ code: number; established: boolean }>((resolve, reject) => {
+          const ws = new WebSocket(url);
+          let established = false;
+          ws.onmessage = (ev: MessageEvent) => {
+            try {
+              const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+              if (msg.type === 'connection_established') established = true;
+            } catch {
+              /* ignore malformed frames */
+            }
+          };
+          ws.onclose = (ev: CloseEvent) => resolve({ code: ev.code, established });
+          ws.onerror = () => {
+            /* close follows; don't reject */
+          };
+          setTimeout(() => reject(new Error('WS did not close within 5s')), 5000);
+        }),
+      { url: `${WS_URL}?token=definitely-not-a-valid-jwt&workspace_id=${orgA.workspaceId}` },
+    );
+    expect([1006, 4401]).toContain(wsResult.code);
+    expect(wsResult.established).toBe(false);
   });
 });

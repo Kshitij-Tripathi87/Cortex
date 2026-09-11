@@ -98,7 +98,7 @@ jobs:
         run: |
           cd frontend
           set +e
-          npx playwright test tests/critical-path-e2e.spec.ts tests/auth-e2e.spec.ts
+          npx playwright test tests/critical-path-e2e.spec.ts tests/auth-e2e.spec.ts tests/realtime-e2e.spec.ts
           rc=$?
           set -e
           # Surface run summary and each failed test as check-run

@@ -301,8 +301,15 @@ class TestA5A7BrokerPartitionAndRecovery:
                 )
             await s.commit()
 
+        # B4 adds failure backoff (next_retry_at): disable it here so the
+        # immediate post-heal re-sweep below is deterministic. Backoff itself
+        # is covered by the B4 A9 suite.
         publisher = OutboxPublisher(
-            session_factory=sessionmaker, bus=bus, publisher_id="partition-pub"
+            session_factory=sessionmaker,
+            bus=bus,
+            publisher_id="partition-pub",
+            retry_base_s=0,
+            retry_max_s=0,
         )
 
         # 2. Sweep while broker is DOWN

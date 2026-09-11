@@ -213,3 +213,46 @@ Host the dormant `OutboxPublisher` sweeper (lifespan/CLI/k8s) + frontend
 seq-gap detection/resync/replay. F2 from the register. (Rewire prerequisite
 found in B3: `setNexusAuthToken` has zero callers — the rewire slice must
 bridge AuthProvider → legacy `http.ts` client.)
+
+## Slice v0.8.5-B4 — Launch reliability: durable outbox → live delivery (B2)
+
+**Branch:** `arena/01a08ce7-cortex` (cherry-pick of `1fb3d66` from
+`arena/01a0894d-cortex`, rebased onto `main`).
+
+### Shipped
+
+| Area | Change |
+|---|---|
+| Outbox claim/lease | Migration `016_outbox_claim_lease` (claim/lease/retry columns); `OutboxPublisher` `SKIP LOCKED` claim + lease + per-workspace publish exclusion + head-of-line backoff + poison flag (never dropped); fast-path `commit_and_notify()` wake. |
+| Relay hosting | In-process sweeper in `app.main` lifespan (`CORTEX_OUTBOX_PUBLISHER_ENABLED`, default on) + dedicated `app.workers.outbox_relay` process. Compose `outbox-relay` service + `k8s/workers.yaml` Deployment (2 replicas, pod-name publisher id). |
+| Canonical transport | `GET /nexus/realtime/events` (durable replay), `GET /nexus/realtime/stream` (SSE), `GET /nexus/realtime/health` (aggregate relay truth), `/api/v1/realtime/ws` catch-up + live tail + gap/resync. Single envelope `{event_id, seq, type, entity_type, entity_id, payload, world_state_version, correlation_id, timestamp}`. |
+| Client | `frontend/src/lib/realtime/client.ts` sequence gate + gap/replay/resync/reconnect; `useRealtime.ts`; `WorkspaceContext` cursor persistence (`cortex:realtime_seq:<ws>`); header LIVE/RECONNECTING/SYNCING/OFFLINE pill. |
+| Tests | `test_nexus_v085_b4_reliability.py` (A1–A20 + B4.1 + C1–C5 chaos + L1–L2 load + metrics/secrets pins); `frontend/src/lib/realtime/client.test.ts` (FE1–FE14, vitest). |
+| Realtime E2E re-enabled | `frontend/tests/realtime-e2e.spec.ts` rewritten against the B4 protocol (real `decision_created` mutations; durable replay, WS live delivery, SSE replay, 403/401/4401 boundaries) and added to the e2e.yml run list. |
+
+### Verification
+
+- **Landing PR #6 CI — all green** (head `9540827`): `test` (test.yml) 3m19s ·
+  `test` (ci.yml) 7m03s (full backend suite incl. B4 A1–A20/B4.1/C1–C5/L1–L2
+  against real Postgres+Redis) · E2E **30/30, 0 skipped, 0 flaky** (critical-
+  path + auth + the re-enabled realtime spec) · lint · typecheck (+ vitest) ·
+  openapi-types drift · security · secrets · dependencies · budget-check ·
+  docker backend/frontend/compose. (`docker` in ci.yml skips on PRs — main-only.)
+- **Frontend vitest is now CI-gated**: `typecheck.yml` runs `npm test`
+  (`client.test.ts` FE1–FE14) — previously only the author's local run existed.
+- Migration `016` up/down verified against the 001→015 ritual (B1).
+- Two spec fixes landed during validation: (1) realtime E2E correlation_id
+  assertion relaxed (nullable for `decision_created` — the HTTP envelope
+  carries `X-Correlation-Id`, not the outbox row); (2) WS bad-token assertion
+  asserts "no session established" + SSE 401 (a rejected handshake surfaces as
+  browser close 1006, not the app-level 4401 asserted by the backend A16d test).
+- Chaos (C1–C5) and load (L1/L2) verdicts are printed by the B4 suite in the
+  CI `test` log (sandbox could not download the raw log to transcribe them).
+
+### Honest limitations (carried, not hidden)
+
+- Ephemeral gateway events (`world_state_updated`,
+  `agent.deliberation.completed`) remain unsequenced/legacy (out of B4 scope).
+- `realtime-e2e.spec.ts` drives the wire protocol directly (API + WS/SSE);
+  the cockpit UI rewire (B3/B6) is the slice that will assert the header pill
+  through the app itself.

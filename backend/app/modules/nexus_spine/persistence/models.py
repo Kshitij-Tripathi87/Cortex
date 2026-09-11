@@ -623,7 +623,16 @@ class RecommendationRecordDB(Base):
 
 class EventRecordDB(Base):
     """Outbox pattern for realtime events. Every state change writes here;
-    the SSE fan-out reads from this table (or subscribes via NOTIFY)."""
+    the SSE fan-out reads from this table (or subscribes via NOTIFY).
+
+    B4 claim/lease lifecycle (v0.8.5-B4, migration 016):
+      * a sweeper claims a batch (``claimed_by/at`` + ``lease_expires_at``);
+      * a crashed worker's claims expire and are reclaimed by a peer;
+      * failures set ``next_retry_at`` (exp backoff + jitter) and ``last_error``;
+      * success sets ``published_at`` and releases the lease.
+    Rows are never deleted by the relay; ``published_at IS NULL`` is the
+    single source of "still needs delivery".
+    """
 
     __tablename__ = "nexus_events"
     __table_args__ = (
@@ -631,6 +640,12 @@ class EventRecordDB(Base):
             "tenant_id", "workspace_id", "seq", name="uq_nexus_events_tenant_workspace_seq"
         ),
         Index("ix_nexus_events_unpublished", "published_at", "seq"),
+        Index(
+            "ix_nexus_events_claim",
+            "published_at",
+            "lease_expires_at",
+            "next_retry_at",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -653,6 +668,16 @@ class EventRecordDB(Base):
     )
     publish_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     published_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # ── B4 claim / lease / retry (migration 016) ──────────────────────────
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, index=True
     )

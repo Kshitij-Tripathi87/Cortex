@@ -79,6 +79,58 @@ class Settings(BaseSettings):
     max_retries: int = 3
     retry_delay_s: int = 1
 
+    # Outbox relay (v0.8.5-B4 — durable outbox → Redis → SSE/WS).
+    # The sweeper runs in-process in the API by default; FOR UPDATE
+    # SKIP LOCKED makes N API replicas a safe publisher pool. A dedicated
+    # relay worker (app.workers.outbox_relay) may run instead/also.
+    outbox_publisher_enabled: bool = Field(
+        default=True,
+        description="Run the OutboxPublisher sweeper in this process",
+    )
+    outbox_publisher_id: str = Field(
+        default="",
+        description="Stable publisher identity (dedicated relay worker); "
+        "empty = random per-process id",
+    )
+    outbox_sweep_interval_s: float = Field(
+        default=1.0, ge=0.05, description="Idle delay between outbox sweep passes"
+    )
+    outbox_batch_size: int = Field(
+        default=100, ge=1, le=5000, description="Max outbox rows claimed per sweep pass"
+    )
+    outbox_lease_s: float = Field(
+        default=30.0,
+        ge=1.0,
+        description="Claim lease: a claimed-but-unpublished row becomes "
+        "reclaimable by a peer after this long (worker-crash recovery)",
+    )
+    outbox_retry_base_s: float = Field(
+        default=1.0, ge=0.0, description="Failed-publish backoff base (doubles per attempt)"
+    )
+    outbox_retry_max_s: float = Field(
+        default=60.0, ge=1.0, description="Failed-publish backoff cap"
+    )
+    outbox_max_attempts: int = Field(
+        default=50,
+        ge=1,
+        description="Attempts after which an unpublished row is flagged poison "
+        "(loudly metriced; still retried with capped backoff, never dropped)",
+    )
+
+    # Realtime delivery (v0.8.5-B4).
+    realtime_replay_limit: int = Field(
+        default=500, ge=1, le=5000, description="Max events per replay page"
+    )
+    realtime_resync_threshold: int = Field(
+        default=1000,
+        ge=1,
+        description="Gap size above which clients must snapshot/resync "
+        "instead of replaying event-by-event",
+    )
+    realtime_sse_heartbeat_s: float = Field(
+        default=15.0, ge=1.0, description="SSE keepalive comment interval"
+    )
+
     # Security
     rate_limit_default_rps: float = 10.0
     rate_limit_default_burst: int = 100

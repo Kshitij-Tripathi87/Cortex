@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-09-10):** this register is a historical record of the
+> Day 1–2 audit against `faa6e6e`. The working launch document is now
+> [`docs/LAUNCH_READINESS_MATRIX.md`](LAUNCH_READINESS_MATRIX.md) (fresh
+> live-`main` audit against `50fcbfd`). Verdicts below that predate the merged
+> B1/B2/B3 slices must be re-read against that matrix.
+
 # Nexus Launch Gap Register — Days 1–2 Production Audit
 
 **Date:** 2026-09-09 · **Auditor:** Arena Agent (Day 1–2 slice of the 21-day launch plan)

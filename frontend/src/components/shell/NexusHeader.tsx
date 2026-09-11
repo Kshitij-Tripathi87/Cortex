@@ -10,9 +10,10 @@ interface NexusHeaderProps {
   onOpenQueryModal?: () => void;
 }
 
-const LIVE_LABEL: Record<string, { state: "live" | "reconnecting" | "offline"; text: string }> = {
+const LIVE_LABEL: Record<string, { state: "live" | "reconnecting" | "syncing" | "offline"; text: string }> = {
   LIVE: { state: "live", text: "LIVE" },
   RECONNECTING: { state: "reconnecting", text: "RECONNECTING" },
+  SYNCING: { state: "syncing", text: "SYNCING" },
   OFFLINE: { state: "offline", text: "OFFLINE" },
 };
 
@@ -56,7 +57,7 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
           }
         >
           <StatusDot state={live.state} pulse={live.state === "live"} />
-          <span className={live.state === "live" ? "text-accent font-semibold" : live.state === "reconnecting" ? "text-warning" : "text-critical"}>
+          <span className={live.state === "live" ? "text-accent font-semibold" : live.state === "offline" ? "text-critical" : "text-warning"}>
             {live.text}
           </span>
         </span>

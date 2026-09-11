@@ -5,10 +5,22 @@ Provides real-time updates for:
 - Deliberation & Decision Room message streams
 - Simulation progress ticks
 - Human decision approvals
+
+B4 wire contract: sequenced outbox events ride this socket in the SAME
+canonical envelope as SSE/HTTP-replay
+``{event_id, seq, type, entity_type, entity_id, payload,
+world_state_version, correlation_id, timestamp}`` (plus the legacy
+``channel``/``tenant_id``/``workspace_id`` routing keys). New query params
+``after_seq``/``replay`` give WS the same catch-up + gap/resync semantics
+as SSE: ``connection_established`` → optional catch-up frames →
+``catchup_complete`` → live frames; a ``resync_needed``/``resync_required``
+frame means the client must replay-or-resnapshot and reconnect.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 from typing import Any
 
@@ -92,14 +104,48 @@ def _resolve_ws_identity(
     )
 
 
+def _ws_event_frame(event: Any, tenant_id: str, workspace_id: str) -> dict[str, Any]:
+    """Render a bus Event / outbox row in the canonical WS envelope.
+
+    A superset of the legacy gateway frame: routing keys (``channel``,
+    ``tenant_id``, ``workspace_id``) plus the B4 sequencing keys
+    (``event_id``, ``seq``, ``world_state_version``, ``correlation_id``).
+    """
+    to_dict = getattr(event, "to_dict", None)
+    if callable(to_dict):
+        base = dict(to_dict())
+    else:
+        created = getattr(event, "created_at", None)
+        base = {
+            "event_id": event.event_id,
+            "seq": event.seq,
+            "type": getattr(event, "event_type", "outbox_event"),
+            "entity_type": getattr(event, "entity_type", None),
+            "entity_id": getattr(event, "entity_id", None),
+            "payload": getattr(event, "payload", {}) or {},
+            "world_state_version": getattr(event, "world_state_version", None),
+            "correlation_id": getattr(event, "correlation_id", None),
+            "timestamp": created.isoformat() if created is not None else None,
+        }
+    base["channel"] = "outbox"
+    base["tenant_id"] = tenant_id
+    base["workspace_id"] = workspace_id
+    base.setdefault("event_type", base.get("type"))
+    return base
+
+
 @router.websocket("/ws")
 async def realtime_websocket_endpoint(
     websocket: WebSocket,
     token: str = Query(default=""),
     workspace_id: str = Query(default="default_workspace"),
     tenant_id: str = Query(default="default_tenant"),
+    after_seq: int = Query(default=0, ge=0),
+    replay: bool = Query(default=True),
 ) -> None:
     """WebSocket connection authenticated at handshake for tenant-scoped fanout."""
+    from app.infrastructure import metrics as _metrics
+
     identity = _resolve_ws_identity(websocket, token, workspace_id, tenant_id)
     if identity is None:
         # Fail closed: reject the handshake before accept. WebSocket has
@@ -122,20 +168,125 @@ async def realtime_websocket_endpoint(
         workspace_id=workspace_id,
         websocket=websocket,
     )
+    _metrics.realtime_connections.labels(transport="ws").inc()
 
+    # All socket writes (control acks + bus forwarder) serialize here:
+    # concurrent send_text calls from two coroutines can interleave frames.
+    send_lock = asyncio.Lock()
+
+    async def _send(obj: dict[str, Any]) -> None:
+        async with send_lock:
+            await websocket.send_text(json.dumps(obj))
+
+    # Outbox rows are attributed to the principal tenant (MVP: user_id),
+    # mirroring the persistent API's tenant+workspace read scoping.
+    replay_tenant = user_id
+    last_seq = after_seq
+    bus_queue: Any = None
+    forwarder: asyncio.Task[None] | None = None
     try:
         # Default subscribe to all channels within authorized workspace
         await _gateway.subscribe(session_id, workspace_id, "*")
-        await websocket.send_text(
-            json.dumps(
-                {
-                    "type": "connection_established",
-                    "session_id": session_id,
-                    "workspace_id": workspace_id,
-                    "tenant_id": tenant_id,
-                }
-            )
+        await _send(
+            {
+                "type": "connection_established",
+                "session_id": session_id,
+                "workspace_id": workspace_id,
+                "tenant_id": tenant_id,
+                "after_seq": after_seq,
+            }
         )
+        if after_seq > 0:
+            _metrics.realtime_reconnect_total.labels(transport="ws").inc()
+
+        # ── Catch-up (B4): missed events before the live tail ──
+        settings = get_settings()
+        factory = None
+        if replay:
+            try:
+                from app.infrastructure.database import get_session_factory
+
+                factory = get_session_factory()
+            except RuntimeError:
+                factory = None  # DB not initialized (unit tests): live-only
+        if replay and factory is not None:
+            from app.modules.nexus_spine.persistence.repositories import (
+                get_event_repository,
+            )
+
+            repo = get_event_repository()
+            async with factory() as catchup_session:
+                latest_seq, _ = await repo.get_head(
+                    catchup_session,
+                    tenant_id=replay_tenant,
+                    workspace_id=workspace_id,
+                )
+                if latest_seq - after_seq > settings.realtime_resync_threshold:
+                    _metrics.realtime_resync_total.labels(transport="ws").inc()
+                    await _send(
+                        {
+                            "type": "resync_required",
+                            "from_seq": after_seq,
+                            "latest_seq": latest_seq,
+                        }
+                    )
+                    last_seq = after_seq
+                else:
+                    rows = await repo.get_since_seq(
+                        catchup_session,
+                        workspace_id=workspace_id,
+                        since_seq=after_seq,
+                        tenant_id=replay_tenant,
+                        limit=settings.realtime_replay_limit,
+                    )
+                    if rows:
+                        _metrics.realtime_replay_total.labels(transport="ws").inc()
+                    for row in rows:
+                        await _send(_ws_event_frame(row, tenant_id, workspace_id))
+                        _metrics.realtime_events_delivered_total.labels(transport="ws").inc()
+                        last_seq = row.seq
+                    await _send(
+                        {
+                            "type": "catchup_complete",
+                            "from_seq": after_seq,
+                            "to_seq": last_seq,
+                            "latest_seq": latest_seq,
+                            "has_more": last_seq < latest_seq,
+                        }
+                    )
+
+        # ── Live bridge (B4): RealtimeBus → socket with a sequence gate ──
+        from app.infrastructure.realtime_bus import get_realtime_bus
+
+        bus = get_realtime_bus()
+        bus_queue = bus.subscribe(workspace_id)
+
+        async def _forward() -> None:
+            nonlocal last_seq
+            try:
+                while True:
+                    event = await bus_queue.get()
+                    if event.seq <= last_seq:
+                        _metrics.realtime_duplicate_events_total.inc()
+                        continue
+                    if last_seq > 0 and event.seq > last_seq + 1:
+                        _metrics.realtime_gap_detected_total.labels(transport="ws").inc()
+                        with contextlib.suppress(Exception):
+                            await _send(
+                                {
+                                    "type": "resync_needed",
+                                    "from_seq": last_seq,
+                                    "to_seq": event.seq,
+                                }
+                            )
+                        return  # client reconnects with its cursor
+                    await _send(_ws_event_frame(event, tenant_id, workspace_id))
+                    _metrics.realtime_events_delivered_total.labels(transport="ws").inc()
+                    last_seq = event.seq
+            except asyncio.CancelledError:
+                pass
+
+        forwarder = asyncio.create_task(_forward())
 
         while True:
             # Receive client control messages (e.g. subscribe / unsubscribe)
@@ -148,16 +299,26 @@ async def realtime_websocket_endpoint(
 
                 if action == "subscribe":
                     ok = await _gateway.subscribe(session_id, target_ws, channel)
-                    await websocket.send_text(
-                        json.dumps({"type": "subscription_ack", "channel": channel, "success": ok})
-                    )
+                    await _send({"type": "subscription_ack", "channel": channel, "success": ok})
             except Exception:  # noqa: S110 - malformed control message is ignored
                 pass
 
-    except WebSocketDisconnect:
+    except WebSocketDisconnect:  # noqa: S110 — cleanup lives in finally
+        pass
+    except Exception:  # noqa: S110, BLE001 — cleanup lives in finally
+        pass
+    finally:
+        if forwarder is not None and not forwarder.done():
+            forwarder.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await forwarder
+        if bus_queue is not None:
+            from app.infrastructure.realtime_bus import get_realtime_bus
+
+            with contextlib.suppress(Exception):
+                get_realtime_bus().unsubscribe(workspace_id, bus_queue)
         await _gateway.disconnect(session_id)
-    except Exception:
-        await _gateway.disconnect(session_id)
+        _metrics.realtime_connections.labels(transport="ws").dec()
 
 
 @router.get("/stats")
