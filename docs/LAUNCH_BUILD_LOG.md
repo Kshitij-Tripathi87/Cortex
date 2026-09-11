@@ -232,12 +232,22 @@ bridge AuthProvider → legacy `http.ts` client.)
 
 ### Verification
 
-- Landing PR CI is the gate: full backend suite (incl. B4 acceptance),
-  `client.test.ts` (vitest) + `tsc --noEmit`, the three E2E specs
-  (critical-path + auth + realtime), lint/security/typecheck/build/docker.
+- **Landing PR #6 CI — all green** (head `9540827`): `test` (test.yml) 3m19s ·
+  `test` (ci.yml) 7m03s (full backend suite incl. B4 A1–A20/B4.1/C1–C5/L1–L2
+  against real Postgres+Redis) · E2E **30/30, 0 skipped, 0 flaky** (critical-
+  path + auth + the re-enabled realtime spec) · lint · typecheck (+ vitest) ·
+  openapi-types drift · security · secrets · dependencies · budget-check ·
+  docker backend/frontend/compose. (`docker` in ci.yml skips on PRs — main-only.)
+- **Frontend vitest is now CI-gated**: `typecheck.yml` runs `npm test`
+  (`client.test.ts` FE1–FE14) — previously only the author's local run existed.
 - Migration `016` up/down verified against the 001→015 ritual (B1).
-- Chaos (C1–C5) and load (L1/L2) numbers are printed by the B4 suite and
-  recorded here once the PR CI run completes.
+- Two spec fixes landed during validation: (1) realtime E2E correlation_id
+  assertion relaxed (nullable for `decision_created` — the HTTP envelope
+  carries `X-Correlation-Id`, not the outbox row); (2) WS bad-token assertion
+  asserts "no session established" + SSE 401 (a rejected handshake surfaces as
+  browser close 1006, not the app-level 4401 asserted by the backend A16d test).
+- Chaos (C1–C5) and load (L1/L2) verdicts are printed by the B4 suite in the
+  CI `test` log (sandbox could not download the raw log to transcribe them).
 
 ### Honest limitations (carried, not hidden)
 
