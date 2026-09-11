@@ -41,6 +41,10 @@ jobs:
       - name: Run TypeScript check
         working-directory: ./frontend
         run: npm run typecheck
+
+      - name: Run frontend unit tests (vitest)
+        working-directory: ./frontend
+        run: npm test
   openapi-types:
     runs-on: ubuntu-latest
     steps:
