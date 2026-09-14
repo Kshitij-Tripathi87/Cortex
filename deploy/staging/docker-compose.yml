@@ -26,14 +26,6 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
 
-  worker:
-    build:
-      context: ../../backend
-      dockerfile: Dockerfile
-    environment: *backend-env
-    command: python -m app.workers.worker
-    restart: unless-stopped
-
   outbox-relay:
     build:
       context: ../../backend
@@ -48,14 +40,6 @@ services:
     command: python -m app.workers.outbox_relay
     restart: unless-stopped
 
-  simulation-worker:
-    build:
-      context: ../../backend
-      dockerfile: Dockerfile
-    environment: *backend-env
-    command: python -m app.modules.digital_twin.simulation_worker
-    restart: unless-stopped
-
   frontend:
     build:
       context: ../../frontend
@@ -68,6 +52,7 @@ services:
     command: npm run start
     restart: unless-stopped
 
-# This file intentionally contains no PostgreSQL, Redis, Kafka, or MinIO services.
-# Staging uses dedicated managed services so the deployment exercises the same
-# persistence and failure boundaries expected in production.
+# Staging intentionally contains no PostgreSQL, Redis, Kafka, or MinIO services.
+# Use dedicated managed services so staging exercises the persistence and
+# failure boundaries expected in production. The multi-agent runtime and
+# simulation execution stay behind their existing application entrypoints.
