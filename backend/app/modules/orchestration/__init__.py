@@ -9,13 +9,25 @@ from .contracts import (
     TaskResult,
 )
 from .orchestrator import NexusOrchestrator
+from .tool_gateway import (
+    AuthorizationDecision,
+    NexusToolGateway,
+    ToolGateway,
+    ToolInvocationResult,
+    ToolProvenance,
+)
 
 __all__ = [
     "AgentContext",
     "AgentProposal",
+    "AuthorizationDecision",
     "CapabilityDescriptor",
     "NexusOrchestrator",
+    "NexusToolGateway",
     "TaskContext",
     "TaskPlan",
     "TaskResult",
+    "ToolGateway",
+    "ToolInvocationResult",
+    "ToolProvenance",
 ]
