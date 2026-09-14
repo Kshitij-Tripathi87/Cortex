@@ -1,0 +1,73 @@
+services:
+  api-a:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    environment: &backend-env
+      CORTEX_ENV: staging
+      CORTEX_DB_DSN: ${CORTEX_DB_DSN:?CORTEX_DB_DSN is required}
+      CORTEX_REDIS_URL: ${CORTEX_REDIS_URL:?CORTEX_REDIS_URL is required}
+      CORTEX_S3_ENDPOINT: ${CORTEX_S3_ENDPOINT:?CORTEX_S3_ENDPOINT is required}
+      CORTEX_S3_BUCKET: ${CORTEX_S3_BUCKET:?CORTEX_S3_BUCKET is required}
+      CORTEX_S3_REGION: ${CORTEX_S3_REGION:-auto}
+      CORTEX_S3_ACCESS_KEY: ${CORTEX_S3_ACCESS_KEY:?CORTEX_S3_ACCESS_KEY is required}
+      CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:?CORTEX_S3_SECRET_KEY is required}
+      CORTEX_S3_USE_PATH_STYLE: ${CORTEX_S3_USE_PATH_STYLE:-false}
+      CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?CORTEX_JWT_SECRET is required}
+      CORTEX_OUTBOX_PUBLISHER_ENABLED: ${CORTEX_OUTBOX_PUBLISHER_ENABLED:-false}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+
+  api-b:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    environment: *backend-env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    environment: *backend-env
+    command: python -m app.workers.worker
+    restart: unless-stopped
+
+  outbox-relay:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    environment:
+      CORTEX_ENV: staging
+      CORTEX_DB_DSN: ${CORTEX_DB_DSN:?CORTEX_DB_DSN is required}
+      CORTEX_REDIS_URL: ${CORTEX_REDIS_URL:?CORTEX_REDIS_URL is required}
+      CORTEX_OUTBOX_PUBLISHER_ID: ${CORTEX_OUTBOX_PUBLISHER_ID:-staging-outbox-relay}
+      CORTEX_OUTBOX_SWEEP_INTERVAL_S: ${CORTEX_OUTBOX_SWEEP_INTERVAL_S:-1.0}
+      CORTEX_OUTBOX_BATCH_SIZE: ${CORTEX_OUTBOX_BATCH_SIZE:-100}
+    command: python -m app.workers.outbox_relay
+    restart: unless-stopped
+
+  simulation-worker:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    environment: *backend-env
+    command: python -m app.modules.digital_twin.simulation_worker
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+    command: npm run start
+    restart: unless-stopped
+
+# This file intentionally contains no PostgreSQL, Redis, Kafka, or MinIO services.
+# Staging uses dedicated managed services so the deployment exercises the same
+# persistence and failure boundaries expected in production.
