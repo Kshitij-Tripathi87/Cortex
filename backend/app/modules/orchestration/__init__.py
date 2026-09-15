@@ -6,9 +6,12 @@ from .contracts import (
     CapabilityDescriptor,
     TaskContext,
     TaskPlan,
+    TaskPlanStep,
     TaskResult,
 )
+from .executor import NexusTaskExecutor
 from .orchestrator import NexusOrchestrator
+from .planner import NexusTaskPlanner
 from .task_intent import EvidenceRequirement, RiskClass, TaskIntent, TimeHorizon
 from .tool_gateway import (
     AuthorizationDecision,
@@ -25,11 +28,14 @@ __all__ = [
     "CapabilityDescriptor",
     "EvidenceRequirement",
     "NexusOrchestrator",
+    "NexusTaskExecutor",
+    "NexusTaskPlanner",
     "NexusToolGateway",
     "RiskClass",
     "TaskContext",
     "TaskIntent",
     "TaskPlan",
+    "TaskPlanStep",
     "TaskResult",
     "TimeHorizon",
     "ToolGateway",
