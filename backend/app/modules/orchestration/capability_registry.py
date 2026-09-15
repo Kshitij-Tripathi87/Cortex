@@ -16,7 +16,9 @@ class AuthorizedCapabilitySet:
     capabilities: tuple[CapabilityDescriptor, ...]
 
     def get(self, capability_id: str) -> CapabilityDescriptor | None:
-        return next((item for item in self.capabilities if item.capability_id == capability_id), None)
+        return next(
+            (item for item in self.capabilities if item.capability_id == capability_id), None
+        )
 
 
 class NexusCapabilityRegistry:

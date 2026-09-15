@@ -7,11 +7,11 @@ repository, database, HTTP, or arbitrary Python-callable access.
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
-import json
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
@@ -168,7 +168,7 @@ class NexusToolGateway(ToolGateway):
         invocation_id = uuid4()
         provenance = ToolProvenance(
             invocation_id=invocation_id,
-            invoked_at=datetime.now(timezone.utc),
+            invoked_at=datetime.now(UTC),
             actor_id=context.actor_id,
             tenant_id=context.tenant_id,
             workspace_id=context.workspace_id,
@@ -225,7 +225,7 @@ class NexusToolGateway(ToolGateway):
             await self._trace_writer.record_tool_invocation(result=result)
             return result
 
-        if context.deadline is not None and datetime.now(timezone.utc) >= context.deadline:
+        if context.deadline is not None and datetime.now(UTC) >= context.deadline:
             authorization = AuthorizationDecision(
                 allowed=False,
                 reason="Invocation deadline has elapsed.",
@@ -297,9 +297,10 @@ class NexusToolGateway(ToolGateway):
             await self._trace_writer.record_tool_invocation(result=result)
             return result
 
-        if capability.side_effect == "WRITE_CONSEQUENTIAL" and context.policy_context.get(
-            "execution_approved"
-        ) is not True:
+        if (
+            capability.side_effect == "WRITE_CONSEQUENTIAL"
+            and context.policy_context.get("execution_approved") is not True
+        ):
             authorization = AuthorizationDecision(
                 allowed=False,
                 reason="Consequential execution requires an explicit approval checkpoint.",

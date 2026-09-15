@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
 from app.modules.orchestration.contracts import AgentContext, CapabilityDescriptor
 from app.modules.orchestration.tool_gateway import AuthorizationDecision, NexusToolGateway
-
 
 CAP = CapabilityDescriptor(
     capability_id="inventory.read",
@@ -28,7 +27,9 @@ class Authorizer:
     allowed: bool = True
 
     async def authorize(self, *, capability, context) -> AuthorizationDecision:
-        return AuthorizationDecision(self.allowed, "allowed" if self.allowed else "denied", "p-test")
+        return AuthorizationDecision(
+            self.allowed, "allowed" if self.allowed else "denied", "p-test"
+        )
 
 
 @dataclass
@@ -91,7 +92,9 @@ def gateway(*, authorizer=None, validator=None, executor=None, trace=None):
 @pytest.mark.asyncio
 async def test_allow_list_is_enforced_before_execution():
     gw, ex, tr = gateway()
-    result = await gw.invoke(capability=CAP, arguments={"sku": "S1"}, context=context(allowed_capabilities=()))
+    result = await gw.invoke(
+        capability=CAP, arguments={"sku": "S1"}, context=context(allowed_capabilities=())
+    )
     assert result.status == "BLOCKED"
     assert result.error == "CAPABILITY_NOT_ALLOWED"
     assert ex.calls == 0
@@ -113,7 +116,7 @@ async def test_deadline_is_enforced_before_execution():
     result = await gw.invoke(
         capability=CAP,
         arguments={"sku": "S1"},
-        context=context(deadline=datetime.now(timezone.utc) - timedelta(seconds=1)),
+        context=context(deadline=datetime.now(UTC) - timedelta(seconds=1)),
     )
     assert result.status == "BLOCKED"
     assert result.error == "DEADLINE_EXCEEDED"
