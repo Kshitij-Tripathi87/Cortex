@@ -17,10 +17,12 @@ class NexusTaskPlanner:
     """Compile a frozen TaskContext into a deterministic, acyclic TaskPlan."""
 
     async def plan(self, context: TaskContext) -> TaskPlan:
-        if not context.objective.strip():
-            raise ValueError("Task objective must not be empty.")
         if not context.capabilities:
             raise ValueError("Task context carries no capabilities to plan.")
+
+        missing = context.intent.missing_evidence(set(context.evidence_refs))
+        if missing:
+            raise ValueError(f"Required evidence not established: {', '.join(missing)}")
 
         step_ids: list[str] = []
         for capability in context.capabilities:
@@ -48,7 +50,7 @@ class NexusTaskPlanner:
             for capability in context.capabilities
         )
         self._assert_acyclic(steps)
-        return TaskPlan(task_id=context.task_id, objective=context.objective, steps=steps)
+        return TaskPlan(task_id=context.task_id, objective=context.intent.objective, steps=steps)
 
     @staticmethod
     def _normalize_dependencies(
