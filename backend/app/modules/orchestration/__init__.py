@@ -9,6 +9,7 @@ from .contracts import (
     TaskResult,
 )
 from .orchestrator import NexusOrchestrator
+from .task_intent import EvidenceRequirement, RiskClass, TaskIntent, TimeHorizon
 from .tool_gateway import (
     AuthorizationDecision,
     NexusToolGateway,
@@ -22,11 +23,15 @@ __all__ = [
     "AgentProposal",
     "AuthorizationDecision",
     "CapabilityDescriptor",
+    "EvidenceRequirement",
     "NexusOrchestrator",
     "NexusToolGateway",
+    "RiskClass",
     "TaskContext",
+    "TaskIntent",
     "TaskPlan",
     "TaskResult",
+    "TimeHorizon",
     "ToolGateway",
     "ToolInvocationResult",
     "ToolProvenance",
