@@ -126,7 +126,9 @@ async def test_adapter_returns_blocked_when_required_evidence_missing():
     intent = TaskIntent(
         objective="Analyze inventory exposure.",
         required_evidence=(
-            EvidenceRequirement(key="inventory.state", description="Authoritative inventory state."),
+            EvidenceRequirement(
+                key="inventory.state", description="Authoritative inventory state."
+            ),
         ),
     )
     result = await adapter.run_task(task_context(intent=intent))

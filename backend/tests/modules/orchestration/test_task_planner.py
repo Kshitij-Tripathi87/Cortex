@@ -61,7 +61,9 @@ async def test_missing_required_evidence_blocks_planning():
     intent = TaskIntent(
         objective="Analyze inventory exposure.",
         required_evidence=(
-            EvidenceRequirement(key="inventory.state", description="Authoritative inventory state."),
+            EvidenceRequirement(
+                key="inventory.state", description="Authoritative inventory state."
+            ),
         ),
     )
     with pytest.raises(ValueError, match="inventory.state"):
@@ -73,7 +75,9 @@ async def test_established_required_evidence_allows_planning():
     intent = TaskIntent(
         objective="Analyze inventory exposure.",
         required_evidence=(
-            EvidenceRequirement(key="inventory.state", description="Authoritative inventory state."),
+            EvidenceRequirement(
+                key="inventory.state", description="Authoritative inventory state."
+            ),
         ),
     )
     context = task_context(intent=intent, evidence_refs=("inventory.state",))

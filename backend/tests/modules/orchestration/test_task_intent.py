@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -33,7 +33,9 @@ def test_missing_required_evidence_is_detectable():
             requirement("inventory.on_hand"),
             requirement("purchase_orders.open"),
             EvidenceRequirement(
-                key="warehouse.capacity", description="Current available warehouse capacity", required=False
+                key="warehouse.capacity",
+                description="Current available warehouse capacity",
+                required=False,
             ),
         ),
     )
@@ -55,8 +57,8 @@ def test_duplicate_evidence_keys_are_rejected():
 
 
 def test_reversed_time_horizon_is_rejected():
-    start = datetime(2026, 9, 16, tzinfo=timezone.utc)
-    end = datetime(2026, 9, 15, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 16, tzinfo=UTC)
+    end = datetime(2026, 9, 15, tzinfo=UTC)
 
     with pytest.raises(ValidationError, match="time horizon end"):
         TimeHorizon(start=start, end=end)
