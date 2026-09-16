@@ -7,6 +7,7 @@ import pytest
 
 from app.modules.orchestration.contracts import CapabilityDescriptor, TaskContext
 from app.modules.orchestration.framework.agent_framework_adapter import AgentFrameworkOrchestrator
+from app.modules.orchestration.task_intent import EvidenceRequirement, TaskIntent
 from app.modules.orchestration.tool_gateway import AuthorizationDecision, NexusToolGateway
 
 
@@ -25,13 +26,16 @@ def cap(capability_id: str) -> CapabilityDescriptor:
 
 
 def task_context(**kwargs) -> TaskContext:
+    objective = kwargs.pop("objective", "Analyze inventory exposure.")
+    intent = kwargs.pop("intent", TaskIntent(objective=objective))
     values = dict(
         task_id=uuid4(),
         workspace_id=uuid4(),
         tenant_id=uuid4(),
         trace_id=uuid4(),
         actor_id=uuid4(),
-        objective="Analyze inventory exposure.",
+        intent=intent,
+        objective=objective,
         constraints={},
         world_state_version=42,
         capabilities=(cap("inventory.read"), cap("supply.read")),
@@ -117,10 +121,16 @@ async def test_adapter_returns_blocked_when_plan_infeasible():
 
 
 @pytest.mark.asyncio
-async def test_adapter_returns_blocked_on_empty_objective():
+async def test_adapter_returns_blocked_when_required_evidence_missing():
     adapter, executor, _ = make_adapter()
-    result = await adapter.run_task(task_context(objective="  "))
+    intent = TaskIntent(
+        objective="Analyze inventory exposure.",
+        required_evidence=(
+            EvidenceRequirement(key="inventory.state", description="Authoritative inventory state."),
+        ),
+    )
+    result = await adapter.run_task(task_context(intent=intent))
 
     assert result.status == "BLOCKED"
-    assert "planning_error" in result.metadata
+    assert "inventory.state" in result.metadata["planning_error"]
     assert executor.calls == 0

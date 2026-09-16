@@ -10,6 +10,7 @@ import pytest
 from app.modules.orchestration.contracts import CapabilityDescriptor, TaskContext
 from app.modules.orchestration.executor import NexusTaskExecutor
 from app.modules.orchestration.planner import NexusTaskPlanner
+from app.modules.orchestration.task_intent import TaskIntent
 from app.modules.orchestration.tool_gateway import (
     AuthorizationDecision,
     NexusToolGateway,
@@ -33,13 +34,16 @@ def cap(capability_id: str, *, side_effect: str = "READ") -> CapabilityDescripto
 
 
 def task_context(**kwargs) -> TaskContext:
+    objective = kwargs.pop("objective", "Analyze inventory exposure.")
+    intent = kwargs.pop("intent", TaskIntent(objective=objective))
     values = dict(
         task_id=uuid4(),
         workspace_id=uuid4(),
         tenant_id=uuid4(),
         trace_id=uuid4(),
         actor_id=uuid4(),
-        objective="Analyze inventory exposure.",
+        intent=intent,
+        objective=objective,
         constraints={},
         world_state_version=42,
         capabilities=(cap("inventory.read"), cap("supply.read")),
