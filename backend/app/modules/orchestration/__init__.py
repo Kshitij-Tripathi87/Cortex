@@ -1,5 +1,12 @@
 """Nexus first-class task orchestration boundary."""
 
+from .capability_registry import (
+    AuthorizedCapabilitySet,
+    CapabilitySource,
+    NexusCapabilityRegistry,
+    ResolvedCapability,
+    UnsupportedTaskCapabilityError,
+)
 from .contracts import (
     AgentContext,
     AgentProposal,
@@ -25,12 +32,16 @@ __all__ = [
     "AgentContext",
     "AgentProposal",
     "AuthorizationDecision",
+    "AuthorizedCapabilitySet",
     "CapabilityDescriptor",
+    "CapabilitySource",
     "EvidenceRequirement",
+    "NexusCapabilityRegistry",
     "NexusOrchestrator",
     "NexusTaskExecutor",
     "NexusTaskPlanner",
     "NexusToolGateway",
+    "ResolvedCapability",
     "RiskClass",
     "TaskContext",
     "TaskIntent",
@@ -41,4 +52,5 @@ __all__ = [
     "ToolGateway",
     "ToolInvocationResult",
     "ToolProvenance",
+    "UnsupportedTaskCapabilityError",
 ]
