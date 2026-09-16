@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
+from .task_intent import TaskIntent
+
 SideEffectClass = Literal[
     "READ",
     "ANALYZE",
@@ -55,6 +57,7 @@ class TaskContext:
     tenant_id: UUID
     trace_id: UUID
     actor_id: UUID
+    intent: TaskIntent
     objective: str
     constraints: dict[str, Any]
     world_state_version: int
