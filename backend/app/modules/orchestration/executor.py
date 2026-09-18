@@ -33,6 +33,7 @@ class StepOutcome:
     error: str | None
     invocation_ids: tuple[str, ...]
     evidence_refs: tuple[str, ...]
+    outputs: tuple[dict[str, Any], ...] = ()
 
 
 class NexusTaskExecutor:
@@ -42,6 +43,13 @@ class NexusTaskExecutor:
         self._gateway = gateway
 
     async def execute(self, *, plan: TaskPlan, context: TaskContext) -> TaskResult:
+        result, _ = await self.execute_with_outcomes(plan=plan, context=context)
+        return result
+
+    async def execute_with_outcomes(
+        self, *, plan: TaskPlan, context: TaskContext
+    ) -> tuple[TaskResult, dict[str, StepOutcome]]:
+        """Execute the plan and expose per-step outcomes for synthesis."""
         capabilities = {capability.capability_id: capability for capability in context.capabilities}
         agent_context = AgentContext(
             workspace_id=context.workspace_id,
@@ -70,7 +78,7 @@ class NexusTaskExecutor:
             for outcome in results:
                 outcomes[outcome.step_id] = outcome
 
-        return self._result(plan, context, outcomes)
+        return self._result(plan, context, outcomes), outcomes
 
     async def _run_step(
         self,
@@ -88,6 +96,7 @@ class NexusTaskExecutor:
         arguments = arguments_by_step.get(step.step_id, {})
         invocation_ids: list[str] = []
         evidence: list[str] = []
+        collected_outputs: list[dict[str, Any]] = []
         for capability_id in step.required_capabilities:
             capability = capabilities.get(capability_id)
             if capability is None:
@@ -108,7 +117,16 @@ class NexusTaskExecutor:
                     step.step_id, result.status, result.error, tuple(invocation_ids), ()
                 )
             evidence.extend(result.evidence_refs)
-        return StepOutcome(step.step_id, "SUCCESS", None, tuple(invocation_ids), tuple(evidence))
+            if result.data is not None:
+                collected_outputs.append(result.data)
+        return StepOutcome(
+            step.step_id,
+            "SUCCESS",
+            None,
+            tuple(invocation_ids),
+            tuple(evidence),
+            tuple(collected_outputs),
+        )
 
     @staticmethod
     def _step_arguments(context: TaskContext, plan: TaskPlan) -> dict[str, dict[str, Any]]:

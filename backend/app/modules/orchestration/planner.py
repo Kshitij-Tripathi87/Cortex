@@ -8,13 +8,28 @@ context constraints declare an explicit dependency map.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from .contracts import TaskContext, TaskPlan, TaskPlanStep
 
 DETERMINISTIC_AGENT_ROLE = "Nexus Supervisor"
 
+DefaultExecution = Literal["sequential", "concurrent"]
+
 
 class NexusTaskPlanner:
-    """Compile a frozen TaskContext into a deterministic, acyclic TaskPlan."""
+    """Compile a frozen TaskContext into a deterministic, acyclic TaskPlan.
+
+    Without an explicit dependency map, plans are sequential by construction
+    (safe default). Workflows that orchestrate independent specialists opt into
+    concurrency via ``default_execution="concurrent"`` or an explicit
+    dependency map in the context constraints.
+    """
+
+    def __init__(self, *, default_execution: DefaultExecution = "sequential") -> None:
+        if default_execution not in ("sequential", "concurrent"):
+            raise ValueError(f"Unknown default execution mode: {default_execution!r}")
+        self._default_execution = default_execution
 
     async def plan(self, context: TaskContext) -> TaskPlan:
         if not context.capabilities:
@@ -52,12 +67,13 @@ class NexusTaskPlanner:
         self._assert_acyclic(steps)
         return TaskPlan(task_id=context.task_id, objective=context.intent.objective, steps=steps)
 
-    @staticmethod
     def _normalize_dependencies(
-        context: TaskContext, step_ids: list[str]
+        self, context: TaskContext, step_ids: list[str]
     ) -> dict[str, tuple[str, ...]]:
         raw = context.constraints.get("dependencies")
         if raw is None:
+            if self._default_execution == "concurrent":
+                return {step_id: () for step_id in step_ids}
             chain: dict[str, tuple[str, ...]] = {}
             previous: str | None = None
             for step_id in step_ids:

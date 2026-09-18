@@ -16,9 +16,10 @@ from .contracts import (
     TaskPlanStep,
     TaskResult,
 )
-from .executor import NexusTaskExecutor
+from .executor import NexusTaskExecutor, StepOutcome
 from .orchestrator import NexusOrchestrator
 from .planner import NexusTaskPlanner
+from .synthesis import DeterministicTaskSynthesizer, TaskSynthesizer
 from .task_intent import EvidenceRequirement, RiskClass, TaskIntent, TimeHorizon
 from .tool_gateway import (
     AuthorizationDecision,
@@ -35,6 +36,7 @@ __all__ = [
     "AuthorizedCapabilitySet",
     "CapabilityDescriptor",
     "CapabilitySource",
+    "DeterministicTaskSynthesizer",
     "EvidenceRequirement",
     "NexusCapabilityRegistry",
     "NexusOrchestrator",
@@ -43,11 +45,13 @@ __all__ = [
     "NexusToolGateway",
     "ResolvedCapability",
     "RiskClass",
+    "StepOutcome",
     "TaskContext",
     "TaskIntent",
     "TaskPlan",
     "TaskPlanStep",
     "TaskResult",
+    "TaskSynthesizer",
     "TimeHorizon",
     "ToolGateway",
     "ToolInvocationResult",
