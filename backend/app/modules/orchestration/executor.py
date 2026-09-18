@@ -4,12 +4,14 @@ Steps run sequentially in plan order unless the plan declares dependencies,
 in which case independent steps run concurrently and dependents wait for all
 prerequisites. Every capability invocation is routed through the injected
 ToolGateway; the executor holds no repository, database, HTTP, or filesystem
-access of its own.
+access of its own. A durable driver may inject ``gateway_factory`` to supply
+one gateway per step (per-step trace writers, idempotent executors).
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -47,9 +49,18 @@ class NexusTaskExecutor:
         return result
 
     async def execute_with_outcomes(
-        self, *, plan: TaskPlan, context: TaskContext
+        self,
+        *,
+        plan: TaskPlan,
+        context: TaskContext,
+        gateway_factory: Callable[[str], ToolGateway] | None = None,
     ) -> tuple[TaskResult, dict[str, StepOutcome]]:
-        """Execute the plan and expose per-step outcomes for synthesis."""
+        """Execute the plan and expose per-step outcomes for synthesis.
+
+        ``gateway_factory`` (step_id -> ToolGateway) lets a durable driver
+        supply one wrapped gateway per step without changing execution order.
+        """
+
         capabilities = {capability.capability_id: capability for capability in context.capabilities}
         agent_context = AgentContext(
             workspace_id=context.workspace_id,
@@ -71,7 +82,14 @@ class NexusTaskExecutor:
         for level in self._execution_levels(plan.steps):
             results = await asyncio.gather(
                 *(
-                    self._run_step(step, capabilities, arguments_by_step, agent_context, outcomes)
+                    self._run_step(
+                        step,
+                        capabilities,
+                        arguments_by_step,
+                        agent_context,
+                        outcomes,
+                        (gateway_factory(step.step_id) if gateway_factory else self._gateway),
+                    )
                     for step in level
                 )
             )
@@ -87,6 +105,7 @@ class NexusTaskExecutor:
         arguments_by_step: dict[str, dict[str, Any]],
         agent_context: AgentContext,
         completed: dict[str, StepOutcome],
+        gateway: ToolGateway,
     ) -> StepOutcome:
         for prerequisite in step.dependencies:
             outcome = completed.get(prerequisite)
@@ -104,7 +123,7 @@ class NexusTaskExecutor:
                     step.step_id, "FAILED", "CAPABILITY_NOT_FOUND", tuple(invocation_ids), ()
                 )
             try:
-                result = await self._gateway.invoke(
+                result = await gateway.invoke(
                     capability=capability, arguments=arguments, context=agent_context
                 )
             except TypeError:
