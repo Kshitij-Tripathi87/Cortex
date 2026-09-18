@@ -137,6 +137,18 @@ async def test_self_dependency_is_rejected():
 
 
 @pytest.mark.asyncio
+async def test_concurrent_default_produces_no_dependencies_when_map_absent():
+    plan = await NexusTaskPlanner(default_execution="concurrent").plan(task_context())
+    assert all(step.dependencies == () for step in plan.steps)
+
+
+@pytest.mark.asyncio
+async def test_unknown_default_execution_mode_is_rejected():
+    with pytest.raises(ValueError, match="Unknown default execution mode"):
+        NexusTaskPlanner(default_execution="bogus")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
 async def test_dependency_cycle_is_rejected():
     with pytest.raises(ValueError, match="cycle"):
         await NexusTaskPlanner().plan(
