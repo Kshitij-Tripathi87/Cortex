@@ -85,7 +85,11 @@ async def pg_engine(request):
     tables = [
         t
         for t in Base.metadata.sorted_tables
-        if (t.schema, t.name) in wanted or t.name.startswith("nexus_")
+        if (t.schema, t.name) in wanted
+        or t.name.startswith("nexus_")
+        # signals detection-on-read reads the graph snapshot; bring the
+        # whole graph module surface so the endpoint has its tables.
+        or t.name.startswith("graph_")
     ]
     if not tables:
         pytest.skip("nexus tables not registered on Base.metadata")
