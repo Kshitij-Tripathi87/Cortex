@@ -16,6 +16,14 @@ mounted only when CORTEX_NEXUS_V07_LEGACY_ROUTES is explicitly enabled):
   - scenarios  : create / list / get / simulate-against-snapshot (v0.8.5-B3)
   - evidence   : append nodes+edges / read decision DAG (v0.8.5-B3)
   - approvals  : approver identity trail written by advance() (v0.8.5-B3, B8)
+  - tasks      : Golden-path durable task runtime (v0.8.6) — POST /tasks
+                 creates a durable task and drives the MAF-4/MAF-5 runtime
+                 to a decision; /run resumes from the last committed
+                 checkpoint; /approvals records the human decision and
+                 drives governed execution; /trace reconstructs NexusTrace;
+                 /tasks/{id}/decision-room is the read-only projection.
+                 Subscription/entitlement enforcement (billing gate) runs
+                 server-side on create/run/approve before any durable work.
 
 Every authoritative operation terminates at:
 
@@ -42,7 +50,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.ids import uuid7
+from app.common.ids import uuid7, uuid7_uuid
 from app.config import get_settings
 from app.infrastructure.database import get_db, get_session_factory
 from app.infrastructure.outbox_publisher import (
@@ -52,6 +60,8 @@ from app.infrastructure.outbox_publisher import (
 )
 from app.infrastructure.realtime_bus import sse_stream
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
+from app.modules.billing import EntitlementDenied, EntitlementService
+from app.modules.decision.decision_room import DecisionRoomService
 from app.modules.nexus_spine.governance.lifecycle import DecisionPhase
 from app.modules.nexus_spine.ontology.entities import Entity
 from app.modules.nexus_spine.p0_migration import (
@@ -79,6 +89,26 @@ from app.modules.nexus_spine.p0_migration import (
     get_authoritative_truth_loop,
     get_authz,
 )
+from app.modules.orchestration.capabilities import (
+    JsonSchemaLiteValidator,
+    WorkspaceCapabilityAuthorizer,
+    WorldStateCapabilityExecutor,
+    WorldStateCapabilitySource,
+)
+from app.modules.orchestration.capability_registry import (
+    NexusCapabilityRegistry,
+    UnsupportedTaskCapabilityError,
+)
+from app.modules.orchestration.contracts import TaskContext
+from app.modules.orchestration.durable_runner import DurableTaskRunner
+from app.modules.orchestration.task_intent import RiskClass, TaskIntent
+from app.modules.orchestration.task_lifecycle import TaskLifecycleError
+from app.modules.orchestration.task_runtime_models import TaskDB
+from app.modules.orchestration.task_runtime_repository import (
+    TaskNotFound,
+    TaskStateConflictError,
+)
+from app.modules.orchestration.task_runtime_service import NexusTaskRuntime, TaskScope
 
 router = APIRouter(prefix="/nexus", tags=["Nexus Decision Intelligence"])
 
@@ -150,6 +180,332 @@ def _phase_from_str(phase: str) -> DecisionPhase:
         return DecisionPhase(phase)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"invalid phase: {phase}") from exc
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /tasks — Golden-path durable task runtime (MAF-4 + MAF-5)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class TaskSubmitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+    objective: str = Field(min_length=3, max_length=2000)
+    world_state_version: int = Field(ge=1)
+    risk_class: str = RiskClass.MEDIUM.value
+    entity_ids: list[str] = Field(default_factory=list)
+    required_capabilities: list[str] = Field(default_factory=list)
+    step_arguments: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    dependencies: dict[str, list[str]] = Field(default_factory=dict)
+    budget: float = Field(default=100.0, gt=0)
+    deadline: datetime | None = None
+
+
+class TaskApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+    approved: bool
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+def _risk_class_of(value: str) -> RiskClass:
+    try:
+        return RiskClass(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"invalid risk_class: {value}") from exc
+
+
+def _task_runner(tenant_uuid: _uuid.UUID, workspace_uuid: _uuid.UUID) -> DurableTaskRunner:
+    """Build the durable task runtime for one authenticated request.
+
+    The registry's provisioning predicate is scoped to the authenticated
+    workspace: capability discovery fails closed for any other tenant or
+    workspace. Subscription/entitlement enforcement is applied separately
+    by the billing gate (EntitlementService) at the route boundary.
+    """
+    session_factory = get_session_factory()
+    return DurableTaskRunner(
+        session_factory=session_factory,
+        capability_registry=NexusCapabilityRegistry(
+            sources=(
+                WorldStateCapabilitySource(
+                    is_provisioned=lambda t, w: t == tenant_uuid and w == workspace_uuid,
+                ),
+            )
+        ),
+        capability_executor=WorldStateCapabilityExecutor(session_factory=session_factory),
+        authorizer=WorkspaceCapabilityAuthorizer(),
+        schema_validator=JsonSchemaLiteValidator(),
+    )
+
+
+def _task_scope(tenant_uuid: _uuid.UUID, workspace_uuid: _uuid.UUID) -> TaskScope:
+    return TaskScope(tenant_id=tenant_uuid, workspace_id=workspace_uuid)
+
+
+def _task_actor(auth: AuthContext) -> _uuid.UUID:
+    if not auth.user_id:
+        raise HTTPException(status_code=400, detail="invalid actor identity")
+    return _parse_uuid(auth.user_id, "actor identity")
+
+
+def _task_tenant(p: Principal) -> _uuid.UUID:
+    try:
+        return _uuid.UUID(p.tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid tenant identity") from exc
+
+
+def _build_task_context(
+    body: TaskSubmitRequest,
+    *,
+    workspace_uuid: _uuid.UUID,
+    tenant_uuid: _uuid.UUID,
+    actor_uuid: _uuid.UUID,
+) -> TaskContext:
+    constraints: dict[str, Any] = {}
+    if body.required_capabilities:
+        constraints["required_capabilities"] = tuple(body.required_capabilities)
+    if body.step_arguments:
+        constraints["step_arguments"] = {
+            step_id: dict(arguments) for step_id, arguments in body.step_arguments.items()
+        }
+    if body.dependencies:
+        constraints["dependencies"] = {
+            step_id: tuple(prerequisites) for step_id, prerequisites in body.dependencies.items()
+        }
+    intent = TaskIntent(
+        objective=body.objective,
+        risk_class=_risk_class_of(body.risk_class),
+        entity_ids=tuple(body.entity_ids),
+        constraints=constraints,
+    )
+    return TaskContext(
+        task_id=uuid7_uuid(),
+        workspace_id=workspace_uuid,
+        tenant_id=tenant_uuid,
+        trace_id=uuid7_uuid(),
+        actor_id=actor_uuid,
+        intent=intent,
+        objective=intent.objective,
+        constraints=dict(intent.constraints),
+        world_state_version=body.world_state_version,
+        policy_context={},
+        budget=body.budget,
+        deadline=body.deadline,
+    )
+
+
+def _task_view(task: TaskDB) -> dict[str, Any]:
+    """Task identity and lifecycle state, verbatim from the durable record."""
+    return {
+        "task_id": task.task_id,
+        "trace_id": task.trace_id,
+        "status": task.status,
+        "objective": task.objective,
+        "workspace_id": task.workspace_id,
+        "world_state_version": task.world_state_version,
+        "requires_approval": task.requires_approval,
+        "blocked_reason": task.blocked_reason,
+        "failure_reason": task.failure_reason,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+    }
+
+
+@router.post("/tasks", status_code=status.HTTP_201_CREATED)
+async def create_task(
+    body: TaskSubmitRequest,
+    request: Request,
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Golden-path entry: create a durable task and drive it to a decision.
+
+    POST /nexus/tasks -> durable task creation -> MAF runtime -> proposal ->
+    Decision Room. The response carries the durable status (AWAITING_APPROVAL
+    for consequential plans, terminal otherwise). The persistence/checkpoint
+    machinery remains the only authority; this route composes it, it does not
+    replace it.
+    """
+    require_workspace_access(body.workspace_id, auth)
+    p = _principal(auth, body.workspace_id)
+    _authz_check(p, "nexus.tasks.create", body.workspace_id)
+    workspace_uuid = _parse_uuid(body.workspace_id, "workspace_id")
+    tenant_uuid = _task_tenant(p)
+    actor_uuid = _task_actor(auth)
+    context = _build_task_context(
+        body,
+        workspace_uuid=workspace_uuid,
+        tenant_uuid=tenant_uuid,
+        actor_uuid=actor_uuid,
+    )
+    runner = _task_runner(tenant_uuid, workspace_uuid)
+    # Billing gate: subscription, capability entitlement, and the concurrent
+    # task quota are enforced server-side BEFORE the durable creation. The
+    # org row lock is held across the creation so the quota race is
+    # deterministic.
+    entitlements = EntitlementService(session_factory=get_session_factory())
+    try:
+        async with entitlements.creation_slot(
+            workspace_id=workspace_uuid,
+            required_capabilities=tuple(body.required_capabilities),
+        ):
+            task_id = await runner.submit(context=context)
+            task_status = await runner.resume(
+                task_id, scope=_task_scope(tenant_uuid, workspace_uuid)
+            )
+    except EntitlementDenied as exc:
+        raise HTTPException(status_code=exc.http_status, detail=str(exc)) from exc
+    except TaskNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (TaskLifecycleError, TaskStateConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except UnsupportedTaskCapabilityError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _envelope(
+        request,
+        {
+            "task_id": task_id,
+            "trace_id": str(context.trace_id),
+            "status": task_status,
+            "requires_approval": task_status == "AWAITING_APPROVAL",
+        },
+    )
+
+
+@router.get("/tasks/{task_id}")
+async def get_task(
+    task_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Read one task's durable identity and lifecycle state."""
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.tasks.read", workspace_id)
+    workspace_uuid = _parse_uuid(workspace_id, "workspace_id")
+    tenant_uuid = _task_tenant(p)
+    runtime = NexusTaskRuntime(session_factory=get_session_factory())
+    try:
+        task = await runtime.get_task(task_id, scope=_task_scope(tenant_uuid, workspace_uuid))
+    except TaskNotFound:
+        raise HTTPException(status_code=404, detail="task not found") from None
+    return _envelope(request, {"task": _task_view(task)})
+
+
+@router.post("/tasks/{task_id}/run")
+async def run_task(
+    task_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Resume the durable task from its last committed checkpoint.
+
+    Safe to call repeatedly and after any worker restart. Before approval
+    this can never execute a consequential write; after an APPROVED record
+    it drives EXECUTING -> outcome.
+    """
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.tasks.run", workspace_id)
+    workspace_uuid = _parse_uuid(workspace_id, "workspace_id")
+    tenant_uuid = _task_tenant(p)
+    runner = _task_runner(tenant_uuid, workspace_uuid)
+    # Billing gate: an active subscription is required to resume (run drives
+    # execution and can be expensive/consequential after approval).
+    entitlements = EntitlementService(session_factory=get_session_factory())
+    try:
+        await entitlements.check_subscription(workspace_id=workspace_uuid)
+    except EntitlementDenied as exc:
+        raise HTTPException(status_code=exc.http_status, detail=str(exc)) from exc
+    try:
+        task_status = await runner.resume(task_id, scope=_task_scope(tenant_uuid, workspace_uuid))
+    except TaskNotFound:
+        raise HTTPException(status_code=404, detail="task not found") from None
+    except (TaskLifecycleError, TaskStateConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _envelope(request, {"task_id": task_id, "status": task_status})
+
+
+@router.post("/tasks/{task_id}/approvals")
+async def decide_task_approval(
+    task_id: str,
+    body: TaskApprovalRequest,
+    request: Request,
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Record the human decision and drive the governed execution.
+
+    APPROVED is the only key into EXECUTING: the durable approval row is
+    written with the authenticated approver's identity, then the task is
+    resumed so the consequential write, outcome, and NexusTrace complete.
+    """
+    require_workspace_access(body.workspace_id, auth)
+    p = _principal(auth, body.workspace_id)
+    _authz_check(p, "nexus.tasks.approve", body.workspace_id)
+    workspace_uuid = _parse_uuid(body.workspace_id, "workspace_id")
+    tenant_uuid = _task_tenant(p)
+    approver_uuid = _task_actor(auth)
+    runner = _task_runner(tenant_uuid, workspace_uuid)
+    runtime = NexusTaskRuntime(session_factory=get_session_factory())
+    # Billing gate: an active subscription is required to approve (approval
+    # is the key into EXECUTING and the governed write that follows).
+    entitlements = EntitlementService(session_factory=get_session_factory())
+    try:
+        await entitlements.check_subscription(workspace_id=workspace_uuid)
+    except EntitlementDenied as exc:
+        raise HTTPException(status_code=exc.http_status, detail=str(exc)) from exc
+    try:
+        await runtime.decide_approval(
+            task_id,
+            scope=_task_scope(tenant_uuid, workspace_uuid),
+            approved=body.approved,
+            approver_id=approver_uuid,
+            reason=body.reason,
+        )
+        task_status = await runner.resume(task_id, scope=_task_scope(tenant_uuid, workspace_uuid))
+    except TaskNotFound:
+        raise HTTPException(status_code=404, detail="task not found") from None
+    except (TaskLifecycleError, TaskStateConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _envelope(
+        request,
+        {"task_id": task_id, "status": task_status, "approved": body.approved},
+    )
+
+
+@router.get("/tasks/{task_id}/trace")
+async def get_task_trace(
+    task_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Reconstruct the durable NexusTrace for one task.
+
+    Assembled entirely from PostgreSQL durable records (task, transitions,
+    intent, plan, runs, steps, invocations, evidence, proposals, approvals,
+    execution, outcome) via NexusTaskRuntime.build_nexus_trace.
+    """
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.trace.get", workspace_id)
+    workspace_uuid = _parse_uuid(workspace_id, "workspace_id")
+    tenant_uuid = _task_tenant(p)
+    runtime = NexusTaskRuntime(session_factory=get_session_factory())
+    try:
+        trace = await runtime.build_nexus_trace(
+            task_id, scope=_task_scope(tenant_uuid, workspace_uuid)
+        )
+    except TaskNotFound:
+        raise HTTPException(status_code=404, detail="task not found") from None
+    return _envelope(request, {"trace": trace})
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1711,6 +2067,44 @@ async def realtime_events(
             "resync_required": False,
         },
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# /tasks/{task_id}/decision-room (Decision-1)
+#
+# Read-only projection of the durable orchestration runtime. The Decision
+# Room is NOT a second state machine: every field is derived from the
+# PostgreSQL durable records (task, plan, runs, invocations, evidence,
+# proposals, policy results, approvals, execution, outcome) via
+# NexusTaskRuntime.build_nexus_trace. Nothing here writes.
+# ─────────────────────────────────────────────────────────────────────
+
+
+@router.get("/tasks/{task_id}/decision-room")
+async def get_decision_room(
+    task_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Project one task's durable runtime into the Decision Room view."""
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.decision_room.read", workspace_id)
+    workspace_uuid = _parse_uuid(workspace_id, "workspace_id")
+    try:
+        tenant_uuid = _uuid.UUID(p.tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid tenant identity") from exc
+    service = DecisionRoomService(session_factory=get_session_factory())
+    try:
+        view = await service.build_decision_view(
+            task_id,
+            scope=TaskScope(tenant_id=tenant_uuid, workspace_id=workspace_uuid),
+        )
+    except TaskNotFound:
+        raise HTTPException(status_code=404, detail="task not found") from None
+    return _envelope(request, {"decision_room": view})
 
 
 @router.get("/realtime/stream")

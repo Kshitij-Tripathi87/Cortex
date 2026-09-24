@@ -328,7 +328,9 @@ class TaskExecutionDB(Base):
     )
     status: Mapped[str] = mapped_column(String(40), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    # Widen from 128 to match the world-state idempotency key width: keys
+    # derived from (task, capability, arguments digest) reach ~140 chars.
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, nullable=False

@@ -116,7 +116,7 @@ class NexusCapabilityRegistry:
             capabilities=tuple(resolved),
         )
         self._enforce_required_capabilities(capability_set, task_intent)
-        return capability_set
+        return self._narrow_to_required(capability_set, task_intent)
 
     @staticmethod
     def _enforce_required_capabilities(
@@ -144,3 +144,32 @@ class NexusCapabilityRegistry:
             raise UnsupportedTaskCapabilityError(
                 "Task requires capabilities the workspace cannot provide: " + ", ".join(missing)
             )
+
+    @staticmethod
+    def _narrow_to_required(
+        capability_set: AuthorizedCapabilitySet,
+        task_intent: TaskIntent,
+    ) -> AuthorizedCapabilitySet:
+        """Scope the resolved set to the task's required capabilities.
+
+        When the intent declares a required subset, planning must not drag in
+        every capability the workspace happens to provision: a task only
+        invokes what it asked for. Without a declared subset the full
+        authorized set is returned (backward-compatible behavior).
+        """
+
+        raw = task_intent.constraints.get(_REQUIRED_CAPABILITIES_KEY)
+        if raw is None:
+            return capability_set
+        requested = (raw,) if isinstance(raw, str) else tuple(raw)
+        required_ids = {item for item in requested if isinstance(item, str)}
+        return AuthorizedCapabilitySet(
+            tenant_id=capability_set.tenant_id,
+            workspace_id=capability_set.workspace_id,
+            actor_id=capability_set.actor_id,
+            capabilities=tuple(
+                item
+                for item in capability_set.capabilities
+                if item.descriptor.capability_id in required_ids
+            ),
+        )

@@ -155,7 +155,10 @@ class TaskRuntimeRepository:
         result = await self._session.scalars(
             select(TaskTransitionDB)
             .where(TaskTransitionDB.task_id == task.task_id)
-            .order_by(TaskTransitionDB.created_at)
+            # Deterministic total order: a restore rewrites heap order, and
+            # created_at alone can tie — the trace must reconstruct
+            # identically after any recovery.
+            .order_by(TaskTransitionDB.created_at, TaskTransitionDB.transition_id)
         )
         return list(result)
 
@@ -278,7 +281,13 @@ class TaskRuntimeRepository:
 
     async def list_steps(self, run: TaskRunDB) -> list[TaskStepDB]:
         result = await self._session.scalars(
-            select(TaskStepDB).where(TaskStepDB.run_id == run.run_id)
+            select(TaskStepDB)
+            .where(TaskStepDB.run_id == run.run_id)
+            # Deterministic total order (see list_transitions): heap order
+            # is not stable across a backup/restore cycle. finished_at is
+            # the recording time; unfinished steps sort last, step_run_id
+            # breaks ties.
+            .order_by(TaskStepDB.finished_at.asc().nulls_last(), TaskStepDB.step_run_id)
         )
         return list(result)
 
@@ -348,7 +357,7 @@ class TaskRuntimeRepository:
         result = await self._session.scalars(
             select(TaskInvocationDB)
             .where(TaskInvocationDB.task_id == task.task_id)
-            .order_by(TaskInvocationDB.created_at)
+            .order_by(TaskInvocationDB.created_at, TaskInvocationDB.invocation_id)
         )
         return list(result)
 
@@ -383,7 +392,7 @@ class TaskRuntimeRepository:
         result = await self._session.scalars(
             select(TaskEvidenceDB)
             .where(TaskEvidenceDB.task_id == task.task_id)
-            .order_by(TaskEvidenceDB.created_at)
+            .order_by(TaskEvidenceDB.created_at, TaskEvidenceDB.ref)
         )
         return list(result)
 
@@ -391,7 +400,7 @@ class TaskRuntimeRepository:
         result = await self._session.scalars(
             select(TaskProposalDB)
             .where(TaskProposalDB.task_id == task.task_id)
-            .order_by(TaskProposalDB.created_at)
+            .order_by(TaskProposalDB.created_at, TaskProposalDB.agent_id)
         )
         return list(result)
 
@@ -450,7 +459,7 @@ class TaskRuntimeRepository:
         result = await self._session.scalars(
             select(TaskApprovalDB)
             .where(TaskApprovalDB.task_id == task.task_id)
-            .order_by(TaskApprovalDB.created_at)
+            .order_by(TaskApprovalDB.created_at, TaskApprovalDB.decision)
         )
         return list(result)
 

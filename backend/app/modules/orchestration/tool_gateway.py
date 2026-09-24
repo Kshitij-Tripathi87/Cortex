@@ -376,7 +376,7 @@ class NexusToolGateway(ToolGateway):
                 authorization=authorization,
                 provenance=provenance,
                 error="CAPABILITY_EXECUTION_FAILED",
-                metadata={"exception_type": type(exc).__name__},
+                metadata={"exception_type": type(exc).__name__, "error_detail": str(exc)},
             )
 
         await self._trace_writer.record_tool_invocation(result=result)

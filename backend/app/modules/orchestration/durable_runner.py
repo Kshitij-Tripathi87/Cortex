@@ -214,8 +214,8 @@ class DurableTaskRunner:
     # ── Phases ────────────────────────────────────────────────────────────────
 
     async def _plan_phase(self, task_id: str, *, scope: TaskScope) -> None:
-        context = await self._rebuild_context(task_id, scope=scope)
         try:
+            context = await self._rebuild_context(task_id, scope=scope)
             plan = await self._planner.plan(context)
         except ValueError as exc:
             await self._runtime.block_task(task_id, scope=scope, reason=str(exc))
@@ -319,13 +319,28 @@ class DurableTaskRunner:
                     capability = capabilities.get(capability_id)
                     if capability is None or capability.side_effect not in _WRITE_SIDE_EFFECTS:
                         continue
-                    await self._invoke_through_gateway(
+                    result = await self._invoke_through_gateway(
                         context=context,
                         capability=capability,
                         step_id=step.step_id,
                         task_id=task_id,
                         run_id=run_id,
                     )
+                    # Failure-atomicity invariant: a failed or blocked governed
+                    # write must NEVER leave the durable task/run marked
+                    # SUCCEEDED. The gateway records the invocation failure;
+                    # the execution record and task status must agree.
+                    if result.status in ("BLOCKED", "FAILED"):
+                        await self._runtime.finish_execution(
+                            task_id,
+                            scope=scope,
+                            success=False,
+                            failure_reason=(
+                                f"Consequential capability {capability_id} "
+                                f"{result.status} during execution: {result.error}"
+                            ),
+                        )
+                        return
                     executed.append(step.step_id)
         except Exception as exc:  # noqa: BLE001 - the runner must record failures explicitly.
             await self._runtime.finish_execution(
@@ -375,7 +390,7 @@ class DurableTaskRunner:
             actor_id=UUID(task.actor_id),
             intent=intent,
             objective=task.objective,
-            constraints={},
+            constraints=dict(intent.constraints),
             world_state_version=task.world_state_version,
             capabilities=authorized.descriptors,
             policy_context=policy_context,
@@ -499,14 +514,17 @@ class DurableTaskRunner:
         self, task_id: str, *, scope: TaskScope, outcomes: dict[str, StepOutcome]
     ) -> None:
         for outcome in outcomes.values():
-            for invocation_id, ref in zip(
-                outcome.invocation_ids, outcome.evidence_refs, strict=False
-            ):
+            if not outcome.evidence_refs:
+                continue
+            # Every evidence ref the capability produced is established, not
+            # just the first: a read can return several facts in one call.
+            source_invocation_id = outcome.invocation_ids[0] if outcome.invocation_ids else None
+            for ref in outcome.evidence_refs:
                 await self._runtime.record_evidence(
                     task_id,
                     scope=scope,
                     ref=ref,
-                    source_invocation_id=invocation_id,
+                    source_invocation_id=source_invocation_id,
                     payload_digest=None,
                 )
 

@@ -86,7 +86,11 @@ class WorldStateEventDB(Base):
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON_VARIANT, nullable=False, default=dict)
     caused_by_event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    # Widen from 128: the deterministic idempotency key format is
+    # "task:{task_id}:capability:{capability_id}:{sha256}" which reaches
+    # ~140 chars; PostgreSQL enforces VARCHAR limits (SQLite does not),
+    # so the real write path failed with StringDataRightTruncationError.
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), index=True
     )

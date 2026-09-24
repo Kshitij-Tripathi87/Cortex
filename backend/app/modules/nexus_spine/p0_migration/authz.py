@@ -137,6 +137,26 @@ TOOL_PERMISSIONS: dict[str, set[NexusRole]] = {
         NexusRole.OPERATOR,
         NexusRole.ADMIN,
     },
+    # v0.8.6 — Golden-path durable tasks (MAF-4/MAF-5 runtime). Reads and the
+    # Decision Room projection are viewer-open like the other registry reads;
+    # creation, run (which drives execution), and approval are operational
+    # decisions held by operator/admin. The workspace boundary is enforced
+    # separately by require_workspace_access.
+    "nexus.tasks.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
+    "nexus.tasks.create": {NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.tasks.run": {NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.tasks.approve": {NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.decision_room.read": {
+        NexusRole.VIEWER,
+        NexusRole.ANALYST,
+        NexusRole.OPERATOR,
+        NexusRole.ADMIN,
+    },
     # Admin
     "nexus.admin.configure": {NexusRole.ADMIN},
     "nexus.admin.roles": {NexusRole.ADMIN},
