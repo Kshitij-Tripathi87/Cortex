@@ -8,7 +8,10 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
-    "sqlalchemy>=2.0.35",
+    # [asyncio] extra: greenlet is required by sqlalchemy.ext.asyncio and is
+    # no longer auto-installed by SQLAlchemy 2.1's default markers; <2.1
+    # keeps the suite on the validated 2.0.x line.
+    "sqlalchemy[asyncio]>=2.0.35,<2.1",
     "aiosqlite>=0.20.0",  # default dev DSN is sqlite+aiosqlite (config.py); required to boot
     "alembic>=1.13.0",
     "asyncpg>=0.29.0",
