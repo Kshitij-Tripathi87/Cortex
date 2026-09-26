@@ -22,6 +22,9 @@ class AuditEvent(Base):
 
     event_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid7)
     workspace_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    # tenant_id per migration 002 RLS: rows must carry a tenant for the
+    # tenant_isolation policy (NULL-tenant rows are unwritable under RLS).
+    tenant_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     event_category: Mapped[str] = mapped_column(String(32), nullable=False, default="audit")
     actor_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
