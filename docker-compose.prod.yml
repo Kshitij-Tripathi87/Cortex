@@ -69,9 +69,16 @@ services:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 4. MinIO Object Storage (Datasets, Models & Scenario Artifacts)
+  #
+  # Supply-chain note (2026-09): minio/minio was REMOVED from Docker Hub
+  # (MinIO moved community images behind licensed auth — quay.io/minio/minio
+  # requires credentials), so the previous pin was unpullable and every
+  # compose/e2e stack failed fast on the pull. alpine/minio is the pullable
+  # community mirror; swap to a licensed registry reference when staging
+  # credentials exist.
   # ─────────────────────────────────────────────────────────────────────────────
   minio:
-    image: minio/minio:RELEASE.2024-03-30T09-41-56Z
+    image: alpine/minio:latest-release
     container_name: cortex-minio-prod
     command: server /data --console-address ":9001"
     environment:
@@ -83,7 +90,8 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # busybox wget (curl is not guaranteed in the alpine/minio image).
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:9000/minio/health/live || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 5
