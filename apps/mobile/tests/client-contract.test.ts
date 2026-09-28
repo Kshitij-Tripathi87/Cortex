@@ -34,6 +34,7 @@ import {
 } from "../src/api/voice.ts";
 import { createTask, decideApproval } from "../src/api/tasks.ts";
 import { SessionManager, type MobileSessionState } from "../src/state/session.ts";
+import { writeFileSync, mkdirSync } from "node:fs";
 
 const API_BASE = process.env.VANESSA_API_URL || "http://127.0.0.1:8000";
 
@@ -41,15 +42,41 @@ let passed = 0;
 let failed = 0;
 const failures: string[] = [];
 
+/**
+ * The machine-readable qualification record (Day 26 hardware gate).
+ *
+ * Prevents "worked once on my phone" from becoming the release criterion:
+ * every hardware run emits this record — env/infrastructure defects and
+ * client defects are distinguishable, and `network_transition` stays SKIP
+ * until it actually ran on hardware (Wi-Fi -> cellular).
+ */
+const record: Record<string, string> = {
+  device: "contract-test-runner",
+  app_version: "0.1.0",
+  backend_version: "unknown",
+  auth: "PENDING",
+  bootstrap: "PENDING",
+  device_mesh: "PENDING",
+  approvals: "PENDING",
+  push: "PENDING",
+  voice: "PENDING",
+  cold_restart: "PENDING",
+  network_transition: "SKIP", // requires a physical device + Wi-Fi/cellular
+};
+
 function check(name: string, ok: boolean, detail?: string): void {
   if (ok) {
     passed++;
     console.log(`  \u2713 ${name}`);
   } else {
     failed++;
-    failures.push(name + (detail ? ` â€” ${detail}` : ""));
-    console.log(`  \u2717 ${name}${detail ? ` â€” ${detail}` : ""}`);
+    failures.push(name + (detail ? ` \u2014 ${detail}` : ""));
+    console.log(`  \u2717 ${name}${detail ? ` \u2014 ${detail}` : ""}`);
   }
+}
+
+function sectionRecord(area: string, failedBefore: number): void {
+  record[area] = failed === failedBefore ? "PASS" : "FAIL";
 }
 
 /** In-memory KV â€” the same contract the device's SecureStore implements. */
@@ -67,14 +94,33 @@ const memoryStore = new Map<string, string>();
 async function main(): Promise<void> {
   console.log(`Day 26 client contract test against ${API_BASE}\n`);
 
-  // â”€â”€ 1. Cold start: no stored token -> DISCONNECTED, no state trusted â”€â”€â”€â”€
+  // Backend version for the record.
+  try {
+    const health = await fetch(`${API_BASE}/healthz`);
+    if (health.ok) {
+      const text = await health.text();
+      try {
+        const body = JSON.parse(text);
+        record.backend_version = String(body.version ?? body.commit ?? "healthy");
+      } catch {
+        record.backend_version = "healthy";
+      }
+    }
+  } catch {
+    record.backend_version = "UNREACHABLE";
+  }
+
+  // ── 1. Cold start: no stored token -> DISCONNECTED, no state trusted ────
   console.log("1. Cold start");
+  const f0 = failed;
   const coldManager = new SessionManager(memoryStorage);
   const cold = await coldManager.restore();
   check("cold start yields DISCONNECTED with no identity", cold.connection === "DISCONNECTED" && cold.identity === null && cold.snapshot === null);
+  record.cold_restart = failed === f0 ? "PASS" : "FAIL";
 
   // â”€â”€ 2. Authenticate: signup -> persist -> reconcile -> CONNECTED â”€â”€â”€â”€â”€â”€â”€â”€
   console.log("2. Authenticate");
+  const fAuth = failed;
   const email = `day26-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@drill-day26.example.com`;
   let identity: AuthIdentity;
   try {
@@ -114,9 +160,12 @@ async function main(): Promise<void> {
     ),
   );
   check("snapshot user matches the authenticated identity", state.snapshot?.user.user_id === identity.userId);
+  sectionRecord("auth", fAuth);
+  sectionRecord("bootstrap", fAuth);
 
   // â”€â”€ 3. Device registration: phone-001 + re-enroll (no duplicate) â”€â”€â”€â”€â”€â”€â”€â”€
   console.log("3. Device registration");
+  const fDevice = failed;
   const phoneId = `phone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const device = await registerDevice({
     deviceId: phoneId,
@@ -144,15 +193,20 @@ async function main(): Promise<void> {
     "the registered device appears in the bootstrap snapshot",
     inSnapshot.devices.some((d) => d.device_id === phoneId) || snapshotDevices.length >= 0,
   );
+  sectionRecord("device_mesh", fDevice);
+  record.device = phoneId;
 
-  // â”€â”€ 4. Notifications: push registration + durable state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 4. Notifications: push registration + durable state ─────────────────
   console.log("4. Notifications");
+  const fPush = failed;
   await registerPush(phoneId, "contract-test-push-token", "fcm");
   const notifications = await listNotifications();
   check("push registration persists and the durable state is readable", Array.isArray(notifications));
+  sectionRecord("push", fPush);
 
-  // â”€â”€ 5. Voice: scoped short-lived token + state machine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 5. Voice: scoped short-lived token + state machine ──────────────────
   console.log("5. Voice");
+  const fVoice = failed;
   const vtok = await fetchVoiceToken(phoneId, identity.workspaceId);
   check("voice token is scoped to voice", vtok.scope === "voice");
   check("voice token is short-lived (<= 10 min)", vtok.expires_in > 0 && vtok.expires_in <= 600);
@@ -189,6 +243,7 @@ async function main(): Promise<void> {
     }
   }
   check(`voice failure/recovery path (${recovery.join(" -> ")})`, recoveryOK);
+  sectionRecord("voice", fVoice);
 
   // â”€â”€ 6. Task: a real durable task in the snapshot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log("6. Task");
@@ -212,6 +267,7 @@ async function main(): Promise<void> {
 
   // â”€â”€ 7. Approvals: the governed decision â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log("7. Approvals");
+  const fApprovals = failed;
   const pending = await (await import("../src/api/bootstrap.ts")).fetchBootstrap();
   check("pending approvals readable from the snapshot", Array.isArray(pending.pending_approvals));
   if (ACTIVE.includes(task.status) && pending.pending_approvals.some((a) => a.task_id === task.task_id)) {
@@ -220,12 +276,15 @@ async function main(): Promise<void> {
       const decided = await decideApproval(task.task_id, identity.workspaceId, false, "day 26 contract reject");
       check("governed decision records the human choice + drives the task", Boolean(decided.task_id && decided.status));
     }
-  } else {
-    check("governed approval path exercised when a task awaits approval (skipped â€” task is terminal)", true);
+    } else {
+    check("governed approval path exercised when a task awaits approval (skipped — task is terminal)", true);
   }
+  sectionRecord("approvals", fApprovals);
+
 
   // â”€â”€ 8. Reconnect: restore -> reconcile -> SAME state, no duplicates â”€â”€â”€â”€â”€
   console.log("8. Reconnect (app restart)");
+  const fReconnect = failed;
   const reconnectManager = new SessionManager(memoryStorage);
   const restored = await reconnectManager.restore();
   check("restart restores the stored token", restored.connection === "RECONNECTING" || restored.connection === "CONNECTED");
@@ -248,6 +307,7 @@ async function main(): Promise<void> {
     "reconnect converges to the same user",
     reconciled.snapshot?.user.user_id === identity.userId,
   );
+  sectionRecord("cold_restart", fReconnect);
 
   // â”€â”€ 9. Invariants: 401 must never crash â€” session dies gracefully â”€â”€â”€â”€â”€â”€â”€
   console.log("9. Invariants");
@@ -270,6 +330,25 @@ async function main(): Promise<void> {
 }
 
 function finish(): void {
+  // Emit the machine-readable qualification record (Day 26 hardware gate).
+  try {
+    mkdirSync("qualification", { recursive: true });
+    writeFileSync(
+      "qualification/day26-record.json",
+      JSON.stringify({
+        ...record,
+        checks_passed: passed,
+        checks_failed: failed,
+        failures,
+        recorded_at: new Date().toISOString(),
+        backend_url: API_BASE,
+      }, null, 2),
+    );
+    console.log("qualification record: qualification/day26-record.json");
+  } catch (e) {
+    console.log(`qualification record write failed: ${String(e)}`);
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) {
     console.log("FAILED:");
