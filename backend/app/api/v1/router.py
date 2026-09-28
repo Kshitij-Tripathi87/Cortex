@@ -24,6 +24,7 @@ from app.api.v1 import (
     audit,
     auth,
     briefs,
+    devices,
     execution,
     gnn,
     governance,
@@ -31,6 +32,7 @@ from app.api.v1 import (
     ingestion,
     intelligence_gateway,
     knowledge,
+    mobile,
     multi_agent,
     nexus_persistent,
     nexus_v07,
@@ -42,6 +44,7 @@ from app.api.v1 import (
     spine,
     twin,
     validation,
+    voice,
     workspace,
     world,
 )
@@ -98,6 +101,17 @@ api_router.include_router(
     prefix="",
     tags=["Nexus Decision Intelligence"],
 )
+
+# ─────────────────────────────────────────────────────────────────────
+# Device Mesh + Mobile + Voice (Day 25 phone client)
+#
+# The phone is a first-class capability-bearing Vanessa node: devices,
+# mobile bootstrap, and provider-agnostic voice sessions. The REST API
+# and the realtime channel remain the only authoritative surfaces.
+# ─────────────────────────────────────────────────────────────────────
+api_router.include_router(devices.router, prefix="", tags=["Device Mesh"])
+api_router.include_router(mobile.router, prefix="", tags=["Mobile"])
+api_router.include_router(voice.router, prefix="", tags=["Voice"])
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus v0.7 legacy — in-memory singletons, demoted 2026-09 (v0.8.2).

@@ -13,6 +13,7 @@ through an explicit human decision recorded with an approver identity, and
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -27,6 +28,8 @@ from .task_intent import TaskIntent
 from .task_lifecycle import TERMINAL_STATUSES, TaskLifecycleError, TaskStatus
 from .task_runtime_models import TaskDB
 from .task_runtime_repository import TaskNotFound, TaskRuntimeRepository
+
+logger = logging.getLogger("nexus.task_runtime")
 
 
 @dataclass(frozen=True)
@@ -58,6 +61,37 @@ class NexusTaskRuntime:
     async def _repository(self) -> AsyncGenerator[TaskRuntimeRepository]:
         async with self._session_factory() as session:
             yield TaskRuntimeRepository(session=session)
+
+    async def _notify_lifecycle(
+        self,
+        *,
+        event_type: str,
+        task_id: str,
+        actor_id: str,
+        tenant_id: str,
+        body: str | None,
+    ) -> None:
+        """Fan a task lifecycle event through the notification policy.
+
+        Opens a FRESH session (the caller's transaction scope is separate);
+        the notification never blocks the lifecycle — a provider failure is
+        logged, not raised. The policy suppresses non-significant events.
+        """
+        try:
+            from app.modules.notifications.service import get_notification_service
+
+            async with self._session_factory() as session:
+                await get_notification_service(session).notify(
+                    session,
+                    event_type=event_type,
+                    user_id=actor_id,
+                    tenant_id=tenant_id,
+                    body=body,
+                    payload={"task_id": task_id},
+                )
+                await session.commit()
+        except Exception:  # noqa: BLE001 — notification must never break the task
+            logger.exception("notification fan-out failed for task %s", task_id)
 
     # ── Creation and lookups ─────────────────────────────────────────────────
 
@@ -296,6 +330,14 @@ class NexusTaskRuntime:
                 task, target="AWAITING_APPROVAL", actor_id=UUID(task.actor_id), reason=reason
             )
             await repo.append_approval(task, decision="REQUESTED", approver_id=None, reason=reason)
+            actor_id = str(task.actor_id)
+        await self._notify_lifecycle(
+            event_type="APPROVAL_REQUIRED",
+            task_id=task_id,
+            actor_id=actor_id,
+            tenant_id=str(scope.tenant_id),
+            body=reason,
+        )
 
     async def decide_approval(
         self,
@@ -411,6 +453,14 @@ class NexusTaskRuntime:
                 recommendation=recommendation,
                 result_payload=result_payload,
             )
+            actor_id, tenant = str(task.actor_id), str(scope.tenant_id)
+        await self._notify_lifecycle(
+            event_type="TASK_COMPLETED",
+            task_id=task_id,
+            actor_id=actor_id,
+            tenant_id=tenant,
+            body=recommendation,
+        )
 
     async def block_task(self, task_id: str, *, scope: TaskScope, reason: str) -> None:
         """Explicit BLOCKED terminal state; silence is never a valid state."""
@@ -425,6 +475,14 @@ class NexusTaskRuntime:
                 task, target="BLOCKED", actor_id=UUID(task.actor_id), reason=reason
             )
             await repo.set_terminal_reasons(task, blocked_reason=reason)
+            actor_id = str(task.actor_id)
+        await self._notify_lifecycle(
+            event_type="TASK_BLOCKED",
+            task_id=task_id,
+            actor_id=actor_id,
+            tenant_id=str(scope.tenant_id),
+            body=reason,
+        )
 
     async def fail_task(self, task_id: str, *, scope: TaskScope, reason: str) -> None:
         async with self._repository() as repo:
@@ -437,6 +495,14 @@ class NexusTaskRuntime:
                 task, target="FAILED", actor_id=UUID(task.actor_id), reason=reason
             )
             await repo.set_terminal_reasons(task, failure_reason=reason)
+            actor_id = str(task.actor_id)
+        await self._notify_lifecycle(
+            event_type="TASK_FAILED",
+            task_id=task_id,
+            actor_id=actor_id,
+            tenant_id=str(scope.tenant_id),
+            body=reason,
+        )
 
     # ── NexusTrace reconstruction ─────────────────────────────────────────────
 
