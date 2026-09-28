@@ -60,6 +60,7 @@ from app.infrastructure.outbox_publisher import (
 )
 from app.infrastructure.realtime_bus import sse_stream
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
+from app.modules.audit.service import emit as emit_audit
 from app.modules.billing import EntitlementDenied, EntitlementService
 from app.modules.decision.decision_room import DecisionRoomService
 from app.modules.nexus_spine.governance.lifecycle import DecisionPhase
@@ -145,6 +146,49 @@ def _principal(auth: AuthContext, workspace_id: str) -> Principal:
         role=role,
         display_name=auth.email or user_id,
     )
+
+
+async def _audit_denial(
+    workspace_id: str,
+    *,
+    subject_type: str,
+    subject_id: str,
+    actor_id: str | None,
+    actor_role: str | None,
+    reason: str,
+    request_id: str | None = None,
+) -> None:
+    """Durably record a governed denial in its own transaction.
+
+    The API raises 409 after the request transaction rolled back, so a
+    denial audited inside that transaction would be rolled back too. This
+    commits the audit row in a FRESH session so the failed governance
+    action stays observable (audit trail survives the denial). The audit
+    never blocks the response: a failure here is logged, not raised.
+    """
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            await emit_audit(
+                session,
+                event_type="governance.transition_denied",
+                workspace_id=workspace_id,
+                event_category="governance",
+                actor_id=actor_id,
+                actor_type="user",
+                subject_type=subject_type,
+                subject_id=subject_id,
+                request_id=request_id,
+                payload={"reason": reason, "actor_role": actor_role},
+                message=f"{subject_type} {subject_id}: {reason}",
+            )
+            await session.commit()
+    except Exception:
+        import logging
+
+        logging.getLogger("nexus.governance").exception(
+            "failed to audit denial ws=%s subject=%s", workspace_id, subject_id
+        )
 
 
 def _envelope(
@@ -693,9 +737,21 @@ async def advance_decision(
         await commit_and_notify(session)
     except InvalidTransitionError as e:
         await session.rollback()
+        await _audit_denial(
+            workspace_id,
+            subject_type="decision",
+            subject_id=decision_id,
+            actor_id=p.user_id,
+            actor_role=p.role.value,
+            reason=str(e),
+            request_id=getattr(request.state, "request_id", None),
+        )
         raise HTTPException(status_code=409, detail=str(e)) from e
     except StaleWorldStateError as e:
-        await session.rollback()
+        # The service staged the durable stale evidence (STALE marking +
+        # transition trail + decision.invalidated outbox event) BEFORE
+        # raising — commit it so the failure stays observable, then 409.
+        await commit_and_notify(session)
         raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         await session.rollback()
@@ -731,7 +787,23 @@ async def execute_decision(
         await commit_and_notify(session)
         final = await svc.get(session, decision_id=decision_id)
     except (InvalidTransitionError, StaleWorldStateError) as e:
-        await session.rollback()
+        # InvalidTransition: nothing was staged — rollback, then audit the
+        # denial. StaleWorldState: the service staged the durable stale
+        # evidence before raising — commit it so the failure stays
+        # observable. Either way the response is 409.
+        if isinstance(e, StaleWorldStateError):
+            await commit_and_notify(session)
+        else:
+            await session.rollback()
+            await _audit_denial(
+                workspace_id,
+                subject_type="decision",
+                subject_id=decision_id,
+                actor_id=p.user_id,
+                actor_role=p.role.value,
+                reason=str(e),
+                request_id=getattr(request.state, "request_id", None),
+            )
         raise HTTPException(status_code=409, detail=str(e)) from e
     return _envelope(request, {"decision": final})
 

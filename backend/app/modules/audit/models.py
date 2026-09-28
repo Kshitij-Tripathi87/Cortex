@@ -30,7 +30,7 @@ class AuditEvent(Base):
     actor_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     actor_type: Mapped[str] = mapped_column(String(32), nullable=False, default="system")
     subject_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    subject_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    subject_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     correlation_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     request_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
