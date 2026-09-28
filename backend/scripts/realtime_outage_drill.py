@@ -66,9 +66,7 @@ def _docker(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[st
     )
 
 
-async def outbox_stats(
-    pool: asyncpg.Pool, workspace_id: str
-) -> tuple[int, int, int | None]:
+async def outbox_stats(pool: asyncpg.Pool, workspace_id: str) -> tuple[int, int, int | None]:
     """(total, pending, latest_seq) for a workspace's outbox rows.
 
     Runs as the PostgreSQL superuser: this is the observability side of the
@@ -85,14 +83,14 @@ async def outbox_stats(
             """,
             workspace_id,
         )
-        return int(row["total"]), int(row["pending"]), (
-            int(row["latest_seq"]) if row["latest_seq"] is not None else None
+        return (
+            int(row["total"]),
+            int(row["pending"]),
+            (int(row["latest_seq"]) if row["latest_seq"] is not None else None),
         )
 
 
-async def wait_for_drain(
-    pool: asyncpg.Pool, workspace_id: str, timeout_s: float
-) -> float:
+async def wait_for_drain(pool: asyncpg.Pool, workspace_id: str, timeout_s: float) -> float:
     """Poll until pending == 0; return elapsed seconds. Raises on timeout."""
     t0 = time.perf_counter()
     while time.perf_counter() - t0 < timeout_s:
@@ -133,9 +131,7 @@ async def create_decision(
         json={"workspace_id": ident["workspace_id"], "situation": situation},
     )
     if resp.status_code != 201:
-        raise RuntimeError(
-            f"decision create failed {resp.status_code}: {resp.text[:300]}"
-        )
+        raise RuntimeError(f"decision create failed {resp.status_code}: {resp.text[:300]}")
     decision_id = str(resp.json()["data"]["decision"]["decision_id"])
     if not decision_id:
         raise RuntimeError("decision create returned no decision_id")
@@ -195,9 +191,7 @@ async def run(args: argparse.Namespace) -> int:
 
         outage_dids: list[str] = []
         for i in range(2, 4):
-            did = await create_decision(
-                client, args.api_base, ident, f"drill D{i} (during outage)"
-            )
+            did = await create_decision(client, args.api_base, ident, f"drill D{i} (during outage)")
             outage_dids.append(did)
             print(f"  decision D{i}={did} -> 201 (mutation committed without relay)")
 
@@ -207,13 +201,10 @@ async def run(args: argparse.Namespace) -> int:
             f"latest_seq={latest_b} (unpublished backlog = {pending_b})"
         )
         if pending_b != 2:
-            failures.append(
-                f"phase B: expected 2 unpublished outbox rows, got {pending_b}"
-            )
+            failures.append(f"phase B: expected 2 unpublished outbox rows, got {pending_b}")
         if latest_b is None or latest_b != latest_a + 2:
             failures.append(
-                f"phase B: seq not dense after outage "
-                f"(before={latest_a}, after={latest_b})"
+                f"phase B: seq not dense after outage (before={latest_a}, after={latest_b})"
             )
 
         # Committed state must be intact: decisions readable via the API.
@@ -225,8 +216,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             if resp.status_code != 200:
                 failures.append(
-                    f"phase B: committed decision {did} unreadable "
-                    f"({resp.status_code})"
+                    f"phase B: committed decision {did} unreadable ({resp.status_code})"
                 )
         print(f"  committed PostgreSQL state intact: {len(outage_dids)} decisions readable")
 
@@ -243,10 +233,7 @@ async def run(args: argparse.Namespace) -> int:
         )
 
         total_c, pending_c, latest_c = await outbox_stats(admin_pool, ws)
-        print(
-            f"  outbox after recovery: total={total_c} pending={pending_c} "
-            f"latest_seq={latest_c}"
-        )
+        print(f"  outbox after recovery: total={total_c} pending={pending_c} latest_seq={latest_c}")
         if pending_c != 0:
             failures.append(f"phase C: outbox not drained after recovery (pending={pending_c})")
         assert latest_c is not None, "phase C: no outbox rows after recovery"
@@ -269,9 +256,7 @@ async def run(args: argparse.Namespace) -> int:
         if env["resync_required"]:
             failures.append("phase D: replay demanded a resync for a small gap")
         if env["latest_seq"] != latest_c:
-            failures.append(
-                f"phase D: replay latest_seq {env['latest_seq']} != DB {latest_c}"
-            )
+            failures.append(f"phase D: replay latest_seq {env['latest_seq']} != DB {latest_c}")
 
         # Relay health must be healthy after recovery.
         resp = await client.get(
