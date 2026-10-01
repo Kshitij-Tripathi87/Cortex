@@ -77,6 +77,15 @@ jobs:
           CORTEX_S3_SECRET_KEY: minioadmin
           CORTEX_S3_USE_PATH_STYLE: "true"
 
+      - name: Cache Playwright browsers
+        # 2026-09-09: cdn.playwright.dev outage broke two consecutive E2E runs
+        # at the browser-download step (nothing to do with the code under test).
+        # Cache the browsers so the CDN is only needed on version bumps.
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ hashFiles('frontend/package-lock.json') }}
+
       - name: Install Frontend & Playwright Browsers
         run: |
           cd frontend
