@@ -1,0 +1,40 @@
+name: RC1 package-lock refresh
+
+on:
+  push:
+    branches:
+      - rc1/production-qualification-2026-11-03
+    paths:
+      - "frontend/package.json"
+      - ".github/workflows/rc1-package-lock-refresh.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Regenerate and validate npm lockfile
+        working-directory: frontend
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Commit refreshed lockfile and remove one-off workflow
+        env:
+          TARGET_BRANCH: ${GITHUB_REF_NAME}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git rm .github/workflows/rc1-package-lock-refresh.yml
+          git commit -m "chore(deps): refresh secure frontend lockfile"
+          git push origin "HEAD:${TARGET_BRANCH}"

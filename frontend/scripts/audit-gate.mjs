@@ -26,24 +26,11 @@ import path from "node:path";
 
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// ── Accepted advisories (ratchet) ────────────────────────────────────────────
-// Removal follow-up for BOTH entries: the Next.js 14 → 16 migration PR
-// (both are fixed in next 16.3.4; no backport exists for the 14.x line —
-// the 14.2.35 security patch release already cleared the earlier batch).
-const ACCEPTED = new Map([
-  [
-    "GHSA-9g9p-9gw9-jx7f",
-    "next [critical] self-hosted Next.js DoS via Image Optimizer " +
-      "remotePatterns. Not exploitable in the current deployment (no " +
-      "remote image patterns configured). Fix: next 16.3.4 (semver-major).",
-  ],
-  [
-    "GHSA-qx2v-qp2m-jg93",
-    "postcss [high] XSS via unescaped </style> in stringify output, via " +
-      "the postcss version Next 14 pins. Build-time tooling exposure. " +
-      "Fix: next 16.3.4 (semver-major).",
-  ],
-]);
+// ── Accepted advisories ──────────────────────────────────────────────────────
+// RC1 upgrades Next.js to a patched 15.5 release and overrides PostCSS and
+// source-map-js to patched releases. No high/critical production advisories
+// are accepted by this gate.
+const ACCEPTED = new Map();
 
 const GATE_SEVERITIES = new Set(["high", "critical"]);
 
