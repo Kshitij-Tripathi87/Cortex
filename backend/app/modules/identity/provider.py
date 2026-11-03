@@ -97,12 +97,11 @@ class JWTIDProvider:
         return await self.verify_token(token)
 
     async def verify_token(self, token: str) -> UserPrincipal:
-        from jose import jwt
-        from jose.exceptions import JWTError
+        import jwt
+        from jwt.exceptions import PyJWKClientError, PyJWTError
 
-        key: Any = None
         if self.config.jwks_uri:
-            key = _jwks_key(self.config.jwks_uri)
+            key = _jwks_signing_key(self.config.jwks_uri, token)
         else:
             settings = get_settings()
             key = getattr(settings, "jwt_service_signing_key", None)
@@ -117,7 +116,7 @@ class JWTIDProvider:
                 options={"verify_exp": True, "verify_iss": True, "verify_aud": True},
                 leeway=30,
             )
-        except JWTError as e:
+        except (PyJWTError, PyJWKClientError) as e:
             raise PermissionError(f"Token verification failed: {e}") from e
 
         user_id = str(claims.get("sub", ""))
@@ -209,13 +208,17 @@ def _claims_scopes(claims: dict[str, Any]) -> list[str]:
     return []
 
 
-@lru_cache(maxsize=1)
-def _jwks_key(jwks_uri: str) -> Any:
-    import httpx
+@lru_cache(maxsize=8)
+def _jwks_client(jwks_uri: str) -> Any:
+    """Reuse a PyJWT JWKS client with its bounded JWK-set cache."""
+    import jwt
 
-    resp = httpx.get(jwks_uri, timeout=10.0)
-    resp.raise_for_status()
-    return resp.json()
+    return jwt.PyJWKClient(jwks_uri, cache_jwk_set=True, lifespan=300)
+
+
+def _jwks_signing_key(jwks_uri: str, token: str) -> Any:
+    """Select the token's signing key by kid and enforce key/algorithm compatibility."""
+    return _jwks_client(jwks_uri).get_signing_key_from_jwt(token).key
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -266,7 +269,7 @@ class ServiceTokenFactory:
     async def issue(
         cls, service_name: str, workspace_id: str, scopes: list[str], *, ttl: int = 900
     ) -> str:
-        from jose import jwt
+        import jwt
 
         now = int(datetime.now(UTC).timestamp())
         claims = {
@@ -282,7 +285,8 @@ class ServiceTokenFactory:
 
     @classmethod
     async def verify(cls, token: str) -> dict[str, Any]:
-        from jose import JWTError, jwt
+        import jwt
+        from jwt.exceptions import PyJWTError
 
         try:
             return dict(
@@ -294,5 +298,5 @@ class ServiceTokenFactory:
                     issuer="cortex-agent",
                 )
             )
-        except JWTError as e:
+        except PyJWTError as e:
             raise PermissionError(f"Service token verification failed: {e}") from e

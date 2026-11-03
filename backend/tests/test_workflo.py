@@ -9,24 +9,19 @@ violation, unauthorized command, secret access, sandbox reuse).
 from __future__ import annotations
 
 import os
-
-# Add product folder to path for moved workflo modules
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "product"))
-
-from product.workflo_backend.agent import build_plan, diagnose, discover_surfaces
-from product.workflo_backend.orchestrator import (
+from app.modules.workflo_backend.agent import build_plan, diagnose, discover_surfaces
+from app.modules.workflo_backend.orchestrator import (
     SandboxNotFound,
     SandboxOrchestrator,
     get_orchestrator,
     reset_orchestrator,
 )
-from product.workflo_backend.policy import PolicyViolation, SandboxPolicy
-from product.workflo_backend.runs import RunStore
+from app.modules.workflo_backend.policy import PolicyViolation, SandboxPolicy
+from app.modules.workflo_backend.runs import RunStore
 
 
 @pytest.fixture()
