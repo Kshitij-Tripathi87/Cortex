@@ -9,7 +9,6 @@ violation, unauthorized command, secret access, sandbox reuse).
 from __future__ import annotations
 
 import os
-
 from pathlib import Path
 
 import pytest

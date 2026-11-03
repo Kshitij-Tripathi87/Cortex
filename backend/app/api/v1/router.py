@@ -16,7 +16,6 @@ Nexus routing (v0.8.2 closeout — routing flip + dual-path removal):
 """
 
 from fastapi import APIRouter
-from app.modules.workflo_backend.api import router as workflo_router
 
 from app.api.v1 import (
     agent_runtime,
@@ -47,6 +46,7 @@ from app.api.v1 import (
 )
 from app.api.v1 import nexus as nexus_v1
 from app.config import get_settings
+from app.modules.workflo_backend.api import router as workflo_router
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
