@@ -84,13 +84,16 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
       
       minio:
-        image: minio/minio:latest
+        image: rustfs/rustfs:1.0.3
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
+          RUSTFS_VOLUMES: /data
+          RUSTFS_ADDRESS: 0.0.0.0:9000
+          RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+          RUSTFS_CONSOLE_ENABLE: "true"
+          RUSTFS_ACCESS_KEY: minioadmin
+          RUSTFS_SECRET_KEY: minioadmin
         ports: ["9000:9000", "9001:9001"]
-        command: server /data --console-address ":9001"
-        options: --health-cmd "mc ready local" --health-interval 10s --health-timeout 5s --health-retries 5
+        options: --health-cmd "curl -fsS http://localhost:9000/health" --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
