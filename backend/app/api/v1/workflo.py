@@ -17,12 +17,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.modules.workflo_backend.agent import build_plan, diagnose, discover_surfaces
 from app.modules.workflo_backend.infrastructure.security import (
     AuthContext,
     get_current_user,
     require_workspace_access,
 )
-from app.modules.workflo_backend.agent import build_plan, diagnose, discover_surfaces
 from app.modules.workflo_backend.orchestrator import (
     ExecutionResult,
     SandboxError,
