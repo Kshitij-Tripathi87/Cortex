@@ -9,16 +9,12 @@ from __future__ import annotations
 
 import base64
 import os
-import sys
-
-# Add product folder to path for moved workflo modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "product"))
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from product.workflo_api import router as workflo_router
-from product.workflo_backend.orchestrator import reset_orchestrator
+from app.modules.workflo_backend.api import router as workflo_router
+from app.modules.workflo_backend.orchestrator import reset_orchestrator
 
 
 @pytest.fixture()

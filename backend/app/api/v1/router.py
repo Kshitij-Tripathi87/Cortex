@@ -16,7 +16,7 @@ Nexus routing (v0.8.2 closeout — routing flip + dual-path removal):
 """
 
 from fastapi import APIRouter
-from product.workflo_api import router as workflo_router
+from app.modules.workflo_backend.api import router as workflo_router
 
 from app.api.v1 import (
     agent_runtime,
