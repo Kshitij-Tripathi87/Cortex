@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.modules.workflo_backend.infrastructure.security import (
+from app.modules.workflo_backend.security import (
     AuthContext,
     get_current_user,
     require_workspace_access,

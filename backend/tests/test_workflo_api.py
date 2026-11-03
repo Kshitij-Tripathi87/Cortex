@@ -20,8 +20,6 @@ from app.modules.workflo_backend.orchestrator import reset_orchestrator
 @pytest.fixture()
 def client(tmp_path):
     reset_orchestrator()
-    import os
-
     os.environ["CORTEX_WORKFLO_ROOT"] = str(tmp_path / "wf-root")
     test_app = FastAPI()
     test_app.include_router(workflo_router, prefix="/api/v1")
