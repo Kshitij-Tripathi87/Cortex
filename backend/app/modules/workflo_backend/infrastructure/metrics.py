@@ -128,7 +128,8 @@ class MetricsMiddleware:
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         if scope["type"] != "http":
-            return await self.app(scope, receive, send)
+            await self.app(scope, receive, send)
+            return
 
         method = scope["method"]
         path = scope["path"]
@@ -136,7 +137,7 @@ class MetricsMiddleware:
 
         status_code = "500"
 
-        async def send_wrapper(message: dict) -> None:
+        async def send_wrapper(message: dict[str, Any]) -> None
             nonlocal status_code
             if message["type"] == "http.response.start":
                 status_code = str(message["status"])

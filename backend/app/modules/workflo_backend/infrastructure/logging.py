@@ -56,7 +56,7 @@ class StructuredFormatter(logging.Formatter):
         if hasattr(record, "tenant_id") and record.tenant_id:
             log_data["tenant_id"] = record.tenant_id
         if hasattr(record, "extra_fields"):
-            log_data.update(record.extra_fields)  # type: ignore[attr-defined]
+            log_data.update(record.extra_fields)
 
         # Add exception info if present
         if record.exc_info:
@@ -94,7 +94,7 @@ class LogContext:
     def __enter__(self) -> None:
         def factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
             record = self.old_factory(*args, **kwargs)
-            record.extra_fields = {**getattr(record, "extra_fields", {}), **self.fields}  # type: ignore[attr-defined]
+            record.extra_fields = {**getattr(record, "extra_fields", {}), **self.fields}
             return record
 
         logging.setLogRecordFactory(factory)

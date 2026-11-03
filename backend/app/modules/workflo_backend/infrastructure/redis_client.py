@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 import json
 from typing import Any
 
@@ -25,7 +26,7 @@ class RedisClient:
     _SOCKET_TIMEOUT_S: float = 0.5
 
     def __init__(self, settings: Settings) -> None:
-        self._redis = redis.from_url(
+        self._redis = redis.from_url(  # type: ignore[no-untyped-call]
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,
@@ -69,7 +70,7 @@ class RedisClient:
         """
         await self._redis.publish(channel, message)
 
-    async def scan_iter(self, match: str | None = None):
+    async def scan_iter(self, match: str | None = None) -> AsyncIterator[str]:
         """Iterate over keys matching a pattern."""
         async for key in self._redis.scan_iter(match=match):
             yield key

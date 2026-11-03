@@ -196,7 +196,7 @@ async def check_dependencies(
             result = check()
             if inspect.isawaitable(result):
                 result = await result
-            ok, detail = result  # type: ignore[misc]
+            ok, detail = result
         except Exception as e:
             ok, detail = False, f"check_raised: {type(e).__name__}: {e}"
         if not ok:
