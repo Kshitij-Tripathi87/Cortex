@@ -137,6 +137,7 @@ async def get_current_user(request: Request) -> AuthContext:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         from app.modules.identity.jwt_auth import verify_token
+
         try:
             claims = verify_token(authorization.removeprefix("Bearer ").strip())
         except PermissionError as exc:
@@ -155,6 +156,7 @@ async def get_current_user(request: Request) -> AuthContext:
         )
 
     from app.modules.identity.dependencies import get_current_user as resolve_user
+
     try:
         principal = await resolve_user(request)
     except PermissionError:
