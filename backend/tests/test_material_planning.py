@@ -566,7 +566,6 @@ def test_projection_horizon_is_bounded() -> None:
     assert exc_info.value.code == "PROJECTION_HORIZON_EXCEEDED"
 
 
-
 def test_inventory_snapshot_must_match_projection_opening_date() -> None:
     inventory = InventoryBalance(
         facility_id="PLANT-1",
