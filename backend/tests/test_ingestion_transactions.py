@@ -53,9 +53,7 @@ async def transaction_db():
 
 
 @pytest.mark.asyncio
-async def test_strict_ingestion_rolls_back_all_entity_rows(
-    transaction_db, monkeypatch
-) -> None:
+async def test_strict_ingestion_rolls_back_all_entity_rows(transaction_db, monkeypatch) -> None:
     session, rows = transaction_db
     monkeypatch.setitem(ingestion_service._DATASET_TO_SCHEMA, MvpDatasetType.SUPPLIERS, _Row)
 

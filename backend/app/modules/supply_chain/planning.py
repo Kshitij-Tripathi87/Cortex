@@ -59,7 +59,9 @@ def _decimal(value: Decimal | int | str | float, field_name: str) -> Decimal:
     try:
         result = value if isinstance(value, Decimal) else Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
-        raise PlanningInputError("INVALID_QUANTITY", f"{field_name} is not a valid decimal") from exc
+        raise PlanningInputError(
+            "INVALID_QUANTITY", f"{field_name} is not a valid decimal"
+        ) from exc
     if not result.is_finite():
         raise PlanningInputError("INVALID_QUANTITY", f"{field_name} must be finite")
     return result
@@ -177,7 +179,9 @@ class BomRevision:
 
     def __post_init__(self) -> None:
         if not self.revision_id or not self.parent_item_id or not self.revision_code:
-            raise PlanningInputError("INVALID_BOM_REVISION", "BOM revision identifiers are required")
+            raise PlanningInputError(
+                "INVALID_BOM_REVISION", "BOM revision identifiers are required"
+            )
         object.__setattr__(self, "parent_base_uom", _uom(self.parent_base_uom))
         if self.valid_to is not None and self.valid_to <= self.valid_from:
             raise PlanningInputError(
@@ -306,9 +310,11 @@ def resolve_bom_revision(
         and revision.facility_id in (None, facility_id)
     ]
     facility_specific = [item for item in candidates if item.facility_id == facility_id]
-    selected_scope = facility_specific if facility_specific else [
-        item for item in candidates if item.facility_id is None
-    ]
+    selected_scope = (
+        facility_specific
+        if facility_specific
+        else [item for item in candidates if item.facility_id is None]
+    )
     if not selected_scope:
         raise PlanningInputError(
             "BOM_REVISION_MISSING",
@@ -339,14 +345,13 @@ def explode_production_order(
     preserving the contributing order and BOM paths for evidence.
     """
     if not snapshot_id.strip():
-        raise PlanningInputError("SNAPSHOT_REQUIRED", "BOM explosion requires an immutable snapshot ID")
+        raise PlanningInputError(
+            "SNAPSHOT_REQUIRED", "BOM explosion requires an immutable snapshot ID"
+        )
     if max_depth < 1 or max_lines < 1:
         raise PlanningInputError("INVALID_PLANNING_LIMIT", "BOM limits must be positive")
     if order.explicit_requirements is not None:
-        if not (
-            order.explicit_requirements_complete
-            and order.explicit_requirements_authoritative
-        ):
+        if not (order.explicit_requirements_complete and order.explicit_requirements_authoritative):
             raise PlanningInputError(
                 "EXPLICIT_REQUIREMENTS_INCOMPLETE",
                 "Explicit material requirements are present but not marked both complete and authoritative",
@@ -372,7 +377,9 @@ def explode_production_order(
             production_order_id=order.production_order_id,
             snapshot_id=snapshot_id,
             contributions=tuple(
-                sorted(direct, key=lambda item: (item.material_id, item.need_at, item.requirement_id))
+                sorted(
+                    direct, key=lambda item: (item.material_id, item.need_at, item.requirement_id)
+                )
             ),
             revision_ids=(),
         )
@@ -410,7 +417,8 @@ def explode_production_order(
         parent_quantity = converter.convert(quantity, item_uom, revision.parent_base_uom)
         if not revision.lines:
             raise PlanningInputError(
-                "BOM_HAS_NO_LINES", f"BOM revision {revision.revision_id} contains no component lines"
+                "BOM_HAS_NO_LINES",
+                f"BOM revision {revision.revision_id} contains no component lines",
             )
         for line in sorted(revision.lines, key=lambda item: item.line_id):
             visited_line_count += 1
@@ -422,9 +430,7 @@ def explode_production_order(
             required = parent_quantity * line.quantity_per_parent
             if line.scrap_multiplier is not None:
                 required *= line.scrap_multiplier
-            child_quantity = converter.convert(
-                required, line.usage_uom, line.child_base_uom
-            )
+            child_quantity = converter.convert(required, line.usage_uom, line.child_base_uom)
             next_path = (*path, f"{revision.revision_id}:{line.line_id}")
             if line.child_item_id in assemblies:
                 walk(
@@ -604,7 +610,9 @@ def project_inventory(
     opening balance.
     """
     if not snapshot_id.strip():
-        raise PlanningInputError("SNAPSHOT_REQUIRED", "Inventory projection requires an immutable snapshot ID")
+        raise PlanningInputError(
+            "SNAPSHOT_REQUIRED", "Inventory projection requires an immutable snapshot ID"
+        )
     if end_date < start_date:
         raise PlanningInputError("INVALID_HORIZON", "Projection end date precedes start date")
     day_count = (end_date - start_date).days + 1
@@ -620,10 +628,7 @@ def project_inventory(
         )
 
     def matches(facility_id: str, material_id: str) -> bool:
-        return (
-            facility_id == inventory.facility_id
-            and material_id == inventory.material_id
-        )
+        return facility_id == inventory.facility_id and material_id == inventory.material_id
 
     demand_by_order_day: dict[tuple[str, date], Decimal] = collections.defaultdict(lambda: ZERO)
     gross_by_day: dict[date, Decimal] = collections.defaultdict(lambda: ZERO)
@@ -705,9 +710,13 @@ def project_inventory(
     elif inventory.quantity_basis == QuantityBasis.AVAILABLE_TO_USE:
         opening = inventory.quantity
     else:
-        raise PlanningInputError("UNKNOWN_QUANTITY_BASIS", "Inventory quantity basis is unsupported")
+        raise PlanningInputError(
+            "UNKNOWN_QUANTITY_BASIS", "Inventory quantity basis is unsupported"
+        )
     if opening < ZERO:
-        raise PlanningInputError("NEGATIVE_OPENING_STOCK", "Usable opening stock cannot be negative")
+        raise PlanningInputError(
+            "NEGATIVE_OPENING_STOCK", "Usable opening stock cannot be negative"
+        )
 
     buckets: list[DailyInventoryBucket] = []
     balance = opening

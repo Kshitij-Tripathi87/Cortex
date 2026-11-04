@@ -228,12 +228,8 @@ def test_missing_uom_conversion_fails_closed() -> None:
 
 
 def test_complete_authoritative_explicit_requirements_override_bom() -> None:
-    explicit = (
-        ExplicitMaterialRequirement("REQ-1", "C-99", D("12"), "EA", "EA"),
-    )
-    revisions = (
-        revision("P-R1", "P-100", (BomLine("L1", "C-01", D("99"), "EA", "EA"),)),
-    )
+    explicit = (ExplicitMaterialRequirement("REQ-1", "C-99", D("12"), "EA", "EA"),)
+    revisions = (revision("P-R1", "P-100", (BomLine("L1", "C-01", D("99"), "EA", "EA"),)),)
 
     result = explode_production_order(
         production_order(explicit=explicit, complete=True, authoritative=True),
@@ -251,9 +247,7 @@ def test_complete_authoritative_explicit_requirements_override_bom() -> None:
 
 
 def test_partial_explicit_requirements_do_not_mix_with_bom() -> None:
-    explicit = (
-        ExplicitMaterialRequirement("REQ-1", "C-01", D("2"), "EA", "EA"),
-    )
+    explicit = (ExplicitMaterialRequirement("REQ-1", "C-01", D("2"), "EA", "EA"),)
     with pytest.raises(PlanningInputError) as exc_info:
         explode_production_order(
             production_order(explicit=explicit, complete=False, authoritative=True),
@@ -279,8 +273,14 @@ def test_inventory_physical_on_hand_reservations_are_not_double_counted() -> Non
         uom="EA",
     )
     demand = DemandContribution(
-        "REQ-1", "PO-100", "C-01", "PLANT-1", D("60"), "EA",
-        date(2026, 11, 5), "bom_explosion",
+        "REQ-1",
+        "PO-100",
+        "C-01",
+        "PLANT-1",
+        D("60"),
+        "EA",
+        date(2026, 11, 5),
+        "bom_explosion",
     )
     reservation = ReservationAllocation(
         "RES-1", "PO-100", "PLANT-1", "C-01", D("20"), "EA", date(2026, 11, 5)
@@ -352,8 +352,13 @@ def test_unconfirmed_receipt_is_excluded_and_marks_projection_degraded() -> None
         uom="EA",
     )
     receipt = SupplyReceipt(
-        "PO-LINE-1", "PLANT-1", "C-01", D("100"), "EA",
-        date(2026, 11, 5), "pending_supplier_confirmation",
+        "PO-LINE-1",
+        "PLANT-1",
+        "C-01",
+        D("100"),
+        "EA",
+        date(2026, 11, 5),
+        "pending_supplier_confirmation",
     )
 
     projection = project_inventory(
@@ -382,12 +387,23 @@ def test_firm_receipt_is_available_before_same_day_demand() -> None:
         uom="EA",
     )
     demand = DemandContribution(
-        "REQ-1", "PO-100", "C-01", "PLANT-1", D("25"), "EA",
-        date(2026, 11, 6), "bom_explosion",
+        "REQ-1",
+        "PO-100",
+        "C-01",
+        "PLANT-1",
+        D("25"),
+        "EA",
+        date(2026, 11, 6),
+        "bom_explosion",
     )
     receipt = SupplyReceipt(
-        "PO-LINE-1", "PLANT-1", "C-01", D("20"), "EA",
-        date(2026, 11, 6), "confirmed",
+        "PO-LINE-1",
+        "PLANT-1",
+        "C-01",
+        D("20"),
+        "EA",
+        date(2026, 11, 6),
+        "confirmed",
     )
 
     projection = project_inventory(
@@ -419,10 +435,26 @@ def test_shortage_dates_and_unmet_demand_are_time_phased() -> None:
         uom="EA",
     )
     demands = (
-        DemandContribution("REQ-1", "PO-1", "C-01", "PLANT-1", D("20"), "EA",
-                           date(2026, 11, 5), "explicit_requirement"),
-        DemandContribution("REQ-2", "PO-2", "C-01", "PLANT-1", D("20"), "EA",
-                           date(2026, 11, 6), "explicit_requirement"),
+        DemandContribution(
+            "REQ-1",
+            "PO-1",
+            "C-01",
+            "PLANT-1",
+            D("20"),
+            "EA",
+            date(2026, 11, 5),
+            "explicit_requirement",
+        ),
+        DemandContribution(
+            "REQ-2",
+            "PO-2",
+            "C-01",
+            "PLANT-1",
+            D("20"),
+            "EA",
+            date(2026, 11, 6),
+            "explicit_requirement",
+        ),
     )
 
     projection = project_inventory(
@@ -452,8 +484,14 @@ def test_reservation_allocations_cannot_exceed_inventory_reserved_quantity() -> 
         uom="EA",
     )
     demand = DemandContribution(
-        "REQ-1", "PO-100", "C-01", "PLANT-1", D("40"), "EA",
-        date(2026, 11, 5), "explicit_requirement",
+        "REQ-1",
+        "PO-100",
+        "C-01",
+        "PLANT-1",
+        D("40"),
+        "EA",
+        date(2026, 11, 5),
+        "explicit_requirement",
     )
     reservation = ReservationAllocation(
         "RES-1", "PO-100", "PLANT-1", "C-01", D("20"), "EA", date(2026, 11, 5)

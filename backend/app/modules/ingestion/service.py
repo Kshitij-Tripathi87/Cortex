@@ -304,7 +304,8 @@ def _parse_csv_bytes(data: bytes) -> list[dict[str, str]]:
         normalized = [header.casefold() for header in headers]
         if len(normalized) != len(set(normalized)):
             raise CsvStructureError(
-                "DUPLICATE_HEADER", "CSV contains duplicate column headers after whitespace normalization"
+                "DUPLICATE_HEADER",
+                "CSV contains duplicate column headers after whitespace normalization",
             )
         reader.fieldnames = headers
 
