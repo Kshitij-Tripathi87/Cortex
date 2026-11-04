@@ -154,3 +154,76 @@ def test_facility_balances_are_not_pooled():
         start_date=date(2026, 11, 4), end_date=date(2026, 11, 6),
     )
     assert result.daily_buckets[1].confirmed_receipts == Decimal("0")
+
+
+def test_negative_reservation_or_blocked_bucket_is_rejected_for_any_quantity_basis():
+    result = project_inventory(
+        _balance(
+            quantity_basis=QuantityBasis.AVAILABLE_TO_USE,
+            reserved_quantity=Decimal("-1"),
+            blocked_quantity=Decimal("0"),
+            basis_excludes_reserved=False,
+            basis_excludes_blocked=True,
+        ),
+        (),
+        (),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 5),
+    )
+    assert result.status == ProjectionStatus.NOT_CALCULABLE
+    assert any("RESERVED_QUANTITY_NEGATIVE" in warning for warning in result.warnings)
+
+
+def test_receipt_open_quantity_cannot_exceed_unreceived_order_quantity():
+    receipt = MaterialReceipt(
+        "PO-OVER", "plant-1", "C-01", Decimal("100"), Decimal("70"),
+        date(2026, 11, 6), "open", True, "EA", open_quantity=Decimal("40"),
+    )
+    result = project_inventory(
+        _balance(),
+        (receipt,),
+        (),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 8),
+    )
+    assert result.status == ProjectionStatus.NOT_CALCULABLE
+    assert any(
+        "RECEIPT_OPEN_QUANTITY_EXCEEDS_REMAINDER" in warning
+        for warning in result.warnings
+    )
+
+
+def test_confirmed_receipt_uom_conversion_is_explicit():
+    from app.modules.planning.models import UOMConverter
+
+    receipt = MaterialReceipt(
+        "PO-KG", "plant-1", "C-01", Decimal("1"), Decimal("0"),
+        date(2026, 11, 5), "confirmed", True, "KG",
+    )
+    result = project_inventory(
+        _balance(),
+        (receipt,),
+        (),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 6),
+        uom_converter=UOMConverter({("KG", "EA"): Decimal("10")}),
+    )
+    assert result.daily_buckets[1].confirmed_receipts == Decimal("10")
+
+
+def test_projection_must_start_on_inventory_snapshot_date():
+    import pytest
+
+    from app.modules.planning.inventory import InventoryProjectionError
+
+    with pytest.raises(
+        InventoryProjectionError,
+        match="PROJECTION_START_MUST_MATCH_SNAPSHOT_AS_OF",
+    ):
+        project_inventory(
+            _balance(),
+            (),
+            (),
+            start_date=date(2026, 11, 5),
+            end_date=date(2026, 11, 8),
+        )

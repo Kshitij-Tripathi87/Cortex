@@ -65,7 +65,6 @@ from app.modules.supply_chain.repositories import (
     CustomerRepository,
     EdgeRepository,
     FactoryRepository,
-    InventoryRepository,
     OrderRepository,
     ProductRepository,
     SupplierRepository,
@@ -689,22 +688,36 @@ async def _insert_inventory(
     warehouse_id = await _resolve_node(
         session, workspace_id, cache, "warehouse", row.warehouse_code
     )
-    component_id = await _resolve_node(session, workspace_id, cache, "component", row.component_sku)
-    repo = InventoryRepository(session, workspace_id)
-    await repo.add(
-        Inventory(
+    component_id = await _resolve_node(
+        session, workspace_id, cache, "component", row.component_sku
+    )
+    stmt = (
+        select(Inventory)
+        .where(Inventory.workspace_id == workspace_id)
+        .where(Inventory.warehouse_id == warehouse_id)
+        .where(Inventory.component_id == component_id)
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        record = Inventory(
+            workspace_id=workspace_id,
             warehouse_id=warehouse_id,
             component_id=component_id,
             quantity=row.quantity,
             safety_stock=row.safety_stock,
-            reserved_quantity=row.reserved_quantity,
-            blocked_quantity=row.blocked_quantity,
-            quantity_basis=row.quantity_basis,
-            basis_excludes_reserved=row.basis_excludes_reserved,
-            basis_excludes_blocked=row.basis_excludes_blocked,
-            source_ref=row.source_ref,
         )
-    )
+        session.add(record)
+    record.quantity = row.quantity
+    record.safety_stock = row.safety_stock
+    record.reserved_quantity = row.reserved_quantity
+    record.blocked_quantity = row.blocked_quantity
+    record.quantity_basis = row.quantity_basis
+    record.basis_excludes_reserved = row.basis_excludes_reserved
+    record.basis_excludes_blocked = row.basis_excludes_blocked
+    record.source_ref = row.source_ref
+    record.last_updated_at = datetime.now(UTC)
+    await session.flush()
 
 
 async def _insert_bom(session: AsyncSession, workspace_id: UUID, row: BomRow, cache: dict) -> None:
