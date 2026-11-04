@@ -579,6 +579,32 @@ class PurchaseOrderLineRecord(Base):
     )
 
 
+
+class MaterialPlanningRunRecord(Base):
+    __tablename__ = "material_planning_runs"
+    __table_args__ = (
+        Index("ix_material_planning_runs_workspace_created", "workspace_id", "created_at"),
+        {"schema": "inventory"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    snapshot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    algorithm_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    as_of: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    warnings: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    result_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    result_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
 __all__ = [
     "BOMLineRecord",
     "BOMRevisionRecord",
@@ -589,6 +615,7 @@ __all__ = [
     "Edge",
     "Factory",
     "Inventory",
+    "MaterialPlanningRunRecord",
     "Order",
     "ProductionOrderRecord",
     "PurchaseOrderLineRecord",
