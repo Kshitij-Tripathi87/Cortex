@@ -162,7 +162,15 @@ def explode_production_order(
             nonlocal visited_lines
             parent_key = (revision.parent_item_type, revision.parent_item_id)
             if parent_key in ancestry:
-                raise BOMResolutionError("BOM_CYCLE", " -> ".join(item_id for _, item_id in ancestry))
+                raise BOMResolutionError(
+                    "BOM_CYCLE",
+                    " -> ".join(
+                        f"{item_type.value}:{item_id}"
+                        for item_type, item_id in sorted(
+                            ancestry, key=lambda entry: (entry[0].value, entry[1])
+                        )
+                    ),
+                )
             if depth > max_depth:
                 raise BOMResolutionError("BOM_MAX_DEPTH_EXCEEDED", str(max_depth))
 

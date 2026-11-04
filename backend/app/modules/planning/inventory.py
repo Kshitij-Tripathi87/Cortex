@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from app.modules.planning.models import (
@@ -14,6 +14,7 @@ from app.modules.planning.models import (
     MaterialReceipt,
     ProjectionStatus,
     QuantityBasis,
+    UOMConverter,
 )
 
 _FIRM_RECEIPT_STATUSES = {"open", "confirmed", "partially_received", "partial" }
@@ -56,16 +57,21 @@ def _opening_usable(balance: InventoryBalanceInput) -> Decimal:
     return usable
 
 
-def _uncovered_demand(item: DemandContribution) -> Decimal:
+def _uncovered_demand(item: DemandContribution, converter: UOMConverter, target_uom: str) -> Decimal:
     if item.gross_quantity < 0 or item.reserved_quantity < 0:
         raise InventoryProjectionError("DEMAND_QUANTITY_NEGATIVE", item.contribution_id)
+    try:
+        gross = converter.convert(item.gross_quantity, item.uom, target_uom)
+        reserved = converter.convert(item.reserved_quantity, item.uom, target_uom)
+    except ValueError as exc:
+        raise InventoryProjectionError("DEMAND_UOM_CONVERSION_MISSING", item.contribution_id) from exc
     if item.reservation_linked:
-        if item.reserved_quantity > item.gross_quantity:
+        if reserved > gross:
             raise InventoryProjectionError("RESERVATION_EXCEEDS_DEMAND", item.contribution_id)
-        return item.gross_quantity - item.reserved_quantity
-    if item.reserved_quantity > 0:
+        return gross - reserved
+    if reserved > 0:
         raise InventoryProjectionError("UNLINKED_RESERVATION", item.contribution_id)
-    return item.gross_quantity
+    return gross
 
 
 def project_inventory(
@@ -73,8 +79,9 @@ def project_inventory(
     receipts: tuple[MaterialReceipt, ...],
     demand: tuple[DemandContribution, ...],
     *,
-    start_date,
-    end_date,
+    start_date: date,
+    end_date: date,
+    uom_converter: UOMConverter | None = None,
     max_horizon_days: int = 366,
 ) -> InventoryProjection:
     """Project one facility/material pair. Facilities are never implicitly pooled.
@@ -85,6 +92,9 @@ def project_inventory(
     """
     if end_date < start_date:
         raise InventoryProjectionError("PROJECTION_HORIZON_INVALID")
+    if start_date != balance.as_of:
+        raise InventoryProjectionError("PROJECTION_START_MUST_MATCH_SNAPSHOT_AS_OF")
+    converter = uom_converter or UOMConverter()
     if start_date < balance.as_of:
         raise InventoryProjectionError("PROJECTION_START_PRECEDES_INVENTORY_AS_OF")
     horizon = (end_date - start_date).days + 1
@@ -103,9 +113,12 @@ def project_inventory(
 
     seen_receipts: set[str] = set()
     firm_by_date: dict = defaultdict(Decimal)
+    uncertain_by_date: dict = defaultdict(Decimal)
+    receipt_refs_by_date: dict = defaultdict(set)
     uncertain_total = Decimal("0")
     warnings: list[str] = []
     receipt_refs: set[str] = set()
+    demand_source_refs: set[str] = set()
     for receipt in receipts:
         if receipt.facility_id != balance.facility_id or receipt.material_id != balance.material_id:
             continue
@@ -126,12 +139,14 @@ def project_inventory(
         remaining = receipt.remaining_open_quantity()
         if remaining == 0:
             continue
-        if receipt.uom.strip().upper() != balance.uom.strip().upper():
+        try:
+            remaining = converter.convert(remaining, receipt.uom, balance.uom)
+        except ValueError:
             return InventoryProjection(
                 balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
                 ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
                 start_date, end_date, opening, None, None, (), Decimal("0"), Decimal("0"),
-                (f"RECEIPT_UOM_MISMATCH:{receipt.receipt_id}",), balance.source_refs,
+                (f"RECEIPT_UOM_CONVERSION_MISSING:{receipt.receipt_id}",), balance.source_refs,
             )
         if receipt.expected_date is None:
             warnings.append(f"RECEIPT_DATE_MISSING:{receipt.receipt_id}")
@@ -139,14 +154,19 @@ def project_inventory(
         if receipt.expected_date < balance.as_of:
             warnings.append(f"RECEIPT_DATE_PRECEDES_SNAPSHOT:{receipt.receipt_id}")
             continue
+        if not (start_date <= receipt.expected_date <= end_date):
+            continue
         if not receipt.confirmed:
             uncertain_total += remaining
+            uncertain_by_date[receipt.expected_date] += remaining
             warnings.append(f"UNCONFIRMED_RECEIPT_EXCLUDED:{receipt.receipt_id}")
-            continue
-        if start_date <= receipt.expected_date <= end_date:
-            firm_by_date[receipt.expected_date] += remaining
             if receipt.source_ref:
                 receipt_refs.add(receipt.source_ref)
+            continue
+        firm_by_date[receipt.expected_date] += remaining
+        if receipt.source_ref:
+            receipt_refs.add(receipt.source_ref)
+            receipt_refs_by_date[receipt.expected_date].add(receipt.source_ref)
 
     demand_by_date: dict = defaultdict(Decimal)
     demand_refs_by_date: dict = defaultdict(set)
@@ -155,20 +175,13 @@ def project_inventory(
         if item.facility_id != balance.facility_id or item.material_id != balance.material_id:
             continue
         try:
-            uncovered = _uncovered_demand(item)
+            uncovered = _uncovered_demand(item, converter, balance.uom)
         except InventoryProjectionError as exc:
             return InventoryProjection(
                 balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
                 ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
                 start_date, end_date, opening, None, None, (), uncertain_total, total_uncovered,
                 (str(exc),), balance.source_refs,
-            )
-        if item.uom.strip().upper() != balance.uom.strip().upper():
-            return InventoryProjection(
-                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-                start_date, end_date, opening, None, None, (), uncertain_total, total_uncovered,
-                (f"DEMAND_UOM_MISMATCH:{item.contribution_id}",), balance.source_refs,
             )
         if item.need_at < balance.as_of:
             warnings.append(f"DEMAND_DATE_PRECEDES_SNAPSHOT:{item.contribution_id}")
@@ -182,10 +195,12 @@ def project_inventory(
             demand_by_date[item.need_at] += uncovered
             total_uncovered += uncovered
             demand_refs_by_date[item.need_at].add(item.contribution_id)
+            if item.source_ref:
+                demand_source_refs.add(item.source_ref)
 
     buckets: list[DailyInventoryBucket] = []
-    first_safety: object | None = None
-    first_negative: object | None = None
+    first_safety: date | None = None
+    first_negative: date | None = None
     closing = opening
     current = start_date
     while current <= end_date:
@@ -205,13 +220,13 @@ def project_inventory(
                 bucket_date=current,
                 opening_quantity=day_opening,
                 confirmed_receipts=receipts_today,
-                uncertain_receipts=Decimal("0"),
+                uncertain_receipts=uncertain_by_date[current],
                 uncovered_demand=demand_today,
                 closing_quantity=closing,
                 safety_stock_quantity=balance.safety_stock_quantity,
                 status=status,
                 demand_refs=tuple(sorted(demand_refs_by_date[current])),
-                receipt_refs=(),
+                receipt_refs=tuple(sorted(receipt_refs_by_date[current])),
             )
         )
         current += timedelta(days=1)
@@ -237,7 +252,7 @@ def project_inventory(
         uncertain_receipts_excluded=uncertain_total,
         uncovered_requirement_quantity=total_uncovered,
         warnings=tuple(sorted(set(warnings))),
-        source_refs=tuple(sorted(set(balance.source_refs) | receipt_refs)),
+        source_refs=tuple(sorted(set(balance.source_refs) | receipt_refs | demand_source_refs)),
     )
 
 

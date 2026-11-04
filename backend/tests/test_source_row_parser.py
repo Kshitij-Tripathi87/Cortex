@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from app.modules.sources.row_parser import SourceRowParseError, parse_source_rows
