@@ -145,6 +145,7 @@ async def load_material_planning_snapshot(
     all_payload = {
         "as_of": as_of.isoformat(),
         "inventory": _sorted_payload(inventory_rows),
+        "components": _sorted_payload(list(components.values())),
         "production_orders": _sorted_payload(production_rows),
         "bom_revisions": _sorted_payload(revision_rows),
         "bom_lines": _sorted_payload(line_rows),
@@ -213,7 +214,7 @@ async def load_material_planning_snapshot(
         component = components.get(row.component_id)
         if component is None:
             # The FK should prevent this; fail closed if the workspace data is inconsistent.
-            continue
+            raise ValueError(f"INVENTORY_COMPONENT_NOT_FOUND:{row.component_id}")
         balances.append(
             InventoryBalanceInput(
                 workspace_id=str(workspace_id),
@@ -229,7 +230,7 @@ async def load_material_planning_snapshot(
                 basis_excludes_reserved=row.basis_excludes_reserved,
                 basis_excludes_blocked=row.basis_excludes_blocked,
                 uom=component.unit_of_measure,
-                source_refs=(f"inventory:{row.id}",),
+                source_refs=(row.source_ref or f"inventory:{row.id}",),
             )
         )
 

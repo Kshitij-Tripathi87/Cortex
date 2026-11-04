@@ -289,6 +289,7 @@ class Inventory(Base):
     )
     basis_excludes_reserved: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     basis_excludes_blocked: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
     last_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

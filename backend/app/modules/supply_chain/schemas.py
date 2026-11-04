@@ -100,6 +100,7 @@ class InventoryRow(BaseModel):
     )
     basis_excludes_reserved: bool | None = None
     basis_excludes_blocked: bool | None = None
+    source_ref: str | None = None
 
     @model_validator(mode="after")
     def _validate_basis_semantics(self) -> InventoryRow:

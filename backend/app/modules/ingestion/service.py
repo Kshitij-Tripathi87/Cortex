@@ -176,7 +176,8 @@ async def ingest_csv(
     # Parse CSV (sync → threadpool)
     rows = await run_in_threadpool(_parse_csv_bytes, file_bytes)
 
-    # Dispatch to dataset handler
+    # Dispatch to dataset handler. Every row-capable record receives a stable
+    # source locator back to the immutable uploaded object unless supplied.
     schema_cls = _DATASET_TO_SCHEMA[dataset_type]
     rows_total = len(rows)
     rows_accepted = 0
@@ -214,6 +215,10 @@ async def ingest_csv(
             continue
 
         try:
+            if hasattr(row_obj, "source_ref") and not row_obj.source_ref:
+                row_obj = row_obj.model_copy(
+                    update={"source_ref": f"{file_key}#row={idx}"}
+                )
             await _dispatch_insert(
                 dataset_type=dataset_type,
                 session=session,
@@ -420,6 +425,10 @@ async def ingest_csv_streaming(
             continue
 
         try:
+            if hasattr(row_obj, "source_ref") and not row_obj.source_ref:
+                row_obj = row_obj.model_copy(
+                    update={"source_ref": f"{file_key}#row={idx}"}
+                )
             await _dispatch_insert(
                 dataset_type=dataset_type,
                 session=session,
@@ -693,6 +702,7 @@ async def _insert_inventory(
             quantity_basis=row.quantity_basis,
             basis_excludes_reserved=row.basis_excludes_reserved,
             basis_excludes_blocked=row.basis_excludes_blocked,
+            source_ref=row.source_ref,
         )
     )
 

@@ -88,6 +88,12 @@ def upgrade() -> None:
                 sa.Column("basis_excludes_blocked", sa.Boolean(), nullable=True),
                 schema="inventory",
             )
+        if "source_ref" not in columns:
+            op.add_column(
+                "inventory",
+                sa.Column("source_ref", sa.String(512), nullable=True),
+                schema="inventory",
+            )
 
     if not _table_exists("inventory", "bom_revisions"):
         op.create_table(
@@ -222,6 +228,7 @@ def downgrade() -> None:
     if _table_exists("inventory", "inventory"):
         columns = _columns("inventory", "inventory")
         for column_name in (
+            "source_ref",
             "basis_excludes_blocked",
             "basis_excludes_reserved",
             "quantity_basis",
