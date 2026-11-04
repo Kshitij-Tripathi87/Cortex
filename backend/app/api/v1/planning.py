@@ -58,7 +58,7 @@ def _plan_payload(result: Any) -> dict[str, Any]:
                     {
                         "contribution_id": item.contribution_id,
                         "material_id": item.material_id,
-                        "facility_id": item.facility_id,
+                        "warehouse_id": item.facility_id,
                         "gross_quantity": format(item.gross_quantity, "f"),
                         "reserved_quantity": format(item.reserved_quantity, "f"),
                         "uncovered_quantity": format(item.uncovered_quantity, "f"),
@@ -74,7 +74,7 @@ def _plan_payload(result: Any) -> dict[str, Any]:
         ],
         "material_projections": [
             {
-                "facility_id": projection.facility_id,
+                "warehouse_id": projection.facility_id,
                 "material_id": projection.material_id,
                 "status": projection.status.value,
                 "quantity_basis": projection.quantity_basis.value,
@@ -178,7 +178,7 @@ async def create_material_plan(
             if risky_buckets:
                 risk_by_material.append(
                     {
-                        "facility_id": projection.facility_id,
+                        "warehouse_id": projection.facility_id,
                         "material_id": projection.material_id,
                         "first_safety_stock_breach": (
                             projection.first_safety_stock_breach.isoformat()
