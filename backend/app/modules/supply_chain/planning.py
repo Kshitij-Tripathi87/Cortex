@@ -21,11 +21,11 @@ Semantics:
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
-from typing import Iterable, Sequence
 
 
 ZERO = Decimal("0")
@@ -500,12 +500,14 @@ class InventoryBalance:
             _positive(amount, name, allow_zero=True)
             object.__setattr__(self, name, amount)
         object.__setattr__(self, "uom", _uom(self.uom))
-        if self.quantity_basis == QuantityBasis.PHYSICAL_ON_HAND:
-            if self.reserved_quantity + self.blocked_quantity > self.quantity:
-                raise PlanningInputError(
-                    "INVENTORY_COMPONENTS_EXCEED_ON_HAND",
-                    "Reserved plus blocked inventory exceeds physical on-hand quantity",
-                )
+        if (
+            self.quantity_basis == QuantityBasis.PHYSICAL_ON_HAND
+            and self.reserved_quantity + self.blocked_quantity > self.quantity
+        ):
+            raise PlanningInputError(
+                "INVENTORY_COMPONENTS_EXCEED_ON_HAND",
+                "Reserved plus blocked inventory exceeds physical on-hand quantity",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,6 +588,7 @@ def project_inventory(
     inventory: InventoryBalance,
     demands: Sequence[DemandContribution],
     *,
+    snapshot_id: str,
     receipts: Sequence[SupplyReceipt] = (),
     reservations: Sequence[ReservationAllocation] = (),
     start_date: date,
