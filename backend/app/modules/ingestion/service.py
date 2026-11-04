@@ -34,6 +34,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import MvpDatasetType
@@ -42,6 +43,8 @@ from app.infrastructure.storage_client import ObjectStorageClient
 from app.modules.ingestion.models import IngestionLog
 from app.modules.ingestion.repository import IngestionLogRepository
 from app.modules.supply_chain.models import (
+    BOMLineRecord,
+    BOMRevisionRecord,
     BillOfMaterials,
     Component,
     Customer,
@@ -49,8 +52,11 @@ from app.modules.supply_chain.models import (
     Factory,
     Inventory,
     Order,
+    ProductionOrderRecord,
+    PurchaseOrderLineRecord,
     Product,
     Supplier,
+    UOMConversionRecord,
     Warehouse,
 )
 from app.modules.supply_chain.repositories import (
@@ -66,6 +72,8 @@ from app.modules.supply_chain.repositories import (
     WarehouseRepository,
 )
 from app.modules.supply_chain.schemas import (
+    BOMLineRow,
+    BOMRevisionRow,
     BomRow,
     ComponentRow,
     CustomerRow,
@@ -73,8 +81,11 @@ from app.modules.supply_chain.schemas import (
     FactoryRow,
     InventoryRow,
     OrderRow,
+    ProductionOrderRow,
+    PurchaseOrderLineRow,
     ProductRow,
     SupplierRow,
+    UOMConversionRow,
     WarehouseRow,
 )
 
@@ -90,6 +101,11 @@ _DATASET_TO_MODEL: dict[str, type] = {
     MvpDatasetType.INVENTORY: Inventory,
     MvpDatasetType.BOM: BillOfMaterials,
     MvpDatasetType.ORDERS: Order,
+    MvpDatasetType.BOM_REVISIONS: BOMRevisionRecord,
+    MvpDatasetType.BOM_LINES: BOMLineRecord,
+    MvpDatasetType.PRODUCTION_ORDERS: ProductionOrderRecord,
+    MvpDatasetType.PURCHASE_ORDER_LINES: PurchaseOrderLineRecord,
+    MvpDatasetType.UOM_CONVERSIONS: UOMConversionRecord,
 }
 
 _DATASET_TO_SCHEMA: dict[str, type] = {
@@ -103,6 +119,11 @@ _DATASET_TO_SCHEMA: dict[str, type] = {
     MvpDatasetType.INVENTORY: InventoryRow,
     MvpDatasetType.BOM: BomRow,
     MvpDatasetType.ORDERS: OrderRow,
+    MvpDatasetType.BOM_REVISIONS: BOMRevisionRow,
+    MvpDatasetType.BOM_LINES: BOMLineRow,
+    MvpDatasetType.PRODUCTION_ORDERS: ProductionOrderRow,
+    MvpDatasetType.PURCHASE_ORDER_LINES: PurchaseOrderLineRow,
+    MvpDatasetType.UOM_CONVERSIONS: UOMConversionRow,
 }
 
 
@@ -559,6 +580,26 @@ async def _dispatch_insert(
         await _insert_order(session, workspace_id, row, cache)
         return
 
+    if dataset_type == MvpDatasetType.BOM_REVISIONS:
+        await _insert_bom_revision(session, workspace_id, row, cache)
+        return
+
+    if dataset_type == MvpDatasetType.BOM_LINES:
+        await _insert_bom_line(session, workspace_id, row, cache)
+        return
+
+    if dataset_type == MvpDatasetType.PRODUCTION_ORDERS:
+        await _insert_production_order(session, workspace_id, row, cache)
+        return
+
+    if dataset_type == MvpDatasetType.PURCHASE_ORDER_LINES:
+        await _insert_purchase_order_line(session, workspace_id, row, cache)
+        return
+
+    if dataset_type == MvpDatasetType.UOM_CONVERSIONS:
+        await _insert_uom_conversion(session, workspace_id, row)
+        return
+
     raise ValueError(f"No insert handler for dataset_type={dataset_type}")
 
 
@@ -647,6 +688,11 @@ async def _insert_inventory(
             component_id=component_id,
             quantity=row.quantity,
             safety_stock=row.safety_stock,
+            reserved_quantity=row.reserved_quantity,
+            blocked_quantity=row.blocked_quantity,
+            quantity_basis=row.quantity_basis,
+            basis_excludes_reserved=row.basis_excludes_reserved,
+            basis_excludes_blocked=row.basis_excludes_blocked,
         )
     )
 
@@ -681,6 +727,261 @@ async def _insert_order(
             actual_delivery_date=row.actual_delivery_date,
         )
     )
+
+
+async def _resolve_revision(
+    session: AsyncSession,
+    workspace_id: UUID,
+    *,
+    parent_item_type: str,
+    parent_item_id: UUID,
+    revision_code: str,
+    facility_id: UUID | None,
+) -> BOMRevisionRecord:
+    stmt = (
+        select(BOMRevisionRecord)
+        .where(BOMRevisionRecord.workspace_id == workspace_id)
+        .where(BOMRevisionRecord.parent_item_type == parent_item_type)
+        .where(BOMRevisionRecord.parent_item_id == parent_item_id)
+        .where(BOMRevisionRecord.revision_code == revision_code)
+    )
+    if facility_id is None:
+        stmt = stmt.where(BOMRevisionRecord.facility_id.is_(None))
+    else:
+        stmt = stmt.where(BOMRevisionRecord.facility_id == facility_id)
+    result = await session.execute(stmt)
+    revision = result.scalar_one_or_none()
+    if revision is None:
+        raise ValueError(
+            f"BOM_REVISION_NOT_FOUND:{parent_item_type}:{parent_item_id}:{revision_code}"
+        )
+    return revision
+
+
+async def _insert_bom_revision(
+    session: AsyncSession, workspace_id: UUID, row: BOMRevisionRow, cache: dict
+) -> None:
+    parent_id = await _resolve_node(
+        session, workspace_id, cache, row.parent_item_type, row.parent_item_ref
+    )
+    facility_id = (
+        await _resolve_node(session, workspace_id, cache, "factory", row.factory_code)
+        if row.factory_code else None
+    )
+    stmt = (
+        select(BOMRevisionRecord)
+        .where(BOMRevisionRecord.workspace_id == workspace_id)
+        .where(BOMRevisionRecord.parent_item_type == row.parent_item_type)
+        .where(BOMRevisionRecord.parent_item_id == parent_id)
+        .where(BOMRevisionRecord.revision_code == row.revision_code)
+    )
+    stmt = stmt.where(
+        BOMRevisionRecord.facility_id.is_(None)
+        if facility_id is None
+        else BOMRevisionRecord.facility_id == facility_id
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        record = BOMRevisionRecord(
+            workspace_id=workspace_id,
+            parent_item_type=row.parent_item_type,
+            parent_item_id=parent_id,
+            revision_code=row.revision_code,
+            facility_id=facility_id,
+        )
+        session.add(record)
+    record.valid_from = row.valid_from
+    record.valid_to = row.valid_to
+    record.active = row.active
+    record.source_ref = row.source_ref
+    await session.flush()
+
+
+async def _insert_bom_line(
+    session: AsyncSession, workspace_id: UUID, row: BOMLineRow, cache: dict
+) -> None:
+    parent_id = await _resolve_node(
+        session, workspace_id, cache, row.parent_item_type, row.parent_item_ref
+    )
+    facility_id = (
+        await _resolve_node(session, workspace_id, cache, "factory", row.factory_code)
+        if row.factory_code else None
+    )
+    revision = await _resolve_revision(
+        session,
+        workspace_id,
+        parent_item_type=row.parent_item_type,
+        parent_item_id=parent_id,
+        revision_code=row.revision_code,
+        facility_id=facility_id,
+    )
+    child_id = await _resolve_node(
+        session, workspace_id, cache, row.child_item_type, row.child_item_ref
+    )
+    stmt = (
+        select(BOMLineRecord)
+        .where(BOMLineRecord.workspace_id == workspace_id)
+        .where(BOMLineRecord.revision_id == revision.id)
+        .where(BOMLineRecord.line_code == row.line_code)
+    )
+    result = await session.execute(stmt)
+    line = result.scalar_one_or_none()
+    if line is None:
+        line = BOMLineRecord(
+            workspace_id=workspace_id,
+            revision_id=revision.id,
+            line_code=row.line_code,
+            child_item_type=row.child_item_type,
+            child_item_id=child_id,
+            usage_quantity=row.usage_quantity,
+            usage_uom=row.usage_uom,
+            child_base_uom=row.child_base_uom,
+        )
+        session.add(line)
+    line.child_item_type = row.child_item_type
+    line.child_item_id = child_id
+    line.usage_quantity = row.usage_quantity
+    line.usage_uom = row.usage_uom
+    line.child_base_uom = row.child_base_uom
+    line.child_is_assembly = row.child_is_assembly
+    line.scrap_factor = row.scrap_factor
+    line.valid_from = row.valid_from
+    line.valid_to = row.valid_to
+    line.source_ref = row.source_ref
+    await session.flush()
+
+
+async def _insert_production_order(
+    session: AsyncSession, workspace_id: UUID, row: ProductionOrderRow, cache: dict
+) -> None:
+    factory_id = await _resolve_node(session, workspace_id, cache, "factory", row.factory_code)
+    warehouse_id = await _resolve_node(
+        session, workspace_id, cache, "warehouse", row.warehouse_code
+    )
+    item_id = await _resolve_node(session, workspace_id, cache, row.item_type, row.item_ref)
+    revision_id = None
+    if row.bom_revision_code:
+        revision = await _resolve_revision(
+            session,
+            workspace_id,
+            parent_item_type=row.item_type,
+            parent_item_id=item_id,
+            revision_code=row.bom_revision_code,
+            facility_id=factory_id,
+        )
+        revision_id = revision.id
+
+    stmt = (
+        select(ProductionOrderRecord)
+        .where(ProductionOrderRecord.workspace_id == workspace_id)
+        .where(ProductionOrderRecord.order_number == row.order_number)
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        record = ProductionOrderRecord(
+            workspace_id=workspace_id,
+            order_number=row.order_number,
+            factory_id=factory_id,
+            warehouse_id=warehouse_id,
+            item_type=row.item_type,
+            item_id=item_id,
+            quantity=row.quantity,
+            order_uom=row.order_uom,
+            item_base_uom=row.item_base_uom,
+            material_need_at=row.material_need_at,
+            status=row.status,
+        )
+        session.add(record)
+    record.factory_id = factory_id
+    record.warehouse_id = warehouse_id
+    record.item_type = row.item_type
+    record.item_id = item_id
+    record.quantity = row.quantity
+    record.order_uom = row.order_uom
+    record.item_base_uom = row.item_base_uom
+    record.material_need_at = row.material_need_at
+    record.status = row.status
+    record.bom_revision_id = revision_id
+    record.source_ref = row.source_ref
+    await session.flush()
+
+
+async def _insert_purchase_order_line(
+    session: AsyncSession, workspace_id: UUID, row: PurchaseOrderLineRow, cache: dict
+) -> None:
+    supplier_id = await _resolve_node(
+        session, workspace_id, cache, "supplier", row.supplier_name
+    )
+    warehouse_id = await _resolve_node(
+        session, workspace_id, cache, "warehouse", row.warehouse_code
+    )
+    component_id = await _resolve_node(
+        session, workspace_id, cache, "component", row.component_sku
+    )
+    stmt = (
+        select(PurchaseOrderLineRecord)
+        .where(PurchaseOrderLineRecord.workspace_id == workspace_id)
+        .where(PurchaseOrderLineRecord.po_number == row.po_number)
+        .where(PurchaseOrderLineRecord.line_number == row.line_number)
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        record = PurchaseOrderLineRecord(
+            workspace_id=workspace_id,
+            po_number=row.po_number,
+            line_number=row.line_number,
+            supplier_id=supplier_id,
+            warehouse_id=warehouse_id,
+            component_id=component_id,
+            ordered_quantity=row.ordered_quantity,
+            received_quantity=row.received_quantity,
+            status=row.status,
+            uom=row.uom,
+        )
+        session.add(record)
+    record.supplier_id = supplier_id
+    record.warehouse_id = warehouse_id
+    record.component_id = component_id
+    record.ordered_quantity = row.ordered_quantity
+    record.received_quantity = row.received_quantity
+    record.open_quantity = row.open_quantity
+    record.expected_date = row.expected_date
+    record.status = row.status
+    record.confirmed = row.confirmed
+    record.uom = row.uom
+    record.source_ref = row.source_ref
+    await session.flush()
+
+
+async def _insert_uom_conversion(
+    session: AsyncSession, workspace_id: UUID, row: UOMConversionRow
+) -> None:
+    from_uom = row.from_uom.strip().upper()
+    to_uom = row.to_uom.strip().upper()
+    if from_uom == to_uom:
+        raise ValueError("UOM_CONVERSION_SOURCE_AND_TARGET_MUST_DIFFER")
+    stmt = (
+        select(UOMConversionRecord)
+        .where(UOMConversionRecord.workspace_id == workspace_id)
+        .where(UOMConversionRecord.from_uom == from_uom)
+        .where(UOMConversionRecord.to_uom == to_uom)
+    )
+    result = await session.execute(stmt)
+    record = result.scalar_one_or_none()
+    if record is None:
+        record = UOMConversionRecord(
+            workspace_id=workspace_id,
+            from_uom=from_uom,
+            to_uom=to_uom,
+            factor=row.factor,
+        )
+        session.add(record)
+    record.factor = row.factor
+    record.source_ref = row.source_ref
+    await session.flush()
 
 
 __all__ = ["ingest_csv"]
