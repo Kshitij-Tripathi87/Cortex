@@ -51,6 +51,7 @@ async def init_db(dsn: str) -> None:
     # then create tables (idempotent; safe for dev; Alembic migrations for prod).
     import app.modules.nexus_spine.persistence.models  # noqa: F401 — registers tables on Base.metadata
     import app.modules.orchestration.task_runtime_models  # noqa: F401 — registers MAF-4 tables on Base.metadata
+    import app.modules.supply_chain.models  # noqa: F401 — registers planning and supply-chain tables
 
     if "sqlite" in dsn:
         sqlite_metadata = MetaData()
