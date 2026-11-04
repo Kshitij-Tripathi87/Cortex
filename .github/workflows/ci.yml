@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, codex/priority-1-2-foundation-2026-11-04]
   pull_request:
     branches: [main, develop]
 
