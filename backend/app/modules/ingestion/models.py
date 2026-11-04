@@ -47,6 +47,7 @@ class IngestionLog(Base):
     file_name: Mapped[str] = mapped_column(String(512), nullable=False)
     file_key: Mapped[str] = mapped_column(String(1024), nullable=False, comment="S3 object key")
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    file_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[IngestionStatus] = mapped_column(
         String(32), nullable=False, default=IngestionStatus.RECEIVED
     )
