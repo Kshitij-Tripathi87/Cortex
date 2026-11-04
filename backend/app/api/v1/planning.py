@@ -124,7 +124,7 @@ async def create_material_plan(
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Calculate material requirements and shortage timelines for one workspace."""
-    require_workspace_access(request.workspace_id, auth)
+    require_workspace_access(str(request.workspace_id), auth)
     end_date = request.as_of + timedelta(days=request.horizon_days - 1)
     token = set_workspace_scope(request.workspace_id)
     try:
@@ -244,7 +244,7 @@ async def get_material_plan_run(
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return a previously persisted planning run without exposing other tenants."""
-    require_workspace_access(workspace_id, auth)
+    require_workspace_access(str(workspace_id), auth)
     stmt = (
         select(MaterialPlanningRunRecord)
         .where(MaterialPlanningRunRecord.id == run_id)
