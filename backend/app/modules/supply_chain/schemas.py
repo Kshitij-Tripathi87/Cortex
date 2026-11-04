@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -91,14 +91,110 @@ class EdgeRow(BaseModel):
 class InventoryRow(BaseModel):
     warehouse_code: str
     component_sku: str
-    quantity: Annotated[int, Field(ge=0)]
-    safety_stock: Annotated[int, Field(ge=0)] = 0
+    quantity: Annotated[Decimal, Field(ge=0)]
+    safety_stock: Annotated[Decimal, Field(ge=0)] = Decimal("0")
+    reserved_quantity: Annotated[Decimal, Field(ge=0)] = Decimal("0")
+    blocked_quantity: Annotated[Decimal, Field(ge=0)] = Decimal("0")
+    quantity_basis: Literal["physical_on_hand", "available_to_use", "free_stock"] = (
+        "physical_on_hand"
+    )
+    basis_excludes_reserved: bool | None = None
+    basis_excludes_blocked: bool | None = None
+
+    @model_validator(mode="after")
+    def _validate_basis_semantics(self) -> InventoryRow:
+        if self.quantity_basis != "physical_on_hand" and (
+            self.basis_excludes_reserved is None or self.basis_excludes_blocked is None
+        ):
+            raise ValueError(
+                "available/free inventory must declare reserved and blocked semantics"
+            )
+        return self
 
 
 class BomRow(BaseModel):
     product_sku: str
     component_sku: str
     quantity_per_unit: Annotated[Decimal, Field(gt=0)]
+
+
+
+class BOMRevisionRow(BaseModel):
+    parent_item_type: Literal["product", "component"]
+    parent_item_ref: Annotated[str, Field(min_length=1, max_length=128)]
+    revision_code: Annotated[str, Field(min_length=1, max_length=64)]
+    factory_code: str | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    active: bool = True
+    source_ref: str | None = None
+
+
+class BOMLineRow(BaseModel):
+    parent_item_type: Literal["product", "component"]
+    parent_item_ref: Annotated[str, Field(min_length=1, max_length=128)]
+    revision_code: Annotated[str, Field(min_length=1, max_length=64)]
+    factory_code: str | None = None
+    line_code: Annotated[str, Field(min_length=1, max_length=64)]
+    child_item_type: Literal["product", "component"]
+    child_item_ref: Annotated[str, Field(min_length=1, max_length=128)]
+    usage_quantity: Annotated[Decimal, Field(gt=0)]
+    usage_uom: Annotated[str, Field(min_length=1, max_length=32)]
+    child_base_uom: Annotated[str, Field(min_length=1, max_length=32)]
+    child_is_assembly: bool = False
+    scrap_factor: Annotated[Decimal, Field(gt=0)] | None = None
+    valid_from: date | None = None
+    valid_to: date | None = None
+    source_ref: str | None = None
+
+
+class ProductionOrderRow(BaseModel):
+    order_number: Annotated[str, Field(min_length=1, max_length=128)]
+    factory_code: Annotated[str, Field(min_length=1, max_length=64)]
+    warehouse_code: Annotated[str, Field(min_length=1, max_length=64)]
+    item_type: Literal["product", "component"]
+    item_ref: Annotated[str, Field(min_length=1, max_length=128)]
+    quantity: Annotated[Decimal, Field(gt=0)]
+    order_uom: Annotated[str, Field(min_length=1, max_length=32)]
+    item_base_uom: Annotated[str, Field(min_length=1, max_length=32)]
+    material_need_at: date
+    status: Annotated[str, Field(min_length=1, max_length=32)]
+    bom_revision_code: str | None = None
+    source_ref: str | None = None
+
+
+class PurchaseOrderLineRow(BaseModel):
+    po_number: Annotated[str, Field(min_length=1, max_length=128)]
+    line_number: Annotated[str, Field(min_length=1, max_length=32)]
+    supplier_name: Annotated[str, Field(min_length=1, max_length=256)]
+    warehouse_code: Annotated[str, Field(min_length=1, max_length=64)]
+    component_sku: Annotated[str, Field(min_length=1, max_length=128)]
+    ordered_quantity: Annotated[Decimal, Field(gt=0)]
+    received_quantity: Annotated[Decimal, Field(ge=0)] = Decimal("0")
+    open_quantity: Annotated[Decimal, Field(ge=0)] | None = None
+    expected_date: date | None = None
+    status: Annotated[str, Field(min_length=1, max_length=32)] = "open"
+    confirmed: bool = False
+    uom: Annotated[str, Field(min_length=1, max_length=32)]
+    source_ref: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_receipt_quantities(self) -> PurchaseOrderLineRow:
+        if self.received_quantity > self.ordered_quantity:
+            raise ValueError("received_quantity cannot exceed ordered_quantity")
+        if (
+            self.open_quantity is not None
+            and self.open_quantity > self.ordered_quantity - self.received_quantity
+        ):
+            raise ValueError("open_quantity cannot exceed ordered_quantity - received_quantity")
+        return self
+
+
+class UOMConversionRow(BaseModel):
+    from_uom: Annotated[str, Field(min_length=1, max_length=32)]
+    to_uom: Annotated[str, Field(min_length=1, max_length=32)]
+    factor: Annotated[Decimal, Field(gt=0)]
+    source_ref: str | None = None
 
 
 class OrderRow(BaseModel):
@@ -142,6 +238,8 @@ ROW_SCHEMA_BY_DATASET: dict[str, type[BaseModel]] = {
 
 
 __all__ = [
+    "BOMLineRow",
+    "BOMRevisionRow",
     "BomRow",
     "ComponentRow",
     "CustomerRow",
@@ -150,8 +248,11 @@ __all__ = [
     "FactoryRow",
     "InventoryRow",
     "OrderRow",
+    "ProductionOrderRow",
+    "PurchaseOrderLineRow",
     "ProductRow",
     "ROW_SCHEMA_BY_DATASET",
     "SupplierRow",
+    "UOMConversionRow",
     "WarehouseRow",
 ]
