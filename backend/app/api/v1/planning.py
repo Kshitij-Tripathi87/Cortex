@@ -15,7 +15,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.workspace_scope import reset_workspace_scope, set_workspace_scope
@@ -30,7 +30,12 @@ router = APIRouter()
 
 class MaterialPlanRequest(BaseModel):
     workspace_id: UUID
-    as_of: date
+    as_of: date = Field(
+        description=(
+            "Effective business date asserted for the currently stored inventory "
+            "dataset. This endpoint does not query historical inventory archives."
+        )
+    )
     horizon_days: int = Field(default=90, ge=1, le=366)
 
 
@@ -128,6 +133,12 @@ async def create_material_plan(
     end_date = request.as_of + timedelta(days=request.horizon_days - 1)
     token = set_workspace_scope(request.workspace_id)
     try:
+        # All source tables must be read from one consistent PostgreSQL
+        # transaction snapshot. Auth resolution does not use this DB session.
+        if session.get_bind().dialect.name == "postgresql":
+            await session.execute(
+                text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            )
         loaded = await load_material_planning_snapshot(
             session, request.workspace_id, as_of=request.as_of
         )
@@ -137,6 +148,14 @@ async def create_material_plan(
             end_date=end_date,
         )
         payload = _plan_payload(result)
+        payload["snapshot_temporal_basis"] = (
+            "caller_asserted_effective_date_on_current_workspace_inventory"
+        )
+        payload["historical_inventory_lookup_supported"] = False
+        payload["warnings"] = sorted(
+            set(payload["warnings"])
+            | {"AS_OF_DATE_APPLIES_TO_CURRENTLY_STORED_INVENTORY_ROWS"}
+        )
 
         risk_by_material: list[dict[str, Any]] = []
         affected_production_order_ids: set[str] = set()
