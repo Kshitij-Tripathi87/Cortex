@@ -25,6 +25,17 @@ on:
 env:
   CORTEX_ENV: test
   CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_stress
+  # The PostgreSQL-backed stress gates read their URL from
+  # CORTEX_TEST_DATABASE_URL (tests/conftest.py); without it they fall back to
+  # the hardcoded `cortex_test` database, which this job never creates, so
+  # every one of them errored/skipped instead of running. ci.yml and test.yml
+  # already set this — stress.yml was the only PG-provisioning job that did
+  # not (the cause of the long-standing "stress run failed" signal).
+  CORTEX_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_stress
+  # Vestigial: no currently stress-marked test touches Redis (the two
+  # deterministic-replay gates are pure in-process event projection and the
+  # concurrency gate is PostgreSQL-only). Kept harmlessly for parity with the
+  # other suites; no redis service is declared because nothing consumes it.
   CORTEX_REDIS_URL: redis://localhost:6379/0
 
 jobs:
