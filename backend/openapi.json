@@ -4722,7 +4722,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__api__v1__multi_agent__DeliberateRequest"
+                "$ref": "#/components/schemas/DeliberateRequest"
               }
             }
           },
@@ -6477,632 +6477,6 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Agent Capability Manifests Api V1 Agents Manifests Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/state": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Workspace State",
-        "description": "Returns current workspace overview, loaded datasets, graph size, and active signals.",
-        "operationId": "get_workspace_state_api_v1_workspace_state_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Workspace State Api V1 Workspace State Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/demo/load": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Load Demo Incident",
-        "description": "Loads the canonical 6-minute controlled demo dataset into the live backend workspace.",
-        "operationId": "load_demo_incident_api_v1_workspace_demo_load_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Load Demo Incident Api V1 Workspace Demo Load Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/ingest-raw": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Ingest Raw Table",
-        "description": "Dynamically ingests raw CSV table and expands the operational graph proportionally.",
-        "operationId": "ingest_raw_table_api_v1_workspace_ingest_raw_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IngestRawRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Ingest Raw Table Api V1 Workspace Ingest Raw Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/upload": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Upload Dataset Files",
-        "description": "Multi-table CSV upload endpoint.",
-        "operationId": "upload_dataset_files_api_v1_workspace_upload_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_upload_dataset_files_api_v1_workspace_upload_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Upload Dataset Files Api V1 Workspace Upload Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/graph/subgraph": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Graph Subgraph",
-        "description": "Returns viewport-aware localized subgraph for high-performance canvas rendering.",
-        "operationId": "get_graph_subgraph_api_v1_workspace_graph_subgraph_get",
-        "parameters": [
-          {
-            "name": "center_node_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Focal node ID for 2-hop ego-network",
-              "title": "Center Node Id"
-            },
-            "description": "Focal node ID for 2-hop ego-network"
-          },
-          {
-            "name": "max_hops",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 4,
-              "minimum": 1,
-              "default": 2,
-              "title": "Max Hops"
-            }
-          },
-          {
-            "name": "limit_nodes",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 500,
-              "minimum": 10,
-              "default": 100,
-              "title": "Limit Nodes"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Graph Subgraph Api V1 Workspace Graph Subgraph Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/graph/critical-nodes": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Critical Nodes",
-        "description": "Returns ranked list of Single Points of Failure (SPOFs) and top PageRank hubs.",
-        "operationId": "get_critical_nodes_api_v1_workspace_graph_critical_nodes_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Critical Nodes Api V1 Workspace Graph Critical Nodes Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/signals": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Active Signals",
-        "description": "Returns detected operational anomaly signals and downstream blast radius exposure.",
-        "operationId": "get_active_signals_api_v1_workspace_signals_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Active Signals Api V1 Workspace Signals Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/deliberate": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Trigger Agent Deliberation",
-        "description": "Runs the live Multi-Agent Decision Room and counterfactual simulations.",
-        "operationId": "trigger_agent_deliberation_api_v1_workspace_deliberate_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/app__api__v1__workspace__DeliberateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Trigger Agent Deliberation Api V1 Workspace Deliberate Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/decisions/evidence": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Decision Evidence",
-        "description": "Returns the traversable Decision Evidence Graph with SHA-256 node hashes.\n\nWhen ``decision_id`` is provided the lookup is fail-closed: evidence is\nonly ever returned if it belongs to exactly that decision \u2014 never to an\nunrelated earlier or later decision.",
-        "operationId": "get_decision_evidence_api_v1_workspace_decisions_evidence_get",
-        "parameters": [
-          {
-            "name": "decision_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Decision to retrieve evidence for",
-              "title": "Decision Id"
-            },
-            "description": "Decision to retrieve evidence for"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Decision Evidence Api V1 Workspace Decisions Evidence Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/decisions/validity": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Decision Validity",
-        "description": "Returns whether the latest decision is valid or invalidated by world state mutation.",
-        "operationId": "get_decision_validity_api_v1_workspace_decisions_validity_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Decision Validity Api V1 Workspace Decisions Validity Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/query/ask": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Ask Workspace Question",
-        "description": "Natural-language data interrogation and evidence-backed answer generation.",
-        "operationId": "ask_workspace_question_api_v1_workspace_query_ask_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AskQuestionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Ask Workspace Question Api V1 Workspace Query Ask Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/query/readiness": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Check Query Readiness",
-        "description": "Preflight answerability check answering 'Can I answer this?' before execution.",
-        "operationId": "check_query_readiness_api_v1_workspace_query_readiness_get",
-        "parameters": [
-          {
-            "name": "query",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Query to evaluate answerability for",
-              "title": "Query"
-            },
-            "description": "Query to evaluate answerability for"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Check Query Readiness Api V1 Workspace Query Readiness Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/append-stream": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Append Stream Event",
-        "description": "Injects live streaming event to mutate the operational graph via GraphDeltaEngine.",
-        "operationId": "append_stream_event_api_v1_workspace_append_stream_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StreamEventRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Append Stream Event Api V1 Workspace Append Stream Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/graph/delta": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Graph Deltas",
-        "description": "Returns list of incremental graph deltas since specified graph version.",
-        "operationId": "get_graph_deltas_api_v1_workspace_graph_delta_get",
-        "parameters": [
-          {
-            "name": "since_version",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Previous graph version",
-              "default": "",
-              "title": "Since Version"
-            },
-            "description": "Previous graph version"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Graph Deltas Api V1 Workspace Graph Delta Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/stream": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Stream Workspace Events",
-        "description": "Server-Sent Events channel for live workspace reconciliation.\n\nEmits:\n- ``graph_delta``  \u2014 fired when the delta engine records new mutations;\n  payload includes ``seq`` (E1 monotonic per-engine sequence number)\n  and the canonical ``nodes_count`` / ``edges_count`` for client\n  reconciliation.\n- ``heartbeat``    \u2014 periodic authoritative versions + graph size,\n  with the current ``seq`` so clients can detect missed events.\n- ``resync``       \u2014 sent exactly once at connect time if the\n  client's ``since_seq`` is older than the oldest in-memory delta;\n  the client must do a full refresh on receipt.",
-        "operationId": "stream_workspace_events_api_v1_workspace_stream_get",
-        "parameters": [
-          {
-            "name": "since_seq",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "description": "E1 resync: the seq number the client last saw. The server replays all deltas with seq > since_seq before entering live tailing. -1 = no resync, jump straight to live.",
-              "default": -1,
-              "title": "Since Seq"
-            },
-            "description": "E1 resync: the seq number the client last saw. The server replays all deltas with seq > since_seq before entering live tailing. -1 = no resync, jump straight to live."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -10522,20 +9896,6 @@
         ],
         "title": "AnalogousRequest"
       },
-      "AskQuestionRequest": {
-        "properties": {
-          "query": {
-            "type": "string",
-            "title": "Query",
-            "description": "Operational natural language question"
-          }
-        },
-        "type": "object",
-        "required": [
-          "query"
-        ],
-        "title": "AskQuestionRequest"
-      },
       "AuditEventResponse": {
         "properties": {
           "event_id": {
@@ -10804,23 +10164,6 @@
         },
         "type": "object",
         "title": "Body_run_spine_api_v1_spine_run_post"
-      },
-      "Body_upload_dataset_files_api_v1_workspace_upload_post": {
-        "properties": {
-          "files": {
-            "items": {
-              "type": "string",
-              "contentMediaType": "application/octet-stream"
-            },
-            "type": "array",
-            "title": "Files"
-          }
-        },
-        "type": "object",
-        "required": [
-          "files"
-        ],
-        "title": "Body_upload_dataset_files_api_v1_workspace_upload_post"
       },
       "Body_upload_source_file_api_v1_sources_upload_post": {
         "properties": {
@@ -12306,6 +11649,29 @@
         "title": "DecisionSnapshotResponse",
         "description": "Complete decision snapshot with outcomes and lessons."
       },
+      "DeliberateRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "world_id": {
+            "type": "string",
+            "title": "World Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "world_id"
+        ],
+        "title": "DeliberateRequest"
+      },
       "DeliberationRequest": {
         "properties": {
           "task_type": {
@@ -12438,8 +11804,7 @@
           },
           "workspace_id": {
             "type": "string",
-            "title": "Workspace Id",
-            "default": "ws_default"
+            "title": "Workspace Id"
           },
           "replica_count": {
             "type": "integer",
@@ -12450,7 +11815,8 @@
         "type": "object",
         "required": [
           "agent_id",
-          "version"
+          "version",
+          "workspace_id"
         ],
         "title": "DeployReplicasRequest"
       },
@@ -13680,42 +13046,6 @@
           "suppliers"
         ],
         "title": "IngestContractRequest"
-      },
-      "IngestRawRequest": {
-        "properties": {
-          "table_name": {
-            "type": "string",
-            "title": "Table Name",
-            "description": "Table name (e.g. orders, sellers, customers, order_items)"
-          },
-          "csv_content": {
-            "type": "string",
-            "title": "Csv Content",
-            "description": "Raw CSV content string"
-          },
-          "primary_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Primary Key"
-          },
-          "max_rows": {
-            "type": "integer",
-            "title": "Max Rows",
-            "default": 5000
-          }
-        },
-        "type": "object",
-        "required": [
-          "table_name",
-          "csv_content"
-        ],
-        "title": "IngestRawRequest"
       },
       "IngestionAccepted": {
         "properties": {
@@ -18734,6 +18064,12 @@
             "description": "Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* (default False). Never enable in production.",
             "default": false
           },
+          "workspace_demo_routes": {
+            "type": "boolean",
+            "title": "Workspace Demo Routes",
+            "description": "Mount the unauthenticated, fixed-tenant /workspace/* demo singleton (default False). Test/dev affordance only \u2014 never enable in pilot/prod/staging.",
+            "default": false
+          },
           "feature_flags": {
             "additionalProperties": {
               "type": "boolean"
@@ -19406,27 +18742,6 @@
           "value"
         ],
         "title": "StateVariableResponse"
-      },
-      "StreamEventRequest": {
-        "properties": {
-          "event_type": {
-            "type": "string",
-            "title": "Event Type",
-            "description": "e.g. ORDER_PLACED, SELLER_DEGRADATION"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload",
-            "description": "Structured event payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "event_type",
-          "payload"
-        ],
-        "title": "StreamEventRequest"
       },
       "SubmitEventRequest": {
         "properties": {
@@ -20474,47 +19789,6 @@
           "metadata"
         ],
         "title": "WorldStateResponse"
-      },
-      "app__api__v1__multi_agent__DeliberateRequest": {
-        "properties": {
-          "workspace_id": {
-            "type": "string",
-            "title": "Workspace Id"
-          },
-          "world_id": {
-            "type": "string",
-            "title": "World Id"
-          },
-          "version": {
-            "type": "integer",
-            "title": "Version",
-            "default": 1
-          }
-        },
-        "type": "object",
-        "required": [
-          "workspace_id",
-          "world_id"
-        ],
-        "title": "DeliberateRequest"
-      },
-      "app__api__v1__workspace__DeliberateRequest": {
-        "properties": {
-          "incident_entity_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Entity Id",
-            "description": "Target entity ID to investigate"
-          }
-        },
-        "type": "object",
-        "title": "DeliberateRequest"
       }
     }
   }

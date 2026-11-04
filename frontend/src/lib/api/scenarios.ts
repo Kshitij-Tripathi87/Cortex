@@ -5,11 +5,14 @@
  * persistent endpoints (`/nexus/scenarios`) — the old `/scenarios` routes
  * never existed (register §1 row 9). These two functions currently have no
  * importers; they are kept correct (not deleted) for the frontend-rewire
- * slice. Callers must bridge the AuthProvider token via
- * `setNexusAuthToken` first — canonical endpoints are authenticated.
+ * slice. Authentication is injected by the shared client (`./http`), so
+ * callers need no token bridging.
+ *
+ * The former `fetchCounterfactuals` (which posted to the unauthenticated
+ * `/workspace/deliberate` demo singleton) has been removed under the RC0
+ * rewire; nothing imported it.
  */
 
-import type { RawCounterfactual } from "@/types/nexus";
 import { request } from "./http";
 
 export interface ScenarioMutation {
@@ -98,13 +101,4 @@ export async function simulateScenario(req: SimulationRequest): Promise<Simulati
     },
   });
   return envelope.data;
-}
-
-export async function fetchCounterfactuals(incidentEntityId: string): Promise<RawCounterfactual[]> {
-  const data = await request<{ counterfactuals: RawCounterfactual[] }>({
-    path: "/workspace/deliberate",
-    method: "POST",
-    body: { incident_entity_id: incidentEntityId },
-  });
-  return data.counterfactuals || [];
 }
