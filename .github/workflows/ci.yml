@@ -155,6 +155,56 @@ jobs:
           # configured in this repository.)
           fail_ci_error: false
 
+  priority-1-2-focused:
+    name: Priority 1–2 focused validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      CORTEX_ENV: test
+      CORTEX_DB_DSN: sqlite+aiosqlite:///:memory:
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend and development dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -e ".[dev]"
+      - name: Ruff checks for Priority 1 and 2 files
+        run: |
+          source .venv/bin/activate
+          ruff check \
+            app/modules/supply_chain/planning.py \
+            app/modules/ingestion/service.py \
+            app/modules/ingestion/models.py \
+            app/api/v1/ingestion.py \
+            tests/test_material_planning.py \
+            tests/test_ingestion_parsing.py \
+            tests/test_ingestion_transactions.py
+          ruff format --check \
+            app/modules/supply_chain/planning.py \
+            app/modules/ingestion/service.py \
+            app/modules/ingestion/models.py \
+            app/api/v1/ingestion.py \
+            tests/test_material_planning.py \
+            tests/test_ingestion_parsing.py \
+            tests/test_ingestion_transactions.py
+      - name: Run focused ingestion and planning tests
+        run: |
+          source .venv/bin/activate
+          # Isolate these tests from the repository-wide conftest, which
+          # currently imports a root product/ package absent from remote main.
+          pytest --confcutdir=app \
+            tests/test_ingestion_parsing.py \
+            tests/test_ingestion_transactions.py \
+            tests/test_material_planning.py \
+            -q --tb=short
+
   budget-check:
     runs-on: ubuntu-latest
     needs: test
