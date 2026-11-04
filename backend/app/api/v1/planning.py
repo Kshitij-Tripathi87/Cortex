@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -142,7 +143,8 @@ async def create_material_plan(
         loaded = await load_material_planning_snapshot(
             session, request.workspace_id, as_of=request.as_of
         )
-        result = run_material_plan(
+        result = await run_in_threadpool(
+            run_material_plan,
             loaded.snapshot,
             start_date=request.as_of,
             end_date=end_date,
