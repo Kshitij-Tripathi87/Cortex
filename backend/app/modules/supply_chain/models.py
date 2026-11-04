@@ -27,6 +27,7 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     JSON,
     Date,
     DateTime,
@@ -273,8 +274,19 @@ class Inventory(Base):
         ForeignKey("operational.components.id", ondelete="CASCADE"),
         nullable=False,
     )
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    safety_stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
+    safety_stock: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
+    reserved_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 4), nullable=False, default=0
+    )
+    blocked_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 4), nullable=False, default=0
+    )
+    quantity_basis: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="physical_on_hand"
+    )
+    basis_excludes_reserved: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    basis_excludes_blocked: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     last_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
@@ -389,7 +401,186 @@ class DisruptionEvent(Base):
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# inventory.* — revisioned manufacturing BOM and explicit UOM conversion
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class BOMRevisionRecord(Base):
+    __tablename__ = "bom_revisions"
+    __table_args__ = (
+        Index(
+            "ix_bom_revisions_workspace_parent",
+            "workspace_id",
+            "parent_item_type",
+            "parent_item_id",
+        ),
+        {"schema": "inventory"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_item_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    parent_item_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    revision_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    facility_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("operational.factories.id", ondelete="SET NULL")
+    )
+    valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
+class BOMLineRecord(Base):
+    __tablename__ = "bom_lines"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "revision_id", "line_code",
+            name="uq_bom_lines_workspace_revision_line",
+        ),
+        Index("ix_bom_lines_workspace_revision", "workspace_id", "revision_id"),
+        {"schema": "inventory"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    revision_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("inventory.bom_revisions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    line_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    child_item_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    child_item_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    usage_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    usage_uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    child_base_uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    child_is_assembly: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    scrap_factor: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), nullable=True)
+    valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class UOMConversionRecord(Base):
+    __tablename__ = "uom_conversions"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "from_uom", "to_uom",
+            name="uq_uom_conversions_workspace_pair",
+        ),
+        {"schema": "inventory"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    from_uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    to_uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    factor: Mapped[Decimal] = mapped_column(Numeric(24, 12), nullable=False)
+    source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# orders.* — manufacturing production orders and purchase-order lines
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ProductionOrderRecord(Base):
+    __tablename__ = "production_orders"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "order_number",
+            name="uq_production_orders_workspace_number",
+        ),
+        Index("ix_production_orders_workspace_need", "workspace_id", "material_need_at"),
+        {"schema": "orders"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    order_number: Mapped[str] = mapped_column(String(128), nullable=False)
+    factory_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("operational.factories.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    warehouse_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    item_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    item_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    order_uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    item_base_uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    material_need_at: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    bom_revision_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("inventory.bom_revisions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
+class PurchaseOrderLineRecord(Base):
+    __tablename__ = "purchase_order_lines"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "po_number", "line_number",
+            name="uq_purchase_order_lines_workspace_line",
+        ),
+        Index("ix_purchase_order_lines_workspace_receipt", "workspace_id", "expected_date"),
+        {"schema": "orders"},
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid7_uuid)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    po_number: Mapped[str] = mapped_column(String(128), nullable=False)
+    line_number: Mapped[str] = mapped_column(String(32), nullable=False)
+    supplier_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("operational.suppliers.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    warehouse_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    component_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("operational.components.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    ordered_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    received_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
+    open_quantity: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    expected_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    uom: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
 __all__ = [
+    "BOMLineRecord",
+    "BOMRevisionRecord",
     "BillOfMaterials",
     "Component",
     "Customer",
@@ -398,7 +589,10 @@ __all__ = [
     "Factory",
     "Inventory",
     "Order",
+    "ProductionOrderRecord",
+    "PurchaseOrderLineRecord",
     "Product",
     "Supplier",
+    "UOMConversionRecord",
     "Warehouse",
 ]
