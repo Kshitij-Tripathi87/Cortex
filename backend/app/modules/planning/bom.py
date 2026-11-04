@@ -23,6 +23,13 @@ _EXCLUDED_ORDER_STATUSES = {
     "delivered",
     "shipped",
 }
+_REMAINING_QUANTITY_REQUIRED_STATUSES = {
+    "in_progress",
+    "in_production",
+    "started",
+    "partially_completed",
+    "partial",
+}
 
 
 class BOMResolutionError(ValueError):
@@ -127,6 +134,13 @@ def explode_production_order(
             status=ProjectionStatus.COMPLETED,
             contributions=(),
             warnings=("ORDER_EXCLUDED_BY_STATUS",),
+        )
+    if status in _REMAINING_QUANTITY_REQUIRED_STATUSES:
+        return OrderRequirementsResult(
+            production_order_id=order.order_id,
+            status=ProjectionStatus.NOT_CALCULABLE,
+            contributions=(),
+            error_code="ORDER_REMAINING_QUANTITY_NOT_MODELED",
         )
     if order.quantity <= 0:
         return OrderRequirementsResult(

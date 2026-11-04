@@ -244,6 +244,14 @@ def project_inventory(
         )
         current += timedelta(days=1)
 
+    if any(
+        firm_by_date[day] > 0 and demand_by_date[day] > 0
+        for day in set(firm_by_date) & set(demand_by_date)
+    ):
+        warnings.append(
+            "SAME_DAY_RECEIPTS_ASSUMED_AVAILABLE_BEFORE_DEMAND"
+        )
+
     if warnings:
         result_status = ProjectionStatus.DEGRADED
     else:

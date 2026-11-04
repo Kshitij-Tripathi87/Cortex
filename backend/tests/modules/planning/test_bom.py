@@ -160,3 +160,22 @@ def test_partial_explicit_requirements_are_not_mixed_with_bom():
     result = explode_production_order(order, ())
     assert result.status == ProjectionStatus.NOT_CALCULABLE
     assert result.error_code == "AMBIGUOUS_REQUIREMENTS"
+
+
+
+def test_in_progress_order_requires_remaining_quantity_instead_of_using_original_order_qty():
+    result = explode_production_order(
+        _order(),
+        (),
+    )
+    assert result.status == ProjectionStatus.NOT_CALCULABLE or result.status == ProjectionStatus.COMPLETED
+
+    active_order = ProductionOrder(
+        order_id="MO-ACTIVE", facility_id="PLANT-1", item_id="P-100",
+        item_type=ItemType.PRODUCT, quantity=Decimal("10"), order_uom="EA",
+        item_base_uom="EA", material_need_at=date(2026, 11, 10),
+        status="in_production",
+    )
+    active_result = explode_production_order(active_order, ())
+    assert active_result.status == ProjectionStatus.NOT_CALCULABLE
+    assert active_result.error_code == "ORDER_REMAINING_QUANTITY_NOT_MODELED"
