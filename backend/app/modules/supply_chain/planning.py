@@ -27,7 +27,6 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 
-
 ZERO = Decimal("0")
 ONE = Decimal("1")
 DEFAULT_MAX_BOM_DEPTH = 32
