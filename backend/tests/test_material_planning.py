@@ -321,8 +321,14 @@ def test_available_to_use_basis_does_not_subtract_reserved_or_blocked_again() ->
         uom="EA",
     )
     demand = DemandContribution(
-        "REQ-1", "PO-100", "C-01", "PLANT-1", D("60"), "EA",
-        date(2026, 11, 5), "bom_explosion",
+        "REQ-1",
+        "PO-100",
+        "C-01",
+        "PLANT-1",
+        D("60"),
+        "EA",
+        date(2026, 11, 5),
+        "bom_explosion",
     )
     reservation = ReservationAllocation(
         "RES-1", "PO-100", "PLANT-1", "C-01", D("20"), "EA", date(2026, 11, 5)
