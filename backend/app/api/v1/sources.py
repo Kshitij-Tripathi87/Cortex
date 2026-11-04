@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -363,11 +364,34 @@ async def compile_batch(
     files = list(file_result.scalars().all())
 
     claims_created = 0
+    rows_compiled = 0
+    claims_requiring_review = 0
+    from app.infrastructure.storage_client import get_storage
+    from app.modules.sources.row_parser import SourceRowParseError, parse_source_rows
+
+    storage = get_storage()
     for file in files:
-        if file.profiled:
-            profiles = await list_profiles(db, file.file_id)
-            result = await extract_claims(db, batch.workspace_id, batch_id, file.file_id, profiles)
-            claims_created += result.claims_created
+        if not file.profiled:
+            continue
+        profiles = await list_profiles(db, file.file_id)
+        try:
+            raw_bytes = await run_in_threadpool(storage.get_object, file.storage_key)
+            raw_rows = await run_in_threadpool(
+                parse_source_rows, raw_bytes, file.original_name
+            )
+        except SourceRowParseError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - retrieval failure is not a successful compile
+            raise HTTPException(
+                status_code=503, detail="Source artifact could not be retrieved"
+            ) from exc
+
+        result = await extract_claims(
+            db, batch.workspace_id, batch_id, file.file_id, profiles, raw_rows
+        )
+        claims_created += result.claims_created
+        claims_requiring_review += result.claims_requiring_review
+        rows_compiled += len(raw_rows)
 
     conflicts = await detect_conflicts(db, batch.workspace_id, batch_id)
     readiness = await compute_readiness(db, batch.workspace_id, batch_id)
@@ -381,6 +405,8 @@ async def compile_batch(
     return {
         "batch_id": batch_id,
         "claims_created": claims_created,
+        "claims_requiring_review": claims_requiring_review,
+        "rows_compiled": rows_compiled,
         "conflicts_detected": conflicts.conflicts_detected,
         "blocking_conflicts": conflicts.blocking_conflicts,
         "readiness": readiness.state,
