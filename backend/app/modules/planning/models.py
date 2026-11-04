@@ -127,6 +127,7 @@ class ProductionOrder:
     item_base_uom: str
     material_need_at: date
     status: str
+    bom_facility_id: str | None = None
     bom_revision_id: str | None = None
     explicit_requirements: tuple[ExplicitMaterialRequirement, ...] = ()
     explicit_requirements_authoritative: bool = False

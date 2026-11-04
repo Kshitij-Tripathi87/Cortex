@@ -147,7 +147,7 @@ def explode_production_order(
             revisions,
             item_id=order.item_id,
             item_type=order.item_type,
-            facility_id=order.facility_id,
+            facility_id=order.bom_facility_id or order.facility_id,
             effective_at=order.material_need_at,
             explicit_revision_id=order.bom_revision_id,
         )
@@ -204,7 +204,7 @@ def explode_production_order(
                         revisions,
                         item_id=line.child_item_id,
                         item_type=line.child_item_type,
-                        facility_id=order.facility_id,
+                        facility_id=order.bom_facility_id or order.facility_id,
                         effective_at=order.material_need_at,
                     )
                     walk(

@@ -24,6 +24,7 @@ scoring values per MVP execution plan §3.4.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import (

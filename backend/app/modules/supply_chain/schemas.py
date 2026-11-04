@@ -133,6 +133,11 @@ ROW_SCHEMA_BY_DATASET: dict[str, type[BaseModel]] = {
     "inventory": InventoryRow,
     "bom": BomRow,
     "orders": OrderRow,
+    "bom_revisions": BOMRevisionRow,
+    "bom_lines": BOMLineRow,
+    "production_orders": ProductionOrderRow,
+    "purchase_order_lines": PurchaseOrderLineRow,
+    "uom_conversions": UOMConversionRow,
 }
 
 
