@@ -13,7 +13,7 @@ from app.modules.planning.models import (
 )
 
 
-def _order(quantity="10", *, revision="r-product"):
+def _order(quantity="10", *, revision=None):
     return ProductionOrder(
         order_id="MO-001",
         facility_id="PLANT-1",
@@ -67,8 +67,12 @@ def test_shared_material_on_distinct_branches_is_additive_and_keeps_lineage():
     )
     result = explode_production_order(_order(revision="rp"), revisions)
     assert result.status == ProjectionStatus.COMPLETED
-    assert [c.gross_quantity for c in result.contributions] == [Decimal("2"), Decimal("3")]
-    assert sum((c.gross_quantity for c in result.contributions), Decimal("0")) == Decimal("5")
+    # The order quantity is 10, so each branch's unit usage is multiplied by 10.
+    assert [c.gross_quantity for c in result.contributions] == [
+        Decimal("20"),
+        Decimal("30"),
+    ]
+    assert sum((c.gross_quantity for c in result.contributions), Decimal("0")) == Decimal("50")
     assert len({c.bom_line_path for c in result.contributions}) == 2
 
 
