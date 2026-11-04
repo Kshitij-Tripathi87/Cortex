@@ -33,6 +33,10 @@ def _opening_usable(balance: InventoryBalanceInput) -> Decimal:
         raise InventoryProjectionError("INVENTORY_QUANTITY_NEGATIVE")
     reserved = balance.reserved_quantity
     blocked = balance.blocked_quantity
+    if reserved is not None and reserved < 0:
+        raise InventoryProjectionError("RESERVED_QUANTITY_NEGATIVE")
+    if blocked is not None and blocked < 0:
+        raise InventoryProjectionError("BLOCKED_QUANTITY_NEGATIVE")
 
     if balance.quantity_basis == QuantityBasis.PHYSICAL_ON_HAND:
         if reserved is None or blocked is None:
@@ -136,7 +140,15 @@ def project_inventory(
         if status not in _FIRM_RECEIPT_STATUSES:
             warnings.append(f"RECEIPT_STATUS_NOT_RECOGNIZED:{receipt.receipt_id}:{status}")
             continue
-        remaining = receipt.remaining_open_quantity()
+        try:
+            remaining = receipt.remaining_open_quantity()
+        except ValueError as exc:
+            return InventoryProjection(
+                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
+                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
+                start_date, end_date, opening, None, None, (), Decimal("0"), Decimal("0"),
+                (str(exc),), balance.source_refs,
+            )
         if remaining == 0:
             continue
         try:
@@ -160,13 +172,14 @@ def project_inventory(
             uncertain_total += remaining
             uncertain_by_date[receipt.expected_date] += remaining
             warnings.append(f"UNCONFIRMED_RECEIPT_EXCLUDED:{receipt.receipt_id}")
-            if receipt.source_ref:
-                receipt_refs.add(receipt.source_ref)
+            receipt_reference = receipt.source_ref or f"receipt:{receipt.receipt_id}"
+            receipt_refs.add(receipt_reference)
+            receipt_refs_by_date[receipt.expected_date].add(receipt_reference)
             continue
         firm_by_date[receipt.expected_date] += remaining
-        if receipt.source_ref:
-            receipt_refs.add(receipt.source_ref)
-            receipt_refs_by_date[receipt.expected_date].add(receipt.source_ref)
+        receipt_reference = receipt.source_ref or f"receipt:{receipt.receipt_id}"
+        receipt_refs.add(receipt_reference)
+        receipt_refs_by_date[receipt.expected_date].add(receipt_reference)
 
     demand_by_date: dict = defaultdict(Decimal)
     demand_refs_by_date: dict = defaultdict(set)

@@ -193,13 +193,16 @@ class MaterialReceipt:
     source_ref: str | None = None
 
     def remaining_open_quantity(self) -> Decimal:
-        remaining = (
-            self.open_quantity
-            if self.open_quantity is not None
-            else self.ordered_quantity - self.received_quantity
-        )
+        if self.ordered_quantity < 0 or self.received_quantity < 0:
+            raise ValueError(f"RECEIPT_QUANTITY_NEGATIVE:{self.receipt_id}")
+        if self.received_quantity > self.ordered_quantity:
+            raise ValueError(f"RECEIVED_EXCEEDS_ORDERED:{self.receipt_id}")
+        maximum_open = self.ordered_quantity - self.received_quantity
+        remaining = self.open_quantity if self.open_quantity is not None else maximum_open
         if remaining < 0:
             raise ValueError(f"RECEIPT_OPEN_QUANTITY_NEGATIVE:{self.receipt_id}")
+        if remaining > maximum_open:
+            raise ValueError(f"RECEIPT_OPEN_QUANTITY_EXCEEDS_REMAINDER:{self.receipt_id}")
         return remaining
 
 

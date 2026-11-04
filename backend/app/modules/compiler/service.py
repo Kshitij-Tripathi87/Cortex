@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import hashlib
 import json
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -248,11 +248,11 @@ async def compute_readiness(
 ) -> ReadinessResult:
     """Compute deterministic readiness state for a batch.
 
-    Rules (Phase 2):
-    - READY: no blocking conflicts, all claims accepted or none require review.
-    - BLOCKED: any blocking conflict open.
-    - REVIEW_REQUIRED: non-blocking conflicts open or claims pending review.
-    - READY_WITH_ASSUMPTIONS: ready but some claims have confidence < 1.0.
+    Rules:
+    - BLOCKED: no active row-level claims or a blocking conflict is open.
+    - REVIEW_REQUIRED: unresolved claims or conflicts remain.
+    - READY_WITH_ASSUMPTIONS: accepted claims remain below full confidence.
+    - READY: all active claims are accepted and no conflict is open.
     """
     # Count conflicts
     conflict_stmt = (
@@ -271,6 +271,11 @@ async def compute_readiness(
         select(EvidenceClaim)
         .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
+        .where(
+            EvidenceClaim.claim_state.notin_(
+                [ClaimState.SUPERSEDED.value, ClaimState.REJECTED.value]
+            )
+        )
     )
     claim_result = await db.execute(claim_stmt)
     claims = list(claim_result.scalars().all())
@@ -336,6 +341,19 @@ async def resolve_conflict(
     if conflict.workspace_id != workspace_id:
         raise PermissionError(f"Conflict {conflict_id} does not belong to workspace {workspace_id}")
 
+    if action == "approved" and selected_claim_id:
+        if selected_claim_id not in conflict.claim_ids:
+            raise ValueError("Selected claim is not part of this conflict")
+        selected_stmt = (
+            select(EvidenceClaim)
+            .where(EvidenceClaim.claim_id == selected_claim_id)
+            .where(EvidenceClaim.workspace_id == workspace_id)
+            .where(EvidenceClaim.batch_id == conflict.batch_id)
+        )
+        selected_result = await db.execute(selected_stmt)
+        if selected_result.scalar_one_or_none() is None:
+            raise PermissionError("Selected claim is not available in this workspace")
+
     resolution = ConflictResolution(
         resolution_id=uuid7(),
         conflict_id=conflict_id,
@@ -351,9 +369,6 @@ async def resolve_conflict(
     conflict.review_required = False
 
     if selected_claim_id and action == "approved":
-        if selected_claim_id not in conflict.claim_ids:
-            raise ValueError("Selected claim is not part of this conflict")
-
         claim_stmt = (
             select(EvidenceClaim)
             .where(EvidenceClaim.claim_id == selected_claim_id)
@@ -361,9 +376,7 @@ async def resolve_conflict(
             .where(EvidenceClaim.batch_id == conflict.batch_id)
         )
         claim_result = await db.execute(claim_stmt)
-        claim = claim_result.scalar_one_or_none()
-        if claim is None:
-            raise PermissionError("Selected claim is not available in this workspace")
+        claim = claim_result.scalar_one()
         claim.claim_state = ClaimState.ACCEPTED.value
 
         # Supersede only claims belonging to this conflict and workspace.

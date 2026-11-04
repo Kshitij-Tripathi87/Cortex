@@ -91,7 +91,7 @@ def _parse_xlsx(
 
     try:
         workbook = openpyxl.load_workbook(
-            io.BytesIO(data), read_only=True, data_only=True, keep_links=False
+            io.BytesIO(data), read_only=True, data_only=False, keep_links=False
         )
     except Exception as exc:  # noqa: BLE001 - normalize parser failures
         raise SourceRowParseError("XLSX_INVALID_OR_CORRUPT") from exc

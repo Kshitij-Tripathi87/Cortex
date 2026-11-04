@@ -333,6 +333,8 @@ async def resolve_conflict_endpoint(
         raise HTTPException(status_code=404, detail="Conflict not found") from e
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     try:
         await db.commit()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from decimal import Decimal
 
 from app.modules.planning.models import (
@@ -49,7 +48,11 @@ def resolve_revision(
         and revision.is_effective_at(effective_at, facility_id)
     ]
     if explicit_revision_id:
-        selected = [revision for revision in candidates if revision.revision_id == explicit_revision_id]
+        selected = [
+            revision
+            for revision in candidates
+            if revision.revision_id == explicit_revision_id
+        ]
         if len(selected) != 1:
             raise BOMResolutionError("EXPLICIT_BOM_REVISION_NOT_EFFECTIVE", explicit_revision_id)
         return selected[0]
