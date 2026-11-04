@@ -7,16 +7,11 @@ Flow:
    (sync boto3 wrapped in a threadpool — no new dependency on aioboto3).
 3. Creates an `audit.ingestion_log` row with status="received".
 4. Parses CSV (StdLib `csv.DictReader`).
-5. For each row:
-   - Validate against the per-dataset Pydantic row schema.
-   - If validation fails: increment rows_rejected, append to error_log,
-     and if strict=True, abort the whole upload with status="failed".
-   - If validation succeeds: insert via the appropriate
-     `WorkspaceScopedRepository`. For rows that reference other entities
-     by external identifier (SKU/code/name), look up the target UUID
-     from an in-memory cache built once per run.
-6. Finalize the `IngestionLog` row with counts and `status="completed"`
-   (or "partial" if any rows rejected).
+5. Validate row shape and per-dataset Pydantic schemas.
+6. Insert each accepted row within its own savepoint; strict mode wraps the
+   entire dataset in an outer savepoint and rolls back all entity rows on
+   the first invalid row. The ingestion audit record remains available.
+7. Finalize the `IngestionLog` row with counts and a sanitized error list.
 7. Caller (endpoint) commits the session.
 
 The service itself does NOT commit; the endpoint owns the session and
@@ -26,6 +21,7 @@ may roll back if something goes wrong after the service returns.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import tempfile
 from datetime import UTC, datetime
@@ -34,6 +30,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import MvpDatasetType
@@ -122,21 +119,18 @@ async def ingest_csv(
     file_bytes: bytes,
     strict: bool = False,
 ) -> IngestionLog:
-    """Run an ingestion pass and return the finalised IngestionLog row.
-
-    Caller (endpoint) owns the session and is responsible for commit.
-    """
+    """Persist the raw CSV and apply validated rows within an isolated savepoint."""
     if dataset_type not in _DATASET_TO_MODEL:
         raise ValueError(f"Unknown dataset_type: {dataset_type}")
 
     run_id = uuid4()
     file_key = _build_key(workspace_id, run_id, file_name)
     file_size = len(file_bytes)
+    file_sha256 = hashlib.sha256(file_bytes).hexdigest()
+    rows = await run_in_threadpool(_parse_csv_bytes, file_bytes)
 
-    # Upload to S3 (sync boto3 → threadpool)
     await run_in_threadpool(storage.put_object, file_key, file_bytes, "text/csv")
 
-    # Create the audit row
     log = IngestionLog(
         workspace_id=workspace_id,
         user_id=user_id,
@@ -144,6 +138,7 @@ async def ingest_csv(
         file_name=file_name,
         file_key=file_key,
         file_size_bytes=file_size,
+        file_sha256=file_sha256,
         status="received",
         started_at=datetime.now(UTC),
     )
@@ -152,89 +147,128 @@ async def ingest_csv(
     await log_repo.mark_running(log.id)
     await session.flush()
 
-    # Parse CSV (sync → threadpool)
-    rows = await run_in_threadpool(_parse_csv_bytes, file_bytes)
+    return await _apply_ingestion_rows(
+        session=session,
+        log_repo=log_repo,
+        log=log,
+        workspace_id=workspace_id,
+        dataset_type=dataset_type,
+        rows=rows,
+        strict=strict,
+    )
 
-    # Dispatch to dataset handler
+
+async def _apply_ingestion_rows(
+    *,
+    session: AsyncSession,
+    log_repo: IngestionLogRepository,
+    log: IngestionLog,
+    workspace_id: UUID,
+    dataset_type: MvpDatasetType,
+    rows: list[dict[str, str]],
+    strict: bool,
+) -> IngestionLog:
+    """Apply rows with per-row savepoints and an all-or-nothing strict savepoint.
+
+    The audit log is created before this savepoint. In strict mode, any row
+    failure rolls back every entity row while preserving a failed audit record.
+    In partial mode, a failed row rolls back only its own savepoint.
+    """
     schema_cls = _DATASET_TO_SCHEMA[dataset_type]
     rows_total = len(rows)
     rows_accepted = 0
     rows_rejected = 0
     error_log: list[dict[str, Any]] = []
+    max_recorded_errors = 100
+    batch_savepoint = session.begin_nested()
+    strict_failure_row: int | None = None
+    resolver_cache: dict[str, dict[str, UUID]] = {}
 
-    # Build a resolver cache for ref-bearing datasets. Each handler may
-    # extend the cache with the lookups it needs.
-    cache: dict[str, dict[str, UUID]] = {}
-
-    for idx, raw_row in enumerate(rows, start=1):
+    for row_index, raw_row in enumerate(rows, start=1):
         try:
             row_obj = schema_cls(**raw_row)
-        except Exception as exc:  # noqa: BLE001 — surface as error_log row
+        except Exception as exc:  # noqa: BLE001 - report a sanitized row error
             rows_rejected += 1
-            error_log.append(
-                {
-                    "row": idx,
-                    "message": f"validation failed: {exc}",
-                    "values": raw_row,
-                }
-            )
-            if strict:
-                await log_repo.finalize(
-                    log.id,
-                    status="failed",
-                    rows_total=rows_total,
-                    rows_accepted=rows_accepted,
-                    rows_rejected=rows_rejected,
-                    finished_at=datetime.now(UTC),
-                    message="strict mode: validation failed",
-                    error_log=error_log,
+            if len(error_log) < max_recorded_errors:
+                error_log.append(
+                    {
+                        "row": row_index,
+                        "phase": "validation",
+                        "message": _safe_row_error(exc),
+                    }
                 )
-                return await log_repo.get(log.id)
+            if strict:
+                strict_failure_row = row_index
+                break
             continue
 
         try:
-            await _dispatch_insert(
-                dataset_type=dataset_type,
-                session=session,
-                workspace_id=workspace_id,
-                row=row_obj,
-                cache=cache,
-            )
-            rows_accepted += 1
-        except Exception as exc:  # noqa: BLE001
-            rows_rejected += 1
-            error_log.append(
-                {
-                    "row": idx,
-                    "message": f"insert failed: {exc}",
-                    "values": raw_row,
-                }
-            )
-            if strict:
-                await log_repo.finalize(
-                    log.id,
-                    status="failed",
-                    rows_total=rows_total,
-                    rows_accepted=rows_accepted,
-                    rows_rejected=rows_rejected,
-                    finished_at=datetime.now(UTC),
-                    message="strict mode: insert failed",
-                    error_log=error_log,
+            async with session.begin_nested():
+                await _dispatch_insert(
+                    dataset_type=dataset_type,
+                    session=session,
+                    workspace_id=workspace_id,
+                    row=row_obj,
+                    cache=resolver_cache,
                 )
-                return await log_repo.get(log.id)
+            rows_accepted += 1
+        except Exception as exc:  # noqa: BLE001 - isolate database/relationship failures
+            rows_rejected += 1
+            if len(error_log) < max_recorded_errors:
+                error_log.append(
+                    {
+                        "row": row_index,
+                        "phase": "persistence",
+                        "message": _safe_row_error(exc),
+                    }
+                )
+            if strict:
+                strict_failure_row = row_index
+                break
 
-    final_status = "completed" if rows_rejected == 0 else "partial"
+    if strict_failure_row is not None:
+        await batch_savepoint.rollback()
+        rows_accepted = 0
+        status = "failed"
+        message = (
+            f"Strict import rejected row {strict_failure_row}; "
+            "all entity rows from this file were rolled back."
+        )
+    else:
+        await batch_savepoint.commit()
+        status = "completed" if rows_rejected == 0 else "partial"
+        message = None if rows_rejected == 0 else f"{rows_rejected} rows rejected"
+
     await log_repo.finalize(
         log.id,
-        status=final_status,
+        status=status,
         rows_total=rows_total,
         rows_accepted=rows_accepted,
         rows_rejected=rows_rejected,
         finished_at=datetime.now(UTC),
-        message=None if rows_rejected == 0 else f"{rows_rejected} rows rejected",
+        message=message,
         error_log=error_log,
     )
-    return await log_repo.get(log.id)
+    await session.flush()
+    result = await log_repo.get(log.id)
+    if result is None:
+        raise RuntimeError(f"Ingestion log {log.id} disappeared during finalization")
+    return result
+
+
+def _safe_row_error(exc: Exception) -> str:
+    """Return actionable validation detail without persisting row values or secrets."""
+    if isinstance(exc, ValidationError):
+        details = exc.errors(include_input=False, include_context=False, include_url=False)
+        messages = []
+        for detail in details[:4]:
+            location = ".".join(str(part) for part in detail.get("loc", ()))
+            message = str(detail.get("msg", "invalid value"))
+            messages.append(f"{location}: {message}" if location else message)
+        return "; ".join(messages) or "row validation failed"
+    if isinstance(exc, CsvStructureError):
+        return exc.message
+    return f"row persistence failed ({type(exc).__name__})"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -242,39 +276,59 @@ async def ingest_csv(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+class CsvStructureError(ValueError):
+    """Raised when a CSV file cannot be mapped to an unambiguous row shape."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 def _parse_csv_bytes(data: bytes) -> list[dict[str, str]]:
-    """Decode + parse CSV bytes into list-of-dicts.
+    """Parse UTF-8 CSV after rejecting ambiguous headers and malformed row widths."""
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise CsvStructureError(
+            "INVALID_ENCODING", "CSV must be encoded as UTF-8 or UTF-8 with BOM"
+        ) from exc
 
-    Strip whitespace from headers and string values; this matches the
-    MVP plan § ingestion: "be forgiving on whitespace, strict on types".
-    """
-    text = data.decode("utf-8-sig")  # tolerate BOM
-    reader = csv.DictReader(io.StringIO(text))
-    out: list[dict[str, str]] = []
-    for raw in reader:
-        out.append(
-            {(k or "").strip(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items()}
-        )
-    return out
+    try:
+        reader = csv.DictReader(io.StringIO(text), strict=True)
+        if reader.fieldnames is None:
+            return []
+        headers = [header.strip() for header in reader.fieldnames]
+        if any(not header for header in headers):
+            raise CsvStructureError("BLANK_HEADER", "CSV contains a blank column header")
+        normalized = [header.casefold() for header in headers]
+        if len(normalized) != len(set(normalized)):
+            raise CsvStructureError(
+                "DUPLICATE_HEADER",
+                "CSV contains duplicate column headers after whitespace normalization",
+            )
+        reader.fieldnames = headers
 
-
-async def _parse_csv_streaming(file: UploadFile) -> list[dict[str, str]]:
-    """Parse CSV from UploadFile stream without loading entire file into memory.
-
-    Yields rows one at a time to avoid OOM on large files.
-    """
-    out: list[dict[str, str]] = []
-    # Use the file's file-like object directly
-    file.file.seek(0)
-    # Use TextIOWrapper to handle encoding
-    text_stream = io.TextIOWrapper(file.file, encoding="utf-8-sig", newline="")
-    reader = csv.DictReader(text_stream)
-    for raw in reader:
-        out.append(
-            {(k or "").strip(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items()}
-        )
-    text_stream.detach()  # Don't close the underlying file
-    return out
+        rows: list[dict[str, str]] = []
+        for row_number, raw_row in enumerate(reader, start=2):
+            if None in raw_row:
+                raise CsvStructureError(
+                    "EXTRA_COLUMNS", f"CSV row {row_number} contains more values than the header"
+                )
+            if any(value is None for value in raw_row.values()):
+                raise CsvStructureError(
+                    "MISSING_COLUMNS", f"CSV row {row_number} contains fewer values than the header"
+                )
+            rows.append(
+                {
+                    key: value.strip()
+                    for key, value in raw_row.items()
+                    if key is not None and isinstance(value, str)
+                }
+            )
+        return rows
+    except csv.Error as exc:
+        raise CsvStructureError("CSV_PARSE_ERROR", "CSV syntax is invalid") from exc
 
 
 async def ingest_csv_streaming(
@@ -288,19 +342,12 @@ async def ingest_csv_streaming(
     file_name: str,
     strict: bool = False,
 ) -> IngestionLog:
-    """Streaming version of ingest_csv that doesn't load entire file into memory.
-
-    1. Stream file to S3 using multipart upload (streaming)
-    2. Parse CSV row by row from the upload stream
-    3. Insert rows to DB
-    """
+    """Stage an upload to a bounded temporary file, persist its digest, and import rows."""
     if dataset_type not in _DATASET_TO_MODEL:
         raise ValueError(f"Unknown dataset_type: {dataset_type}")
 
     run_id = uuid4()
     file_key = _build_key(workspace_id, run_id, file_name)
-
-    # Create the audit row
     log = IngestionLog(
         workspace_id=workspace_id,
         user_id=user_id,
@@ -308,6 +355,7 @@ async def ingest_csv_streaming(
         file_name=file_name,
         file_key=file_key,
         file_size_bytes=file.size or 0,
+        file_sha256=None,
         status="received",
         started_at=datetime.now(UTC),
     )
@@ -316,146 +364,51 @@ async def ingest_csv_streaming(
     await log_repo.mark_running(log.id)
     await session.flush()
 
-    # Stream upload to S3 (multipart upload for large files)
-    # Use a temporary file to allow both streaming upload and parsing
+    settings = get_settings()
+    digest = hashlib.sha256()
+    file_size = 0
+    chunk_size = 1024 * 1024
+
     with tempfile.NamedTemporaryFile(mode="wb", delete=True) as tmp:
-        # Stream upload to temp file while computing size
-        file_size = 0
-        chunk_size = 1024 * 1024  # 1MB chunks
         while True:
             chunk = await file.read(chunk_size)
             if not chunk:
                 break
-            tmp.write(chunk)
             file_size += len(chunk)
-
-        # Check size limit
-        settings = get_settings()
-        if file_size > settings.upload_max_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large (limit {settings.upload_max_bytes} bytes)",
-            )
+            if file_size > settings.upload_max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (limit {settings.upload_max_bytes} bytes)",
+                )
+            digest.update(chunk)
+            tmp.write(chunk)
 
         tmp.flush()
+        # Storage client accepts bytes. Read the bounded temporary file once.
         tmp.seek(0)
+        file_bytes = tmp.read()
+        rows = await run_in_threadpool(_parse_csv_bytes, file_bytes)
+        await run_in_threadpool(storage.put_object, file_key, file_bytes, "text/csv")
 
-        # Upload to S3 from temp file
-        await run_in_threadpool(
-            storage.put_object,
-            file_key,
-            tmp.read(),
-            "text/csv",
-        )
-
-        # Now parse from temp file
-        tmp.seek(0)
-
-        # Create a mock UploadFile-like object for parsing
-        class TempFileWrapper:
-            def __init__(self, file):
-                self.file = file
-
-        # Reuse existing parsing logic
-        rows = await run_in_threadpool(_parse_csv_from_tempfile, tmp.name)
-
-    # Update file size in log
     log.file_size_bytes = file_size
+    log.file_sha256 = digest.hexdigest()
     await session.flush()
 
-    # Dispatch to dataset handler (same logic as before)
-    schema_cls = _DATASET_TO_SCHEMA[dataset_type]
-    rows_total = len(rows)
-    rows_accepted = 0
-    rows_rejected = 0
-    error_log: list[dict[str, Any]] = []
-
-    cache: dict[str, dict[str, UUID]] = {}
-
-    for idx, raw_row in enumerate(rows, start=1):
-        try:
-            row_obj = schema_cls(**raw_row)
-        except Exception as exc:  # noqa: BLE001
-            rows_rejected += 1
-            error_log.append(
-                {
-                    "row": idx,
-                    "message": f"validation failed: {exc}",
-                    "values": raw_row,
-                }
-            )
-            if strict:
-                await log_repo.finalize(
-                    log.id,
-                    status="failed",
-                    rows_total=rows_total,
-                    rows_accepted=rows_accepted,
-                    rows_rejected=rows_rejected,
-                    finished_at=datetime.now(UTC),
-                    message="strict mode: validation failed",
-                    error_log=error_log,
-                )
-                return await log_repo.get(log.id)
-            continue
-
-        try:
-            await _dispatch_insert(
-                dataset_type=dataset_type,
-                session=session,
-                workspace_id=workspace_id,
-                row=row_obj,
-                cache=cache,
-            )
-            rows_accepted += 1
-        except Exception as exc:  # noqa: BLE001
-            rows_rejected += 1
-            error_log.append(
-                {
-                    "row": idx,
-                    "message": f"insert failed: {exc}",
-                    "values": raw_row,
-                }
-            )
-            if strict:
-                await log_repo.finalize(
-                    log.id,
-                    status="failed",
-                    rows_total=rows_total,
-                    rows_accepted=rows_accepted,
-                    rows_rejected=rows_rejected,
-                    finished_at=datetime.now(UTC),
-                    message="strict mode: insert failed",
-                    error_log=error_log,
-                )
-                return await log_repo.get(log.id)
-
-    final_status = "completed" if rows_rejected == 0 else "partial"
-    await log_repo.finalize(
-        log.id,
-        status=final_status,
-        rows_total=rows_total,
-        rows_accepted=rows_accepted,
-        rows_rejected=rows_rejected,
-        finished_at=datetime.now(UTC),
-        message=None if rows_rejected == 0 else f"{rows_rejected} rows rejected",
-        error_log=error_log,
+    return await _apply_ingestion_rows(
+        session=session,
+        log_repo=log_repo,
+        log=log,
+        workspace_id=workspace_id,
+        dataset_type=dataset_type,
+        rows=rows,
+        strict=strict,
     )
-    return await log_repo.get(log.id)
 
 
 def _parse_csv_from_tempfile(path: str) -> list[dict[str, str]]:
-    """Parse CSV from a temporary file path."""
-    out: list[dict[str, str]] = []
-    with open(path, encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        for raw in reader:
-            out.append(
-                {
-                    (k or "").strip(): (v.strip() if isinstance(v, str) else v)
-                    for k, v in raw.items()
-                }
-            )
-    return out
+    """Read the staged upload and apply the same structural CSV validation."""
+    with open(path, "rb") as file_handle:
+        return _parse_csv_bytes(file_handle.read())
 
 
 def _build_key(workspace_id: UUID, run_id: UUID, file_name: str) -> str:

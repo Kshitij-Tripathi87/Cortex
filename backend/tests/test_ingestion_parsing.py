@@ -11,7 +11,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from app.modules.ingestion.service import _build_key, _parse_csv_bytes
+from app.modules.ingestion.service import CsvStructureError, _build_key, _parse_csv_bytes
 from app.modules.supply_chain.schemas import (
     ComponentRow,
     EdgeRow,
@@ -116,3 +116,25 @@ def test_order_row_parses_dates() -> None:
     assert row.order_date == date(2026, 1, 1)
     assert row.requested_delivery_date == date(2026, 1, 15)
     assert row.actual_delivery_date is None
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_code"),
+    [
+        (b"sku, sku\\nA,B\\n", "DUPLICATE_HEADER"),
+        (b"sku,\\nA,B\\n", "BLANK_HEADER"),
+        (b"sku,name\\nA\\n", "MISSING_COLUMNS"),
+        (b"sku,name\\nA,Widget,EXTRA\\n", "EXTRA_COLUMNS"),
+        (b"sku,name\\n\\xff,Widget\\n", "INVALID_ENCODING"),
+    ],
+)
+def test_parse_csv_bytes_rejects_ambiguous_or_malformed_files(
+    payload: bytes, expected_code: str
+) -> None:
+    with pytest.raises(CsvStructureError) as exc_info:
+        _parse_csv_bytes(payload)
+    assert exc_info.value.code == expected_code
+
+
+def test_parse_csv_bytes_keeps_blank_cell_for_schema_validation() -> None:
+    assert _parse_csv_bytes(b"sku,name\\nC-1,\\n") == [{"sku": "C-1", "name": ""}]
