@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
@@ -5,6 +6,7 @@ from app.modules.planning.bom import explode_production_order
 from app.modules.planning.models import (
     BOMLine,
     BOMRevision,
+    ExplicitMaterialRequirement,
     ItemType,
     ProductionOrder,
     ProjectionStatus,
@@ -124,8 +126,6 @@ def test_missing_uom_conversion_fails_closed():
 
 
 def test_authoritative_explicit_requirements_do_not_explode_bom():
-    from app.modules.planning.models import ExplicitMaterialRequirement
-
     order = ProductionOrder(
         order_id="MO-EX", facility_id="PLANT-1", item_id="P-100",
         item_type=ItemType.PRODUCT, quantity=Decimal("10"), order_uom="EA",
@@ -149,14 +149,11 @@ def test_partial_explicit_requirements_are_not_mixed_with_bom():
         order_id="MO-P", facility_id="PLANT-1", item_id="P-100",
         item_type=ItemType.PRODUCT, quantity=Decimal("10"), order_uom="EA",
         item_base_uom="EA", material_need_at=date(2026, 11, 10), status="released",
-        explicit_requirements=(),
+        explicit_requirements=(
+            ExplicitMaterialRequirement("R", "C", Decimal("1"), "EA", date(2026, 11, 9)),
+        ),
         explicit_requirements_authoritative=False,
     )
-    # Empty means use BOM. Partial data must be explicitly represented as
-    # non-authoritative requirements; the contract rejects any such tuple.
-    from app.modules.planning.models import ExplicitMaterialRequirement
-    partial = ExplicitMaterialRequirement("R", "C", Decimal("1"), "EA", date(2026, 11, 9))
-    order = ProductionOrder(**{**order.__dict__, "explicit_requirements": (partial,)})
     result = explode_production_order(order, ())
     assert result.status == ProjectionStatus.NOT_CALCULABLE
     assert result.error_code == "AMBIGUOUS_REQUIREMENTS"
