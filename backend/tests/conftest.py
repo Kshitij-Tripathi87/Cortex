@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -241,7 +242,7 @@ def nexus_db_path(tmp_path_factory):
     return base / "nexus.sqlite3"
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def nexus_db_engine(nexus_db_path):
     import app.modules.nexus_spine.persistence.models  # noqa: F401
     from app.infrastructure.database import Base

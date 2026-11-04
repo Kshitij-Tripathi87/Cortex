@@ -8,7 +8,9 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
-    "sqlalchemy>=2.0.35",
+    # SQLAlchemy's asyncio extra supplies greenlet for the async ORM path.
+    # Keep the validated 2.0.x line until the 2.1 migration is qualified.
+    "sqlalchemy[asyncio]>=2.0.35,<2.1",
     "aiosqlite>=0.20.0",  # default dev DSN is sqlite+aiosqlite (config.py); required to boot
     "alembic>=1.13.0",
     "asyncpg>=0.29.0",
@@ -587,6 +589,7 @@ disable_error_code = ["arg-type"]  # ratchet: delete when reworked
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 # By default every test run EXCEPT dedicated stress runs excludes `@pytest.mark.stress`.
 # Per ADR-015 Program J J.1: 100k replay-determinism belongs in a dedicated CI
 # job (nightly + release-candidate), not on every PR. Add `-m "not stress"` so a
@@ -596,6 +599,7 @@ addopts = "-v --tb=short -m 'not stress'"
 markers = [
     "deferred: tests for deferred (post-MVP) code under tests/deferred/",
     "stress: long-running regression tests (e.g. 100k-event replay determinism). Excluded from default `pytest` and PR CI; run in the nightly `stress` CI job and on release candidates.",
+    "regression: regression coverage for committed API and persistence contracts",
 ]
 
 [tool.setuptools]
@@ -606,4 +610,5 @@ packages = ["app", "app.common", "app.infrastructure", "app.api", "app.api.v1",
             "app.modules.quality", "app.modules.ontology", "app.modules.performance",
             "app.modules.security", "app.modules.graph", "app.modules.identity",
             "app.modules.access", "app.modules.supply_chain", "app.modules.disruption",
-            "app.modules.decision", "app.modules.ingestion"]
+            "app.modules.decision", "app.modules.ingestion", "app.modules.workflo_backend",
+            "app.modules.workflo_backend.infrastructure"]

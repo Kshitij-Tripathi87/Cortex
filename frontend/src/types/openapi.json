@@ -9933,6 +9933,52 @@
         }
       }
     },
+    "/api/v1/nexus/decisions/{decision_id}/receipt": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Decision Receipt",
+        "description": "Return the reconstructable RC0 Decision Receipt.\n\nThe receipt is a read model over authoritative records. It deliberately\ndoes not create a second lifecycle or hash authority: decision state and\ntransitions come from the decision service, evidence and approvals come\nfrom the registry, and scenarios remain isolated projections.",
+        "operationId": "get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Decision Receipt Api V1 Nexus Decisions  Decision Id  Receipt Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/nexus/realtime/events": {
       "get": {
         "tags": [

@@ -84,6 +84,7 @@ alembic/versions/__pycache__/
 *.tsbuildinfo
 
 # Misc
+.opencode/
 *.bak
 *.tmp
 .cache/

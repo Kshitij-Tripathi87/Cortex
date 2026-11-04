@@ -3805,6 +3805,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nexus/decisions/{decision_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision Receipt
+         * @description Return the reconstructable RC0 Decision Receipt.
+         *
+         *     The receipt is a read model over authoritative records. It deliberately
+         *     does not create a second lifecycle or hash authority: decision state and
+         *     transitions come from the decision service, evidence and approvals come
+         *     from the registry, and scenarios remain isolated projections.
+         */
+        get: operations["get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nexus/realtime/events": {
         parameters: {
             query?: never;
@@ -14920,6 +14945,39 @@ export interface operations {
         };
     };
     list_approvals_api_v1_nexus_decisions__decision_id__approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get: {
         parameters: {
             query?: never;
             header?: never;

@@ -16,7 +16,6 @@ Nexus routing (v0.8.2 closeout — routing flip + dual-path removal):
 """
 
 from fastapi import APIRouter
-from product.workflo_api import router as workflo_router
 
 from app.api.v1 import (
     agent_runtime,
@@ -42,6 +41,7 @@ from app.api.v1 import (
     spine,
     twin,
     validation,
+    workflo,
     workspace,
     world,
 )
@@ -83,7 +83,7 @@ api_router.include_router(workspace.router, prefix="", tags=["Live Data Intellig
 # Nexus Spine — Real Data Vertical Slice
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 # Workflo — Sandboxed QA & Runtime Execution Control Plane
-api_router.include_router(workflo_router, prefix="", tags=["Workflo"])
+api_router.include_router(workflo.router, prefix="", tags=["Workflo"])
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus Decision Intelligence — v0.8.2 routing flip

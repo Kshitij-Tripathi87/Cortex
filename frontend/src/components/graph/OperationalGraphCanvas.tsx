@@ -277,10 +277,9 @@ export const OperationalGraphCanvas: React.FC<OperationalGraphCanvasProps> = ({
 
     animationRef.current = requestAnimationFrame(renderFrame);
   }, [
-    transform,
-    scenario.nodes,
-    scenario.edges,
-    nodeMap,
+     transform,
+     scenario.nodes,
+     nodeMap,
     selectedNodeId,
     hoveredNodeId,
     reducedMotion,

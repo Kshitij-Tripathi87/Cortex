@@ -53,10 +53,25 @@ async def extract_claims(
     In Phase 2, we create one claim per column per file as a placeholder; Phase 3+
     will expand to per-row claims.
     """
+    existing_result = await db.execute(
+        select(EvidenceClaim).where(
+            EvidenceClaim.workspace_id == workspace_id,
+            EvidenceClaim.batch_id == batch_id,
+            EvidenceClaim.source_file_id == file_id,
+        )
+    )
+    existing_profile_ids = {
+        str(claim.provenance.get("profile_id"))
+        for claim in existing_result.scalars().all()
+        if claim.provenance.get("profile_id")
+    }
+
     claims_created = 0
     claims_requiring_review = 0
 
     for profile in profiles:
+        if profile.profile_id in existing_profile_ids:
+            continue
         claim = EvidenceClaim(
             claim_id=uuid7(),
             workspace_id=workspace_id,
@@ -103,6 +118,21 @@ async def detect_conflicts(
     result = await db.execute(stmt)
     claims = list(result.scalars().all())
 
+    existing_result = await db.execute(
+        select(EvidenceConflict)
+        .where(EvidenceConflict.workspace_id == workspace_id)
+        .where(EvidenceConflict.batch_id == batch_id)
+        .where(EvidenceConflict.status == "open")
+    )
+    existing_conflict_keys = {
+        (
+            conflict.canonical_entity,
+            conflict.canonical_field,
+            tuple(sorted(conflict.claim_ids)),
+        )
+        for conflict in existing_result.scalars().all()
+    }
+
     conflicts_detected = 0
     blocking_conflicts = 0
 
@@ -126,6 +156,9 @@ async def detect_conflicts(
                 ConflictSeverity.MAJOR.value,
                 ConflictSeverity.CRITICAL.value,
             }
+            conflict_key = (entity, field_name, tuple(sorted(c.claim_id for c in claim_list)))
+            if conflict_key in existing_conflict_keys:
+                continue
             conflict = EvidenceConflict(
                 conflict_id=uuid7(),
                 workspace_id=workspace_id,
