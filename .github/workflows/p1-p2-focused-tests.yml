@@ -40,7 +40,26 @@ jobs:
       - name: Run Priority 1 and 2 focused tests
         run: |
           source .venv/bin/activate
-          pytest \
+          # Avoid the repository-wide tests/conftest.py: on this remote base it
+          # imports the deleted root product/ package and is unrelated to these
+          # pure/unit tests. These tests create their own SQLite fixture.
+          ruff check \
+            app/modules/supply_chain/planning.py \
+            app/modules/ingestion/service.py \
+            app/modules/ingestion/models.py \
+            app/api/v1/ingestion.py \
+            tests/test_material_planning.py \
+            tests/test_ingestion_parsing.py \
+            tests/test_ingestion_transactions.py
+          ruff format --check \
+            app/modules/supply_chain/planning.py \
+            app/modules/ingestion/service.py \
+            app/modules/ingestion/models.py \
+            app/api/v1/ingestion.py \
+            tests/test_material_planning.py \
+            tests/test_ingestion_parsing.py \
+            tests/test_ingestion_transactions.py
+          pytest --confcutdir=app \
             tests/test_ingestion_parsing.py \
             tests/test_ingestion_transactions.py \
             tests/test_material_planning.py \

@@ -20,8 +20,8 @@ Semantics:
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import Iterable, Sequence
+import collections
+import collections.abc
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
@@ -103,7 +103,7 @@ class UnitConversion:
 class UnitConverter:
     """Converts only units connected by an explicit configured conversion."""
 
-    def __init__(self, conversions: Iterable[UnitConversion] = ()) -> None:
+    def __init__(self, conversions: collections.abc.Iterable[UnitConversion] = ()) -> None:
         self._factors: dict[tuple[str, str], Decimal] = {}
         for conversion in conversions:
             self.add(conversion)
@@ -269,7 +269,7 @@ class ExplodedRequirements:
 
 
 def resolve_bom_revision(
-    revisions: Sequence[BomRevision],
+    revisions: collections.abc.Sequence[BomRevision],
     *,
     parent_item_id: str,
     facility_id: str,
@@ -325,7 +325,7 @@ def resolve_bom_revision(
 
 def explode_production_order(
     order: ProductionOrder,
-    revisions: Sequence[BomRevision],
+    revisions: collections.abc.Sequence[BomRevision],
     *,
     snapshot_id: str,
     manufactured_item_ids: set[str] | frozenset[str],
@@ -586,11 +586,11 @@ class InventoryProjection:
 
 def project_inventory(
     inventory: InventoryBalance,
-    demands: Sequence[DemandContribution],
+    demands: collections.abc.Sequence[DemandContribution],
     *,
     snapshot_id: str,
-    receipts: Sequence[SupplyReceipt] = (),
-    reservations: Sequence[ReservationAllocation] = (),
+    receipts: collections.abc.Sequence[SupplyReceipt] = (),
+    reservations: collections.abc.Sequence[ReservationAllocation] = (),
     start_date: date,
     end_date: date,
     converter: UnitConverter,
@@ -626,8 +626,8 @@ def project_inventory(
             and material_id == inventory.material_id
         )
 
-    demand_by_order_day: dict[tuple[str, date], Decimal] = defaultdict(lambda: ZERO)
-    gross_by_day: dict[date, Decimal] = defaultdict(lambda: ZERO)
+    demand_by_order_day: dict[tuple[str, date], Decimal] = collections.defaultdict(lambda: ZERO)
+    gross_by_day: dict[date, Decimal] = collections.defaultdict(lambda: ZERO)
     warnings: set[str] = set()
     evidence_refs: set[str] = set(inventory.source_refs)
     for demand in demands:
@@ -642,7 +642,7 @@ def project_inventory(
         else:
             warnings.add("DEMAND_OUTSIDE_PROJECTION_HORIZON")
 
-    reserved_by_order_day: dict[tuple[str, date], Decimal] = defaultdict(lambda: ZERO)
+    reserved_by_order_day: dict[tuple[str, date], Decimal] = collections.defaultdict(lambda: ZERO)
     total_linked_reservations = ZERO
     for reservation in reservations:
         if not matches(reservation.facility_id, reservation.material_id):
@@ -673,12 +673,12 @@ def project_inventory(
     if unlinked_reserved > ZERO:
         warnings.add("UNLINKED_RESERVED_STOCK")
 
-    reserved_by_day: dict[date, Decimal] = defaultdict(lambda: ZERO)
+    reserved_by_day: dict[date, Decimal] = collections.defaultdict(lambda: ZERO)
     for (_order_id, need_at), quantity in reserved_by_order_day.items():
         if start_date <= need_at <= end_date:
             reserved_by_day[need_at] += quantity
 
-    receipts_by_day: dict[date, Decimal] = defaultdict(lambda: ZERO)
+    receipts_by_day: dict[date, Decimal] = collections.defaultdict(lambda: ZERO)
     excluded_receipts = ZERO
     eligible_statuses = frozenset(status.casefold() for status in firm_receipt_statuses)
     for receipt in receipts:

@@ -180,7 +180,7 @@ async def _apply_ingestion_rows(
     rows_rejected = 0
     error_log: list[dict[str, Any]] = []
     max_recorded_errors = 100
-    batch_savepoint = await session.begin_nested()
+    batch_savepoint = session.begin_nested()
     strict_failure_row: int | None = None
     resolver_cache: dict[str, dict[str, UUID]] = {}
 
@@ -295,7 +295,7 @@ def _parse_csv_bytes(data: bytes) -> list[dict[str, str]]:
         ) from exc
 
     try:
-        reader = csv.DictReader(io.StringIO(text))
+        reader = csv.DictReader(io.StringIO(text), strict=True)
         if reader.fieldnames is None:
             return []
         headers = [header.strip() for header in reader.fieldnames]
