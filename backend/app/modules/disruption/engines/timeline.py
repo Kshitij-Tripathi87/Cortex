@@ -68,9 +68,8 @@ def build_timeline(
                 if status == StockoutStatus.OK:
                     status = StockoutStatus.AT_SAFETY
                 at_risk_comp.add(w.component_id)
-            elif q <= w.safety_stock * 1.2:
-                if status == StockoutStatus.OK:
-                    status = StockoutStatus.BELOW_SAFETY
+            elif q <= w.safety_stock * 1.2 and status == StockoutStatus.OK:
+                status = StockoutStatus.BELOW_SAFETY
 
         for p in products:
             if p.component_id in at_risk_comp:
