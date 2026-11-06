@@ -2,7 +2,9 @@
  * Cortex Nexus — typed HTTP client for backend business APIs (spec §8).
  *
  * No component may call fetch() directly for Nexus APIs; route through the
- * per-domain clients which call this helper. Provides:
+ * per-domain clients which call this helper. The implementation delegates to
+ * the platform auth client so domain calls share Bearer injection, request IDs,
+ * timeout behavior, and the AuthProvider's 401 handling. Provides:
  *  - typed responses
  *  - timeout (AbortController)
  *  - normalized domain errors (NexusApiError with status code)
@@ -10,16 +12,12 @@
  *  - no silent fallback on mutation methods
  */
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1`;
+import { apiRequest } from "@/lib/auth/client";
+import { ApiClientError } from "@/lib/auth/errors";
 
-const DEFAULT_TIMEOUT_MS = 15000;
-
-let authToken: string | null = null;
-
-export function setNexusAuthToken(token: string | null) {
-  authToken = token;
+export function setNexusAuthToken(_token: string | null) {
+  // Kept as a source-compatible no-op for legacy callers. The centralized
+  // auth client reads the session token from the single auth storage module.
 }
 
 export class NexusApiError extends Error {
@@ -56,70 +54,16 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
-function buildUrl(path: string, query?: RequestOptions["query"]): string {
-  const base = path.startsWith("http") ? path : `${API_BASE}${path}`;
-  if (!query) return base;
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(query)) {
-    if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
-  }
-  const qs = params.toString();
-  return qs ? `${base}?${qs}` : base;
-}
-
 export async function request<T>(opts: RequestOptions): Promise<T> {
-  const method = opts.method ?? "GET";
-  const url = buildUrl(opts.path, opts.query);
-  const controller = new AbortController();
-  const timeout = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const timer = setTimeout(() => controller.abort(), timeout);
-  if (opts.signal) {
-    // Chain external signal
-    if (opts.signal.aborted) controller.abort();
-    else opts.signal.addEventListener("abort", () => controller.abort());
-  }
-
-  const headers: Record<string, string> = {};
-  let body: BodyInit | undefined;
-  if (opts.body !== undefined) {
-    headers["Content-Type"] = "application/json";
-    body = JSON.stringify(opts.body);
-  }
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-
   try {
-    const resp = await fetch(url, {
-      method,
-      headers,
-      body,
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    let payload: unknown = undefined;
-    const text = await resp.text();
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = text;
-      }
-    }
-    if (!resp.ok) {
-      const message =
-        (payload && typeof payload === "object" && "detail" in payload
-          ? String((payload as { detail: unknown }).detail)
-          : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
-      throw new NexusApiError(resp.status, opts.path, message, payload);
-    }
-    return payload as T;
+    return await apiRequest<T>(opts);
   } catch (e) {
-    if (e instanceof NexusApiError) throw e;
-    if (e instanceof DOMException && e.name === "AbortError") {
-      throw new NexusApiError(408, opts.path, "Request timeout");
+    if (e instanceof ApiClientError) {
+      throw new NexusApiError(e.status, opts.path, e.message, {
+        request_id: e.requestId,
+        details: e.details,
+      });
     }
-    // Network / CORS / DNS — normalize to a 0-status error so UI can show "offline".
-    throw new NexusApiError(0, opts.path, "Network error: backend unreachable");
-  } finally {
-    clearTimeout(timer);
+    throw e;
   }
 }

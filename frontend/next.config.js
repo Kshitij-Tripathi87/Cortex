@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Emit .next/standalone for the production Docker image
+  // (frontend/Dockerfile copies /app/.next/standalone and runs server.js).
+  // `next start` (used by e2e) keeps working — standalone is additive.
+  output: "standalone",
   env: {
     // Raw backend host used by src/lib/api.ts (full paths are layered in code).
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",

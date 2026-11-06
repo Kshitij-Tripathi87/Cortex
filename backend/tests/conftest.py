@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -16,6 +17,20 @@ from sqlalchemy.pool import StaticPool
 from app.infrastructure.database import Base
 from app.modules.world.state_repository import StateRepository
 from app.modules.world.world_service import WorldStateService
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Program S/T suites exercise the in-memory `/workspace/*` demo singleton.
+#
+# That router is NOT mounted by default (Settings.workspace_demo_routes): it
+# pins a process-local workspace to the literal tenant ws_default/org_default
+# with no authz, so a customer deployment must never expose it. Those suites
+# test the Program S engine itself, so the whole test session opts in here.
+#
+# This must run before any test module imports `app.main`: `create_app()` calls
+# `get_settings()`, which is lru_cache'd, so a later setdefault would be
+# ignored and the three /workspace suites would 404.
+# ─────────────────────────────────────────────────────────────────────────────
+os.environ.setdefault("CORTEX_WORKSPACE_DEMO_ROUTES", "true")
 
 
 def pytest_addoption(parser):
@@ -241,7 +256,7 @@ def nexus_db_path(tmp_path_factory):
     return base / "nexus.sqlite3"
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def nexus_db_engine(nexus_db_path):
     import app.modules.nexus_spine.persistence.models  # noqa: F401
     from app.infrastructure.database import Base

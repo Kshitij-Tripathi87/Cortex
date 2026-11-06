@@ -169,6 +169,32 @@ class Settings(BaseSettings):
         "(default False). Never enable in production.",
     )
 
+    # Program S in-memory demo singleton (`/workspace/*`).
+    #
+    # That router keeps one process-local `LiveNexusWorkspace` pinned to the
+    # literal tenant `ws_default`/`org_default` and performs NO authentication
+    # or `require_workspace_access` check, so any caller who knows the URL
+    # reaches a fixed tenant's state (register finding F1; readiness matrix
+    # row 3: "isolation holds only on paths the UI doesn't use").
+    #
+    # It is therefore NOT mounted by default. RC0 requires that no
+    # customer-facing canonical route read process-local demo state, and the
+    # frontend no longer calls these endpoints. The flag exists only for the
+    # Program S/T integration suites (see tests/conftest.py) and local
+    # demonstration; retire the router once those suites are ported to the
+    # canonical `/nexus/*` surface.
+    #
+    # Deliberately a plain bool defaulting to False rather than an env-derived
+    # default: the OpenAPI contract is generated from the module-level app, and
+    # an env-dependent mount would make `scripts.generate_types` output vary
+    # with ambient CORTEX_ENV, flapping the CI openapi-types drift gate.
+    workspace_demo_routes: bool = Field(
+        default=False,
+        description="Mount the unauthenticated, fixed-tenant /workspace/* demo "
+        "singleton (default False). Test/dev affordance only — never enable in "
+        "pilot/prod/staging.",
+    )
+
     # Feature flags (ADR-0008). Settings-based in MVP; Phase 2 may move to
     # DB-backed or remote service. Read via `get_settings().feature_flags[name]`.
     feature_flags: dict[str, bool] = Field(

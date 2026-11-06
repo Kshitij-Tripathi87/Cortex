@@ -16,6 +16,7 @@ mounted only when CORTEX_NEXUS_V07_LEGACY_ROUTES is explicitly enabled):
   - scenarios  : create / list / get / simulate-against-snapshot (v0.8.5-B3)
   - evidence   : append nodes+edges / read decision DAG (v0.8.5-B3)
   - approvals  : approver identity trail written by advance() (v0.8.5-B3, B8)
+  - receipt    : reconstructable decision/evidence/approval/scenario read model
 
 Every authoritative operation terminates at:
 
@@ -288,14 +289,18 @@ async def advance_decision(
     # workspace in query for Routing symmetry (we'll look it up if not given);
     # require workspace access via the decision's workspace after loading,
     # but we need to know it up front for auth — use X-Workspace-Id header fallback.
-    workspace_id = request.headers.get("X-Workspace-Id") or request.query_params.get("workspace_id")
-    if not workspace_id:
-        # Load decision first to find workspace (pre-auth read allowed for routing)
-        svc = get_authoritative_decision_service()
-        peek = await svc.get(session, decision_id=decision_id)
-        if peek is None:
-            raise HTTPException(status_code=404, detail="decision not found")
-        workspace_id = peek["workspace_id"]
+    requested_workspace_id = request.headers.get("X-Workspace-Id") or request.query_params.get(
+        "workspace_id"
+    )
+    # Load the decision first so authorization always follows persisted
+    # ownership, never a caller-selected workspace query/header.
+    svc = get_authoritative_decision_service()
+    peek = await svc.get(session, decision_id=decision_id)
+    if peek is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    if requested_workspace_id and requested_workspace_id != peek["workspace_id"]:
+        raise HTTPException(status_code=404, detail="decision not found")
+    workspace_id = peek["workspace_id"]
     require_workspace_access(workspace_id, auth)
     p = _principal(auth, workspace_id)
     target = _phase_from_str(body.target_phase)
@@ -356,8 +361,9 @@ async def execute_decision(
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Convenience: APPROVED -> AUTHORIZED -> EXECUTING -> EXECUTED."""
-    require_workspace_access(workspace_id, auth)
-    p = _principal(auth, workspace_id)
+    p, decision = await _decision_scope(session, auth, decision_id, "nexus.decision.execute")
+    if workspace_id != decision["workspace_id"]:
+        raise HTTPException(status_code=404, detail="decision not found")
     _authz_check(p, "nexus.decision.execute", workspace_id)
     svc = get_authoritative_decision_service()
     try:
@@ -389,8 +395,9 @@ async def record_outcome(
     session: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    require_workspace_access(workspace_id, auth)
-    p = _principal(auth, workspace_id)
+    p, decision = await _decision_scope(session, auth, decision_id, "nexus.outcome.record")
+    if workspace_id != decision["workspace_id"]:
+        raise HTTPException(status_code=404, detail="decision not found")
     _authz_check(p, "nexus.outcome.record", workspace_id)
     svc = get_authoritative_decision_service()
     mem: AuthoritativeDecisionMemory = get_authoritative_decision_memory()
@@ -449,14 +456,11 @@ async def record_memory(
     session: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    require_workspace_access(workspace_id, auth)
-    p = _principal(auth, workspace_id)
-    _authz_check(p, "nexus.outcome.record", workspace_id)
-    svc = get_authoritative_decision_service()
-    mem = get_authoritative_decision_memory()
-    dec = await svc.get(session, decision_id=decision_id)
-    if dec is None:
+    p, dec = await _decision_scope(session, auth, decision_id, "nexus.outcome.record")
+    if workspace_id != dec["workspace_id"]:
         raise HTTPException(status_code=404, detail="decision not found")
+    _authz_check(p, "nexus.outcome.record", workspace_id)
+    mem = get_authoritative_decision_memory()
     await mem.record(
         session,
         decision_id=decision_id,
@@ -1549,6 +1553,53 @@ async def list_approvals(
     return _envelope(
         request, {"decision_id": decision_id, "approvals": approvals, "count": len(approvals)}
     )
+
+
+@router.get("/decisions/{decision_id}/receipt")
+async def get_decision_receipt(
+    decision_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the reconstructable RC0 Decision Receipt.
+
+    The receipt is a read model over authoritative records. It deliberately
+    does not create a second lifecycle or hash authority: decision state and
+    transitions come from the decision service, evidence and approvals come
+    from the registry, and scenarios remain isolated projections.
+    """
+    principal, decision = await _decision_scope(session, auth, decision_id, "nexus.evidence.read")
+    _authz_check(principal, "nexus.approval.read", decision["workspace_id"])
+    registry = get_authoritative_registry_service()
+    evidence = await registry.get_evidence_graph(session, decision_id)
+    approvals = await registry.list_approvals(session, decision_id)
+    scenarios = await registry.list_scenarios(
+        session,
+        tenant_id=principal.tenant_id,
+        workspace_id=decision["workspace_id"],
+        decision_id=decision_id,
+    )
+
+    receipt = {
+        "receipt_version": "rc0",
+        "decision_id": decision_id,
+        "workspace_id": decision["workspace_id"],
+        "tenant_id": principal.tenant_id,
+        "decision": decision,
+        "transitions": decision.get("transitions", []),
+        "evidence": evidence,
+        "approvals": approvals,
+        "scenarios": scenarios,
+        "provenance": {
+            "world_state_version": decision.get("world_state_version"),
+            "world_state_hash": decision.get("world_state_hash"),
+            "policy_id": decision.get("policy_id"),
+            "created_at": decision.get("created_at"),
+            "updated_at": decision.get("updated_at"),
+        },
+    }
+    return _envelope(request, {"receipt": receipt})
 
 
 # ─────────────────────────────────────────────────────────────────────

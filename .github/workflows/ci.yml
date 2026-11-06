@@ -214,8 +214,18 @@ jobs:
           # release upstream. Ignored explicitly here; re-evaluate when
           # python-jose ships a fix or the identity module migrates to
           # PyJWT-only.
+          #
+          # PYSEC-2026-4298 (python-jose through 3.5.0, incomplete fix for
+          # CVE-2024-33663): forgeable HS256 tokens WHEN ALGORITHMS ARE NOT
+          # EXPLICITLY RESTRICTED. Every decode call site in this repo
+          # restricts them explicitly — jwt_auth.py:75 algorithms=["HS256"],
+          # provider.py:114 algorithms=["RS256","HS256","EdDSA"],
+          # provider.py:292 algorithms=["HS256"] — so the preconditions do
+          # not hold. No fixed python-jose release exists yet; re-evaluate
+          # on upgrade.
           /tmp/auditenv/bin/pip-audit --no-deps --desc \
-            --requirement /tmp/audit-reqs.txt --ignore-vuln PYSEC-2026-1325
+            --requirement /tmp/audit-reqs.txt --ignore-vuln PYSEC-2026-1325 \
+            --ignore-vuln PYSEC-2026-4298
       
       - name: Run dependency audit (Node)
         run: |

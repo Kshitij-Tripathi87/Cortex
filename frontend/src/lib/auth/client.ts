@@ -17,7 +17,7 @@ export interface ClientOptions {
   /** Path under /api/v1, e.g. "/auth/me". Absolute http(s) URLs pass through. */
   path: string;
   query?: Record<string, string | number | boolean | undefined | null>;
-  body?: unknown;
+  body?: unknown | FormData;
   timeoutMs?: number;
   /** Skip Bearer injection (public endpoints). */
   anonymous?: boolean;
@@ -87,21 +87,28 @@ export async function apiRequest<T>(opts: ClientOptions): Promise<T> {
     else opts.signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
 
+  const isMultipart = typeof FormData !== "undefined" && opts.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     "X-Request-ID": newRequestId(),
   };
+  if (!isMultipart) headers["Content-Type"] = "application/json";
   if (!opts.anonymous) {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
   let response: Response;
+  const requestBody: BodyInit | undefined =
+    opts.body == null
+      ? undefined
+      : isMultipart
+        ? (opts.body as FormData)
+        : JSON.stringify(opts.body);
   try {
     response = await fetch(url, {
       method,
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: requestBody,
       signal: controller.signal,
     });
   } catch (error) {

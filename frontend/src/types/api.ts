@@ -2685,321 +2685,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workspace/state": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Workspace State
-         * @description Returns current workspace overview, loaded datasets, graph size, and active signals.
-         */
-        get: operations["get_workspace_state_api_v1_workspace_state_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/demo/load": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Load Demo Incident
-         * @description Loads the canonical 6-minute controlled demo dataset into the live backend workspace.
-         */
-        post: operations["load_demo_incident_api_v1_workspace_demo_load_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/ingest-raw": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Ingest Raw Table
-         * @description Dynamically ingests raw CSV table and expands the operational graph proportionally.
-         */
-        post: operations["ingest_raw_table_api_v1_workspace_ingest_raw_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Dataset Files
-         * @description Multi-table CSV upload endpoint.
-         */
-        post: operations["upload_dataset_files_api_v1_workspace_upload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/graph/subgraph": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Graph Subgraph
-         * @description Returns viewport-aware localized subgraph for high-performance canvas rendering.
-         */
-        get: operations["get_graph_subgraph_api_v1_workspace_graph_subgraph_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/graph/critical-nodes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Critical Nodes
-         * @description Returns ranked list of Single Points of Failure (SPOFs) and top PageRank hubs.
-         */
-        get: operations["get_critical_nodes_api_v1_workspace_graph_critical_nodes_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/signals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Active Signals
-         * @description Returns detected operational anomaly signals and downstream blast radius exposure.
-         */
-        get: operations["get_active_signals_api_v1_workspace_signals_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/deliberate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Trigger Agent Deliberation
-         * @description Runs the live Multi-Agent Decision Room and counterfactual simulations.
-         */
-        post: operations["trigger_agent_deliberation_api_v1_workspace_deliberate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/decisions/evidence": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Decision Evidence
-         * @description Returns the traversable Decision Evidence Graph with SHA-256 node hashes.
-         *
-         *     When ``decision_id`` is provided the lookup is fail-closed: evidence is
-         *     only ever returned if it belongs to exactly that decision — never to an
-         *     unrelated earlier or later decision.
-         */
-        get: operations["get_decision_evidence_api_v1_workspace_decisions_evidence_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/decisions/validity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Decision Validity
-         * @description Returns whether the latest decision is valid or invalidated by world state mutation.
-         */
-        get: operations["get_decision_validity_api_v1_workspace_decisions_validity_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/query/ask": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Ask Workspace Question
-         * @description Natural-language data interrogation and evidence-backed answer generation.
-         */
-        post: operations["ask_workspace_question_api_v1_workspace_query_ask_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/query/readiness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Check Query Readiness
-         * @description Preflight answerability check answering 'Can I answer this?' before execution.
-         */
-        get: operations["check_query_readiness_api_v1_workspace_query_readiness_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/append-stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Append Stream Event
-         * @description Injects live streaming event to mutate the operational graph via GraphDeltaEngine.
-         */
-        post: operations["append_stream_event_api_v1_workspace_append_stream_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/graph/delta": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Graph Deltas
-         * @description Returns list of incremental graph deltas since specified graph version.
-         */
-        get: operations["get_graph_deltas_api_v1_workspace_graph_delta_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workspace/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stream Workspace Events
-         * @description Server-Sent Events channel for live workspace reconciliation.
-         *
-         *     Emits:
-         *     - ``graph_delta``  — fired when the delta engine records new mutations;
-         *       payload includes ``seq`` (E1 monotonic per-engine sequence number)
-         *       and the canonical ``nodes_count`` / ``edges_count`` for client
-         *       reconciliation.
-         *     - ``heartbeat``    — periodic authoritative versions + graph size,
-         *       with the current ``seq`` so clients can detect missed events.
-         *     - ``resync``       — sent exactly once at connect time if the
-         *       client's ``since_seq`` is older than the oldest in-memory delta;
-         *       the client must do a full refresh on receipt.
-         */
-        get: operations["stream_workspace_events_api_v1_workspace_stream_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/spine/run": {
         parameters: {
             query?: never;
@@ -3805,6 +3490,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nexus/decisions/{decision_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision Receipt
+         * @description Return the reconstructable RC0 Decision Receipt.
+         *
+         *     The receipt is a read model over authoritative records. It deliberately
+         *     does not create a second lifecycle or hash authority: decision state and
+         *     transitions come from the decision service, evidence and approvals come
+         *     from the registry, and scenarios remain isolated projections.
+         */
+        get: operations["get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nexus/realtime/events": {
         parameters: {
             query?: never;
@@ -4085,14 +3795,6 @@ export interface components {
              */
             min_similarity: number;
         };
-        /** AskQuestionRequest */
-        AskQuestionRequest: {
-            /**
-             * Query
-             * @description Operational natural language question
-             */
-            query: string;
-        };
         /** AuditEventResponse */
         AuditEventResponse: {
             /** Event Id */
@@ -4200,11 +3902,6 @@ export interface components {
              * @default
              */
             olist_data_dir: string;
-        };
-        /** Body_upload_dataset_files_api_v1_workspace_upload_post */
-        Body_upload_dataset_files_api_v1_workspace_upload_post: {
-            /** Files */
-            files: string[];
         };
         /** Body_upload_source_file_api_v1_sources_upload_post */
         Body_upload_source_file_api_v1_sources_upload_post: {
@@ -4784,6 +4481,18 @@ export interface components {
             /** Last Lesson At */
             last_lesson_at: string | null;
         };
+        /** DeliberateRequest */
+        DeliberateRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** World Id */
+            world_id: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
         /** DeliberationRequest */
         DeliberationRequest: {
             /**
@@ -4845,10 +4554,7 @@ export interface components {
             agent_id: string;
             /** Version */
             version: string;
-            /**
-             * Workspace Id
-             * @default ws_default
-             */
+            /** Workspace Id */
             workspace_id: string;
             /**
              * Replica Count
@@ -5386,26 +5092,6 @@ export interface components {
             purchase_orders: {
                 [key: string]: unknown;
             }[];
-        };
-        /** IngestRawRequest */
-        IngestRawRequest: {
-            /**
-             * Table Name
-             * @description Table name (e.g. orders, sellers, customers, order_items)
-             */
-            table_name: string;
-            /**
-             * Csv Content
-             * @description Raw CSV content string
-             */
-            csv_content: string;
-            /** Primary Key */
-            primary_key?: string | null;
-            /**
-             * Max Rows
-             * @default 5000
-             */
-            max_rows: number;
         };
         /** IngestionAccepted */
         IngestionAccepted: {
@@ -7555,6 +7241,12 @@ export interface components {
              */
             nexus_v07_legacy_routes: boolean;
             /**
+             * Workspace Demo Routes
+             * @description Mount the unauthenticated, fixed-tenant /workspace/* demo singleton (default False). Test/dev affordance only — never enable in pilot/prod/staging.
+             * @default false
+             */
+            workspace_demo_routes: boolean;
+            /**
              * Feature Flags
              * @description Feature flag toggles. Each flag is a boolean.
              */
@@ -7814,21 +7506,6 @@ export interface components {
             value: unknown;
             /** Unit */
             unit?: string | null;
-        };
-        /** StreamEventRequest */
-        StreamEventRequest: {
-            /**
-             * Event Type
-             * @description e.g. ORDER_PLACED, SELLER_DEGRADATION
-             */
-            event_type: string;
-            /**
-             * Payload
-             * @description Structured event payload
-             */
-            payload: {
-                [key: string]: unknown;
-            };
         };
         /** SubmitEventRequest */
         SubmitEventRequest: {
@@ -8262,26 +7939,6 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
-        };
-        /** DeliberateRequest */
-        app__api__v1__multi_agent__DeliberateRequest: {
-            /** Workspace Id */
-            workspace_id: string;
-            /** World Id */
-            world_id: string;
-            /**
-             * Version
-             * @default 1
-             */
-            version: number;
-        };
-        /** DeliberateRequest */
-        app__api__v1__workspace__DeliberateRequest: {
-            /**
-             * Incident Entity Id
-             * @description Target entity ID to investigate
-             */
-            incident_entity_id?: string | null;
         };
     };
     responses: never;
@@ -11350,7 +11007,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__api__v1__multi_agent__DeliberateRequest"];
+                "application/json": components["schemas"]["DeliberateRequest"];
             };
         };
         responses: {
@@ -12655,461 +12312,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
-                };
-            };
-        };
-    };
-    get_workspace_state_api_v1_workspace_state_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    load_demo_incident_api_v1_workspace_demo_load_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    ingest_raw_table_api_v1_workspace_ingest_raw_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IngestRawRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    upload_dataset_files_api_v1_workspace_upload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_upload_dataset_files_api_v1_workspace_upload_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_graph_subgraph_api_v1_workspace_graph_subgraph_get: {
-        parameters: {
-            query?: {
-                /** @description Focal node ID for 2-hop ego-network */
-                center_node_id?: string | null;
-                max_hops?: number;
-                limit_nodes?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_critical_nodes_api_v1_workspace_graph_critical_nodes_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    get_active_signals_api_v1_workspace_signals_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    trigger_agent_deliberation_api_v1_workspace_deliberate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["app__api__v1__workspace__DeliberateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_decision_evidence_api_v1_workspace_decisions_evidence_get: {
-        parameters: {
-            query?: {
-                /** @description Decision to retrieve evidence for */
-                decision_id?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_decision_validity_api_v1_workspace_decisions_validity_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    ask_workspace_question_api_v1_workspace_query_ask_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AskQuestionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    check_query_readiness_api_v1_workspace_query_readiness_get: {
-        parameters: {
-            query: {
-                /** @description Query to evaluate answerability for */
-                query: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    append_stream_event_api_v1_workspace_append_stream_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StreamEventRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_graph_deltas_api_v1_workspace_graph_delta_get: {
-        parameters: {
-            query?: {
-                /** @description Previous graph version */
-                since_version?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    stream_workspace_events_api_v1_workspace_stream_get: {
-        parameters: {
-            query?: {
-                /** @description E1 resync: the seq number the client last saw. The server replays all deltas with seq > since_seq before entering live tailing. -1 = no resync, jump straight to live. */
-                since_seq?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14920,6 +14122,39 @@ export interface operations {
         };
     };
     list_approvals_api_v1_nexus_decisions__decision_id__approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get: {
         parameters: {
             query?: never;
             header?: never;

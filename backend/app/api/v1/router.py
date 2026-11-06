@@ -13,10 +13,16 @@ Nexus routing (v0.8.2 closeout — routing flip + dual-path removal):
                           explicitly enabled (unit tests, migration tooling,
                           historical v0.7 demonstrations). Never mounted in
                           production by default.
+
+  * /workspace/*        → the Program S in-memory demo singleton, mounted ONLY
+                          when CORTEX_WORKSPACE_DEMO_ROUTES is explicitly
+                          enabled. It hardcodes the tenant ws_default/
+                          org_default and performs no authz, so it must never
+                          be reachable in a customer deployment (RC0). The
+                          frontend no longer calls it.
 """
 
 from fastapi import APIRouter
-from product.workflo_api import router as workflo_router
 
 from app.api.v1 import (
     agent_runtime,
@@ -42,6 +48,7 @@ from app.api.v1 import (
     spine,
     twin,
     validation,
+    workflo,
     workspace,
     world,
 )
@@ -78,12 +85,19 @@ api_router.include_router(agent_runtime.router, prefix="", tags=["Agent Runtime"
 api_router.include_router(intelligence_gateway.router, prefix="", tags=["Intelligence Gateway"])
 api_router.include_router(realtime.router, prefix="", tags=["Real-Time Streaming"])
 api_router.include_router(agents_router.router, prefix="", tags=["Agent Operations Center"])
-# Program S — Live Nexus Data Intelligence Workspace
-api_router.include_router(workspace.router, prefix="", tags=["Live Data Intelligence Workspace"])
+# Program S — Live Nexus Data Intelligence Workspace.
+# Mounted ONLY when explicitly enabled: this router holds a process-local
+# singleton pinned to the literal tenant ws_default/org_default with no
+# authz, so leaving it reachable would defeat tenant isolation (RC0). The
+# Program S/T suites opt in via tests/conftest.py.
+if get_settings().workspace_demo_routes:
+    api_router.include_router(
+        workspace.router, prefix="", tags=["Live Data Intelligence Workspace"]
+    )
 # Nexus Spine — Real Data Vertical Slice
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 # Workflo — Sandboxed QA & Runtime Execution Control Plane
-api_router.include_router(workflo_router, prefix="", tags=["Workflo"])
+api_router.include_router(workflo.router, prefix="", tags=["Workflo"])
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus Decision Intelligence — v0.8.2 routing flip

@@ -342,6 +342,42 @@ async def api_client(nexus_db_engine):
 
 class TestV082APIIntegration:
     @pytest.mark.asyncio
+    async def test_decision_mutations_reject_mismatched_workspace(self, api_client):
+        decision = await api_client.post(
+            "/nexus/decisions",
+            json={
+                "workspace_id": "WS1",
+                "situation": "workspace ownership check",
+                "options": [{"option_id": "O1"}],
+                "world_state_version": 1,
+                "world_state_hash": "h1",
+            },
+        )
+        assert decision.status_code == 201, decision.text
+        did = decision.json()["data"]["decision"]["decision_id"]
+
+        advance = await api_client.post(
+            f"/nexus/decisions/{did}/advance",
+            headers={"X-Workspace-Id": "WS2"},
+            json={"target_phase": "simulated"},
+        )
+        execute = await api_client.post(
+            f"/nexus/decisions/{did}/execute",
+            params={"workspace_id": "WS2"},
+        )
+        outcome = await api_client.post(
+            f"/nexus/decisions/{did}/outcome",
+            params={"workspace_id": "WS2"},
+            json={"outcome_status": "succeeded"},
+        )
+        memory = await api_client.post(
+            f"/nexus/decisions/{did}/memory",
+            params={"workspace_id": "WS2"},
+        )
+
+        assert all(response.status_code == 404 for response in (advance, execute, outcome, memory))
+
+    @pytest.mark.asyncio
     async def test_full_lifecycle_via_http(self, api_client):
         """Create → advance → execute → record outcome → memory → observe."""
         # Create
@@ -394,6 +430,21 @@ class TestV082APIIntegration:
         )
         assert r.status_code == 200, r.text
         assert r.json()["data"]["decision"]["phase"] == "outcome_recorded"
+
+        # The receipt is a read model over the same durable lifecycle. It must
+        # expose evidence, approvals, scenarios, transitions, and outcome
+        # provenance without creating a second source of truth.
+        r = await api_client.get(f"/nexus/decisions/{did}/receipt")
+        assert r.status_code == 200, r.text
+        receipt = r.json()["data"]["receipt"]
+        assert receipt["receipt_version"] == "rc0"
+        assert receipt["decision_id"] == did
+        assert receipt["decision"]["phase"] == "outcome_recorded"
+        assert receipt["decision"]["outcome_status"] == "succeeded"
+        assert receipt["transitions"]
+        assert receipt["approvals"]
+        assert "nodes" in receipt["evidence"]
+        assert isinstance(receipt["scenarios"], list)
 
         # Record forecast + observation
         fid = f"F-{uuid.uuid4().hex[:8]}"
