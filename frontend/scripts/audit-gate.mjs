@@ -43,6 +43,16 @@ const ACCEPTED = new Map([
       "the postcss version Next 14 pins. Build-time tooling exposure. " +
       "Fix: next 16.3.4 (semver-major).",
   ],
+  [
+    // Added on the RC0 qualification branch (2026-11-06): new advisory
+    // published against zod 3.x, first seen failing the gate on PR #14.
+    "GHSA-mrhx-c7xc-m3w5",
+    "zod [high] memory exhaustion while validating oversized constrained " +
+      "collections. Only used client-side (src/lib/auth/validation.ts) on " +
+      "operator-supplied form input — not a server trust boundary. Fix: " +
+      "zod 4.6.7 (semver-major API migration). Follow-up: zod 4 upgrade " +
+      "tracked for the post-RC0 hardening milestone; do not carry past it.",
+  ],
 ]);
 
 const GATE_SEVERITIES = new Set(["high", "critical"]);
