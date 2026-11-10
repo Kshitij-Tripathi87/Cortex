@@ -1,0 +1,25 @@
+{
+  "name": "@cortex/workflo",
+  "version": "0.1.0",
+  "description": "Workflo — Autonomous QA & Runtime Agent CLI for the Cortex platform",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "workflo": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "smoke": "node scripts/smoke.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  }
+}
