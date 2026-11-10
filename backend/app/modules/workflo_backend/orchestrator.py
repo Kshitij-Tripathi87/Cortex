@@ -20,6 +20,7 @@ from typing import Any
 
 from app.common.ids import uuid7
 
+from .execution_policy import ExecutionPolicyBundle, PolicyResolutionError, ResolvedExecution
 from .policy import PolicyViolation, SandboxPolicy
 
 
@@ -49,9 +50,13 @@ class ExecutionResult:
     duration_ms: int
     artifacts: list[Artifact] = field(default_factory=list)
     truncated: bool = False
+    # Bound execution context — present when the sandbox was created from a
+    # resolved ExecutionPolicyBundle. The production receipt consumes these
+    # verbatim; None on the legacy (unresolved) direct-executor path.
+    resolved: ResolvedExecution | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "sandbox_id": self.sandbox_id,
             "command": self.command,
             "exit_code": self.exit_code,
@@ -64,6 +69,9 @@ class ExecutionResult:
             ],
             "truncated": self.truncated,
         }
+        if self.resolved is not None:
+            d["resolved"] = self.resolved.to_dict()
+        return d
 
 
 @dataclass
@@ -75,9 +83,12 @@ class Sandbox:
     policy: SandboxPolicy
     status: str = "running"
     created_at: float = field(default_factory=time.time)
+    # Immutable resolved execution context (policy + profile + image identity)
+    # when the sandbox was created under a validated ExecutionPolicyBundle.
+    resolved: ResolvedExecution | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "id": self.id,
             "workspace_id": self.workspace_id,
             "name": self.name,
@@ -85,6 +96,9 @@ class Sandbox:
             "policy": self.policy.to_dict(),
             "created_at": self.created_at,
         }
+        if self.resolved is not None:
+            d["resolved"] = self.resolved.to_dict()
+        return d
 
 
 _SANDBOX_ENV_ALLOWLIST = (
@@ -153,8 +167,29 @@ class SandboxOrchestrator:
         workspace_id: str,
         name: str,
         policy_data: dict[str, Any] | None = None,
+        *,
+        bundle: ExecutionPolicyBundle | None = None,
+        profile_id: str = "",
+        run_spec_id: str = "",
     ) -> Sandbox:
-        policy = SandboxPolicy.from_dict(policy_data)
+        """Create a sandbox, optionally under a validated policy bundle.
+
+        When ``bundle`` is provided, the requested profile is resolved
+        (fail-closed) and the sandbox enforces the profile's effective
+        policy; the immutable ``ResolvedExecution`` is stored on the
+        sandbox so every execution result is bound to it. When omitted,
+        the legacy per-sandbox policy path applies (unresolved).
+        """
+        resolved: ResolvedExecution | None = None
+        if bundle is not None:
+            if not run_spec_id:
+                raise PolicyResolutionError(
+                    "RUN_SPEC_MISSING", "run_spec_id is required for resolved execution"
+                )
+            resolved = bundle.resolve(profile_id, run_spec_id)
+            policy = resolved.effective_policy
+        else:
+            policy = SandboxPolicy.from_dict(policy_data)
         policy.validate_bounds()
         sandbox_id = f"sbx_{uuid7()}"
         root = self.storage_root / sandbox_id
@@ -166,6 +201,7 @@ class SandboxOrchestrator:
             name=name,
             root=root,
             policy=policy,
+            resolved=resolved,
         )
         self._sandboxes[sandbox_id] = sandbox
         return sandbox
@@ -311,6 +347,7 @@ class SandboxOrchestrator:
             timed_out=timed_out,
             duration_ms=duration_ms,
             truncated=truncated,
+            resolved=sandbox.resolved,
         )
         result.artifacts = self.collect_artifacts(sandbox)
         return result

@@ -57,6 +57,9 @@ class Run:
     events: list[RunEvent] = field(default_factory=list)
     artifacts: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
+    # Signed production receipt (dict form) — None for unresolved/legacy runs
+    # and for policy-blocked runs (denials are audited, never receipted).
+    receipt: dict[str, Any] | None = None
     _subscribers: list[asyncio.Queue[RunEvent]] = field(default_factory=list)
 
     def to_dict(self, include_events: bool = False) -> dict[str, Any]:
@@ -72,6 +75,7 @@ class Run:
             "artifact_count": len(self.artifacts),
             "event_count": len(self.events),
             "created_at": self.created_at,
+            "receipt": self.receipt,
         }
         if include_events:
             d["events"] = [e.to_dict() for e in self.events]
@@ -143,6 +147,35 @@ class RunStore:
 
     def set_artifacts(self, run_id: str, artifacts: list[dict[str, Any]]) -> None:
         self.get(run_id).artifacts = artifacts
+
+
+def find_event(run: Run, type_: str) -> RunEvent | None:
+    """Return the most recent event of ``type_`` in a run's hash-chained stream."""
+    for ev in reversed(run.events):
+        if ev.type == type_:
+            return ev
+    return None
+
+
+def verify_event_chain(run: Run) -> tuple[bool, list[str]]:
+    """Recompute the full hash chain across a run's lifecycle events.
+
+    Each event's ``hash`` is recomputed from its own fields plus the previous
+    event's hash; sequence continuity and linkage are checked. Tampering with
+    any recorded message, payload, or timestamp breaks every subsequent link.
+    """
+    failures: list[str] = []
+    prev = ""
+    for index, ev in enumerate(run.events):
+        if ev.seq != index:
+            failures.append(f"EVENT_SEQ_GAP: recorded seq={ev.seq} at position {index}")
+        if ev.prev_hash != prev:
+            failures.append(f"EVENT_PREV_HASH_MISMATCH: seq={ev.seq}")
+        expected = _hash_event(prev, ev)
+        if ev.hash != expected:
+            failures.append(f"EVENT_HASH_MISMATCH: seq={ev.seq} type={ev.type}")
+        prev = ev.hash
+    return len(failures) == 0, failures
 
 
 _run_store: RunStore | None = None

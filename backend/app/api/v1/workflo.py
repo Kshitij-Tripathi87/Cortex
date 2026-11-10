@@ -18,6 +18,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.modules.workflo_backend.agent import build_plan, diagnose, discover_surfaces
+from app.modules.workflo_backend.execution_policy import (
+    ExecutionPolicyBundle,
+    PolicyResolutionError,
+)
 from app.modules.workflo_backend.infrastructure.security import (
     AuthContext,
     get_current_user,
@@ -30,7 +34,21 @@ from app.modules.workflo_backend.orchestrator import (
     get_orchestrator,
 )
 from app.modules.workflo_backend.policy import PolicyViolation
-from app.modules.workflo_backend.runs import Run, RunNotFound, get_run_store
+from app.modules.workflo_backend.receipts import (
+    ProductionReceipt,
+    build_production_receipt,
+    get_signing_key,
+    sign_receipt,
+    signing_required,
+    verify_production_receipt,
+)
+from app.modules.workflo_backend.runs import (
+    Run,
+    RunNotFound,
+    find_event,
+    get_run_store,
+    verify_event_chain,
+)
 
 router = APIRouter()
 
@@ -39,6 +57,12 @@ class SandboxCreateRequest(BaseModel):
     workspace_id: str = Field(min_length=1)
     name: str = Field(min_length=1, max_length=128)
     policy: dict[str, Any] | None = None
+    # Optional validated policy bundle + authorised profile — resolves the
+    # execution context exactly like the production run path, so the direct
+    # executor path and production path share one policy resolution.
+    policy_bundle: dict[str, Any] | None = None
+    profile_id: str | None = None
+    run_spec_id: str | None = None
 
 
 class FileWriteRequest(BaseModel):
@@ -57,6 +81,12 @@ class RunCreateRequest(BaseModel):
     intent: str = ""
     files: list[FileWriteRequest] = Field(default_factory=list)
     command: str | None = None
+    # Production receipt bindings: validated policy bundle + authorised
+    # runner profile. When provided, the run resolves the profile
+    # (fail-closed), emits a policy_enforced lifecycle event, and produces
+    # a signed, independently verifiable production receipt.
+    policy_bundle: dict[str, Any] | None = None
+    profile_id: str | None = None
 
 
 class AgentPlanRequest(BaseModel):
@@ -80,6 +110,13 @@ def not_found_error(message: str) -> HTTPException:
     return HTTPException(
         status_code=404,
         detail={"code": "not_found", "message": message},
+    )
+
+
+def service_unavailable_error(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail={"code": "service_unavailable", "message": message},
     )
 
 
@@ -110,7 +147,20 @@ async def create_sandbox(
 ) -> dict[str, Any]:
     require_workspace_access(req.workspace_id, auth)
     try:
-        sandbox = get_orchestrator().create_sandbox(req.workspace_id, req.name, req.policy)
+        bundle: ExecutionPolicyBundle | None = None
+        if req.policy_bundle is not None:
+            bundle = ExecutionPolicyBundle.from_dict(req.policy_bundle)
+            bundle.require_valid()
+        sandbox = get_orchestrator().create_sandbox(
+            req.workspace_id,
+            req.name,
+            req.policy,
+            bundle=bundle,
+            profile_id=req.profile_id or "",
+            run_spec_id=req.run_spec_id or "",
+        )
+    except PolicyResolutionError as exc:
+        raise policy_error(f"{exc.code}: {exc.message}") from exc
     except PolicyViolation as exc:
         raise policy_error(exc.reason) from exc
     d = sandbox.to_dict()
@@ -304,19 +354,96 @@ def render_report(run: Run, result: ExecutionResult, diagnosis: dict[str, Any]) 
     return "\n".join(lines)
 
 
+def _resolved_bundle_or_denial(
+    req: RunCreateRequest,
+    store: Any,
+    run: Run,
+) -> ExecutionPolicyBundle:
+    """Reconstruct + validate the bundle; record a policy_denied event on failure.
+
+    A policy-blocked run produces NO execution receipt, but the denial
+    remains auditable as a policy decision in the run's event stream.
+    Raises PolicyViolation (already recorded) on any failure.
+    """
+    try:
+        bundle = ExecutionPolicyBundle.from_dict(req.policy_bundle)
+        bundle.require_valid()
+        # Fail-closed resolution BEFORE any sandbox exists: an unauthorised
+        # profile, floating image tag, or egress bypass never reaches
+        # container creation.
+        bundle.resolve(req.profile_id or "", run.id)
+    except PolicyResolutionError as exc:
+        store.append_event(
+            run.id,
+            "policy_denied",
+            f"policy decision: {exc.code}",
+            {"code": exc.code, "reason": exc.message, "profile_id": req.profile_id or ""},
+        )
+        # The denial is auditable via the run's event stream; no execution
+        # receipt is produced for a policy-blocked request.
+        raise PolicyViolation(f"{exc.code}: {exc.message} (run_id={run.id})") from exc
+    return bundle
+
+
 @router.post("/workflo/runs", status_code=201)
 async def create_run(
     req: RunCreateRequest,
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     require_workspace_access(req.workspace_id, auth)
+
+    # Fail-closed evidence guarantee: in staging/pilot/prod (or when the
+    # explicit flag is set), governed execution is refused entirely unless
+    # a receipt signing key is configured — with or without a policy bundle.
+    # Staging must never silently operate without signed production receipts.
+    if signing_required() and not get_signing_key():
+        raise service_unavailable_error(
+            "RECEIPT_SIGNING_UNAVAILABLE: CORTEX_RECEIPT_SIGNING_KEY is not "
+            "configured; signed production receipts cannot be issued, so "
+            "governed execution is refused in this environment. Configure the "
+            "signing key from the secret store to enable execution."
+        )
+
     orchestrator = get_orchestrator()
     store = get_run_store()
     try:
-        sandbox = orchestrator.create_sandbox(req.workspace_id, req.name, None)
         run = store.create(req.workspace_id, req.name, req.intent)
-        run.sandbox_id = sandbox.id
         store.append_event(run.id, "created", f"run {run.name} created")
+
+        # ── Policy resolution (fail-closed, before any sandbox exists) ──
+        bundle: ExecutionPolicyBundle | None = None
+        resolved = None
+        if req.policy_bundle is not None:
+            bundle = _resolved_bundle_or_denial(req, store, run)
+            resolved = bundle.resolve(req.profile_id or "", run.id)
+            store.append_event(
+                run.id,
+                "policy_enforced",
+                f"policy {resolved.policy_version} enforced via profile "
+                f"'{resolved.profile_id}' (bundle '{resolved.bundle_id}')",
+                {
+                    "run_spec_id": resolved.run_spec_id,
+                    "profile_id": resolved.profile_id,
+                    "bundle_id": resolved.bundle_id,
+                    "policy_version": resolved.policy_version,
+                    "policy_digest": resolved.policy_digest,
+                    "bundle_digest": resolved.bundle_digest,
+                    "profile_digest": resolved.profile_digest,
+                    "tool_version": resolved.tool_version,
+                    "image_ref": resolved.image_ref,
+                    "image_digest": resolved.image_digest,
+                },
+            )
+
+        sandbox = orchestrator.create_sandbox(
+            req.workspace_id,
+            req.name,
+            None,
+            bundle=bundle,
+            profile_id=req.profile_id or "",
+            run_spec_id=run.id if bundle else "",
+        )
+        run.sandbox_id = sandbox.id
 
         file_index: list[str] = []
         for spec in req.files:
@@ -379,6 +506,39 @@ async def create_run(
         out["execution"] = result.to_dict()
         out["diagnosis"] = diagnosis
         out["artifacts"] = artifacts
+
+        # ── Production receipt (bound to the SAME resolved context) ─────
+        if resolved is not None:
+            policy_event = find_event(run, "policy_enforced")
+            receipt = build_production_receipt(
+                resolved=resolved,
+                result=result,
+                policy_enforced_event_hash=policy_event.hash if policy_event else "",
+            )
+            signing_key = get_signing_key()
+            if signing_key:
+                receipt = sign_receipt(receipt, signing_key)
+            verification = verify_production_receipt(
+                receipt,
+                run=run,
+                signing_key=signing_key or None,
+            )
+            store.append_event(
+                run.id,
+                "receipt_created",
+                f"production receipt bound ({receipt.receipt_hash[:16]}…)",
+                {
+                    "receipt_hash": receipt.receipt_hash,
+                    "policy_digest": receipt.policy_digest,
+                    "bundle_digest": receipt.bundle_digest,
+                    "profile_digest": receipt.profile_digest,
+                    "image_digest": receipt.image_digest,
+                },
+            )
+            out["receipt"] = receipt.to_dict()
+            out["receipt_verification"] = verification.to_dict()
+            run.receipt = receipt.to_dict()
+
         return out
     except PolicyViolation as exc:
         raise policy_error(exc.reason) from exc
@@ -397,6 +557,94 @@ async def get_run(
         return run.to_dict(include_events=True)
     except RunNotFound as exc:
         raise not_found_error(str(exc)) from exc
+
+
+@router.get("/workflo/runs/{run_id}/receipt")
+async def get_run_receipt(
+    run_id: str,
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the run's production receipt, if one was issued.
+
+    Policy-blocked and unresolved (legacy) runs have no receipt — the
+    response states so explicitly rather than fabricating evidence.
+    """
+    try:
+        run = get_run_store().get(run_id)
+        require_workspace_access(run.workspace_id, auth)
+    except RunNotFound as exc:
+        raise not_found_error(str(exc)) from exc
+    if run.receipt is None:
+        denied = find_event(run, "policy_denied") is not None
+        return {
+            "run_id": run_id,
+            "receipt": None,
+            "reason": ("policy_denied_no_receipt" if denied else "unresolved_execution_no_receipt"),
+        }
+    return {"run_id": run_id, "receipt": run.receipt}
+
+
+@router.get("/workflo/runs/{run_id}/receipt/verify")
+async def verify_run_receipt(
+    run_id: str,
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Independently verify a run's production receipt.
+
+    Recomputes the binding hash, checks the HMAC signature (when a signing
+    key is configured), and cross-checks every digest against the run's
+    hash-chained ``policy_enforced`` lifecycle event. This endpoint trusts
+    nothing on the receipt: every binding is re-derived from the event
+    stream.
+    """
+    try:
+        run = get_run_store().get(run_id)
+        require_workspace_access(run.workspace_id, auth)
+    except RunNotFound as exc:
+        raise not_found_error(str(exc)) from exc
+    if run.receipt is None:
+        return {
+            "run_id": run_id,
+            "verification_passed": False,
+            "failures": ["RECEIPT_ABSENT"],
+            "receipt": None,
+        }
+    receipt = ProductionReceipt.from_dict(run.receipt)
+    verification = verify_production_receipt(
+        receipt,
+        run=run,
+        require_signature=signing_required(),
+    )
+    return {
+        "run_id": run_id,
+        **verification.to_dict(),
+    }
+
+
+@router.get("/workflo/runs/{run_id}/events/verify")
+async def verify_run_events(
+    run_id: str,
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Verify the integrity of a run's hash-chained lifecycle event stream.
+
+    Recomputes every event hash and the chain linkage, so any tampering
+    with recorded messages, payloads, or timestamps is detected. This is
+    the audit surface for lifecycle evidence (created → policy_enforced →
+    executed → receipt_created → completed).
+    """
+    try:
+        run = get_run_store().get(run_id)
+        require_workspace_access(run.workspace_id, auth)
+    except RunNotFound as exc:
+        raise not_found_error(str(exc)) from exc
+    ok, failures = verify_event_chain(run)
+    return {
+        "run_id": run_id,
+        "event_count": len(run.events),
+        "chain_ok": ok,
+        "failures": failures,
+    }
 
 
 @router.get("/workflo/runs/{run_id}/artifacts")
