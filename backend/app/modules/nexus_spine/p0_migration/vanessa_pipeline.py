@@ -337,6 +337,13 @@ class VanessaPipeline:
 
         # Step 1: classify intent
         intent = await self.llm.classify_intent(message)
+        if intent.confidence < 0.45:
+            intent = StructuredIntent(
+                intent=IntentType.UNKNOWN,
+                entities={},
+                confidence=intent.confidence,
+                raw_text=message,
+            )
 
         # Resolve effective workspace
         effective_ws = workspace_id or principal.workspace_id
