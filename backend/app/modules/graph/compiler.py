@@ -94,6 +94,7 @@ def _detect_entity_type(headers: list[str]) -> str | None:
     """Infer the row entity without mistaking foreign keys for row primary keys."""
     return infer_entity_type(headers)
 
+
 def _mapped_source_field(
     source_column: str,
     entity_type: str,
@@ -143,9 +144,8 @@ def _canonicalize_source_row(
     """Normalize row keys; reject ambiguous duplicate aliases instead of losing data."""
     canonical: dict[str, str] = {}
     for source_column, raw_value in row.items():
-        field = (
-            (field_mappings or {}).get(str(source_column))
-            or canonical_column_name(str(source_column), entity_type)
+        field = (field_mappings or {}).get(str(source_column)) or canonical_column_name(
+            str(source_column), entity_type
         )
         value = "" if raw_value is None else str(raw_value)
         current = canonical.get(field)
@@ -361,8 +361,7 @@ async def compile_evidence_to_graph(
             continue
 
         headers = [
-            _mapped_source_field(header, entity_type, field_mappings)
-            for header in source_headers
+            _mapped_source_field(header, entity_type, field_mappings) for header in source_headers
         ]
         pk_column = _detect_pk_column(source_headers, entity_type, field_mappings)
         if pk_column is None:
