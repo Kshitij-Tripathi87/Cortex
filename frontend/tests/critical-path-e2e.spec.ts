@@ -48,9 +48,9 @@ async function createLoggedInSession(
   await page.getByLabel('Work email').fill(email);
   await page.getByLabel('Password').fill(password);
   await page.getByTestId('login-submit').click();
-  await expect(page).toHaveURL(/\\/onboarding/);
+  await expect(page).toHaveURL(/onboarding/);
   await page.getByTestId('onboarding-continue').click();
-  await expect(page).toHaveURL(/\\/app$/);
+  await expect(page).toHaveURL(/app$/);
 }
 
 test.describe('Upload → Evidence → Conflict → Readiness → Audit path', () => {
