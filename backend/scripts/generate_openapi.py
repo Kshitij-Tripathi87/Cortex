@@ -2,15 +2,12 @@ import json
 import sys
 from pathlib import Path
 
-# Make the repo root importable (product.workflo_api lives outside backend/).
-# Without this, `python -m scripts.generate_openapi` from backend/ fails on
-# `from product.workflo_api import ...` in app.api.v1.router — the same
-# command the CI openapi-types job runs.
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+# Keep the backend package root importable even when invoked by file path.
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
 
-from app.main import app  # noqa: E402  (must follow the sys.path bootstrap)
+from app.main import app  # noqa: E402  (must follow the backend path bootstrap)
 
 
 def main() -> None:
