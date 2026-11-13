@@ -13,7 +13,12 @@ from app.modules.compiler.models import (
     EvidenceClaim,
     EvidenceConflict,
 )
-from app.modules.compiler.service import extract_claims, resolve_conflict
+from app.modules.compiler.service import (
+    compute_readiness,
+    detect_conflicts,
+    extract_claims,
+    resolve_conflict,
+)
 from app.modules.sources.models import SourceColumnProfile
 
 
@@ -276,3 +281,106 @@ async def test_claim_extraction_is_idempotent_for_retried_batch_compile(
     assert second.claims_created == 0
     assert len(claims) == 2
     assert {claim.source_column for claim in claims} == {"supplier_id", "supplier_name"}
+
+
+@pytest.mark.asyncio
+async def test_escalated_conflict_blocks_readiness_until_a_later_decision(
+    db_session: AsyncSession,
+) -> None:
+    workspace_id, batch_id, file_id = str(uuid4()), str(uuid4()), str(uuid4())
+    first = _claim(
+        workspace_id=workspace_id,
+        batch_id=batch_id,
+        file_id=file_id,
+        raw_value="Acme Ltd",
+    )
+    second = _claim(
+        workspace_id=workspace_id,
+        batch_id=batch_id,
+        file_id=file_id,
+        raw_value="ACME",
+    )
+    conflict = _conflict(
+        workspace_id=workspace_id,
+        batch_id=batch_id,
+        claim_ids=[first.claim_id, second.claim_id],
+    )
+    db_session.add_all([first, second, conflict])
+    await db_session.flush()
+
+    await resolve_conflict(
+        db_session,
+        workspace_id,
+        conflict.conflict_id,
+        None,
+        "escalated",
+        "The values need confirmation from the workspace owner.",
+        str(uuid4()),
+    )
+    readiness = await compute_readiness(db_session, workspace_id, batch_id)
+
+    assert conflict.status == "escalated"
+    assert readiness.state == "blocked"
+    assert readiness.blocking_conflict_count == 1
+    assert readiness.open_conflict_count == 1
+    assert readiness.pending_claim_count == 2
+
+    await resolve_conflict(
+        db_session,
+        workspace_id,
+        conflict.conflict_id,
+        first.claim_id,
+        "approved",
+        "The owner confirmed the ERP master value.",
+        str(uuid4()),
+    )
+
+    assert conflict.status == "resolved"
+    assert first.claim_state == ClaimState.ACCEPTED.value
+    assert second.claim_state == ClaimState.SUPERSEDED.value
+    final_readiness = await compute_readiness(db_session, workspace_id, batch_id)
+    assert final_readiness.state == "ready_with_assumptions"
+
+
+@pytest.mark.asyncio
+async def test_detect_conflicts_does_not_recreate_suppressed_conflict(
+    db_session: AsyncSession,
+) -> None:
+    workspace_id, batch_id, file_id = str(uuid4()), str(uuid4()), str(uuid4())
+    first = _claim(
+        workspace_id=workspace_id,
+        batch_id=batch_id,
+        file_id=file_id,
+        raw_value="Acme Ltd",
+    )
+    second = _claim(
+        workspace_id=workspace_id,
+        batch_id=batch_id,
+        file_id=file_id,
+        raw_value="ACME",
+    )
+    conflict = _conflict(
+        workspace_id=workspace_id,
+        batch_id=batch_id,
+        claim_ids=[first.claim_id, second.claim_id],
+    )
+    conflict.status = "suppressed"
+    conflict.review_required = False
+    db_session.add_all([first, second, conflict])
+    await db_session.flush()
+
+    result = await detect_conflicts(db_session, workspace_id, batch_id)
+
+    assert result.conflicts_detected == 0
+    stored_conflicts = list(
+        (
+            await db_session.scalars(
+                select(EvidenceConflict).where(
+                    EvidenceConflict.workspace_id == workspace_id,
+                    EvidenceConflict.batch_id == batch_id,
+                )
+            )
+        ).all()
+    )
+    assert len(stored_conflicts) == 1
+    assert stored_conflicts[0].status == "suppressed"
