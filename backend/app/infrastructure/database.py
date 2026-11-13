@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from sqlalchemy import MetaData
+from sqlalchemy import BLANK_SCHEMA, MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -55,14 +55,11 @@ async def init_db(dsn: str) -> None:
         sqlite_metadata = MetaData()
         for table in Base.metadata.sorted_tables:
             if table.schema is None or table.name.startswith("nexus_"):
-                table.to_metadata(sqlite_metadata)
-        for table in sqlite_metadata.tables.values():
-            table.schema = None
-            for col in table.columns:
-                for fk in list(col.foreign_keys):
-                    if fk._colspec and fk._colspec.count(".") == 2:
-                        parts = fk._colspec.split(".")
-                        fk._colspec = f"{parts[1]}.{parts[2]}"
+                table.to_metadata(
+                    sqlite_metadata,
+                    schema=None,
+                    referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: BLANK_SCHEMA,
+                )
         async with _engine.begin() as conn:
             await conn.run_sync(sqlite_metadata.create_all)
     else:
