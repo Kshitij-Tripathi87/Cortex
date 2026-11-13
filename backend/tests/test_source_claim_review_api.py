@@ -19,6 +19,7 @@ from app.modules.audit.models import AuditEvent
 from app.modules.compiler.models import EvidenceClaim
 from app.modules.sources.models import SourceBatch
 
+
 @pytest.mark.asyncio
 async def test_claim_review_is_authenticated_scoped_and_audited(
     db_session: AsyncSession,
