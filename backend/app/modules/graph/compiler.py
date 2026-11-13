@@ -445,7 +445,6 @@ async def compile_evidence_to_graph(
         existing_node_stmt = (
             select(GraphNode)
             .where(GraphNode.workspace_id == workspace_id)
-            .where(GraphNode.valid_to.is_(None))
             .where(GraphNode.entity_type.in_(entity_types))
             .where(GraphNode.entity_id.in_(entity_ids))
         )
@@ -471,6 +470,7 @@ async def compile_evidence_to_graph(
             # Preserve prior known attributes while letting the latest
             # accepted source values refresh fields they actually provide.
             existing_node.attributes = {**(existing_node.attributes or {}), **attributes}
+            existing_node.valid_to = None
             existing_node.last_modified_version = next_version
             node_id_map[node_key] = existing_node.node_id
         else:
@@ -520,23 +520,17 @@ async def compile_evidence_to_graph(
         edge_stmt = (
             select(GraphEdge)
             .where(GraphEdge.workspace_id == workspace_id)
-            .where(GraphEdge.valid_to.is_(None))
             .where(GraphEdge.source_node_id.in_(source_ids))
             .where(GraphEdge.target_node_id.in_(target_ids))
         )
         edge_result = await db.execute(edge_stmt)
-        candidate_ids = set(edge_candidates.values())
+        edge_keys_by_node_ids = {
+            (source_node_id, target_node_id, entity_key[2]): entity_key
+            for entity_key, (source_node_id, target_node_id) in edge_candidates.items()
+        }
         for edge in edge_result.scalars().all():
-            if (edge.source_node_id, edge.target_node_id) not in candidate_ids:
-                continue
-            edge_key = next(
-                (
-                    entity_key
-                    for entity_key, node_ids in edge_candidates.items()
-                    if node_ids == (edge.source_node_id, edge.target_node_id)
-                    and entity_key[2] == edge.relationship_type
-                ),
-                None,
+            edge_key = edge_keys_by_node_ids.get(
+                (edge.source_node_id, edge.target_node_id, edge.relationship_type)
             )
             if edge_key is not None:
                 existing_edges[edge_key] = edge
@@ -569,6 +563,7 @@ async def compile_evidence_to_graph(
         existing_edge = existing_edges.get(entity_edge_key)
         if existing_edge is not None:
             existing_edge.attributes = {**(existing_edge.attributes or {}), **attributes}
+            existing_edge.valid_to = None
             existing_edge.last_modified_version = next_version
             edge_id_map[entity_edge_key] = existing_edge.edge_id
         else:
