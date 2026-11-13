@@ -59,8 +59,8 @@ async def init_db(dsn: str) -> None:
                 table.to_metadata(
                     sqlite_metadata,
                     schema=cast(Any, None),
-                    referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: cast(
-                        Any, BLANK_SCHEMA
+                    referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: (
+                        cast(Any, BLANK_SCHEMA)
                     ),
                 )
         async with _engine.begin() as conn:
