@@ -64,9 +64,7 @@ def _as_float(value: Any) -> float | None:
     return parsed if math.isfinite(parsed) else None
 
 
-async def _latest_graph_snapshot(
-    session: AsyncSession, workspace_id: str
-) -> GraphSnapshot | None:
+async def _latest_graph_snapshot(session: AsyncSession, workspace_id: str) -> GraphSnapshot | None:
     result = await session.execute(
         select(GraphSnapshot)
         .where(GraphSnapshot.workspace_id == workspace_id)
@@ -137,9 +135,7 @@ async def _graph_read(
         "recent_entities": entities,
         "source_batch_id": snapshot.source_batch_id if snapshot else None,
         "evidence_status": (
-            "published_graph_available"
-            if snapshot
-            else "no_published_source_batch"
+            "published_graph_available" if snapshot else "no_published_source_batch"
         ),
     }
 
@@ -384,9 +380,7 @@ def _entity_kind_for_graph_node(node: GraphNode) -> EntityKind | None:
     return aliases.get(entity_type)
 
 
-def _entity_from_graph_node(
-    node: GraphNode, tenant_id: UUID, workspace_id: UUID
-) -> Entity | None:
+def _entity_from_graph_node(node: GraphNode, tenant_id: UUID, workspace_id: UUID) -> Entity | None:
     kind = _entity_kind_for_graph_node(node)
     if kind is None:
         return None
@@ -493,9 +487,7 @@ def register_vanessa_tools(
         sku = str(tc.args.get("sku")) if tc.args.get("sku") else None
         supplier_id = str(tc.args.get("supplier_id")) if tc.args.get("supplier_id") else None
         region = str(tc.args.get("region")) if tc.args.get("region") else None
-        return await _run_demand(
-            session, principal, workspace_id, sku, supplier_id, region
-        )
+        return await _run_demand(session, principal, workspace_id, sku, supplier_id, region)
 
     async def recommendation_context(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
         # One AsyncSession must not be used by concurrent tasks. Keep these
@@ -524,16 +516,20 @@ def register_vanessa_tools(
         scenario_id = str(args.get("scenario_id") or "").strip()
         graph_snapshot = await _latest_graph_snapshot(session, workspace_id)
         graph_rows = (
-            await session.execute(
-                select(GraphNode)
-                .where(
-                    GraphNode.workspace_id == workspace_id,
-                    GraphNode.valid_to.is_(None),
+            (
+                await session.execute(
+                    select(GraphNode)
+                    .where(
+                        GraphNode.workspace_id == workspace_id,
+                        GraphNode.valid_to.is_(None),
+                    )
+                    .order_by(GraphNode.last_modified_version.desc())
+                    .limit(5000)
                 )
-                .order_by(GraphNode.last_modified_version.desc())
-                .limit(5000)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         try:
             tenant_uuid = UUID(principal.tenant_id)
         except ValueError:
@@ -589,8 +585,7 @@ def register_vanessa_tools(
             or str(args.get("entity_id") or "").strip()
         )
         target_rows = [
-            row for row in graph_rows
-            if row.entity_id == target_ref or row.node_id == target_ref
+            row for row in graph_rows if row.entity_id == target_ref or row.node_id == target_ref
         ]
         if len(target_rows) != 1:
             return {
