@@ -229,11 +229,6 @@ def submit_in_own_session() -> Any:
 # Nexus v0.8 persistent-manager tests — file-based async SQLite
 # ─────────────────────────────────────────────────────────────────────
 
-_REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _REPO not in sys.path:
-    sys.path.insert(0, _REPO)
-
-
 @pytest.fixture(scope="session")
 def nexus_db_path(tmp_path_factory):
     base = tmp_path_factory.mktemp("nexus-persistent")
