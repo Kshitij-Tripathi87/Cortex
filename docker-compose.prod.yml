@@ -105,6 +105,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      object-storage:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:
@@ -126,7 +128,7 @@ services:
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:-cortex_secure_prod_2026!}@postgres:5432/${CORTEX_DB_NAME:-cortex}
       CORTEX_REDIS_URL: redis://:${CORTEX_REDIS_PASSWORD:-cortex_redis_secure_2026!}@redis:6379/0
       CORTEX_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CORTEX_S3_ENDPOINT: http://minio:9000
+      CORTEX_S3_ENDPOINT: http://object-storage:8333
       CORTEX_S3_ACCESS_KEY: ${CORTEX_S3_ACCESS_KEY:-cortex_minio_admin}
       CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:-cortex_minio_secret_2026!}
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:-cortex_production_jwt_master_secret_2026_enterprise}
@@ -134,6 +136,8 @@ services:
     ports:
       - "8002:8000"
     depends_on:
+      object-storage:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:
