@@ -73,7 +73,8 @@ services:
   object-storage:
     image: chrislusf/seaweedfs:4.53
     container_name: cortex-object-storage-prod
-    command: mini -dir=/data -ip=object-storage -ip.bind=0.0.0.0 -s3.port=8333
+    entrypoint: ["weed"]
+    command: ["mini", "-dir=/data", "-ip.bind=0.0.0.0", "-s3.port=8333"]
     environment:
       AWS_ACCESS_KEY_ID: ${CORTEX_S3_ACCESS_KEY:?Set CORTEX_S3_ACCESS_KEY in the deployment environment}
       AWS_SECRET_ACCESS_KEY: ${CORTEX_S3_SECRET_KEY:?Set CORTEX_S3_SECRET_KEY in the deployment environment}
