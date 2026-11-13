@@ -427,61 +427,161 @@ async def compile_evidence_to_graph(
     # Use DB-backed monotonic versioning
     next_version = await get_next_version(db, workspace_id, "graph")
 
-    # 5. Apply writes to DB (create nodes + edges)
+    # 5. Upsert canonical nodes, reusing stable workspace/entity IDs.
+    # This mirrors the unique key enforced by migration 003 and prevents later
+    # batches from creating duplicate suppliers, products, facilities, etc.
     node_id_map: dict[tuple[str, str], str] = {}
     edge_id_map: dict[tuple[str, str, str], str] = {}
 
+    node_keys_to_upsert = {
+        (str(w.payload["entity_type"]), str(w.payload["entity_id"]))
+        for w in writes
+        if w.operation == "upsert_node"
+    }
+    entity_types = {entity_type for entity_type, _entity_id in node_keys_to_upsert}
+    entity_ids = {entity_id for _entity_type, entity_id in node_keys_to_upsert}
+    existing_nodes: dict[tuple[str, str], GraphNode] = {}
+    if node_keys_to_upsert:
+        existing_node_stmt = (
+            select(GraphNode)
+            .where(GraphNode.workspace_id == workspace_id)
+            .where(GraphNode.valid_to.is_(None))
+            .where(GraphNode.entity_type.in_(entity_types))
+            .where(GraphNode.entity_id.in_(entity_ids))
+        )
+        existing_node_result = await db.execute(existing_node_stmt)
+        existing_nodes = {
+            (node.entity_type, node.entity_id): node
+            for node in existing_node_result.scalars().all()
+            if (node.entity_type, node.entity_id) in node_keys_to_upsert
+        }
+
     for w in writes:
-        if w.operation == "upsert_node":
-            et = w.payload["entity_type"]
-            eid = w.payload["entity_id"]
-            key = (et, eid)
-            if key in node_id_map:
-                continue
+        if w.operation != "upsert_node":
+            continue
+        entity_type = str(w.payload["entity_type"])
+        entity_id = str(w.payload["entity_id"])
+        node_key = (entity_type, entity_id)
+        if node_key in node_id_map:
+            continue
+
+        attributes = dict(w.payload["attributes"])
+        existing_node = existing_nodes.get(node_key)
+        if existing_node is not None:
+            # Preserve prior known attributes while letting the latest
+            # accepted source values refresh fields they actually provide.
+            existing_node.attributes = {**(existing_node.attributes or {}), **attributes}
+            existing_node.last_modified_version = next_version
+            node_id_map[node_key] = existing_node.node_id
+        else:
             node_id = w.element_id
-            node_id_map[key] = node_id
+            node_id_map[node_key] = node_id
             db.add(
                 GraphNode(
                     node_id=node_id,
                     workspace_id=workspace_id,
-                    entity_type=et,
-                    entity_id=eid,
-                    attributes=w.payload["attributes"],
+                    entity_type=entity_type,
+                    entity_id=entity_id,
+                    attributes=attributes,
                     first_seen_version=next_version,
                     last_modified_version=next_version,
                 )
             )
-        elif w.operation == "upsert_edge":
-            src = f"{w.payload['source_entity_type']}:{w.payload['source_entity_id']}"
-            tgt = f"{w.payload['target_entity_type']}:{w.payload['target_entity_id']}"
-            rel = w.payload["relationship_type"]
-            key = (src, tgt, rel)
-            if key in edge_id_map:
+
+    # Resolve all edge endpoints after every node (including FK stubs) has a
+    # stable database ID, then upsert using the canonical relationship key.
+    edge_candidates: dict[tuple[str, str, str], tuple[str, str]] = {}
+    for w in writes:
+        if w.operation != "upsert_edge":
+            continue
+        source_key = (
+            str(w.payload["source_entity_type"]),
+            str(w.payload["source_entity_id"]),
+        )
+        target_key = (
+            str(w.payload["target_entity_type"]),
+            str(w.payload["target_entity_id"]),
+        )
+        source_node_id = node_id_map.get(source_key)
+        target_node_id = node_id_map.get(target_key)
+        if not source_node_id or not target_node_id:
+            continue
+        entity_edge_key = (
+            f"{source_key[0]}:{source_key[1]}",
+            f"{target_key[0]}:{target_key[1]}",
+            str(w.payload["relationship_type"]),
+        )
+        edge_candidates[entity_edge_key] = (source_node_id, target_node_id)
+
+    existing_edges: dict[tuple[str, str, str], GraphEdge] = {}
+    if edge_candidates:
+        source_ids = {source_id for source_id, _target_id in edge_candidates.values()}
+        target_ids = {target_id for _source_id, target_id in edge_candidates.values()}
+        edge_stmt = (
+            select(GraphEdge)
+            .where(GraphEdge.workspace_id == workspace_id)
+            .where(GraphEdge.valid_to.is_(None))
+            .where(GraphEdge.source_node_id.in_(source_ids))
+            .where(GraphEdge.target_node_id.in_(target_ids))
+        )
+        edge_result = await db.execute(edge_stmt)
+        candidate_ids = set(edge_candidates.values())
+        for edge in edge_result.scalars().all():
+            if (edge.source_node_id, edge.target_node_id) not in candidate_ids:
                 continue
-            source_node_id = node_id_map.get(
+            edge_key = next(
                 (
-                    w.payload["source_entity_type"],
-                    w.payload["source_entity_id"],
-                )
+                    entity_key
+                    for entity_key, node_ids in edge_candidates.items()
+                    if node_ids == (edge.source_node_id, edge.target_node_id)
+                    and entity_key[2] == edge.relationship_type
+                ),
+                None,
             )
-            target_node_id = node_id_map.get(
-                (
-                    w.payload["target_entity_type"],
-                    w.payload["target_entity_id"],
-                )
-            )
-            if not source_node_id or not target_node_id:
-                continue
+            if edge_key is not None:
+                existing_edges[edge_key] = edge
+
+    for w in writes:
+        if w.operation != "upsert_edge":
+            continue
+        source_key = (
+            str(w.payload["source_entity_type"]),
+            str(w.payload["source_entity_id"]),
+        )
+        target_key = (
+            str(w.payload["target_entity_type"]),
+            str(w.payload["target_entity_id"]),
+        )
+        source_node_id = node_id_map.get(source_key)
+        target_node_id = node_id_map.get(target_key)
+        if not source_node_id or not target_node_id:
+            continue
+
+        entity_edge_key = (
+            f"{source_key[0]}:{source_key[1]}",
+            f"{target_key[0]}:{target_key[1]}",
+            str(w.payload["relationship_type"]),
+        )
+        if entity_edge_key in edge_id_map:
+            continue
+
+        attributes = dict(w.payload["attributes"])
+        existing_edge = existing_edges.get(entity_edge_key)
+        if existing_edge is not None:
+            existing_edge.attributes = {**(existing_edge.attributes or {}), **attributes}
+            existing_edge.last_modified_version = next_version
+            edge_id_map[entity_edge_key] = existing_edge.edge_id
+        else:
             edge_id = w.element_id
-            edge_id_map[key] = edge_id
+            edge_id_map[entity_edge_key] = edge_id
             db.add(
                 GraphEdge(
                     edge_id=edge_id,
                     workspace_id=workspace_id,
                     source_node_id=source_node_id,
                     target_node_id=target_node_id,
-                    relationship_type=rel,
-                    attributes=w.payload["attributes"],
+                    relationship_type=str(w.payload["relationship_type"]),
+                    attributes=attributes,
                     first_seen_version=next_version,
                     last_modified_version=next_version,
                 )
@@ -507,6 +607,7 @@ async def compile_evidence_to_graph(
         actual_element_id = w.element_id
         if w.operation == "upsert_node":
             node_key = (w.payload["entity_type"], w.payload["entity_id"])
+            actual_element_id = node_id_map.get(node_key, w.element_id)
             event_claim_ids = sorted(node_provenance.get(node_key, set()))
         else:
             src = f"{w.payload['source_entity_type']}:{w.payload['source_entity_id']}"
