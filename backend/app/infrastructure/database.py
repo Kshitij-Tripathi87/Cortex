@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from typing import Any, cast
+
 from sqlalchemy import BLANK_SCHEMA, MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -57,8 +59,10 @@ async def init_db(dsn: str) -> None:
             if table.schema is None or table.name.startswith("nexus_"):
                 table.to_metadata(
                     sqlite_metadata,
-                    schema=None,
-                    referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: BLANK_SCHEMA,
+                    schema=cast(Any, None),
+                    referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: cast(
+                        Any, BLANK_SCHEMA
+                    ),
                 )
         async with _engine.begin() as conn:
             await conn.run_sync(sqlite_metadata.create_all)
