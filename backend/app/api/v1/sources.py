@@ -368,12 +368,15 @@ async def review_claim_endpoint(
             status_code=422,
             detail="canonical_entity and canonical_field must be supplied together",
         )
-    if payload.decision == ClaimState.ACCEPTED.value:
-        if not mapping_supplied and (not claim.canonical_entity or not claim.canonical_field):
-            raise HTTPException(
-                status_code=422,
-                detail="This claim has no complete canonical mapping. Supply canonical_entity and canonical_field before accepting it.",
-            )
+    if (
+        payload.decision == ClaimState.ACCEPTED.value
+        and not mapping_supplied
+        and (not claim.canonical_entity or not claim.canonical_field)
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="This claim has no complete canonical mapping. Supply canonical_entity and canonical_field before accepting it.",
+        )
     if mapping_supplied:
         allowed_entities = (
             set(ENTITY_PRIMARY_KEYS)
