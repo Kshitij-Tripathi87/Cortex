@@ -15,7 +15,6 @@ from app.modules.compiler.models import (
     EvidenceClaim,
     EvidenceConflict,
 )
-
 from app.modules.graph.entity_keys import infer_entity_type
 from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.sources.models import SourceColumnProfile
