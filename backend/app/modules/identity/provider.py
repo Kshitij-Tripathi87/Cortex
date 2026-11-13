@@ -110,9 +110,15 @@ class JWTIDProvider:
             except (PyJWKClientError, InvalidTokenError, OSError) as exc:
                 raise PermissionError(f"Token signing key could not be resolved: {exc}") from exc
             algorithms = [
-                "RS256", "RS384", "RS512",
-                "PS256", "PS384", "PS512",
-                "ES256", "ES384", "ES512",
+                "RS256",
+                "RS384",
+                "RS512",
+                "PS256",
+                "PS384",
+                "PS512",
+                "ES256",
+                "ES384",
+                "ES512",
                 "EdDSA",
             ]
         else:
