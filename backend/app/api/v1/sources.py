@@ -295,7 +295,13 @@ async def list_claims(
 
 def _require_claim_reviewer(auth: AuthContext) -> None:
     """Only workspace admins and operators may accept or reject source claims."""
-    allowed_roles = {"admin", "operator", "system_admin"}
+    allowed_roles = {
+        "admin",
+        "operator",
+        "system_admin",
+        "workspace_admin",
+        "operations_manager",
+    }
     if auth.is_anonymous or not allowed_roles.intersection(auth.roles):
         raise HTTPException(
             status_code=403,
