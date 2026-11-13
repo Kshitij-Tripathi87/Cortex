@@ -115,7 +115,7 @@ test.describe('Failure behavior — backend 5xx surfaces error UI', () => {
       return route.fulfill({ status: 500, body: JSON.stringify({ detail: 'backend error' }) });
     });
     await page.goto(`${BASE_URL}/evidence?batch_id=00000000-0000-4000-8000-000000000001`);
-    await expect(page.getByRole('alert')).toContainText(/service failure|error|unavailable/i, { timeout: 10000 });
+    await expect(page.getByText('backend error', { exact: true })).toBeVisible({ timeout: 10000 });
   });
 
   test('readiness page shows error state on 500', async ({ page, context }) => {
