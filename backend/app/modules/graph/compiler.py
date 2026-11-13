@@ -31,8 +31,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState
-from app.config import get_settings
 from app.common.ids import uuid7
+from app.config import get_settings
 from app.infrastructure.storage_client import ObjectStorageClient, get_storage
 from app.modules.compiler.models import EvidenceClaim
 from app.modules.graph.entity_keys import (
