@@ -54,6 +54,9 @@ class IntentType(StrEnum):
     TRACE_QUERY = "trace_query"
     EXPLAIN = "explain"
     RISK_QUERY = "risk_query"
+    SIGNAL_QUERY = "signal_query"
+    SCENARIO_QUERY = "scenario_query"
+    GRAPH_QUERY = "graph_query"
     # Analyze / simulate (no operational changes)
     RUN_DEMAND = "run_demand"
     SIMULATE = "simulate"
@@ -77,11 +80,14 @@ INTENT_TO_TOOL: dict[IntentType, str] = {
     IntentType.DECISION_QUERY: "nexus.decision.list",
     IntentType.TRACE_QUERY: "nexus.trace.get",
     IntentType.EXPLAIN: "nexus.explain",
-    IntentType.RISK_QUERY: "nexus.state.read",
+    IntentType.RISK_QUERY: "nexus.risk.read",
+    IntentType.SIGNAL_QUERY: "nexus.signal.read",
+    IntentType.SCENARIO_QUERY: "nexus.scenario.read",
+    IntentType.GRAPH_QUERY: "nexus.graph.read",
     IntentType.RUN_DEMAND: "nexus.demand.run",
-    IntentType.SIMULATE: "nexus.rl.simulate",
-    IntentType.COMPARE: "nexus.simulate.compare",
-    IntentType.WHATIF: "nexus.whatif.run",
+    IntentType.SIMULATE: "nexus.scenario.simulate",
+    IntentType.COMPARE: "nexus.recommend",
+    IntentType.WHATIF: "nexus.scenario.simulate",
     IntentType.RECOMMEND: "nexus.recommend",
     IntentType.APPROVE: "nexus.decision.approve",
     IntentType.EXECUTE: "nexus.decision.execute",
@@ -192,7 +198,10 @@ class DeterministicLLMAdapter(LLMAdapter):
         ],
         IntentType.TRACE_QUERY: ["trace", "explain why", "why did", "audit", "history of"],
         IntentType.EXPLAIN: ["explain", "why is", "how does", "tell me about", "what are"],
-        IntentType.RISK_QUERY: ["risk", "disruption", "threat", "vulnerability"],
+        IntentType.RISK_QUERY: ["risk", "risks", "disruption", "threat", "vulnerability"],
+        IntentType.SIGNAL_QUERY: ["signals", "active signal", "alert feed", "anomalies", "detected issues"],
+        IntentType.SCENARIO_QUERY: ["scenarios", "scenario list", "saved scenarios"],
+        IntentType.GRAPH_QUERY: ["graph", "entities and relationships", "nodes and edges", "graph snapshot", "world model"],
         IntentType.RUN_DEMAND: ["run demand", "run forecast", "compute demand", "demand intel"],
         IntentType.SIMULATE: ["simulate", "digital twin", "run simulation"],
         IntentType.COMPARE: ["compare", "versus", " vs "],
@@ -217,6 +226,9 @@ class DeterministicLLMAdapter(LLMAdapter):
         IntentType.SIMULATE,
         IntentType.RUN_DEMAND,
         IntentType.RECOMMEND,
+        IntentType.SIGNAL_QUERY,
+        IntentType.SCENARIO_QUERY,
+        IntentType.GRAPH_QUERY,
         IntentType.TRACE_QUERY,
         IntentType.RISK_QUERY,
         IntentType.FORECAST_QUERY,
