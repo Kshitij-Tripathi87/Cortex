@@ -96,7 +96,13 @@ function EvidenceContent() {
   const batchId = searchParams.get("batch_id");
   const { status, workspace, user } = useAuth();
   const workspaceId = workspace?.id ?? "";
-  const canReview = user?.role === "admin" || user?.role === "operator";
+  const canReview = [
+    "admin",
+    "operator",
+    "system_admin",
+    "workspace_admin",
+    "operations_manager",
+  ].includes(user?.role ?? "");
 
   const [claims, setClaims] = useState<EvidenceClaim[]>([]);
   const [conflicts, setConflicts] = useState<EvidenceConflict[]>([]);
