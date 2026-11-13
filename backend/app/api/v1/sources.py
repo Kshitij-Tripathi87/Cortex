@@ -440,9 +440,10 @@ async def resolve_conflict_endpoint(
 ) -> dict[str, str]:
     """Resolve a conflict by selecting a claim or taking an action (workspace-scoped)."""
     require_workspace_access(workspace_id, auth)
+    _require_claim_reviewer(auth)
 
     try:
-        await resolve_conflict(
+        resolution = await resolve_conflict(
             db=db,
             workspace_id=workspace_id,
             conflict_id=conflict_id,
@@ -451,17 +452,38 @@ async def resolve_conflict_endpoint(
             rationale=payload.rationale,
             reviewer_id=auth.user_id or "unknown",
         )
-    except NoResultFound as e:
-        raise HTTPException(status_code=404, detail="Conflict not found") from e
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
-
-    try:
+        await emit_audit(
+            db,
+            event_type="evidence.conflict.reviewed",
+            workspace_id=workspace_id,
+            actor_id=auth.user_id or "unknown",
+            actor_type="user",
+            subject_type="EvidenceConflict",
+            subject_id=conflict_id,
+            payload={
+                "resolution_id": resolution.resolution_id,
+                "selected_claim_id": payload.selected_claim_id,
+                "action": payload.action,
+                "rationale": payload.rationale,
+            },
+            message=f"Evidence conflict {conflict_id}: {payload.action}",
+        )
         await db.commit()
+    except NoResultFound as exc:
+        await db.rollback()
+        raise HTTPException(status_code=404, detail="Conflict not found") from exc
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception:
         await db.rollback()
         raise
-    return {"status": "resolved", "conflict_id": conflict_id}
+    return {
+        "status": "recorded",
+        "conflict_id": conflict_id,
+        "resolution_id": resolution.resolution_id,
+        "action": payload.action,
+    }
 
 
 @router.post("/batches/{batch_id}/compile")
