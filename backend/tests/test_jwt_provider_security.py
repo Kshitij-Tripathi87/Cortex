@@ -53,7 +53,9 @@ async def test_service_token_factory_pyjwt_round_trip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     secret = "test-only-service-token-secret-with-sufficient-entropy"
-    monkeypatch.setattr(ServiceTokenFactory, "signing_key", classmethod(lambda cls: secret))
+    monkeypatch.setattr(
+        ServiceTokenFactory, "signing_key", classmethod(lambda cls: secret)
+    )
 
     token = await ServiceTokenFactory.issue(
         "nexus-worker",
@@ -74,7 +76,9 @@ async def test_service_token_factory_pyjwt_round_trip(
 async def test_service_token_factory_rejects_wrong_signing_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(ServiceTokenFactory, "signing_key", classmethod(lambda cls: "correct-secret"))
+    monkeypatch.setattr(
+        ServiceTokenFactory, "signing_key", classmethod(lambda cls: "correct-secret")
+    )
     token = jwt.encode(
         {
             "sub": "nexus-worker",
