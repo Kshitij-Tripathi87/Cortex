@@ -100,8 +100,8 @@ async def db_engine() -> AsyncGenerator[Any]:
             table.to_metadata(
                 sqlite_metadata,
                 schema=cast(Any, None),
-                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: (
-                    cast(Any, BLANK_SCHEMA)
+                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: cast(
+                    Any, BLANK_SCHEMA
                 ),
             )
 
@@ -262,7 +262,9 @@ async def nexus_db_engine(nexus_db_path):
             table.to_metadata(
                 nexus_metadata,
                 schema=None,
-                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: BLANK_SCHEMA,
+                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: (
+                    BLANK_SCHEMA
+                ),
             )
 
     async with engine.begin() as conn:
