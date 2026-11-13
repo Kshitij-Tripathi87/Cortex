@@ -235,6 +235,7 @@ def submit_in_own_session() -> Any:
 # Nexus v0.8 persistent-manager tests — file-based async SQLite
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def nexus_db_path(tmp_path_factory):
     base = tmp_path_factory.mktemp("nexus-persistent")
