@@ -11,13 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database import get_db
-from app.modules.audit.service import emit as emit_audit
-from app.modules.compiler.service import compute_readiness
 from app.infrastructure.security import (
     AuthContext,
     get_current_user,
     require_workspace_access,
 )
+from app.modules.audit.service import emit as emit_audit
+from app.modules.compiler.service import compute_readiness
 from app.modules.graph.compiler import compile_evidence_to_graph
 from app.modules.graph.decision_models import (
     DecisionRequest,
@@ -35,7 +35,6 @@ from app.modules.graph.scenario_models import (
     ScenarioType,
 )
 from app.modules.graph.snapshots import get_snapshot, list_snapshots, verify_snapshot_chain
-
 from app.modules.sources.models import SourceBatch
 
 
