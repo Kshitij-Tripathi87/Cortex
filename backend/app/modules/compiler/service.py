@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState, ConflictSeverity, ReadinessState
 from app.common.ids import uuid7
+from app.modules.graph.entity_keys import COLUMN_TO_ENTITY_TYPE, canonical_column_name
 from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.compiler.models import (
     ConflictResolution,
@@ -73,18 +74,20 @@ async def extract_claims(
         if isinstance(row.provenance, dict) and row.provenance.get("profile_id")
     }
 
+    canonical_headers = sorted({canonical_column_name(profile.column_name) for profile in profiles})
+    row_entity_type = next(
+        (COLUMN_TO_ENTITY_TYPE[field] for field in canonical_headers if field in COLUMN_TO_ENTITY_TYPE),
+        None,
+    )
+
     for profile in profiles:
         # A retried batch compilation must not multiply the same column claims.
         if profile.profile_id in existing_profile_ids or profile.column_name in existing_columns:
             continue
         existing_columns.add(profile.column_name)
-        suggestion = suggest_mapping(profile.column_name)
-        canonical_field = profile.recommended_mapping or suggestion.canonical_field
-        confidence = (
-            profile.mapping_confidence
-            if profile.mapping_confidence is not None
-            else suggestion.confidence
-        )
+        suggestion = suggest_mapping(profile.column_name, row_entity_type=row_entity_type)
+        canonical_field = suggestion.canonical_field or profile.recommended_mapping
+        confidence = max(profile.mapping_confidence or 0.0, suggestion.confidence)
         requires_review = (
             profile.requires_review
             or suggestion.requires_review
