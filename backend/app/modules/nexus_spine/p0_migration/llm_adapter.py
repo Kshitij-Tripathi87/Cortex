@@ -103,7 +103,11 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
     def _parse_json(content: str) -> dict[str, Any]:
         candidate = content.strip()
         if candidate.startswith("```"):
-            candidate = re.sub(r"^\`\`\`(?:json)?\s*|\s*\`\`\`$", "", candidate, flags=re.IGNORECASE)
+            first_line, separator, remainder = candidate.partition("\n")
+            candidate = remainder if separator else first_line[3:]
+            candidate = candidate.rstrip()
+            if candidate.endswith("```"):
+                candidate = candidate[:-3].rstrip()
         try:
             value = json.loads(candidate)
         except json.JSONDecodeError as exc:
