@@ -311,6 +311,7 @@ async def resolve_conflict(
     db.add(resolution)
 
     if action == "approved":
+        assert selected_claim_id is not None
         selected = claims_by_id[selected_claim_id]
         if selected.claim_state != ClaimState.PENDING_REVIEW.value:
             raise ValueError("Only a pending claim can be approved")
