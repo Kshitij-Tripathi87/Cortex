@@ -33,7 +33,6 @@ from app.modules.compiler.service import (
     extract_claims,
     resolve_conflict,
 )
-
 from app.modules.graph.entity_keys import ENTITY_PRIMARY_KEYS, FACILITY_ENTITY_TYPES
 from app.modules.sources.models import SourceBatch
 from app.modules.sources.service import get_batch, get_file, list_profiles, process_upload
