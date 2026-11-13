@@ -123,9 +123,7 @@ def _resolve_fk_columns(headers: list[str], entity_type: str) -> list[tuple[str,
     return result
 
 
-def _canonicalize_source_row(
-    row: dict[str, Any], entity_type: str | None = None
-) -> dict[str, str]:
+def _canonicalize_source_row(row: dict[str, Any], entity_type: str | None = None) -> dict[str, str]:
     """Normalize row keys; reject ambiguous duplicate aliases instead of losing data."""
     canonical: dict[str, str] = {}
     for source_column, raw_value in row.items():
