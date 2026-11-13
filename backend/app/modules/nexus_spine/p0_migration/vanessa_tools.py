@@ -26,8 +26,14 @@ from app.modules.nexus_spine.p0_migration.authz import Principal
 from app.modules.nexus_spine.p0_migration.authoritative_inference import (
     get_authoritative_inference_engine,
 )
+from app.modules.nexus_spine.p0_migration.authoritative_decisions import (
+    get_authoritative_decision_service,
+)
 from app.modules.nexus_spine.p0_migration.authoritative_memory import (
     get_authoritative_decision_memory,
+)
+from app.modules.nexus_spine.p0_migration.authoritative_truth import (
+    get_authoritative_truth_loop,
 )
 from app.modules.nexus_spine.p0_migration.authoritative_registries import (
     get_authoritative_registry_service,
@@ -248,10 +254,7 @@ async def _forecast_read(
         }
         for row in rows
     ]
-    calibration = await __import__(
-        "app.modules.nexus_spine.p0_migration.authoritative_truth",
-        fromlist=["get_authoritative_truth_loop"],
-    ).get_authoritative_truth_loop().calibration_for(
+    calibration = await get_authoritative_truth_loop().calibration_for(
         session, tenant_id=principal.tenant_id, workspace_id=workspace_id, sku=sku
     )
     return {
@@ -438,10 +441,7 @@ def register_vanessa_tools(
 
     registry = get_authoritative_registry_service()
     memory = get_authoritative_decision_memory()
-    decision_service = __import__(
-        "app.modules.nexus_spine.p0_migration.authoritative_decisions",
-        fromlist=["get_authoritative_decision_service"],
-    ).get_authoritative_decision_service()
+    decision_service = get_authoritative_decision_service()
 
     async def graph_read(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
         return await _graph_read(session, workspace_id)
@@ -498,14 +498,12 @@ def register_vanessa_tools(
         )
 
     async def recommendation_context(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
-        graph, risks, signals, scenarios = await __import__(
-            "asyncio"
-        ).gather(
-            _graph_read(session, workspace_id),
-            _risk_read(session, principal, workspace_id),
-            _signal_read(session, workspace_id),
-            _scenario_read(session, principal, workspace_id),
-        )
+        # One AsyncSession must not be used by concurrent tasks. Keep these
+        # evidence reads ordered within the request transaction.
+        graph = await _graph_read(session, workspace_id)
+        risks = await _risk_read(session, principal, workspace_id)
+        signals = await _signal_read(session, workspace_id)
+        scenarios = await _scenario_read(session, principal, workspace_id)
         decisions = await decision_service.list_by_workspace(
             session, tenant_id=principal.tenant_id, workspace_id=workspace_id, limit=10
         )
