@@ -8,7 +8,6 @@ Tool selection remains constrained by the static intent map and AuthZ layer.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 import httpx
@@ -122,10 +121,16 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
             "You classify operational questions for Cortex Nexus. Return one JSON object only: "
             '{"intent":"<enum>","confidence":0.0,"entities":{}}. '
             f"intent must be one of: {', '.join(allowed)}. "
-            "Extract only identifiers explicitly present in the user message (such as sku, "
-            "supplier_id, entity_id, decision_id, risk_id, scenario_id, or region). "
-            "Do not invent IDs, dates, measurements, or facts. If ambiguous, use unknown and "
-            "a low confidence score. Greetings/help should use their matching meta intent."
+            "Extract only identifiers and numeric parameters explicitly present in the user message. "
+            "Supported fields are sku, supplier_id, entity_id, decision_id, risk_id, scenario_id, "
+            "region, mutation_kind, delay_days, demand_multiplier, capacity_pct, closure_days, "
+            "availability_pct, and unit_price. For mutation_kind use only supplier_failure, "
+            "demand_surge, capacity_shock, port_closure, lead_time_increase, or price_change, "
+            "and only when the user clearly asks for that counterfactual. Map a stated supplier "
+            "failure to supplier_failure; a stated extra lead-time duration to lead_time_increase. "
+            "Do not invent IDs, dates, measurements, parameter values, or facts. If the target or "
+            "parameter is ambiguous, omit it and use a low confidence score. Greetings/help use "
+            "their matching meta intent."
         )
         result = self._parse_json(await self._complete(system, text, json_mode=True))
         raw_intent = result.get("intent", IntentType.UNKNOWN.value)
@@ -170,7 +175,7 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
                 "sku", "supplier_id", "entity_id", "decision_id", "risk_id",
                 "scenario_id", "region", "source_batch_id", "mutation_kind",
                 "delay_days", "demand_multiplier", "capacity_pct", "closure_days",
-                "availability_pct",
+                "availability_pct", "unit_price", "target_entity_id",
             }
         }
         return [ToolCall(tool=tool, args=safe_args)]
