@@ -366,9 +366,6 @@ async def compile_evidence_to_graph(
         if entity_type is None:
             continue
 
-        if entity_type in mapped_primary_entities and len(mapped_primary_entities) > 1:
-            raise ValueError("Accepted mappings conflict on the row primary-key entity type")
-
         headers = [
             _mapped_source_field(header, entity_type, field_mappings)
             for header in source_headers
