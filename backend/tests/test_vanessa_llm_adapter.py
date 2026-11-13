@@ -103,7 +103,15 @@ async def test_synthesis_receives_workspace_evidence_and_grounding_constraints()
         captured["authorization"] = request.headers.get("Authorization")
         return httpx.Response(
             200,
-            json={"choices": [{"message": {"content": "Supplier SUP-104 has two open risks [tool:nexus.risk.read]."}}]},
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": "Supplier SUP-104 has two open risks [tool:nexus.risk.read]."
+                        }
+                    }
+                ]
+            },
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
