@@ -41,6 +41,7 @@ from app.modules.graph.entity_keys import (
     ENTITY_PRIMARY_KEYS,
     FACILITY_ENTITY_TYPES,
     canonical_column_name,
+    infer_entity_type,
 )
 from app.modules.graph.models import (
     GraphEdge,
@@ -91,14 +92,8 @@ def _parse_csv_rows(data: bytes, encoding: str | None = None) -> list[dict[str, 
 
 
 def _detect_entity_type(headers: list[str]) -> str | None:
-    """Infer row entity type from an explicit canonical or known alias header."""
-    canonical_headers = [canonical_column_name(header) for header in headers]
-    for field in sorted(set(canonical_headers)):
-        entity_type = COLUMN_TO_ENTITY_TYPE.get(field)
-        if entity_type is not None:
-            return entity_type
-    return None
-
+    """Infer the row entity without mistaking foreign keys for row primary keys."""
+    return infer_entity_type(headers)
 
 def _mapped_source_field(
     source_column: str,
