@@ -317,7 +317,10 @@ async def resolve_conflict(
         selected.claim_state = ClaimState.ACCEPTED.value
         selected.requires_review = False
         for other_id, other_claim in claims_by_id.items():
-            if other_id != selected_claim_id and other_claim.claim_state == ClaimState.PENDING_REVIEW.value:
+            if (
+                other_id != selected_claim_id
+                and other_claim.claim_state == ClaimState.PENDING_REVIEW.value
+            ):
                 other_claim.claim_state = ClaimState.SUPERSEDED.value
                 other_claim.requires_review = False
         conflict.status = "resolved"
