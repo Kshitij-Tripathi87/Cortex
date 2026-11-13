@@ -9,16 +9,15 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Register the models before the db_engine fixture copies Base.metadata.
-from app.modules.audit.models import AuditEvent
-from app.modules.compiler.models import EvidenceClaim, EvidenceConflict
-from app.modules.sources.models import SourceBatch
-
 from app.api.v1 import sources
+from app.common.enums import ClaimState
 from app.infrastructure.database import get_db
 from app.infrastructure.security import AuthContext, get_current_user
-from app.common.enums import ClaimState
 
+# Register the models before the db_engine fixture copies Base.metadata.
+from app.modules.audit.models import AuditEvent
+from app.modules.compiler.models import EvidenceClaim
+from app.modules.sources.models import SourceBatch
 
 @pytest.mark.asyncio
 async def test_claim_review_is_authenticated_scoped_and_audited(
