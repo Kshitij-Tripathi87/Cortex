@@ -232,7 +232,7 @@ async def test_second_batch_reuses_canonical_supplier_nodes_and_relationships(
 
 
 
-def test_vendor_export_headers_resolve_to_supplier_primary_and_parent_keys():
+def test_vendor_export_headers_resolve_to_supplier_primary_and_parent_keys() -> None:
     headers = ["Vendor Code", "Vendor Name", "Parent Vendor Code"]
 
     entity_type = _detect_entity_type(headers)
