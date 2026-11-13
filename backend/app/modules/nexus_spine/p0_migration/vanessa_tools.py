@@ -15,7 +15,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.graph.models import GraphEdge, GraphNode, GraphSnapshot
+from app.modules.graph.models import GraphNode, GraphSnapshot
 from app.modules.nexus_spine.ontology.core_types import EntityKind
 from app.modules.nexus_spine.ontology.entities import Entity
 from app.modules.nexus_spine.persistence.models import (
