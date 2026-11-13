@@ -148,7 +148,9 @@ class Settings(BaseSettings):
     # Operational intelligence provider (OpenAI-compatible chat completions).
     # Deterministic mode is for dev/test only; staging/pilot/prod must use a
     # configured model endpoint so production never silently degrades to keywords.
-    llm_provider: str = Field(default="deterministic", description="deterministic|openai_compatible")
+    llm_provider: str = Field(
+        default="deterministic", description="deterministic|openai_compatible"
+    )
     llm_api_key: SecretStr = Field(default=SecretStr(""), description="Model gateway API key")
     llm_base_url: str = Field(default="https://api.openai.com/v1")
     llm_model: str = Field(default="", description="Exact model/deployment name")
