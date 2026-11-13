@@ -40,6 +40,7 @@ from app.modules.graph.entity_keys import (
     ENTITY_FOREIGN_KEYS,
     ENTITY_PRIMARY_KEYS,
     FACILITY_ENTITY_TYPES,
+    canonical_column_name,
 )
 from app.modules.graph.models import (
     GraphEdge,
@@ -90,37 +91,55 @@ def _parse_csv_rows(data: bytes, encoding: str | None = None) -> list[dict[str, 
 
 
 def _detect_entity_type(headers: list[str]) -> str | None:
-    """Identify the primary entity type of a file by scanning for a column
-    that matches a known primary key field name."""
-    header_map = {h.strip().lower(): h for h in headers}
-    for col_lower, _orig in sorted(header_map.items()):
-        if col_lower in COLUMN_TO_ENTITY_TYPE:
-            return COLUMN_TO_ENTITY_TYPE[col_lower]
+    """Infer row entity type from an explicit canonical or known alias header."""
+    canonical_headers = [canonical_column_name(header) for header in headers]
+    for field in sorted(set(canonical_headers)):
+        entity_type = COLUMN_TO_ENTITY_TYPE.get(field)
+        if entity_type is not None:
+            return entity_type
     return None
 
 
 def _detect_pk_column(headers: list[str], entity_type: str) -> str | None:
-    """Find the column that serves as the primary key for the detected entity."""
+    """Return the canonical primary-key field for this file's entity type."""
     pk_field = _entity_pk_field(entity_type)
     if not pk_field:
         return None
-    for h in headers:
-        if h.strip().lower() == pk_field:
-            return h
+    for header in headers:
+        if canonical_column_name(header, entity_type) == pk_field:
+            return pk_field
     return None
 
 
 def _resolve_fk_columns(headers: list[str], entity_type: str) -> list[tuple[str, str, str, str]]:
-    """Return [(column_name, target_entity_type, relationship_type, fk_field)]
-    for every column that is a foreign key for this entity type."""
+    """Return canonical FK fields and their relationship definitions."""
     result = []
-    for h in headers:
-        col_lower = h.strip().lower()
-        key = (entity_type, col_lower)
+    for header in headers:
+        canonical_field = canonical_column_name(header, entity_type)
+        key = (entity_type, canonical_field)
         if key in ENTITY_FOREIGN_KEYS:
-            target_type, rel = ENTITY_FOREIGN_KEYS[key]
-            result.append((h, target_type, rel, col_lower))
+            target_type, relationship = ENTITY_FOREIGN_KEYS[key]
+            result.append((canonical_field, target_type, relationship, canonical_field))
     return result
+
+
+def _canonicalize_source_row(
+    row: dict[str, Any], entity_type: str | None = None
+) -> dict[str, str]:
+    """Normalize row keys; reject ambiguous duplicate aliases instead of losing data."""
+    canonical: dict[str, str] = {}
+    for source_column, raw_value in row.items():
+        field = canonical_column_name(str(source_column), entity_type)
+        value = "" if raw_value is None else str(raw_value)
+        current = canonical.get(field)
+        if current is not None and current.strip() and value.strip():
+            if current.strip() != value.strip():
+                raise ValueError(
+                    f"Source file contains conflicting columns that both map to '{field}'"
+                )
+        if current is None or not current.strip():
+            canonical[field] = value
+    return canonical
 
 
 def _parse_xlsx_rows(data: bytes) -> list[dict[str, str]]:
@@ -291,17 +310,18 @@ async def compile_evidence_to_graph(
         if not profiles:
             continue
 
-        headers = [p.column_name for p in profiles]
-        entity_type = _detect_entity_type(headers)
+        source_headers = [profile.column_name for profile in profiles]
+        entity_type = _detect_entity_type(source_headers)
 
         if entity_type is None:
             continue
 
-        pk_column = _detect_pk_column(headers, entity_type)
+        headers = [canonical_column_name(header, entity_type) for header in source_headers]
+        pk_column = _detect_pk_column(source_headers, entity_type)
         if pk_column is None:
             continue
 
-        fk_columns = _resolve_fk_columns(headers, entity_type)
+        fk_columns = _resolve_fk_columns(source_headers, entity_type)
 
         # Read the same immutable bytes that were uploaded. In prod/pilot,
         # storage errors fail closed; sample-value reconstruction is only for
@@ -319,7 +339,8 @@ async def compile_evidence_to_graph(
                 "Object storage is required to publish source data in this environment"
             )
 
-        for _row_idx, row in enumerate(sample_rows):
+        for _row_idx, raw_row in enumerate(sample_rows):
+            row = _canonicalize_source_row(raw_row, entity_type)
             entity_id = row.get(pk_column, "").strip()
             if not entity_id:
                 continue
