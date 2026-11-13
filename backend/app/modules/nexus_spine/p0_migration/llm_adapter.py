@@ -171,19 +171,31 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
         safe_args = {
             key: value
             for key, value in intent.entities.items()
-            if key in {
-                "sku", "supplier_id", "entity_id", "decision_id", "risk_id",
-                "scenario_id", "region", "source_batch_id", "mutation_kind",
-                "delay_days", "demand_multiplier", "capacity_pct", "closure_days",
-                "availability_pct", "unit_price", "target_entity_id",
+            if key
+            in {
+                "sku",
+                "supplier_id",
+                "entity_id",
+                "decision_id",
+                "risk_id",
+                "scenario_id",
+                "region",
+                "source_batch_id",
+                "mutation_kind",
+                "delay_days",
+                "demand_multiplier",
+                "capacity_pct",
+                "closure_days",
+                "availability_pct",
+                "unit_price",
+                "target_entity_id",
             }
         }
         return [ToolCall(tool=tool, args=safe_args)]
 
     async def synthesize(self, intent: StructuredIntent, evidence: list[Evidence]) -> str:
         safe_evidence = [
-            {"source": item.source, "tool": item.tool, "data": item.data}
-            for item in evidence
+            {"source": item.source, "tool": item.tool, "data": item.data} for item in evidence
         ]
         evidence_json = json.dumps(safe_evidence, default=str, separators=(",", ":"))
         if len(evidence_json) > 30000:
