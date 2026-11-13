@@ -132,11 +132,15 @@ def _canonicalize_source_row(
         field = canonical_column_name(str(source_column), entity_type)
         value = "" if raw_value is None else str(raw_value)
         current = canonical.get(field)
-        if current is not None and current.strip() and value.strip():
-            if current.strip() != value.strip():
-                raise ValueError(
-                    f"Source file contains conflicting columns that both map to '{field}'"
-                )
+        if (
+            current is not None
+            and current.strip()
+            and value.strip()
+            and current.strip() != value.strip()
+        ):
+            raise ValueError(
+                f"Source file contains conflicting columns that both map to '{field}'"
+            )
         if current is None or not current.strip():
             canonical[field] = value
     return canonical
