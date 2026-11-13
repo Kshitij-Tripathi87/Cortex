@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -145,6 +145,16 @@ class Settings(BaseSettings):
     jwt_audience: str = Field(default="cortex-api")
     jwt_expiry_minutes: int = Field(default=60, ge=5, le=1440)
 
+    # Operational intelligence provider (OpenAI-compatible chat completions).
+    # Deterministic mode is for dev/test only; staging/pilot/prod must use a
+    # configured model endpoint so production never silently degrades to keywords.
+    llm_provider: str = Field(default="deterministic", description="deterministic|openai_compatible")
+    llm_api_key: SecretStr = Field(default=SecretStr(""), description="Model gateway API key")
+    llm_base_url: str = Field(default="https://api.openai.com/v1")
+    llm_model: str = Field(default="", description="Exact model/deployment name")
+    llm_timeout_s: float = Field(default=30.0, ge=1.0, le=180.0)
+    llm_max_output_tokens: int = Field(default=2048, ge=256, le=8192)
+
     # CORS
     cors_allowed_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -195,6 +205,23 @@ class Settings(BaseSettings):
                 )
             if len(self.jwt_secret) < 32:
                 raise ValueError("CORTEX_JWT_SECRET must be at least 32 characters for HS256")
+            if self.llm_provider.strip().lower() != "openai_compatible":
+                raise ValueError(
+                    "CORTEX_LLM_PROVIDER=openai_compatible is required in staging/pilot/prod; "
+                    "deterministic intent matching is not an acceptable production intelligence provider"
+                )
+            if not self.llm_model.strip():
+                raise ValueError("CORTEX_LLM_MODEL must name the configured production model")
+            if not self.llm_api_key.get_secret_value().strip():
+                raise ValueError("CORTEX_LLM_API_KEY must be set for the production model gateway")
+            if not self.llm_base_url.lower().startswith("https://"):
+                raise ValueError("CORTEX_LLM_BASE_URL must use HTTPS in staging/pilot/prod")
+        if self.llm_provider.strip().lower() not in {"deterministic", "openai_compatible"}:
+            raise ValueError("CORTEX_LLM_PROVIDER must be deterministic or openai_compatible")
+        if self.llm_provider.strip().lower() == "openai_compatible" and not self.llm_model.strip():
+            raise ValueError("CORTEX_LLM_MODEL is required when using openai_compatible provider")
+        if not self.llm_base_url.startswith(("http://", "https://")):
+            raise ValueError("CORTEX_LLM_BASE_URL must be an HTTP(S) URL")
         return self
 
     model_config = {
