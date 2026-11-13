@@ -206,13 +206,19 @@ async def test_second_batch_reuses_canonical_supplier_nodes_and_relationships(
     assert retry.snapshot_id == second.snapshot_id
     assert retry.snapshot_hash == second.snapshot_hash
 
-    assert await db_session.scalar(
-        select(func.count(GraphSnapshot.snapshot_id)).where(
-            GraphSnapshot.workspace_id == workspace_id
+    assert (
+        await db_session.scalar(
+            select(func.count(GraphSnapshot.snapshot_id)).where(
+                GraphSnapshot.workspace_id == workspace_id
+            )
         )
-    ) == 2
-    assert await db_session.scalar(
-        select(func.count(GraphWriteEvent.event_id)).where(
-            GraphWriteEvent.workspace_id == workspace_id
+        == 2
+    )
+    assert (
+        await db_session.scalar(
+            select(func.count(GraphWriteEvent.event_id)).where(
+                GraphWriteEvent.workspace_id == workspace_id
+            )
         )
-    ) == 6
+        == 6
+    )
