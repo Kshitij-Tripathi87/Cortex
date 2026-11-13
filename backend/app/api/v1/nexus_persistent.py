@@ -54,11 +54,6 @@ from app.infrastructure.realtime_bus import sse_stream
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.nexus_spine.governance.lifecycle import DecisionPhase
 from app.modules.nexus_spine.ontology.entities import Entity
-from app.modules.nexus_spine.p0_migration.llm_adapter import (
-    LLMProviderError,
-    get_llm_adapter,
-)
-from app.modules.nexus_spine.p0_migration.vanessa_tools import register_vanessa_tools
 from app.modules.nexus_spine.p0_migration import (
     AuthoritativeDecisionMemory,
     AuthoritativeDecisionService,
@@ -84,6 +79,12 @@ from app.modules.nexus_spine.p0_migration import (
     get_authoritative_truth_loop,
     get_authz,
 )
+
+from app.modules.nexus_spine.p0_migration.llm_adapter import (
+    LLMProviderError,
+    get_llm_adapter,
+)
+from app.modules.nexus_spine.p0_migration.vanessa_tools import register_vanessa_tools
 
 router = APIRouter(prefix="/nexus", tags=["Nexus Decision Intelligence"])
 
