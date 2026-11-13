@@ -253,3 +253,38 @@ COLUMN_TO_ENTITY_TYPE: dict[str, str] = {
     "region_id": "Region",
     "demand_region_id": "DemandRegion",
 }
+
+
+def infer_entity_type(headers: list[str]) -> str | None:
+    """Infer the row entity using PK candidates and known relationship columns.
+
+    A foreign key such as customer_id must not make a SalesOrder export look
+    like a Customer master. When a file contains multiple entity identifiers,
+    score candidates by the explicit FK fields defined for each row type. Ties
+    remain unresolved and fail closed instead of guessing.
+    """
+    canonical_fields = {
+        canonical_column_name(header)
+        for header in headers
+    }
+    candidates = {
+        COLUMN_TO_ENTITY_TYPE[field]
+        for field in canonical_fields
+        if field in COLUMN_TO_ENTITY_TYPE
+    }
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return next(iter(candidates))
+
+    scores = {
+        entity_type: sum(
+            1 for field in canonical_fields if (entity_type, field) in ENTITY_FOREIGN_KEYS
+        )
+        for entity_type in candidates
+    }
+    highest = max(scores.values(), default=0)
+    winners = [entity_type for entity_type, score in scores.items() if score == highest]
+    if highest > 0 and len(winners) == 1:
+        return winners[0]
+    return None
