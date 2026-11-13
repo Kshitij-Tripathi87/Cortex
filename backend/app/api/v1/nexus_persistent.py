@@ -1072,6 +1072,7 @@ async def vanessa_ask(
     await commit_and_notify(session)
     return _envelope(request, response_data, correlation_id=response.trace_id)
 
+
 # ─────────────────────────────────────────────────────────────────────
 # /risks — record / list / get / triage (v0.8.5-B3)
 #
