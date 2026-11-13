@@ -138,9 +138,7 @@ def _canonicalize_source_row(
             and value.strip()
             and current.strip() != value.strip()
         ):
-            raise ValueError(
-                f"Source file contains conflicting columns that both map to '{field}'"
-            )
+            raise ValueError(f"Source file contains conflicting columns that both map to '{field}'")
         if current is None or not current.strip():
             canonical[field] = value
     return canonical
