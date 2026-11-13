@@ -38,6 +38,7 @@ class NexusRole(StrEnum):
 TOOL_PERMISSIONS: dict[str, set[NexusRole]] = {
     # Read
     "nexus.state.read": {NexusRole.VIEWER, NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
+    "nexus.graph.read": {NexusRole.VIEWER, NexusRole.ANALYST, NexusRole.OPERATOR, NexusRole.ADMIN},
     "nexus.ontology.read": {
         NexusRole.VIEWER,
         NexusRole.ANALYST,
