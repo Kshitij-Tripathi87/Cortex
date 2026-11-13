@@ -130,8 +130,7 @@ async def detect_conflicts(
     )
     existing_conflict_result = await db.execute(existing_conflict_stmt)
     existing_signatures = {
-        tuple(sorted(claim_ids))
-        for claim_ids in existing_conflict_result.scalars().all()
+        tuple(sorted(claim_ids)) for claim_ids in existing_conflict_result.scalars().all()
     }
 
     conflicts_detected = 0
