@@ -36,7 +36,6 @@ from app.config import get_settings
 from app.infrastructure.storage_client import ObjectStorageClient, get_storage
 from app.modules.compiler.models import EvidenceClaim
 from app.modules.graph.entity_keys import (
-    COLUMN_TO_ENTITY_TYPE,
     ENTITY_FOREIGN_KEYS,
     ENTITY_PRIMARY_KEYS,
     FACILITY_ENTITY_TYPES,
