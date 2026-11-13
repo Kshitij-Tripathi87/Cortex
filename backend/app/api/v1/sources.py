@@ -342,14 +342,14 @@ async def review_claim_endpoint(
         select(EvidenceConflict)
         .where(EvidenceConflict.workspace_id == workspace_id)
         .where(EvidenceConflict.batch_id == batch_id)
-        .where(EvidenceConflict.status == "open")
+        .where(EvidenceConflict.status.in_(["open", "escalated"]))
     )
     open_conflict_result = await db.execute(open_conflict_stmt)
     open_conflicts = list(open_conflict_result.scalars().all())
     if any(claim_id in conflict.claim_ids for conflict in open_conflicts):
         raise HTTPException(
             status_code=409,
-            detail="Resolve the claim's open conflict in Conflict Center before reviewing it",
+            detail="Resolve the claim's open or escalated conflict in Conflict Center before reviewing it",
         )
 
     claim.claim_state = payload.decision
