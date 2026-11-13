@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database import get_db
+from app.modules.audit.service import emit as emit_audit
+from app.modules.compiler.service import compute_readiness
 from app.infrastructure.security import (
     AuthContext,
     get_current_user,
@@ -26,13 +28,16 @@ from app.modules.graph.decision_models import (
 )
 from app.modules.graph.decision_service import DecisionService
 from app.modules.graph.integrity import get_integrity_report
-from app.modules.graph.models import GraphEdge, GraphNode
+from app.modules.graph.models import GraphEdge, GraphNode, GraphSnapshot
 from app.modules.graph.scenario_models import (
     ScenarioDefinition,
     ScenarioParameter,
     ScenarioType,
 )
 from app.modules.graph.snapshots import get_snapshot, list_snapshots, verify_snapshot_chain
+
+from app.modules.sources.models import SourceBatch
+
 
 router = APIRouter()
 
@@ -147,40 +152,109 @@ async def compile_batch_to_graph(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> CompilationResponse:
-    """Compile approved evidence claims for a batch into the operational graph."""
+    """Publish one reviewed source batch into the canonical operational graph."""
     require_workspace_access(workspace_id, auth)
-    try:
-        result = await compile_evidence_to_graph(db, workspace_id, batch_id)
 
-        # Invalidate derived caches — features and operational context
-        # depend on the sealed graph snapshot, so any cached snapshot
-        # built from a previous graph version is now stale.
+    # Resolve the batch under the caller's workspace. Cross-workspace IDs are
+    # masked as not-found and never reach the graph compiler.
+    batch_stmt = (
+        select(SourceBatch)
+        .where(SourceBatch.batch_id == batch_id)
+        .where(SourceBatch.workspace_id == workspace_id)
+    )
+    batch_result = await db.execute(batch_stmt)
+    batch = batch_result.scalar_one_or_none()
+    if batch is None:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    readiness = await compute_readiness(db, workspace_id, batch_id)
+    if readiness.state in {"blocked", "review_required"} or readiness.pending_claim_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "source_batch_not_publishable",
+                "message": "Resolve pending claims and open conflicts before publishing this batch",
+                "readiness": readiness.state,
+                "blocking_conflict_count": readiness.blocking_conflict_count,
+                "open_conflict_count": readiness.open_conflict_count,
+                "pending_claim_count": readiness.pending_claim_count,
+                "accepted_claim_count": readiness.accepted_claim_count,
+            },
+        )
+    if readiness.accepted_claim_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="This batch has no accepted claims to publish",
+        )
+
+    try:
+        prior_stmt = (
+            select(GraphSnapshot.snapshot_id)
+            .where(GraphSnapshot.workspace_id == workspace_id)
+            .where(GraphSnapshot.source_batch_id == batch_id)
+            .limit(1)
+        )
+        prior_result = await db.execute(prior_stmt)
+        already_published = prior_result.scalar_one_or_none() is not None
+
+        result = await compile_evidence_to_graph(db, workspace_id, batch_id)
+        if not result.integrity_passed:
+            raise HTTPException(
+                status_code=409,
+                detail="Graph integrity verification failed; publication was rolled back",
+            )
+
+        if not already_published:
+            await emit_audit(
+                db,
+                event_type="graph.batch.published",
+                workspace_id=workspace_id,
+                actor_id=auth.user_id or "unknown",
+                actor_type="user",
+                subject_type="SourceBatch",
+                subject_id=batch_id,
+                payload={
+                    "snapshot_id": result.snapshot_id,
+                    "version": result.version,
+                    "snapshot_hash": result.snapshot_hash,
+                    "node_count": result.node_count,
+                    "edge_count": result.edge_count,
+                    "provenance_link_count": result.provenance_link_count,
+                    "readiness": readiness.state,
+                },
+                message=f"Source batch {batch_id} published to World State graph",
+            )
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception:
+        await db.rollback()
+        raise
+
+    # Cache invalidation is best-effort and happens only after durable commit.
+    with contextlib.suppress(Exception):
         from app.modules.graph.cache import create_cache
         from app.modules.graph.context_engine import create_context_cache
 
-        # Cache invalidation is best-effort — failure here should
-        # not undo a successful compile. Stale entries will simply
-        # expire when their TTL elapses.
-        with contextlib.suppress(Exception):
-            await create_cache().invalidate_workspace(workspace_id)
+        await create_cache().invalidate_workspace(workspace_id)
+        context_cache = create_context_cache()
+        if hasattr(context_cache, "invalidate"):
+            await context_cache.invalidate(workspace_id)
 
-        ctx_cache = create_context_cache()
-        if hasattr(ctx_cache, "invalidate"):
-            with contextlib.suppress(Exception):
-                await ctx_cache.invalidate(workspace_id)
-
-        return CompilationResponse(
-            snapshot_id=result.snapshot_id,
-            version=result.version,
-            snapshot_hash=result.snapshot_hash,
-            node_count=result.node_count,
-            edge_count=result.edge_count,
-            write_event_count=result.write_event_count,
-            provenance_link_count=result.provenance_link_count,
-            integrity_passed=result.integrity_passed,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    return CompilationResponse(
+        snapshot_id=result.snapshot_id,
+        version=result.version,
+        snapshot_hash=result.snapshot_hash,
+        node_count=result.node_count,
+        edge_count=result.edge_count,
+        write_event_count=result.write_event_count,
+        provenance_link_count=result.provenance_link_count,
+        integrity_passed=result.integrity_passed,
+    )
 
 
 @router.get("/nodes", response_model=list[NodeResponse])
