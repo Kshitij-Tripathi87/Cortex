@@ -234,8 +234,11 @@ export default function UploadPage() {
               </div>
             </dl>
             <div className="flex flex-wrap gap-3 border-t border-border px-5 py-4">
-              <Link href="/nexus/world" className="button-secondary">
-                Inspect World State
+              <Link
+                href={`/evidence?batch_id=${encodeURIComponent(result.batch_id)}`}
+                className="button-primary"
+              >
+                Review evidence and publish
               </Link>
               <Link href="/nexus/operations" className="button-secondary">
                 Operations
