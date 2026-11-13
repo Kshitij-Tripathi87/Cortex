@@ -68,25 +68,20 @@ services:
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 4. MinIO Object Storage (Datasets, Models & Scenario Artifacts)
+  # 4. S3-Compatible Object Storage (SeaweedFS)
   # ─────────────────────────────────────────────────────────────────────────────
-  minio:
-    image: quay.io/minio/minio:RELEASE.2024-03-30T09-41-56Z
-    container_name: cortex-minio-prod
-    command: server /data --console-address ":9001"
+  object-storage:
+    image: chrislusf/seaweedfs:4.53
+    container_name: cortex-object-storage-prod
+    command: mini -dir=/data -ip=object-storage -ip.bind=0.0.0.0 -s3.port=8333
     environment:
-      MINIO_ROOT_USER: ${CORTEX_S3_ACCESS_KEY:-cortex_minio_admin}
-      MINIO_ROOT_PASSWORD: ${CORTEX_S3_SECRET_KEY:-cortex_minio_secret_2026!}
+      AWS_ACCESS_KEY_ID: ${CORTEX_S3_ACCESS_KEY:?Set CORTEX_S3_ACCESS_KEY in the deployment environment}
+      AWS_SECRET_ACCESS_KEY: ${CORTEX_S3_SECRET_KEY:?Set CORTEX_S3_SECRET_KEY in the deployment environment}
+      S3_BUCKET: ${CORTEX_S3_BUCKET:-cortex-uploads}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "8333:8333"
     volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - object_storage_data:/data
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +97,7 @@ services:
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:-cortex_secure_prod_2026!}@postgres:5432/${CORTEX_DB_NAME:-cortex}
       CORTEX_REDIS_URL: redis://:${CORTEX_REDIS_PASSWORD:-cortex_redis_secure_2026!}@redis:6379/0
       CORTEX_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CORTEX_S3_ENDPOINT: http://minio:9000
+      CORTEX_S3_ENDPOINT: http://object-storage:8333
       CORTEX_S3_ACCESS_KEY: ${CORTEX_S3_ACCESS_KEY:-cortex_minio_admin}
       CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:-cortex_minio_secret_2026!}
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:-cortex_production_jwt_master_secret_2026_enterprise}
@@ -239,5 +234,5 @@ volumes:
   postgres_data:
   redis_data:
   kafka_data:
-  minio_data:
+  object_storage_data:
 
