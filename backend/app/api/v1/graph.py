@@ -37,7 +37,6 @@ from app.modules.graph.scenario_models import (
 from app.modules.graph.snapshots import get_snapshot, list_snapshots, verify_snapshot_chain
 from app.modules.sources.models import SourceBatch
 
-
 router = APIRouter()
 
 
