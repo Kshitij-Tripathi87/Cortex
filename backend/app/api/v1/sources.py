@@ -27,13 +27,14 @@ from app.infrastructure.database import get_db
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.audit.service import emit as emit_audit
 from app.modules.compiler.models import EvidenceClaim, EvidenceConflict
-from app.modules.graph.entity_keys import ENTITY_PRIMARY_KEYS, FACILITY_ENTITY_TYPES
 from app.modules.compiler.service import (
     compute_readiness,
     detect_conflicts,
     extract_claims,
     resolve_conflict,
 )
+
+from app.modules.graph.entity_keys import ENTITY_PRIMARY_KEYS, FACILITY_ENTITY_TYPES
 from app.modules.sources.models import SourceBatch
 from app.modules.sources.service import get_batch, get_file, list_profiles, process_upload
 
