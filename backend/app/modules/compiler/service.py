@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState, ConflictSeverity, ReadinessState
 from app.common.ids import uuid7
+from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.compiler.models import (
     ConflictResolution,
     EvidenceClaim,
@@ -77,6 +78,20 @@ async def extract_claims(
         if profile.profile_id in existing_profile_ids or profile.column_name in existing_columns:
             continue
         existing_columns.add(profile.column_name)
+        suggestion = suggest_mapping(profile.column_name)
+        canonical_field = profile.recommended_mapping or suggestion.canonical_field
+        confidence = (
+            profile.mapping_confidence
+            if profile.mapping_confidence is not None
+            else suggestion.confidence
+        )
+        requires_review = (
+            profile.requires_review
+            or suggestion.requires_review
+            or not suggestion.canonical_entity
+            or not canonical_field
+            or confidence < 0.9
+        )
         claim = EvidenceClaim(
             claim_id=uuid7(),
             workspace_id=workspace_id,
@@ -84,14 +99,18 @@ async def extract_claims(
             batch_id=batch_id,
             row_number=0,  # Phase 2: one claim per column
             source_column=profile.column_name,
-            canonical_entity=None,  # To be resolved by mapping
-            canonical_field=profile.recommended_mapping,
+            canonical_entity=suggestion.canonical_entity,
+            canonical_field=canonical_field,
             raw_value=", ".join(profile.sample_values),
             normalized_value=None,
-            confidence=profile.mapping_confidence or 0.0,
+            confidence=confidence,
             claim_state=ClaimState.PENDING_REVIEW.value,
-            provenance={"profile_id": profile.profile_id, "inferred_type": profile.inferred_type},
-            requires_review=profile.requires_review or (profile.mapping_confidence or 0.0) < 1.0,
+            provenance={
+                "profile_id": profile.profile_id,
+                "inferred_type": profile.inferred_type,
+                "matched_alias": suggestion.matched_alias,
+            },
+            requires_review=requires_review,
         )
         if claim.requires_review:
             claims_requiring_review += 1
