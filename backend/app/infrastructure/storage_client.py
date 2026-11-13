@@ -1,4 +1,4 @@
-"""S3-compatible object storage client (MinIO locally)."""
+"""S3-compatible object storage client (SeaweedFS locally, AWS S3 in deployment)."""
 
 from __future__ import annotations
 
