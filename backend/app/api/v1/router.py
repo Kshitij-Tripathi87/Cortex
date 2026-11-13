@@ -16,7 +16,6 @@ Nexus routing (v0.8.2 closeout — routing flip + dual-path removal):
 """
 
 from fastapi import APIRouter
-from product.workflo_api import router as workflo_router
 
 from app.api.v1 import (
     agent_runtime,
@@ -83,7 +82,6 @@ api_router.include_router(workspace.router, prefix="", tags=["Live Data Intellig
 # Nexus Spine — Real Data Vertical Slice
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 # Workflo — Sandboxed QA & Runtime Execution Control Plane
-api_router.include_router(workflo_router, prefix="", tags=["Workflo"])
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus Decision Intelligence — v0.8.2 routing flip
@@ -98,6 +96,14 @@ api_router.include_router(
     prefix="",
     tags=["Nexus Decision Intelligence"],
 )
+
+# ─────────────────────────────────────────────────────────────────────
+# Device Mesh + Mobile + Voice (Day 25 phone client)
+#
+# The phone is a first-class capability-bearing Vanessa node: devices,
+# mobile bootstrap, and provider-agnostic voice sessions. The REST API
+# and the realtime channel remain the only authoritative surfaces.
+# ─────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus v0.7 legacy — in-memory singletons, demoted 2026-09 (v0.8.2).
