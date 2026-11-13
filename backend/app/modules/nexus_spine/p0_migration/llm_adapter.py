@@ -164,7 +164,9 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
             for key, value in intent.entities.items()
             if key in {
                 "sku", "supplier_id", "entity_id", "decision_id", "risk_id",
-                "scenario_id", "region", "source_batch_id"
+                "scenario_id", "region", "source_batch_id", "mutation_kind",
+                "delay_days", "demand_multiplier", "capacity_pct", "closure_days",
+                "availability_pct",
             }
         }
         return [ToolCall(tool=tool, args=safe_args)]
@@ -217,3 +219,22 @@ def build_llm_adapter(settings: Settings) -> LLMAdapter:
             max_output_tokens=settings.llm_max_output_tokens,
         )
     raise LLMProviderError(f"Unsupported model provider: {provider}")
+
+
+_adapter: LLMAdapter | None = None
+
+
+def get_llm_adapter(settings: Settings | None = None) -> LLMAdapter:
+    """Return the process-scoped model adapter and reuse its HTTP connection pool."""
+    global _adapter
+    if _adapter is None:
+        from app.config import get_settings
+
+        _adapter = build_llm_adapter(settings or get_settings())
+    return _adapter
+
+
+def reset_llm_adapter() -> None:
+    """Reset the process-scoped adapter (used by tests and controlled shutdown)."""
+    global _adapter
+    _adapter = None
