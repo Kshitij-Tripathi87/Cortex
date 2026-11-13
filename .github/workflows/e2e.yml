@@ -30,10 +30,24 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Start Production Stack (Postgres, Redis, Kafka, MinIO)
+      - name: Start Production Stack (Postgres, Redis, Kafka, S3-compatible storage)
         run: |
-          docker compose -f docker-compose.prod.yml up -d postgres redis minio
+          docker compose -f docker-compose.prod.yml up -d postgres redis object-storage
           docker compose -f docker-compose.prod.yml ps
+          for i in $(seq 1 60); do
+            if curl --max-time 2 -sS http://localhost:8333/ >/dev/null 2>&1; then
+              echo "S3-compatible storage is responding"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose -f docker-compose.prod.yml logs object-storage
+          echo "S3-compatible storage did not become ready"
+          exit 1
+        env:
+          CORTEX_S3_ACCESS_KEY: minioadmin
+          CORTEX_S3_SECRET_KEY: minioadmin
+          CORTEX_S3_BUCKET: cortex-uploads
 
       - name: Install Backend & Run Migrations
         run: |
@@ -67,7 +81,7 @@ jobs:
           # --requirepass); a passwordless URL made /readyz return 503
           # (redis NOAUTH) in the first live runs.
           CORTEX_REDIS_URL: redis://:cortex_redis_secure_2026!@localhost:6379/0
-          CORTEX_S3_ENDPOINT: http://localhost:9000
+          CORTEX_S3_ENDPOINT: http://localhost:8333
           CORTEX_S3_BUCKET: cortex-uploads
           CORTEX_S3_REGION: us-east-1
           CORTEX_S3_ACCESS_KEY: minioadmin
