@@ -99,7 +99,7 @@ export default function DisruptionCockpit() {
       const [riskResponse, nodeResponse, edgeResponse] = await Promise.all([
         apiClient.get<RiskEnvelope>("/nexus/risks", { workspace_id: workspace.id, status: "open" }),
         apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 200 }),
-        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 300 }),
+        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 200 }),
       ]);
       const nextRisks = riskResponse.data?.risks ?? [];
       setRisks(nextRisks);
