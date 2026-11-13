@@ -378,15 +378,13 @@ async def review_claim_endpoint(
             detail="This claim has no complete canonical mapping. Supply canonical_entity and canonical_field before accepting it.",
         )
     if mapping_supplied:
-        allowed_entities = (
-            set(ENTITY_PRIMARY_KEYS)
-            | set(FACILITY_ENTITY_TYPES)
-            | {"Facility", "Organization"}
-        )
+        allowed_entities = set(ENTITY_PRIMARY_KEYS) | set(FACILITY_ENTITY_TYPES) | {"Facility", "Organization"}
         if payload.canonical_entity not in allowed_entities:
             raise HTTPException(status_code=422, detail="Unsupported canonical entity type")
         if not re.fullmatch(r"[a-z][a-z0-9_]{0,127}", payload.canonical_field or ""):
-            raise HTTPException(status_code=422, detail="canonical_field must be a lowercase snake_case identifier")
+            raise HTTPException(
+                status_code=422, detail="canonical_field must be a lowercase snake_case identifier"
+            )
         claim.canonical_entity = payload.canonical_entity
         claim.canonical_field = payload.canonical_field
         claim.confidence = 1.0
