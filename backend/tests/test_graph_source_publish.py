@@ -299,3 +299,33 @@ def test_conflicting_duplicate_aliases_fail_closed():
             },
             "Supplier",
         )
+
+
+def test_sales_order_customer_foreign_key_does_not_override_row_primary_key() -> None:
+    headers = ["SO Number", "Customer ID", "Ship From Warehouse ID"]
+    assert _detect_entity_type(headers) == "SalesOrder"
+
+
+def test_shipment_carrier_and_route_foreign_keys_do_not_override_row_entity() -> None:
+    headers = [
+        "Shipment Number",
+        "Carrier Code",
+        "Route Code",
+        "Origin Warehouse ID",
+        "Destination Port ID",
+    ]
+    assert _detect_entity_type(headers) == "Shipment"
+
+
+def test_inventory_identifier_wins_over_product_and_facility_foreign_keys() -> None:
+    headers = ["Inventory ID", "SKU", "Warehouse ID"]
+    assert _detect_entity_type(headers) == "InventoryItem"
+
+
+def test_reviewed_canonical_field_override_is_used_by_graph_row_normalizer() -> None:
+    row = _canonicalize_source_row(
+        {"Vendor Code": "V-007", "Vendor Name": "Northwind"},
+        "Supplier",
+        {"Vendor Code": "supplier_id", "Vendor Name": "legal_name"},
+    )
+    assert row == {"supplier_id": "V-007", "legal_name": "Northwind"}
