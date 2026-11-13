@@ -73,17 +73,19 @@ from app.modules.nexus_spine.p0_migration.authz import (
     Principal,
     get_authz,
 )
-from app.modules.nexus_spine.p0_migration.table_classification import (
-    TABLE_CLASSIFICATION,
-    DataClassification,
-    classify,
-)
+
 from app.modules.nexus_spine.p0_migration.llm_adapter import (
     LLMProviderError,
     OpenAICompatibleLLMAdapter,
     build_llm_adapter,
     get_llm_adapter,
     reset_llm_adapter,
+)
+
+from app.modules.nexus_spine.p0_migration.table_classification import (
+    TABLE_CLASSIFICATION,
+    DataClassification,
+    classify,
 )
 
 from app.modules.nexus_spine.p0_migration.vanessa_pipeline import (
