@@ -90,7 +90,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: minioadmin
           S3_BUCKET: cortex-uploads
         ports: ["8333:8333"]
-        command: mini -dir=/data -ip=object-storage -ip.bind=0.0.0.0 -s3.port=8333
 
     steps:
       - uses: actions/checkout@v4
