@@ -61,6 +61,8 @@ ENTITY_FOREIGN_KEYS: dict[tuple[str, str], tuple[str, str]] = {
     ("InventoryItem", "facility_id"): ("Facility", "STORED_AT"),
     ("InventoryItem", "sku"): ("Product", "IS_PRODUCT"),
     ("InventoryItem", "supplier_lot_id"): ("Supplier", "SUPPLIED_BY"),
+    # Inventory lot relationships
+    ("InventoryLot", "sku"): ("Product", "IS_PRODUCT"),
     # BOM relationships
     ("BOM", "parent_sku"): ("Product", "COMPONENT_OF"),
     ("BOM", "child_sku"): ("Product", "HAS_COMPONENT"),
