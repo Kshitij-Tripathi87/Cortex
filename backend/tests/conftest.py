@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import BLANK_SCHEMA, MetaData, select
@@ -99,8 +99,10 @@ async def db_engine() -> AsyncGenerator[Any]:
         if table.schema is None:
             table.to_metadata(
                 sqlite_metadata,
-                schema=None,
-                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: BLANK_SCHEMA,
+                schema=cast(Any, None),
+                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: cast(
+                    Any, BLANK_SCHEMA
+                ),
             )
 
     async with engine.begin() as conn:
