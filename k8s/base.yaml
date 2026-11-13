@@ -17,7 +17,7 @@ data:
   CORTEX_PORT: "8000"
   CORTEX_DB_DSN: "postgresql+asyncpg://$(DB_USER):$(DB_PASSWORD)@cortex-postgres:5432/cortex"
   CORTEX_REDIS_URL: "redis://cortex-redis:6379/0"
-  CORTEX_S3_ENDPOINT: "http://cortex-minio:9000"
+  CORTEX_S3_ENDPOINT: "http://cortex-object-storage:8333"
   CORTEX_S3_BUCKET: "cortex-uploads"
   CORTEX_S3_REGION: "us-east-1"
   CORTEX_S3_USE_PATH_STYLE: "true"
