@@ -78,6 +78,14 @@ from app.modules.nexus_spine.p0_migration.table_classification import (
     DataClassification,
     classify,
 )
+from app.modules.nexus_spine.p0_migration.llm_adapter import (
+    LLMProviderError,
+    OpenAICompatibleLLMAdapter,
+    build_llm_adapter,
+    get_llm_adapter,
+    reset_llm_adapter,
+)
+
 from app.modules.nexus_spine.p0_migration.vanessa_pipeline import (
     DeterministicLLMAdapter,
     IntentType,
@@ -128,6 +136,11 @@ __all__ = [
     "IntentType",
     "DeterministicLLMAdapter",
     "get_vanessa_pipeline",
+    "OpenAICompatibleLLMAdapter",
+    "LLMProviderError",
+    "build_llm_adapter",
+    "get_llm_adapter",
+    "reset_llm_adapter",
     # Table classification
     "DataClassification",
     "TABLE_CLASSIFICATION",
