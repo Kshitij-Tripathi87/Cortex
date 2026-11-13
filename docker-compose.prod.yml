@@ -71,7 +71,7 @@ services:
   # 4. MinIO Object Storage (Datasets, Models & Scenario Artifacts)
   # ─────────────────────────────────────────────────────────────────────────────
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-03-30T09-41-56Z
+    image: docker.io/pgsty/silo:RELEASE.2026-11-12T00-00-00Z
     container_name: cortex-minio-prod
     command: server /data --console-address ":9001"
     environment:
