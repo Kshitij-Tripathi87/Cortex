@@ -155,13 +155,13 @@ function EvidenceContent() {
   }, [status, batchId, workspaceId, loadBatch]);
 
   const conflictedClaimIds = useMemo(
-    () => new Set(conflicts.filter((c) => c.status === "open").flatMap((c) => c.claim_ids)),
+    () => new Set(conflicts.filter((c) => c.status === "open" || c.status === "escalated").flatMap((c) => c.claim_ids)),
     [conflicts],
   );
   const pendingCount = claims.filter((claim) => claim.claim_state === "pending_review").length;
   const acceptedCount = claims.filter((claim) => claim.claim_state === "accepted").length;
   const rejectedCount = claims.filter((claim) => claim.claim_state === "rejected").length;
-  const openConflicts = conflicts.filter((conflict) => conflict.status === "open");
+  const openConflicts = conflicts.filter((conflict) => conflict.status === "open" || conflict.status === "escalated");
   const canPublish =
     !!readiness &&
     (readiness.state === "ready" || readiness.state === "ready_with_assumptions") &&
@@ -481,7 +481,7 @@ function EvidenceContent() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-medium text-slate-900">{conflict.canonical_entity ?? "Unknown entity"} · {conflict.canonical_field ?? "Unmapped field"}</p>
                       <span className={`rounded px-2 py-1 text-[10px] ${conflict.blocking ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
-                        {conflict.blocking ? "Blocking" : conflict.severity}
+                        {conflict.status === "escalated" ? "Escalated" : conflict.blocking ? "Blocking" : conflict.severity}
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-slate-600">{conflict.explanation}</p>
