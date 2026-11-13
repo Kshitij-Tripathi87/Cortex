@@ -185,7 +185,7 @@ spec:
     spec:
       containers:
         - name: minio
-          image: minio/minio:RELEASE.2024-06-22T05-26-31Z
+          image: docker.io/pgsty/silo:RELEASE.2026-11-12T00-00-00Z
           ports:
             - containerPort: 9000
               name: api
