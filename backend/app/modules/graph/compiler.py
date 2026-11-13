@@ -100,22 +100,40 @@ def _detect_entity_type(headers: list[str]) -> str | None:
     return None
 
 
-def _detect_pk_column(headers: list[str], entity_type: str) -> str | None:
+def _mapped_source_field(
+    source_column: str,
+    entity_type: str,
+    field_mappings: dict[str, str] | None = None,
+) -> str:
+    """Use an accepted human mapping before falling back to deterministic aliases."""
+    explicit = (field_mappings or {}).get(source_column)
+    return explicit or canonical_column_name(source_column, entity_type)
+
+
+def _detect_pk_column(
+    headers: list[str],
+    entity_type: str,
+    field_mappings: dict[str, str] | None = None,
+) -> str | None:
     """Return the canonical primary-key field for this file's entity type."""
     pk_field = _entity_pk_field(entity_type)
     if not pk_field:
         return None
     for header in headers:
-        if canonical_column_name(header, entity_type) == pk_field:
+        if _mapped_source_field(header, entity_type, field_mappings) == pk_field:
             return pk_field
     return None
 
 
-def _resolve_fk_columns(headers: list[str], entity_type: str) -> list[tuple[str, str, str, str]]:
+def _resolve_fk_columns(
+    headers: list[str],
+    entity_type: str,
+    field_mappings: dict[str, str] | None = None,
+) -> list[tuple[str, str, str, str]]:
     """Return canonical FK fields and their relationship definitions."""
     result = []
     for header in headers:
-        canonical_field = canonical_column_name(header, entity_type)
+        canonical_field = _mapped_source_field(header, entity_type, field_mappings)
         key = (entity_type, canonical_field)
         if key in ENTITY_FOREIGN_KEYS:
             target_type, relationship = ENTITY_FOREIGN_KEYS[key]
@@ -123,11 +141,18 @@ def _resolve_fk_columns(headers: list[str], entity_type: str) -> list[tuple[str,
     return result
 
 
-def _canonicalize_source_row(row: dict[str, Any], entity_type: str | None = None) -> dict[str, str]:
+def _canonicalize_source_row(
+    row: dict[str, Any],
+    entity_type: str | None = None,
+    field_mappings: dict[str, str] | None = None,
+) -> dict[str, str]:
     """Normalize row keys; reject ambiguous duplicate aliases instead of losing data."""
     canonical: dict[str, str] = {}
     for source_column, raw_value in row.items():
-        field = canonical_column_name(str(source_column), entity_type)
+        field = (
+            (field_mappings or {}).get(str(source_column))
+            or canonical_column_name(str(source_column), entity_type)
+        )
         value = "" if raw_value is None else str(raw_value)
         current = canonical.get(field)
         if (
@@ -279,9 +304,9 @@ async def compile_evidence_to_graph(
     claims = list(claim_result.scalars().all())
     if not claims:
         raise ValueError("No accepted evidence claims are available for this batch")
-    claims_by_file: dict[str, list[str]] = {}
+    claims_by_file: dict[str, list[EvidenceClaim]] = {}
     for claim in claims:
-        claims_by_file.setdefault(claim.source_file_id, []).append(claim.claim_id)
+        claims_by_file.setdefault(claim.source_file_id, []).append(claim)
 
     # 3. Build pending write events from source data
     writes: list[_PendingWrite] = []
@@ -292,11 +317,22 @@ async def compile_evidence_to_graph(
 
     for file in files:
         # Fetch stored data — production reads from S3, test uses sample_values
-        file_claim_ids = claims_by_file.get(file.file_id, [])
-        if not file_claim_ids:
+        file_claims = claims_by_file.get(file.file_id, [])
+        if not file_claims:
             # An accepted claim from another file cannot confer provenance on
             # this file's rows.
             continue
+        file_claim_ids = [claim.claim_id for claim in file_claims]
+        field_mappings: dict[str, str] = {}
+        for claim in file_claims:
+            if not claim.canonical_field:
+                continue
+            previous = field_mappings.get(claim.source_column)
+            if previous is not None and previous != claim.canonical_field:
+                raise ValueError(
+                    f"Conflicting accepted mappings exist for source column '{claim.source_column}'"
+                )
+            field_mappings[claim.source_column] = claim.canonical_field
 
         profiles_stmt = (
             select(SourceColumnProfile)
@@ -313,15 +349,35 @@ async def compile_evidence_to_graph(
         source_headers = [profile.column_name for profile in profiles]
         entity_type = _detect_entity_type(source_headers)
 
+        # A reviewed mapping may resolve an otherwise unknown primary-key
+        # column. A mapping to another entity's primary key is treated as a
+        # foreign key unless it matches the file's detected row type.
+        mapped_primary_entities = {
+            claim.canonical_entity
+            for claim in file_claims
+            if claim.canonical_entity in ENTITY_PRIMARY_KEYS
+            and claim.canonical_field == ENTITY_PRIMARY_KEYS[claim.canonical_entity]
+        }
+        if entity_type is None and len(mapped_primary_entities) == 1:
+            entity_type = next(iter(mapped_primary_entities))
+        elif entity_type is None and len(mapped_primary_entities) > 1:
+            raise ValueError("Accepted mappings identify multiple possible row entity types")
+
         if entity_type is None:
             continue
 
-        headers = [canonical_column_name(header, entity_type) for header in source_headers]
-        pk_column = _detect_pk_column(source_headers, entity_type)
+        if entity_type in mapped_primary_entities and len(mapped_primary_entities) > 1:
+            raise ValueError("Accepted mappings conflict on the row primary-key entity type")
+
+        headers = [
+            _mapped_source_field(header, entity_type, field_mappings)
+            for header in source_headers
+        ]
+        pk_column = _detect_pk_column(source_headers, entity_type, field_mappings)
         if pk_column is None:
             continue
 
-        fk_columns = _resolve_fk_columns(source_headers, entity_type)
+        fk_columns = _resolve_fk_columns(source_headers, entity_type, field_mappings)
 
         # Read the same immutable bytes that were uploaded. In prod/pilot,
         # storage errors fail closed; sample-value reconstruction is only for
@@ -340,7 +396,7 @@ async def compile_evidence_to_graph(
             )
 
         for _row_idx, raw_row in enumerate(sample_rows):
-            row = _canonicalize_source_row(raw_row, entity_type)
+            row = _canonicalize_source_row(raw_row, entity_type, field_mappings)
             entity_id = row.get(pk_column, "").strip()
             if not entity_id:
                 continue
