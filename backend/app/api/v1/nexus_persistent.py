@@ -1001,7 +1001,7 @@ async def predict_risk(
 
 class VanessaAskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    query: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=8000)
 
 
 @router.post("/vanessa/ask")
