@@ -108,7 +108,7 @@ class ResolveRequest(BaseModel):
     """
 
     selected_claim_id: str | None = None
-    action: Literal["approved", "rejected", "deferred", "merge"] = "approved"
+    action: Literal["approved", "rejected", "suppressed", "escalated"] = "approved"
     rationale: str = Field(min_length=1, max_length=2000)
 
 
