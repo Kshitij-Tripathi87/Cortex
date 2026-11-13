@@ -263,14 +263,9 @@ def infer_entity_type(headers: list[str]) -> str | None:
     score candidates by the explicit FK fields defined for each row type. Ties
     remain unresolved and fail closed instead of guessing.
     """
-    canonical_fields = {
-        canonical_column_name(header)
-        for header in headers
-    }
+    canonical_fields = {canonical_column_name(header) for header in headers}
     candidates = {
-        COLUMN_TO_ENTITY_TYPE[field]
-        for field in canonical_fields
-        if field in COLUMN_TO_ENTITY_TYPE
+        COLUMN_TO_ENTITY_TYPE[field] for field in canonical_fields if field in COLUMN_TO_ENTITY_TYPE
     }
     if not candidates:
         return None
