@@ -1042,7 +1042,9 @@ async def vanessa_ask(
     response_data = response.to_dict()
     response_data["model_provider"] = settings.llm_provider
     response_data["model"] = (
-        settings.llm_model if settings.llm_provider == "openai_compatible" else "deterministic-dev-test"
+        settings.llm_model
+        if settings.llm_provider == "openai_compatible"
+        else "deterministic-dev-test"
     )
 
     from app.modules.audit.service import emit as emit_audit
