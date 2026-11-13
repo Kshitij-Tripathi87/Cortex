@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.modules.graph.entity_keys import ENTITY_COLUMN_ALIASES
+
 # Frozen alias registry (subset from docs/02-ontology.md §10)
 # Maps lowercased/normalized source column names to canonical entity types + fields.
 ALIAS_REGISTRY: dict[str, tuple[str, str]] = {
@@ -176,7 +178,9 @@ def normalize_column_name(name: str) -> str:
     return s
 
 
-def suggest_mapping(source_column: str) -> MappingSuggestion:
+def suggest_mapping(
+    source_column: str, row_entity_type: str | None = None
+) -> MappingSuggestion:
     """Produce a deterministic mapping suggestion for a source column name.
 
     Rules:
@@ -187,6 +191,21 @@ def suggest_mapping(source_column: str) -> MappingSuggestion:
     """
     raw = source_column.strip()
     normalized = normalize_column_name(raw)
+
+    # Contextual mappings take priority over global aliases. They describe the
+    # field on the current row entity (for example PurchaseOrder.supplier_id),
+    # not the entity referenced by that field.
+    if row_entity_type:
+        contextual_field = ENTITY_COLUMN_ALIASES.get((row_entity_type, normalized))
+        if contextual_field:
+            return MappingSuggestion(
+                source_column=raw,
+                canonical_entity=row_entity_type,
+                canonical_field=contextual_field,
+                confidence=1.0,
+                requires_review=False,
+                matched_alias=normalized,
+            )
 
     # 1. Exact normalized match
     if normalized in ALIAS_REGISTRY:
