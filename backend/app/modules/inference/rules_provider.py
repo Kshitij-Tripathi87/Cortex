@@ -178,9 +178,7 @@ def normalize_column_name(name: str) -> str:
     return s
 
 
-def suggest_mapping(
-    source_column: str, row_entity_type: str | None = None
-) -> MappingSuggestion:
+def suggest_mapping(source_column: str, row_entity_type: str | None = None) -> MappingSuggestion:
     """Produce a deterministic mapping suggestion for a source column name.
 
     Rules:
