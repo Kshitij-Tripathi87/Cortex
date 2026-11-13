@@ -391,9 +391,9 @@ async def compile_evidence_to_graph(
                 source_node_key = f"{resolved_type}:{entity_id}"
                 target_node_key = f"{target_resolved}:{target_id}"
                 edge_key = (source_node_key, target_node_key, rel, col_name)
-                edge_provenance.setdefault(
-                    (source_node_key, target_node_key, rel), set()
-                ).update(file_claim_ids)
+                edge_provenance.setdefault((source_node_key, target_node_key, rel), set()).update(
+                    file_claim_ids
+                )
                 if edge_key in edge_keys:
                     continue
                 edge_keys.add(edge_key)
