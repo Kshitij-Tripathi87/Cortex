@@ -230,7 +230,6 @@ async def test_second_batch_reuses_canonical_supplier_nodes_and_relationships(
         == 6
     )
 
-
 def test_vendor_export_headers_resolve_to_supplier_primary_and_parent_keys() -> None:
     headers = ["Vendor Code", "Vendor Name", "Parent Vendor Code"]
 
