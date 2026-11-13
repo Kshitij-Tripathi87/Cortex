@@ -75,7 +75,7 @@ async def get_next_version(
         seq = SnapshotSequence(
             workspace_id=workspace_id,
             snapshot_type=snapshot_type,
-            next_version=1,
+            next_version=2,
         )
         db.add(seq)
         await db.flush()
