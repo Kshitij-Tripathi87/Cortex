@@ -20,9 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.enums import ClaimState
 from app.config import get_settings
 from app.infrastructure.database import get_db
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
+from app.modules.audit.service import emit as emit_audit
 from app.modules.compiler.models import EvidenceClaim, EvidenceConflict
 from app.modules.compiler.service import (
     compute_readiness,
@@ -67,6 +69,10 @@ class FileProfileResponse(BaseModel):
 
 class ClaimResponse(BaseModel):
     claim_id: str
+    workspace_id: str
+    source_file_id: str
+    batch_id: str
+    row_number: int
     source_column: str
     canonical_entity: str | None
     canonical_field: str | None
@@ -74,6 +80,13 @@ class ClaimResponse(BaseModel):
     normalized_value: str | None
     confidence: float
     claim_state: str
+    requires_review: bool
+    created_at: str
+
+
+class ClaimReviewRequest(BaseModel):
+    decision: Literal["accepted", "rejected"]
+    rationale: str = Field(min_length=3, max_length=2000)
 
 
 class ConflictResponse(BaseModel):
@@ -262,6 +275,10 @@ async def list_claims(
     return [
         ClaimResponse(
             claim_id=c.claim_id,
+            workspace_id=c.workspace_id,
+            source_file_id=c.source_file_id,
+            batch_id=c.batch_id,
+            row_number=c.row_number,
             source_column=c.source_column,
             canonical_entity=c.canonical_entity,
             canonical_field=c.canonical_field,
@@ -269,9 +286,115 @@ async def list_claims(
             normalized_value=c.normalized_value,
             confidence=c.confidence,
             claim_state=c.claim_state,
+            requires_review=c.requires_review,
+            created_at=c.created_at.isoformat(),
         )
         for c in claims
     ]
+
+
+def _require_claim_reviewer(auth: AuthContext) -> None:
+    """Only workspace admins and operators may accept or reject source claims."""
+    allowed_roles = {"admin", "operator", "system_admin"}
+    if auth.is_anonymous or not allowed_roles.intersection(auth.roles):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "forbidden",
+                "message": "Admin or operator role required to review evidence claims",
+                "required_roles": sorted(allowed_roles),
+            },
+        )
+
+
+@router.post("/batches/{batch_id}/claims/{claim_id}/review", response_model=ClaimResponse)
+async def review_claim_endpoint(
+    batch_id: str,
+    claim_id: str,
+    workspace_id: str,
+    payload: ClaimReviewRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> ClaimResponse:
+    """Record an explicit, audited human decision for a pending source claim."""
+    require_workspace_access(workspace_id, auth)
+    _require_claim_reviewer(auth)
+    await _load_batch_for_workspace(db, batch_id, workspace_id)
+
+    claim_stmt = (
+        select(EvidenceClaim)
+        .where(EvidenceClaim.claim_id == claim_id)
+        .where(EvidenceClaim.batch_id == batch_id)
+        .where(EvidenceClaim.workspace_id == workspace_id)
+    )
+    claim_result = await db.execute(claim_stmt)
+    claim = claim_result.scalar_one_or_none()
+    if claim is None:
+        raise HTTPException(status_code=404, detail="Claim not found")
+
+    if claim.claim_state != ClaimState.PENDING_REVIEW.value:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Claim is already {claim.claim_state}; only pending claims can be reviewed",
+        )
+
+    open_conflict_stmt = (
+        select(EvidenceConflict)
+        .where(EvidenceConflict.workspace_id == workspace_id)
+        .where(EvidenceConflict.batch_id == batch_id)
+        .where(EvidenceConflict.status == "open")
+    )
+    open_conflict_result = await db.execute(open_conflict_stmt)
+    open_conflicts = list(open_conflict_result.scalars().all())
+    if any(claim_id in conflict.claim_ids for conflict in open_conflicts):
+        raise HTTPException(
+            status_code=409,
+            detail="Resolve the claim's open conflict in Conflict Center before reviewing it",
+        )
+
+    claim.claim_state = payload.decision
+    claim.requires_review = False
+    await emit_audit(
+        db,
+        event_type="evidence.claim.reviewed",
+        workspace_id=workspace_id,
+        actor_id=auth.user_id or "unknown",
+        actor_type="user",
+        subject_type="EvidenceClaim",
+        subject_id=claim.claim_id,
+        payload={
+            "batch_id": batch_id,
+            "decision": payload.decision,
+            "rationale": payload.rationale,
+            "source_file_id": claim.source_file_id,
+            "source_column": claim.source_column,
+            "confidence": claim.confidence,
+        },
+        message=f"Evidence claim {claim.claim_id} {payload.decision}",
+    )
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    return ClaimResponse(
+        claim_id=claim.claim_id,
+        workspace_id=claim.workspace_id,
+        source_file_id=claim.source_file_id,
+        batch_id=claim.batch_id,
+        row_number=claim.row_number,
+        source_column=claim.source_column,
+        canonical_entity=claim.canonical_entity,
+        canonical_field=claim.canonical_field,
+        raw_value=claim.raw_value,
+        normalized_value=claim.normalized_value,
+        confidence=claim.confidence,
+        claim_state=claim.claim_state,
+        requires_review=claim.requires_review,
+        created_at=claim.created_at.isoformat(),
+    )
 
 
 @router.get("/batches/{batch_id}/conflicts", response_model=list[ConflictResponse])
