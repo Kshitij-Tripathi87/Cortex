@@ -315,7 +315,9 @@ async def compile_evidence_to_graph(
         elif get_settings().env.lower() in {"dev", "test"}:
             sample_rows = _reconstruct_rows_from_profiles(profiles)
         else:
-            raise RuntimeError("Object storage is required to publish source data in this environment")
+            raise RuntimeError(
+                "Object storage is required to publish source data in this environment"
+            )
 
         for _row_idx, row in enumerate(sample_rows):
             entity_id = row.get(pk_column, "").strip()
