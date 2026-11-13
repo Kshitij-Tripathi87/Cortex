@@ -657,7 +657,7 @@ async def compile_evidence_to_graph(
     await db.flush()
 
     # 8. Seal snapshot (hash-chained)
-    snapshot_hash = seal_snapshot(
+    snapshot_hash = await seal_snapshot(
         db=db,
         snapshot_id=snapshot_id,
         workspace_id=workspace_id,
