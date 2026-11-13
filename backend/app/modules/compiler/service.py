@@ -56,7 +56,26 @@ async def extract_claims(
     claims_created = 0
     claims_requiring_review = 0
 
+    existing_stmt = (
+        select(EvidenceClaim.source_column, EvidenceClaim.provenance)
+        .where(EvidenceClaim.workspace_id == workspace_id)
+        .where(EvidenceClaim.batch_id == batch_id)
+        .where(EvidenceClaim.source_file_id == file_id)
+    )
+    existing_result = await db.execute(existing_stmt)
+    existing_rows = list(existing_result.all())
+    existing_columns = {row.source_column for row in existing_rows}
+    existing_profile_ids = {
+        row.provenance.get("profile_id")
+        for row in existing_rows
+        if isinstance(row.provenance, dict) and row.provenance.get("profile_id")
+    }
+
     for profile in profiles:
+        # A retried batch compilation must not multiply the same column claims.
+        if profile.profile_id in existing_profile_ids or profile.column_name in existing_columns:
+            continue
+        existing_columns.add(profile.column_name)
         claim = EvidenceClaim(
             claim_id=uuid7(),
             workspace_id=workspace_id,
@@ -103,6 +122,18 @@ async def detect_conflicts(
     result = await db.execute(stmt)
     claims = list(result.scalars().all())
 
+    existing_conflict_stmt = (
+        select(EvidenceConflict.claim_ids)
+        .where(EvidenceConflict.workspace_id == workspace_id)
+        .where(EvidenceConflict.batch_id == batch_id)
+        .where(EvidenceConflict.status == "open")
+    )
+    existing_conflict_result = await db.execute(existing_conflict_stmt)
+    existing_signatures = {
+        tuple(sorted(claim_ids))
+        for claim_ids in existing_conflict_result.scalars().all()
+    }
+
     conflicts_detected = 0
     blocking_conflicts = 0
 
@@ -120,7 +151,8 @@ async def detect_conflicts(
             continue
         # Check for value disagreement
         values = set(c.normalized_value or c.raw_value for c in claim_list)
-        if len(values) > 1:
+        signature = tuple(sorted(c.claim_id for c in claim_list))
+        if len(values) > 1 and signature not in existing_signatures:
             severity = ConflictSeverity.MAJOR.value if entity else ConflictSeverity.WARNING.value
             is_blocking = severity in {
                 ConflictSeverity.MAJOR.value,
