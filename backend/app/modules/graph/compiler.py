@@ -268,6 +268,8 @@ async def compile_evidence_to_graph(
     writes: list[_PendingWrite] = []
     node_keys: set[tuple[str, str]] = set()
     edge_keys: set[tuple[str, str, str, str]] = set()
+    node_provenance: dict[tuple[str, str], set[str]] = {}
+    edge_provenance: dict[tuple[str, str, str], set[str]] = {}
 
     for file in files:
         # Fetch stored data — production reads from S3, test uses sample_values
@@ -334,6 +336,7 @@ async def compile_evidence_to_graph(
                 attributes["_facility_type"] = _normalize_facility_type(entity_type)
 
             key = (resolved_type, entity_id)
+            node_provenance.setdefault(key, set()).update(file_claim_ids)
             if key not in node_keys:
                 node_keys.add(key)
                 writes.append(
@@ -361,6 +364,7 @@ async def compile_evidence_to_graph(
 
                 # Create stub node for target if not seen
                 target_key = (target_resolved, target_id)
+                node_provenance.setdefault(target_key, set()).update(file_claim_ids)
                 if target_key not in node_keys:
                     node_keys.add(target_key)
                     stub_attrs: dict[str, Any] = {}
@@ -377,7 +381,7 @@ async def compile_evidence_to_graph(
                                 "attributes": stub_attrs,
                                 "_stub": True,
                             },
-                            provenance_claim_ids=claim_ids[:],
+                            provenance_claim_ids=file_claim_ids[:],
                         )
                     )
 
@@ -385,6 +389,9 @@ async def compile_evidence_to_graph(
                 source_node_key = f"{resolved_type}:{entity_id}"
                 target_node_key = f"{target_resolved}:{target_id}"
                 edge_key = (source_node_key, target_node_key, rel, col_name)
+                edge_provenance.setdefault(
+                    (source_node_key, target_node_key, rel), set()
+                ).update(file_claim_ids)
                 if edge_key in edge_keys:
                     continue
                 edge_keys.add(edge_key)
@@ -402,7 +409,7 @@ async def compile_evidence_to_graph(
                             "relationship_type": rel,
                             "attributes": {"source_column": col_name},
                         },
-                        provenance_claim_ids=claim_ids[:],
+                        provenance_claim_ids=file_claim_ids[:],
                     )
                 )
 
@@ -498,11 +505,17 @@ async def compile_evidence_to_graph(
     snapshot_id = uuid7()
     for w in sorted_writes:
         actual_element_id = w.element_id
-        if w.operation == "upsert_edge":
+        if w.operation == "upsert_node":
+            node_key = (w.payload["entity_type"], w.payload["entity_id"])
+            event_claim_ids = sorted(node_provenance.get(node_key, set()))
+        else:
             src = f"{w.payload['source_entity_type']}:{w.payload['source_entity_id']}"
             tgt = f"{w.payload['target_entity_type']}:{w.payload['target_entity_id']}"
             actual_element_id = edge_id_map.get(
                 (src, tgt, w.payload["relationship_type"]), w.element_id
+            )
+            event_claim_ids = sorted(
+                edge_provenance.get((src, tgt, w.payload["relationship_type"]), set())
             )
         db.add(
             GraphWriteEvent(
@@ -513,14 +526,15 @@ async def compile_evidence_to_graph(
                 element_type=w.element_type,
                 element_id=actual_element_id,
                 payload=w.payload,
-                provenance_claim_ids=w.provenance_claim_ids,
+                provenance_claim_ids=event_claim_ids,
             )
         )
 
-    # 7. Create provenance links for every node and edge
+    # 7. Create provenance links for each graph element, using the accepted
+    # claims that actually contributed the relevant source row(s).
     link_count = 0
-    for (_et, _eid), node_id in node_id_map.items():
-        for claim_id in claim_ids:
+    for node_key, node_id in node_id_map.items():
+        for claim_id in sorted(node_provenance.get(node_key, set())):
             db.add(
                 ProvenanceLink(
                     link_id=uuid7(),
@@ -531,8 +545,8 @@ async def compile_evidence_to_graph(
                 )
             )
             link_count += 1
-    for (_src, _tgt, _rel), edge_id in edge_id_map.items():
-        for claim_id in claim_ids:
+    for edge_key, edge_id in edge_id_map.items():
+        for claim_id in sorted(edge_provenance.get(edge_key, set())):
             db.add(
                 ProvenanceLink(
                     link_id=uuid7(),
