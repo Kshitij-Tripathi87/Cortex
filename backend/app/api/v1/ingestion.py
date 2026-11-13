@@ -39,7 +39,7 @@ from app.infrastructure.security import (
 )
 from app.infrastructure.storage_client import ObjectStorageClient, get_storage
 from app.modules.ingestion.repository import IngestionLogRepository
-from app.modules.ingestion.service import ingest_csv_streaming
+from app.modules.ingestion.service import CsvStructureError, ingest_csv_streaming
 
 router = APIRouter()
 
@@ -49,6 +49,7 @@ class IngestionAccepted(BaseModel):
     status: str
     file_key: str
     file_size_bytes: int
+    file_sha256: str | None = None
     rows_total: int | None = Field(default=None, description="Populated on completion only")
 
 
@@ -59,6 +60,7 @@ class IngestionStatusResponse(BaseModel):
     dataset_type: str
     file_name: str
     file_size_bytes: int
+    file_sha256: str | None = None
     status: str
     rows_total: int
     rows_accepted: int
@@ -120,6 +122,12 @@ async def post_ingest(
             strict=strict,
         )
         await session.commit()
+    except CsvStructureError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
     except Exception:
         await session.rollback()
         raise
@@ -131,6 +139,7 @@ async def post_ingest(
         status=log.status,
         file_key=log.file_key,
         file_size_bytes=log.file_size_bytes,
+        file_sha256=log.file_sha256,
         rows_total=log.rows_total if log.finished_at else None,
     )
 
@@ -175,6 +184,7 @@ async def get_ingest(
         dataset_type=str(log.dataset_type),
         file_name=log.file_name,
         file_size_bytes=log.file_size_bytes,
+        file_sha256=log.file_sha256,
         status=str(log.status),
         rows_total=log.rows_total,
         rows_accepted=log.rows_accepted,
