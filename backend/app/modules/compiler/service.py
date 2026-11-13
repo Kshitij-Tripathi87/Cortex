@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState, ConflictSeverity, ReadinessState
 from app.common.ids import uuid7
-from app.modules.graph.entity_keys import infer_entity_type
-from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.compiler.models import (
     ConflictResolution,
     EvidenceClaim,
     EvidenceConflict,
 )
+
+from app.modules.graph.entity_keys import infer_entity_type
+from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.sources.models import SourceColumnProfile
 
 
