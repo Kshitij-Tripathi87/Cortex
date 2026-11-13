@@ -53,9 +53,7 @@ async def test_service_token_factory_pyjwt_round_trip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     secret = "test-only-service-token-secret-with-sufficient-entropy"
-    monkeypatch.setattr(
-        ServiceTokenFactory, "signing_key", classmethod(lambda cls: secret)
-    )
+    monkeypatch.setattr(ServiceTokenFactory, "signing_key", classmethod(lambda cls: secret))
 
     token = await ServiceTokenFactory.issue(
         "nexus-worker",
