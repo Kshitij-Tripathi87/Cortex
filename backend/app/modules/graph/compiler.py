@@ -27,12 +27,13 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState
+from app.config import get_settings
 from app.common.ids import uuid7
-from app.infrastructure.storage_client import ObjectStorageClient
+from app.infrastructure.storage_client import ObjectStorageClient, get_storage
 from app.modules.compiler.models import EvidenceClaim
 from app.modules.graph.entity_keys import (
     COLUMN_TO_ENTITY_TYPE,
@@ -43,6 +44,7 @@ from app.modules.graph.entity_keys import (
 from app.modules.graph.models import (
     GraphEdge,
     GraphNode,
+    GraphSnapshot,
     GraphWriteEvent,
     ProvenanceLink,
 )
@@ -121,6 +123,39 @@ def _resolve_fk_columns(headers: list[str], entity_type: str) -> list[tuple[str,
     return result
 
 
+def _parse_xlsx_rows(data: bytes) -> list[dict[str, str]]:
+    """Read the first worksheet as normalized string-valued source rows."""
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    try:
+        worksheet = workbook.active
+        iterator = worksheet.iter_rows(values_only=True)
+        header_row = next(iterator, None)
+        if not header_row:
+            return []
+        headers = [
+            str(value).strip() if value is not None else f"column_{index + 1}"
+            for index, value in enumerate(header_row)
+        ]
+        rows: list[dict[str, str]] = []
+        for values in iterator:
+            row: dict[str, str] = {}
+            for index, header in enumerate(headers):
+                value = values[index] if index < len(values) else None
+                if value is None:
+                    row[header] = ""
+                elif hasattr(value, "isoformat"):
+                    row[header] = value.isoformat()
+                else:
+                    row[header] = str(value)
+            if any(value.strip() for value in row.values()):
+                rows.append(row)
+        return rows
+    finally:
+        workbook.close()
+
+
 def _canonical_payload(payload: dict[str, Any]) -> str:
     """Deterministic JSON serialization for hashing — sorted keys, no spaces."""
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
@@ -147,29 +182,87 @@ async def compile_evidence_to_graph(
     """
     from app.modules.graph.snapshots import get_latest_snapshot, seal_snapshot
 
-    # 1. Fetch batch + files (sorted by original_name for determinism)
-    batch = await db.get(SourceBatch, batch_id)
+    # Production and pilot must compile the exact immutable bytes held in object
+    # storage. Profile samples are a local test/dev fallback only.
+    if storage is None and get_settings().env.lower() in {"staging", "pilot", "prod", "production"}:
+        storage = get_storage()
+
+    # Lock the batch row so two concurrent publish requests for the same batch
+    # serialize before checking for an already-published snapshot.
+    batch_stmt = (
+        select(SourceBatch)
+        .where(SourceBatch.batch_id == batch_id)
+        .where(SourceBatch.workspace_id == workspace_id)
+        .with_for_update()
+    )
+    batch_result = await db.execute(batch_stmt)
+    batch = batch_result.scalar_one_or_none()
     if batch is None:
         raise ValueError(f"Batch {batch_id} not found")
+
+    # A batch is published at most once. Retried requests return the sealed
+    # snapshot instead of adding duplicate graph nodes and edges.
+    existing_stmt = (
+        select(GraphSnapshot)
+        .where(GraphSnapshot.workspace_id == workspace_id)
+        .where(GraphSnapshot.source_batch_id == batch_id)
+        .limit(1)
+    )
+    existing_result = await db.execute(existing_stmt)
+    existing_snapshot = existing_result.scalar_one_or_none()
+    if existing_snapshot is not None:
+        event_count_result = await db.execute(
+            select(func.count(GraphWriteEvent.event_id)).where(
+                GraphWriteEvent.snapshot_id == existing_snapshot.snapshot_id
+            )
+        )
+        link_count_result = await db.execute(
+            select(func.count(ProvenanceLink.link_id)).where(
+                ProvenanceLink.graph_element_id.in_(
+                    select(GraphWriteEvent.element_id).where(
+                        GraphWriteEvent.snapshot_id == existing_snapshot.snapshot_id
+                    )
+                )
+            )
+        )
+        from app.modules.graph.integrity import run_integrity_checks
+
+        integrity = await run_integrity_checks(db, workspace_id, existing_snapshot.snapshot_id)
+        return CompilationResult(
+            snapshot_id=existing_snapshot.snapshot_id,
+            version=existing_snapshot.version,
+            snapshot_hash=existing_snapshot.snapshot_hash,
+            node_count=existing_snapshot.node_count,
+            edge_count=existing_snapshot.edge_count,
+            write_event_count=int(event_count_result.scalar_one()),
+            provenance_link_count=int(link_count_result.scalar_one()),
+            integrity_passed=integrity,
+        )
 
     file_stmt = (
         select(SourceFile)
         .where(SourceFile.batch_id == batch_id)
+        .where(SourceFile.workspace_id == workspace_id)
         .where(SourceFile.profiled.is_(True))
         .order_by(SourceFile.original_name)
     )
     file_result = await db.execute(file_stmt)
     files = list(file_result.scalars().all())
 
-    # 2. Fetch approved claims for provenance
+    # Only accepted claims in this workspace can support graph publication.
     claim_stmt = (
         select(EvidenceClaim)
+        .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
         .where(EvidenceClaim.claim_state == ClaimState.ACCEPTED.value)
     )
     claim_result = await db.execute(claim_stmt)
     claims = list(claim_result.scalars().all())
-    claim_ids = [c.claim_id for c in claims]
+    if not claims:
+        raise ValueError("No accepted evidence claims are available for this batch")
+    claims_by_file: dict[str, list[str]] = {}
+    for claim in claims:
+        claims_by_file.setdefault(claim.source_file_id, []).append(claim.claim_id)
 
     # 3. Build pending write events from source data
     writes: list[_PendingWrite] = []
@@ -178,9 +271,16 @@ async def compile_evidence_to_graph(
 
     for file in files:
         # Fetch stored data — production reads from S3, test uses sample_values
+        file_claim_ids = claims_by_file.get(file.file_id, [])
+        if not file_claim_ids:
+            # An accepted claim from another file cannot confer provenance on
+            # this file's rows.
+            continue
+
         profiles_stmt = (
             select(SourceColumnProfile)
             .where(SourceColumnProfile.file_id == file.file_id)
+            .where(SourceColumnProfile.workspace_id == workspace_id)
             .order_by(SourceColumnProfile.column_index)
         )
         profiles_result = await db.execute(profiles_stmt)
@@ -201,16 +301,19 @@ async def compile_evidence_to_graph(
 
         fk_columns = _resolve_fk_columns(headers, entity_type)
 
-        # Read row data: production from S3, dev from sample_values
-        if storage and file.storage_key:
-            try:
-                raw_bytes = storage.get_object(file.storage_key)
+        # Read the same immutable bytes that were uploaded. In prod/pilot,
+        # storage errors fail closed; sample-value reconstruction is only for
+        # unit/integration tests and explicitly local development.
+        if storage is not None:
+            raw_bytes = storage.get_object(file.storage_key)
+            if file.original_name.lower().endswith(".xlsx"):
+                sample_rows = _parse_xlsx_rows(raw_bytes)
+            else:
                 sample_rows = _parse_csv_rows(raw_bytes, file.encoding)
-            except Exception:
-                # Fallback to sample_values on any storage error
-                sample_rows = _reconstruct_rows_from_profiles(profiles)
-        else:
+        elif get_settings().env.lower() in {"dev", "test"}:
             sample_rows = _reconstruct_rows_from_profiles(profiles)
+        else:
+            raise RuntimeError("Object storage is required to publish source data in this environment")
 
         for _row_idx, row in enumerate(sample_rows):
             entity_id = row.get(pk_column, "").strip()
@@ -243,7 +346,7 @@ async def compile_evidence_to_graph(
                             "entity_id": entity_id,
                             "attributes": attributes,
                         },
-                        provenance_claim_ids=claim_ids[:],
+                        provenance_claim_ids=file_claim_ids[:],
                     )
                 )
 
@@ -302,6 +405,12 @@ async def compile_evidence_to_graph(
                         provenance_claim_ids=claim_ids[:],
                     )
                 )
+
+    if not writes:
+        raise ValueError(
+            "No graph entities could be resolved from this batch; verify that it contains "
+            "supported canonical primary-key columns and accepted claims"
+        )
 
     # 4. Get latest snapshot for hash chain + version
     latest = await get_latest_snapshot(db, workspace_id)
