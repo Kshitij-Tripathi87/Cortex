@@ -94,7 +94,7 @@ export default function ScenarioStudioPage() {
     setError(null);
     try {
       const [nodeResponse, scenarioResponse] = await Promise.all([
-        apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 500 }),
+        apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 200 }),
         fetchScenarios(workspace.id),
       ]);
       setNodes(nodeResponse);

@@ -17,6 +17,7 @@ export interface ClientOptions {
   /** Path under /api/v1, e.g. "/auth/me". Absolute http(s) URLs pass through. */
   path: string;
   query?: Record<string, string | number | boolean | undefined | null>;
+  /** JSON values are serialized; FormData is sent as multipart without overriding its boundary. */
   body?: unknown;
   timeoutMs?: number;
   /** Skip Bearer injection (public endpoints). */
@@ -87,13 +88,24 @@ export async function apiRequest<T>(opts: ClientOptions): Promise<T> {
     else opts.signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
 
+  const isFormData =
+    typeof FormData !== "undefined" && opts.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     "X-Request-ID": newRequestId(),
   };
+  // The browser must generate the multipart Content-Type boundary itself.
+  // JSON requests set their content type explicitly; GETs and FormData do not.
+  if (opts.body !== undefined && !isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
   if (!opts.anonymous) {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  let requestBody: BodyInit | undefined;
+  if (opts.body !== undefined) {
+    requestBody = isFormData ? (opts.body as FormData) : JSON.stringify(opts.body);
   }
 
   let response: Response;
@@ -101,7 +113,7 @@ export async function apiRequest<T>(opts: ClientOptions): Promise<T> {
     response = await fetch(url, {
       method,
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: requestBody,
       signal: controller.signal,
     });
   } catch (error) {
@@ -141,7 +153,7 @@ export async function apiRequest<T>(opts: ClientOptions): Promise<T> {
 function extractMessage(status: number, payload: unknown): string {
   if (payload !== null && typeof payload === "object") {
     const record = payload as Record<string, unknown>;
-    // FastAPI may return {"detail": "..."} or {"detail": [{...}]} (422).
+    // FastAPI may return {"detail": "..."} or {"detail": [...]} (422).
     if (typeof record.detail === "string" && record.detail) return record.detail;
     if (typeof record.message === "string" && record.message) return record.message;
     if (status === 422) {

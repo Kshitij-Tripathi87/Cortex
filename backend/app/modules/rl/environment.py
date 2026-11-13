@@ -239,9 +239,8 @@ class SupplyChainEnv:
                     stockout_count += 1
             elif var.variable_type == StateVariableType.CAPACITY:
                 capacities.append(val)
-            elif var.variable_type == StateVariableType.LEAD_TIME:
-                if val > max_lt:
-                    max_lt = val
+            elif var.variable_type == StateVariableType.LEAD_TIME and val > max_lt:
+                max_lt = val
 
         avg_cap = sum(capacities) / len(capacities) if capacities else 100.0
         snapshot = create_state_snapshot(self.current_state)

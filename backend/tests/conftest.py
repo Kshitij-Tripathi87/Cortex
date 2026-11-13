@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from typing import Any, cast
 
 import pytest
-from sqlalchemy import MetaData, select
+from sqlalchemy import BLANK_SCHEMA, MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -98,7 +97,13 @@ async def db_engine() -> AsyncGenerator[Any]:
     sqlite_metadata = MetaData()
     for table in Base.metadata.sorted_tables:
         if table.schema is None:
-            table.to_metadata(sqlite_metadata)
+            table.to_metadata(
+                sqlite_metadata,
+                schema=cast(Any, None),
+                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: cast(
+                    Any, BLANK_SCHEMA
+                ),
+            )
 
     async with engine.begin() as conn:
         await conn.run_sync(sqlite_metadata.create_all)
@@ -230,10 +235,6 @@ def submit_in_own_session() -> Any:
 # Nexus v0.8 persistent-manager tests — file-based async SQLite
 # ─────────────────────────────────────────────────────────────────────
 
-_REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _REPO not in sys.path:
-    sys.path.insert(0, _REPO)
-
 
 @pytest.fixture(scope="session")
 def nexus_db_path(tmp_path_factory):
@@ -259,17 +260,13 @@ async def nexus_db_engine(nexus_db_path):
     nexus_metadata = MetaData()
     for table in Base.metadata.sorted_tables:
         if table.name.startswith("nexus_"):
-            table.to_metadata(nexus_metadata)
-
-    # SQLite has no schemas — strip any schema qualifier defensively.
-    for table in nexus_metadata.tables.values():
-        table.schema = None
-        for col in table.columns:
-            for fk in list(col.foreign_keys):
-                if fk._colspec and fk._colspec.count(".") == 2:
-                    # schema.table.col → table.col
-                    parts = fk._colspec.split(".")
-                    fk._colspec = f"{parts[1]}.{parts[2]}"
+            table.to_metadata(
+                nexus_metadata,
+                schema=None,
+                referred_schema_fn=lambda _table, _to_schema, _constraint, _referred_schema: (
+                    BLANK_SCHEMA
+                ),
+            )
 
     async with engine.begin() as conn:
         await conn.run_sync(nexus_metadata.create_all)

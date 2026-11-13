@@ -56,8 +56,7 @@ async def _run(name: str, slug: str, admin_email: str, admin_password: str) -> t
             print(f"Admin user already exists: email={admin_email} id={existing_user.id}")
             return workspace.id, existing_user.id
 
-        # bcrypt hash via bcrypt library (it's already a project transitive
-        # dependency through python-jose[cryptography]).
+        # bcrypt is an explicit backend dependency for workspace admin credentials.
         import bcrypt
 
         hashed = bcrypt.hashpw(admin_password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode()

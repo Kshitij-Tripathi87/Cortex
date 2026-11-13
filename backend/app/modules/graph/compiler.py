@@ -27,12 +27,13 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState
 from app.common.ids import uuid7
-from app.infrastructure.storage_client import ObjectStorageClient
+from app.config import get_settings
+from app.infrastructure.storage_client import ObjectStorageClient, get_storage
 from app.modules.compiler.models import EvidenceClaim
 from app.modules.graph.entity_keys import (
     COLUMN_TO_ENTITY_TYPE,
@@ -43,6 +44,7 @@ from app.modules.graph.entity_keys import (
 from app.modules.graph.models import (
     GraphEdge,
     GraphNode,
+    GraphSnapshot,
     GraphWriteEvent,
     ProvenanceLink,
 )
@@ -121,6 +123,39 @@ def _resolve_fk_columns(headers: list[str], entity_type: str) -> list[tuple[str,
     return result
 
 
+def _parse_xlsx_rows(data: bytes) -> list[dict[str, str]]:
+    """Read the first worksheet as normalized string-valued source rows."""
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    try:
+        worksheet = workbook.active
+        iterator = worksheet.iter_rows(values_only=True)
+        header_row = next(iterator, None)
+        if not header_row:
+            return []
+        headers = [
+            str(value).strip() if value is not None else f"column_{index + 1}"
+            for index, value in enumerate(header_row)
+        ]
+        rows: list[dict[str, str]] = []
+        for values in iterator:
+            row: dict[str, str] = {}
+            for index, header in enumerate(headers):
+                value = values[index] if index < len(values) else None
+                if value is None:
+                    row[header] = ""
+                elif hasattr(value, "isoformat"):
+                    row[header] = value.isoformat()
+                else:
+                    row[header] = str(value)
+            if any(value.strip() for value in row.values()):
+                rows.append(row)
+        return rows
+    finally:
+        workbook.close()
+
+
 def _canonical_payload(payload: dict[str, Any]) -> str:
     """Deterministic JSON serialization for hashing — sorted keys, no spaces."""
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
@@ -147,40 +182,107 @@ async def compile_evidence_to_graph(
     """
     from app.modules.graph.snapshots import get_latest_snapshot, seal_snapshot
 
-    # 1. Fetch batch + files (sorted by original_name for determinism)
-    batch = await db.get(SourceBatch, batch_id)
+    # Production and pilot must compile the exact immutable bytes held in object
+    # storage. Profile samples are a local test/dev fallback only.
+    if storage is None and get_settings().env.lower() in {"staging", "pilot", "prod", "production"}:
+        storage = get_storage()
+
+    # Lock the batch row so two concurrent publish requests for the same batch
+    # serialize before checking for an already-published snapshot.
+    batch_stmt = (
+        select(SourceBatch)
+        .where(SourceBatch.batch_id == batch_id)
+        .where(SourceBatch.workspace_id == workspace_id)
+        .with_for_update()
+    )
+    batch_result = await db.execute(batch_stmt)
+    batch = batch_result.scalar_one_or_none()
     if batch is None:
         raise ValueError(f"Batch {batch_id} not found")
+
+    # A batch is published at most once. Retried requests return the sealed
+    # snapshot instead of adding duplicate graph nodes and edges.
+    existing_stmt = (
+        select(GraphSnapshot)
+        .where(GraphSnapshot.workspace_id == workspace_id)
+        .where(GraphSnapshot.source_batch_id == batch_id)
+        .limit(1)
+    )
+    existing_result = await db.execute(existing_stmt)
+    existing_snapshot = existing_result.scalar_one_or_none()
+    if existing_snapshot is not None:
+        event_count_result = await db.execute(
+            select(func.count(GraphWriteEvent.event_id)).where(
+                GraphWriteEvent.snapshot_id == existing_snapshot.snapshot_id
+            )
+        )
+        link_count_result = await db.execute(
+            select(func.count(ProvenanceLink.link_id)).where(
+                ProvenanceLink.graph_element_id.in_(
+                    select(GraphWriteEvent.element_id).where(
+                        GraphWriteEvent.snapshot_id == existing_snapshot.snapshot_id
+                    )
+                )
+            )
+        )
+        from app.modules.graph.integrity import run_integrity_checks
+
+        integrity = await run_integrity_checks(db, workspace_id, existing_snapshot.snapshot_id)
+        return CompilationResult(
+            snapshot_id=existing_snapshot.snapshot_id,
+            version=existing_snapshot.version,
+            snapshot_hash=existing_snapshot.snapshot_hash,
+            node_count=existing_snapshot.node_count,
+            edge_count=existing_snapshot.edge_count,
+            write_event_count=int(event_count_result.scalar_one()),
+            provenance_link_count=int(link_count_result.scalar_one()),
+            integrity_passed=integrity,
+        )
 
     file_stmt = (
         select(SourceFile)
         .where(SourceFile.batch_id == batch_id)
+        .where(SourceFile.workspace_id == workspace_id)
         .where(SourceFile.profiled.is_(True))
         .order_by(SourceFile.original_name)
     )
     file_result = await db.execute(file_stmt)
     files = list(file_result.scalars().all())
 
-    # 2. Fetch approved claims for provenance
+    # Only accepted claims in this workspace can support graph publication.
     claim_stmt = (
         select(EvidenceClaim)
+        .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
         .where(EvidenceClaim.claim_state == ClaimState.ACCEPTED.value)
     )
     claim_result = await db.execute(claim_stmt)
     claims = list(claim_result.scalars().all())
-    claim_ids = [c.claim_id for c in claims]
+    if not claims:
+        raise ValueError("No accepted evidence claims are available for this batch")
+    claims_by_file: dict[str, list[str]] = {}
+    for claim in claims:
+        claims_by_file.setdefault(claim.source_file_id, []).append(claim.claim_id)
 
     # 3. Build pending write events from source data
     writes: list[_PendingWrite] = []
     node_keys: set[tuple[str, str]] = set()
     edge_keys: set[tuple[str, str, str, str]] = set()
+    node_provenance: dict[tuple[str, str], set[str]] = {}
+    edge_provenance: dict[tuple[str, str, str], set[str]] = {}
 
     for file in files:
         # Fetch stored data — production reads from S3, test uses sample_values
+        file_claim_ids = claims_by_file.get(file.file_id, [])
+        if not file_claim_ids:
+            # An accepted claim from another file cannot confer provenance on
+            # this file's rows.
+            continue
+
         profiles_stmt = (
             select(SourceColumnProfile)
             .where(SourceColumnProfile.file_id == file.file_id)
+            .where(SourceColumnProfile.workspace_id == workspace_id)
             .order_by(SourceColumnProfile.column_index)
         )
         profiles_result = await db.execute(profiles_stmt)
@@ -201,16 +303,21 @@ async def compile_evidence_to_graph(
 
         fk_columns = _resolve_fk_columns(headers, entity_type)
 
-        # Read row data: production from S3, dev from sample_values
-        if storage and file.storage_key:
-            try:
-                raw_bytes = storage.get_object(file.storage_key)
+        # Read the same immutable bytes that were uploaded. In prod/pilot,
+        # storage errors fail closed; sample-value reconstruction is only for
+        # unit/integration tests and explicitly local development.
+        if storage is not None:
+            raw_bytes = storage.get_object(file.storage_key)
+            if file.original_name.lower().endswith(".xlsx"):
+                sample_rows = _parse_xlsx_rows(raw_bytes)
+            else:
                 sample_rows = _parse_csv_rows(raw_bytes, file.encoding)
-            except Exception:
-                # Fallback to sample_values on any storage error
-                sample_rows = _reconstruct_rows_from_profiles(profiles)
-        else:
+        elif get_settings().env.lower() in {"dev", "test"}:
             sample_rows = _reconstruct_rows_from_profiles(profiles)
+        else:
+            raise RuntimeError(
+                "Object storage is required to publish source data in this environment"
+            )
 
         for _row_idx, row in enumerate(sample_rows):
             entity_id = row.get(pk_column, "").strip()
@@ -231,6 +338,7 @@ async def compile_evidence_to_graph(
                 attributes["_facility_type"] = _normalize_facility_type(entity_type)
 
             key = (resolved_type, entity_id)
+            node_provenance.setdefault(key, set()).update(file_claim_ids)
             if key not in node_keys:
                 node_keys.add(key)
                 writes.append(
@@ -243,7 +351,7 @@ async def compile_evidence_to_graph(
                             "entity_id": entity_id,
                             "attributes": attributes,
                         },
-                        provenance_claim_ids=claim_ids[:],
+                        provenance_claim_ids=file_claim_ids[:],
                     )
                 )
 
@@ -258,6 +366,7 @@ async def compile_evidence_to_graph(
 
                 # Create stub node for target if not seen
                 target_key = (target_resolved, target_id)
+                node_provenance.setdefault(target_key, set()).update(file_claim_ids)
                 if target_key not in node_keys:
                     node_keys.add(target_key)
                     stub_attrs: dict[str, Any] = {}
@@ -274,7 +383,7 @@ async def compile_evidence_to_graph(
                                 "attributes": stub_attrs,
                                 "_stub": True,
                             },
-                            provenance_claim_ids=claim_ids[:],
+                            provenance_claim_ids=file_claim_ids[:],
                         )
                     )
 
@@ -282,6 +391,9 @@ async def compile_evidence_to_graph(
                 source_node_key = f"{resolved_type}:{entity_id}"
                 target_node_key = f"{target_resolved}:{target_id}"
                 edge_key = (source_node_key, target_node_key, rel, col_name)
+                edge_provenance.setdefault((source_node_key, target_node_key, rel), set()).update(
+                    file_claim_ids
+                )
                 if edge_key in edge_keys:
                     continue
                 edge_keys.add(edge_key)
@@ -299,9 +411,15 @@ async def compile_evidence_to_graph(
                             "relationship_type": rel,
                             "attributes": {"source_column": col_name},
                         },
-                        provenance_claim_ids=claim_ids[:],
+                        provenance_claim_ids=file_claim_ids[:],
                     )
                 )
+
+    if not writes:
+        raise ValueError(
+            "No graph entities could be resolved from this batch; verify that it contains "
+            "supported canonical primary-key columns and accepted claims"
+        )
 
     # 4. Get latest snapshot for hash chain + version
     latest = await get_latest_snapshot(db, workspace_id)
@@ -311,61 +429,156 @@ async def compile_evidence_to_graph(
     # Use DB-backed monotonic versioning
     next_version = await get_next_version(db, workspace_id, "graph")
 
-    # 5. Apply writes to DB (create nodes + edges)
+    # 5. Upsert canonical nodes, reusing stable workspace/entity IDs.
+    # This mirrors the unique key enforced by migration 003 and prevents later
+    # batches from creating duplicate suppliers, products, facilities, etc.
     node_id_map: dict[tuple[str, str], str] = {}
     edge_id_map: dict[tuple[str, str, str], str] = {}
 
+    node_keys_to_upsert = {
+        (str(w.payload["entity_type"]), str(w.payload["entity_id"]))
+        for w in writes
+        if w.operation == "upsert_node"
+    }
+    entity_types = {entity_type for entity_type, _entity_id in node_keys_to_upsert}
+    entity_ids = {entity_id for _entity_type, entity_id in node_keys_to_upsert}
+    existing_nodes: dict[tuple[str, str], GraphNode] = {}
+    if node_keys_to_upsert:
+        existing_node_stmt = (
+            select(GraphNode)
+            .where(GraphNode.workspace_id == workspace_id)
+            .where(GraphNode.entity_type.in_(entity_types))
+            .where(GraphNode.entity_id.in_(entity_ids))
+        )
+        existing_node_result = await db.execute(existing_node_stmt)
+        existing_nodes = {
+            (node.entity_type, node.entity_id): node
+            for node in existing_node_result.scalars().all()
+            if (node.entity_type, node.entity_id) in node_keys_to_upsert
+        }
+
     for w in writes:
-        if w.operation == "upsert_node":
-            et = w.payload["entity_type"]
-            eid = w.payload["entity_id"]
-            key = (et, eid)
-            if key in node_id_map:
-                continue
+        if w.operation != "upsert_node":
+            continue
+        entity_type = str(w.payload["entity_type"])
+        entity_id = str(w.payload["entity_id"])
+        node_key = (entity_type, entity_id)
+        if node_key in node_id_map:
+            continue
+
+        attributes = dict(w.payload["attributes"])
+        existing_node = existing_nodes.get(node_key)
+        if existing_node is not None:
+            # Preserve prior known attributes while letting the latest
+            # accepted source values refresh fields they actually provide.
+            existing_node.attributes = {**(existing_node.attributes or {}), **attributes}
+            existing_node.valid_to = None
+            existing_node.last_modified_version = next_version
+            node_id_map[node_key] = existing_node.node_id
+        else:
             node_id = w.element_id
-            node_id_map[key] = node_id
+            node_id_map[node_key] = node_id
             db.add(
                 GraphNode(
                     node_id=node_id,
                     workspace_id=workspace_id,
-                    entity_type=et,
-                    entity_id=eid,
-                    attributes=w.payload["attributes"],
+                    entity_type=entity_type,
+                    entity_id=entity_id,
+                    attributes=attributes,
                     first_seen_version=next_version,
                     last_modified_version=next_version,
                 )
             )
-        elif w.operation == "upsert_edge":
-            src = f"{w.payload['source_entity_type']}:{w.payload['source_entity_id']}"
-            tgt = f"{w.payload['target_entity_type']}:{w.payload['target_entity_id']}"
-            rel = w.payload["relationship_type"]
-            key = (src, tgt, rel)
-            if key in edge_id_map:
-                continue
-            source_node_id = node_id_map.get(
-                (
-                    w.payload["source_entity_type"],
-                    w.payload["source_entity_id"],
-                )
+
+    # Resolve all edge endpoints after every node (including FK stubs) has a
+    # stable database ID, then upsert using the canonical relationship key.
+    edge_candidates: dict[tuple[str, str, str], tuple[str, str]] = {}
+    for w in writes:
+        if w.operation != "upsert_edge":
+            continue
+        source_key = (
+            str(w.payload["source_entity_type"]),
+            str(w.payload["source_entity_id"]),
+        )
+        target_key = (
+            str(w.payload["target_entity_type"]),
+            str(w.payload["target_entity_id"]),
+        )
+        source_node_id = node_id_map.get(source_key)
+        target_node_id = node_id_map.get(target_key)
+        if not source_node_id or not target_node_id:
+            continue
+        entity_edge_key = (
+            f"{source_key[0]}:{source_key[1]}",
+            f"{target_key[0]}:{target_key[1]}",
+            str(w.payload["relationship_type"]),
+        )
+        edge_candidates[entity_edge_key] = (source_node_id, target_node_id)
+
+    existing_edges: dict[tuple[str, str, str], GraphEdge] = {}
+    if edge_candidates:
+        source_ids = {source_id for source_id, _target_id in edge_candidates.values()}
+        target_ids = {target_id for _source_id, target_id in edge_candidates.values()}
+        edge_stmt = (
+            select(GraphEdge)
+            .where(GraphEdge.workspace_id == workspace_id)
+            .where(GraphEdge.source_node_id.in_(source_ids))
+            .where(GraphEdge.target_node_id.in_(target_ids))
+        )
+        edge_result = await db.execute(edge_stmt)
+        edge_keys_by_node_ids = {
+            (source_node_id, target_node_id, entity_key[2]): entity_key
+            for entity_key, (source_node_id, target_node_id) in edge_candidates.items()
+        }
+        for edge in edge_result.scalars().all():
+            edge_key = edge_keys_by_node_ids.get(
+                (edge.source_node_id, edge.target_node_id, edge.relationship_type)
             )
-            target_node_id = node_id_map.get(
-                (
-                    w.payload["target_entity_type"],
-                    w.payload["target_entity_id"],
-                )
-            )
-            if not source_node_id or not target_node_id:
-                continue
+            if edge_key is not None:
+                existing_edges[edge_key] = edge
+
+    for w in writes:
+        if w.operation != "upsert_edge":
+            continue
+        source_key = (
+            str(w.payload["source_entity_type"]),
+            str(w.payload["source_entity_id"]),
+        )
+        target_key = (
+            str(w.payload["target_entity_type"]),
+            str(w.payload["target_entity_id"]),
+        )
+        source_node_id = node_id_map.get(source_key)
+        target_node_id = node_id_map.get(target_key)
+        if not source_node_id or not target_node_id:
+            continue
+
+        entity_edge_key = (
+            f"{source_key[0]}:{source_key[1]}",
+            f"{target_key[0]}:{target_key[1]}",
+            str(w.payload["relationship_type"]),
+        )
+        if entity_edge_key in edge_id_map:
+            continue
+
+        attributes = dict(w.payload["attributes"])
+        existing_edge = existing_edges.get(entity_edge_key)
+        if existing_edge is not None:
+            existing_edge.attributes = {**(existing_edge.attributes or {}), **attributes}
+            existing_edge.valid_to = None
+            existing_edge.last_modified_version = next_version
+            edge_id_map[entity_edge_key] = existing_edge.edge_id
+        else:
             edge_id = w.element_id
-            edge_id_map[key] = edge_id
+            edge_id_map[entity_edge_key] = edge_id
             db.add(
                 GraphEdge(
                     edge_id=edge_id,
                     workspace_id=workspace_id,
                     source_node_id=source_node_id,
                     target_node_id=target_node_id,
-                    relationship_type=rel,
-                    attributes=w.payload["attributes"],
+                    relationship_type=str(w.payload["relationship_type"]),
+                    attributes=attributes,
                     first_seen_version=next_version,
                     last_modified_version=next_version,
                 )
@@ -389,11 +602,18 @@ async def compile_evidence_to_graph(
     snapshot_id = uuid7()
     for w in sorted_writes:
         actual_element_id = w.element_id
-        if w.operation == "upsert_edge":
+        if w.operation == "upsert_node":
+            node_key = (w.payload["entity_type"], w.payload["entity_id"])
+            actual_element_id = node_id_map.get(node_key, w.element_id)
+            event_claim_ids = sorted(node_provenance.get(node_key, set()))
+        else:
             src = f"{w.payload['source_entity_type']}:{w.payload['source_entity_id']}"
             tgt = f"{w.payload['target_entity_type']}:{w.payload['target_entity_id']}"
             actual_element_id = edge_id_map.get(
                 (src, tgt, w.payload["relationship_type"]), w.element_id
+            )
+            event_claim_ids = sorted(
+                edge_provenance.get((src, tgt, w.payload["relationship_type"]), set())
             )
         db.add(
             GraphWriteEvent(
@@ -404,14 +624,15 @@ async def compile_evidence_to_graph(
                 element_type=w.element_type,
                 element_id=actual_element_id,
                 payload=w.payload,
-                provenance_claim_ids=w.provenance_claim_ids,
+                provenance_claim_ids=event_claim_ids,
             )
         )
 
-    # 7. Create provenance links for every node and edge
+    # 7. Create provenance links for each graph element, using the accepted
+    # claims that actually contributed the relevant source row(s).
     link_count = 0
-    for (_et, _eid), node_id in node_id_map.items():
-        for claim_id in claim_ids:
+    for node_key, node_id in node_id_map.items():
+        for claim_id in sorted(node_provenance.get(node_key, set())):
             db.add(
                 ProvenanceLink(
                     link_id=uuid7(),
@@ -422,8 +643,8 @@ async def compile_evidence_to_graph(
                 )
             )
             link_count += 1
-    for (_src, _tgt, _rel), edge_id in edge_id_map.items():
-        for claim_id in claim_ids:
+    for edge_key, edge_id in edge_id_map.items():
+        for claim_id in sorted(edge_provenance.get(edge_key, set())):
             db.add(
                 ProvenanceLink(
                     link_id=uuid7(),
@@ -438,7 +659,7 @@ async def compile_evidence_to_graph(
     await db.flush()
 
     # 8. Seal snapshot (hash-chained)
-    snapshot_hash = seal_snapshot(
+    snapshot_hash = await seal_snapshot(
         db=db,
         snapshot_id=snapshot_id,
         workspace_id=workspace_id,

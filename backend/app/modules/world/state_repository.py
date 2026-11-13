@@ -322,7 +322,7 @@ class StateRepository:
         rolls back. No-op on non-PostgreSQL backends (SQLite serializes writes
         at the connection level anyway).
         """
-        if self.db.bind.dialect.name != "postgresql":
+        if self.db.get_bind().dialect.name != "postgresql":
             return
         from sqlalchemy import text
 

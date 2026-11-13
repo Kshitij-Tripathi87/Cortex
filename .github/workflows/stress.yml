@@ -25,6 +25,7 @@ on:
 env:
   CORTEX_ENV: test
   CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_stress
+  CORTEX_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cortex_stress
   CORTEX_REDIS_URL: redis://localhost:6379/0
 
 jobs:

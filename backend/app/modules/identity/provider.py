@@ -13,6 +13,10 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, Protocol
 
+import jwt
+from jwt import InvalidTokenError, PyJWKClient
+from jwt.exceptions import PyJWKClientError
+
 from app.config import get_settings
 from app.modules.identity.models import UserPrincipal
 
@@ -97,28 +101,44 @@ class JWTIDProvider:
         return await self.verify_token(token)
 
     async def verify_token(self, token: str) -> UserPrincipal:
-        from jose import jwt
-        from jose.exceptions import JWTError
-
-        key: Any = None
+        # Key source determines the permitted algorithm family. A JWKS endpoint
+        # is asymmetric-only; a configured internal shared secret is HS256-only.
+        # Never mix public-key algorithms and HMAC in one decode allowlist.
         if self.config.jwks_uri:
-            key = _jwks_key(self.config.jwks_uri)
+            try:
+                key = _jwks_client(self.config.jwks_uri).get_signing_key_from_jwt(token).key
+            except (PyJWKClientError, InvalidTokenError, OSError) as exc:
+                raise PermissionError(f"Token signing key could not be resolved: {exc}") from exc
+            algorithms = [
+                "RS256",
+                "RS384",
+                "RS512",
+                "PS256",
+                "PS384",
+                "PS512",
+                "ES256",
+                "ES384",
+                "ES512",
+                "EdDSA",
+            ]
         else:
-            settings = get_settings()
-            key = getattr(settings, "jwt_service_signing_key", None)
+            key = getattr(get_settings(), "jwt_service_signing_key", None)
+            if not isinstance(key, (str, bytes)) or not key:
+                raise PermissionError("JWT service signing key is not configured")
+            algorithms = ["HS256"]
 
         try:
             claims = jwt.decode(
                 token,
                 key,
-                algorithms=["RS256", "HS256", "EdDSA"],
+                algorithms=algorithms,
                 audience=self.config.audience,
                 issuer=self.config.issuer,
                 options={"verify_exp": True, "verify_iss": True, "verify_aud": True},
                 leeway=30,
             )
-        except JWTError as e:
-            raise PermissionError(f"Token verification failed: {e}") from e
+        except (InvalidTokenError, ValueError) as exc:
+            raise PermissionError(f"Token verification failed: {exc}") from exc
 
         user_id = str(claims.get("sub", ""))
         if not user_id:
@@ -209,13 +229,10 @@ def _claims_scopes(claims: dict[str, Any]) -> list[str]:
     return []
 
 
-@lru_cache(maxsize=1)
-def _jwks_key(jwks_uri: str) -> Any:
-    import httpx
-
-    resp = httpx.get(jwks_uri, timeout=10.0)
-    resp.raise_for_status()
-    return resp.json()
+@lru_cache(maxsize=8)
+def _jwks_client(jwks_uri: str) -> PyJWKClient:
+    """Cache a verifier for the configured issuer's asymmetric JWKS endpoint."""
+    return PyJWKClient(jwks_uri, cache_keys=True, timeout=10.0)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -266,8 +283,6 @@ class ServiceTokenFactory:
     async def issue(
         cls, service_name: str, workspace_id: str, scopes: list[str], *, ttl: int = 900
     ) -> str:
-        from jose import jwt
-
         now = int(datetime.now(UTC).timestamp())
         claims = {
             "sub": service_name,
@@ -282,8 +297,6 @@ class ServiceTokenFactory:
 
     @classmethod
     async def verify(cls, token: str) -> dict[str, Any]:
-        from jose import JWTError, jwt
-
         try:
             return dict(
                 jwt.decode(
@@ -294,5 +307,5 @@ class ServiceTokenFactory:
                     issuer="cortex-agent",
                 )
             )
-        except JWTError as e:
-            raise PermissionError(f"Service token verification failed: {e}") from e
+        except InvalidTokenError as exc:
+            raise PermissionError(f"Service token verification failed: {exc}") from exc

@@ -94,8 +94,8 @@ export default function WorldExplorer() {
     setError(null);
     try {
       const [nodeResponse, edgeResponse] = await Promise.all([
-        apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 500 }),
-        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 800 }),
+        apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 200 }),
+        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 200 }),
       ]);
       setNodes(nodeResponse);
       setEdges(edgeResponse);

@@ -93,16 +93,16 @@ redis:
         cpu: 500m
         memory: 512Mi
 
-# MinIO configuration
-minio:
+# S3-compatible object storage (SeaweedFS)
+objectStorage:
   enabled: true
-  mode: standalone
-  rootUser: ""  # Auto-generated if empty
-  rootPassword: ""  # Auto-generated if empty
-  buckets:
-    - name: cortex-uploads
-      policy: none
-      purge: false
+  image:
+    repository: chrislusf/seaweedfs
+    tag: "4.53"
+    pullPolicy: IfNotPresent
+  bucket: cortex-uploads
+  service:
+    port: 8333
   resources:
     requests:
       cpu: 250m

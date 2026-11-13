@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState, ConflictSeverity, ReadinessState
@@ -56,7 +57,26 @@ async def extract_claims(
     claims_created = 0
     claims_requiring_review = 0
 
+    existing_stmt = (
+        select(EvidenceClaim.source_column, EvidenceClaim.provenance)
+        .where(EvidenceClaim.workspace_id == workspace_id)
+        .where(EvidenceClaim.batch_id == batch_id)
+        .where(EvidenceClaim.source_file_id == file_id)
+    )
+    existing_result = await db.execute(existing_stmt)
+    existing_rows = list(existing_result.all())
+    existing_columns = {row.source_column for row in existing_rows}
+    existing_profile_ids = {
+        row.provenance.get("profile_id")
+        for row in existing_rows
+        if isinstance(row.provenance, dict) and row.provenance.get("profile_id")
+    }
+
     for profile in profiles:
+        # A retried batch compilation must not multiply the same column claims.
+        if profile.profile_id in existing_profile_ids or profile.column_name in existing_columns:
+            continue
+        existing_columns.add(profile.column_name)
         claim = EvidenceClaim(
             claim_id=uuid7(),
             workspace_id=workspace_id,
@@ -103,6 +123,16 @@ async def detect_conflicts(
     result = await db.execute(stmt)
     claims = list(result.scalars().all())
 
+    existing_conflict_stmt = (
+        select(EvidenceConflict.claim_ids)
+        .where(EvidenceConflict.workspace_id == workspace_id)
+        .where(EvidenceConflict.batch_id == batch_id)
+    )
+    existing_conflict_result = await db.execute(existing_conflict_stmt)
+    existing_signatures = {
+        tuple(sorted(claim_ids)) for claim_ids in existing_conflict_result.scalars().all()
+    }
+
     conflicts_detected = 0
     blocking_conflicts = 0
 
@@ -120,7 +150,8 @@ async def detect_conflicts(
             continue
         # Check for value disagreement
         values = set(c.normalized_value or c.raw_value for c in claim_list)
-        if len(values) > 1:
+        signature = tuple(sorted(c.claim_id for c in claim_list))
+        if len(values) > 1 and signature not in existing_signatures:
             severity = ConflictSeverity.MAJOR.value if entity else ConflictSeverity.WARNING.value
             is_blocking = severity in {
                 ConflictSeverity.MAJOR.value,
@@ -168,7 +199,7 @@ async def compute_readiness(
         select(EvidenceConflict)
         .where(EvidenceConflict.workspace_id == workspace_id)
         .where(EvidenceConflict.batch_id == batch_id)
-        .where(EvidenceConflict.status == "open")
+        .where(EvidenceConflict.status.in_(["open", "escalated"]))
     )
     conflict_result = await db.execute(conflict_stmt)
     conflicts = list(conflict_result.scalars().all())
@@ -229,18 +260,42 @@ async def resolve_conflict(
     rationale: str,
     reviewer_id: str,
 ) -> ConflictResolution:
-    """Record a human conflict resolution. Updates conflict status and selected claim state.
-
-    Raises:
-        NoResultFound: the requested conflict does not exist.
-        PermissionError: the conflict exists but belongs to a different
-            workspace — the caller is not authorized to resolve it.
-    """
-    conflict_stmt = select(EvidenceConflict).where(EvidenceConflict.conflict_id == conflict_id)
+    """Record a human conflict decision without silently accepting alternatives."""
+    conflict_stmt = (
+        select(EvidenceConflict)
+        .where(EvidenceConflict.conflict_id == conflict_id)
+        .where(EvidenceConflict.workspace_id == workspace_id)
+        .with_for_update()
+    )
     conflict_result = await db.execute(conflict_stmt)
-    conflict = conflict_result.scalar_one()
-    if conflict.workspace_id != workspace_id:
-        raise PermissionError(f"Conflict {conflict_id} does not belong to workspace {workspace_id}")
+    conflict = conflict_result.scalar_one_or_none()
+    if conflict is None:
+        raise NoResultFound(f"Conflict {conflict_id} not found")
+
+    allowed_actions = {"approved", "rejected", "suppressed", "escalated"}
+    if action not in allowed_actions:
+        raise ValueError(f"Unsupported conflict action: {action}")
+    if conflict.status not in {"open", "escalated"}:
+        raise ValueError(f"Conflict is already {conflict.status}")
+    if action == "approved" and selected_claim_id is None:
+        raise ValueError("A claim must be selected for approval")
+
+    claims_by_id: dict[str, EvidenceClaim] = {}
+    for claim_id in conflict.claim_ids:
+        stmt = (
+            select(EvidenceClaim)
+            .where(EvidenceClaim.claim_id == claim_id)
+            .where(EvidenceClaim.workspace_id == workspace_id)
+            .where(EvidenceClaim.batch_id == conflict.batch_id)
+        )
+        result = await db.execute(stmt)
+        claim = result.scalar_one_or_none()
+        if claim is not None:
+            claims_by_id[claim_id] = claim
+    if not claims_by_id:
+        raise ValueError("Conflict has no reviewable claims")
+    if selected_claim_id is not None and selected_claim_id not in claims_by_id:
+        raise ValueError("Selected claim does not belong to this conflict and workspace")
 
     resolution = ConflictResolution(
         resolution_id=uuid7(),
@@ -253,20 +308,54 @@ async def resolve_conflict(
     )
     db.add(resolution)
 
-    conflict.status = "resolved"
-    conflict.review_required = False
+    if action == "approved":
+        assert selected_claim_id is not None
+        selected = claims_by_id[selected_claim_id]
+        if selected.claim_state != ClaimState.PENDING_REVIEW.value:
+            raise ValueError("Only a pending claim can be approved")
+        selected.claim_state = ClaimState.ACCEPTED.value
+        selected.requires_review = False
+        for other_id, other_claim in claims_by_id.items():
+            if (
+                other_id != selected_claim_id
+                and other_claim.claim_state == ClaimState.PENDING_REVIEW.value
+            ):
+                other_claim.claim_state = ClaimState.SUPERSEDED.value
+                other_claim.requires_review = False
+        conflict.status = "resolved"
+        conflict.review_required = False
 
-    if selected_claim_id and action == "approved":
-        claim_stmt = select(EvidenceClaim).where(EvidenceClaim.claim_id == selected_claim_id)
-        claim_result = await db.execute(claim_stmt)
-        claim = claim_result.scalar_one()
-        claim.claim_state = ClaimState.ACCEPTED.value
-        # Mark others as superseded
-        for other_id in conflict.claim_ids:
-            if other_id != selected_claim_id:
-                other_claim = await db.get(EvidenceClaim, other_id)
-                if other_claim:
-                    other_claim.claim_state = ClaimState.SUPERSEDED.value
+    elif action == "rejected":
+        if selected_claim_id is None:
+            # Explicit "Reject all": no value from this conflict is accepted.
+            for claim in claims_by_id.values():
+                if claim.claim_state == ClaimState.PENDING_REVIEW.value:
+                    claim.claim_state = ClaimState.REJECTED.value
+                    claim.requires_review = False
+            conflict.status = "resolved"
+            conflict.review_required = False
+        else:
+            selected = claims_by_id[selected_claim_id]
+            if selected.claim_state != ClaimState.PENDING_REVIEW.value:
+                raise ValueError("Only a pending claim can be rejected")
+            selected.claim_state = ClaimState.REJECTED.value
+            selected.requires_review = False
+            remaining_pending = any(
+                claim.claim_state == ClaimState.PENDING_REVIEW.value
+                for claim_id, claim in claims_by_id.items()
+                if claim_id != selected_claim_id
+            )
+            conflict.status = "open" if remaining_pending else "resolved"
+            conflict.review_required = remaining_pending
+
+    elif action == "suppressed":
+        # Suppressing a detector finding does not approve any source claim.
+        conflict.status = "suppressed"
+        conflict.review_required = False
+
+    else:  # escalated
+        conflict.status = "escalated"
+        conflict.review_required = True
 
     await db.flush()
     return resolution

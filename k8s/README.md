@@ -36,7 +36,7 @@ Wait for infrastructure to be ready:
 ```bash
 kubectl wait --for=condition=available deployment/cortex-postgres -n cortex --timeout=120s
 kubectl wait --for=condition=available deployment/cortex-redis -n cortex --timeout=60s
-kubectl wait --for=condition=available deployment/cortex-minio -n cortex --timeout=120s
+kubectl wait --for=condition=available deployment/cortex-object-storage -n cortex --timeout=120s
 ```
 
 ### 3. Run migrations
@@ -160,16 +160,18 @@ kubectl run postgres-backup \
   -- pg_dump -h cortex-postgres -U cortex cortex > backup.sql
 ```
 
-### MinIO Backup
+### S3-Compatible Object Storage Backup
 
-Use MinIO's `mc` client:
+Cortex uses the SeaweedFS S3 gateway in the bundled Kubernetes deployment. The application itself remains provider-neutral and uses the standard S3 API.
+
+Use an S3-compatible `mc` client:
 
 ```bash
-mc alias set cortex-minio http://cortex-minio:9000 \
+mc alias set cortex-object-storage http://cortex-object-storage:8333 \
   $(kubectl get secret cortex-secrets -n cortex -o jsonpath='{.data.S3_ACCESS_KEY}' | base64 -d) \
   $(kubectl get secret cortex-secrets -n cortex -o jsonpath='{.data.S3_SECRET_KEY}' | base64 -d)
 
-mc mirror cortex-minio/cortex-uploads ./backup-minio
+mc mirror cortex-object-storage/cortex-uploads ./backup-object-storage
 ```
 
 ## Upgrade
@@ -226,9 +228,9 @@ kubectl exec -it -n cortex deployment/cortex-backend -- /bin/bash
 kubectl exec -it -n cortex deployment/cortex-postgres -- psql -U cortex -d cortex
 ```
 
-### MinIO access
+### S3-compatible object storage access
 
-Access MinIO console at: `http://cortex-minio:9001` (port-forward if needed)
+The bundled SeaweedFS S3 API is available at `http://cortex-object-storage:8333` inside the namespace. It does not expose a MinIO-compatible console; use an S3 client such as `mc` for bucket operations.
 
 ## Uninstall
 

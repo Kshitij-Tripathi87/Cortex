@@ -147,8 +147,8 @@ export default function ImpactAnalysisPage() {
           workspace_id: workspace.id,
           status: "all",
         }),
-        apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 500 }),
-        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 800 }),
+        apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 200 }),
+        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 200 }),
       ]);
       const nextRisks = riskResponse.data?.risks ?? [];
       setRisks(nextRisks);
