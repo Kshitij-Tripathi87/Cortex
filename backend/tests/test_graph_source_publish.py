@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState
 from app.modules.compiler.models import EvidenceClaim
-from app.modules.graph.compiler import compile_evidence_to_graph
+from app.modules.graph.compiler import (
+    _canonicalize_source_row,
+    _detect_entity_type,
+    _detect_pk_column,
+    _resolve_fk_columns,
+    compile_evidence_to_graph,
+)
+from app.modules.graph.entity_keys import canonical_column_name
 from app.modules.graph.models import (
     GraphEdge,
     GraphNode,
@@ -222,3 +229,73 @@ async def test_second_batch_reuses_canonical_supplier_nodes_and_relationships(
         )
         == 6
     )
+
+
+
+def test_vendor_export_headers_resolve_to_supplier_primary_and_parent_keys():
+    headers = ["Vendor Code", "Vendor Name", "Parent Vendor Code"]
+
+    entity_type = _detect_entity_type(headers)
+    assert entity_type == "Supplier"
+    assert _detect_pk_column(headers, entity_type) == "supplier_id"
+    assert _resolve_fk_columns(headers, entity_type) == [
+        ("parent_supplier_id", "Supplier", "PARENT_OF", "parent_supplier_id")
+    ]
+
+    row = _canonicalize_source_row(
+        {
+            "Vendor Code": "V-001",
+            "Vendor Name": "Northwind Components",
+            "Parent Vendor Code": "V-ROOT",
+        },
+        entity_type,
+    )
+    assert row == {
+        "supplier_id": "V-001",
+        "vendor_name": "Northwind Components",
+        "parent_supplier_id": "V-ROOT",
+    }
+
+
+def test_purchase_order_export_resolves_vendor_and_destination_facility_edges():
+    headers = ["PO Number", "Vendor ID", "Ship To Warehouse Code"]
+
+    entity_type = _detect_entity_type(headers)
+    assert entity_type == "PurchaseOrder"
+    assert _detect_pk_column(headers, entity_type) == "po_number"
+    assert _resolve_fk_columns(headers, entity_type) == [
+        ("supplier_id", "Supplier", "ORDERS_FROM", "supplier_id"),
+        ("ship_to_facility_id", "Facility", "SHIPS_TO", "ship_to_facility_id"),
+    ]
+
+    row = _canonicalize_source_row(
+        {
+            "PO Number": "PO-1008",
+            "Vendor ID": "V-001",
+            "Ship To Warehouse Code": "WH-09",
+        },
+        entity_type,
+    )
+    assert row["po_number"] == "PO-1008"
+    assert row["supplier_id"] == "V-001"
+    assert row["ship_to_facility_id"] == "WH-09"
+
+
+def test_lot_number_alias_is_a_valid_inventory_lot_primary_key():
+    headers = ["Lot Number", "SKU", "Quantity"]
+    entity_type = _detect_entity_type(headers)
+
+    assert entity_type == "InventoryLot"
+    assert _detect_pk_column(headers, entity_type) == "lot_id"
+    assert canonical_column_name("Lot Number") == "lot_id"
+
+
+def test_conflicting_duplicate_aliases_fail_closed():
+    with pytest.raises(ValueError, match="conflicting columns"):
+        _canonicalize_source_row(
+            {
+                "Vendor ID": "V-001",
+                "Supplier ID": "V-002",
+            },
+            "Supplier",
+        )
