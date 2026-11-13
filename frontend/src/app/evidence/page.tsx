@@ -107,7 +107,6 @@ function EvidenceContent() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedClaim, setSelectedClaim] = useState<EvidenceClaim | null>(null);
-  const [claimDecision, setClaimDecision] = useState<"accepted" | "rejected">("accepted");
   const [claimRationale, setClaimRationale] = useState("");
   const [reviewingClaim, setReviewingClaim] = useState(false);
   const [selectedConflict, setSelectedConflict] = useState<EvidenceConflict | null>(null);
@@ -193,17 +192,17 @@ function EvidenceContent() {
     }
   }
 
-  async function submitClaimReview() {
+  async function submitClaimReview(decision: "accepted" | "rejected") {
     if (!batchId || !workspaceId || !selectedClaim || claimRationale.trim().length < 3) return;
     setReviewingClaim(true);
     setError(null);
     try {
       await apiClient.post<EvidenceClaim>(
         `/sources/batches/${encodeURIComponent(batchId)}/claims/${encodeURIComponent(selectedClaim.claim_id)}/review`,
-        { decision: claimDecision, rationale: claimRationale.trim() },
+        { decision, rationale: claimRationale.trim() },
         { query: { workspace_id: workspaceId } },
       );
-      setNotice(`Claim ${claimDecision} and audit recorded.`);
+      setNotice(`Claim ${decision} and audit recorded.`);
       setSelectedClaim(null);
       setClaimRationale("");
       await loadBatch();
@@ -452,7 +451,7 @@ function EvidenceContent() {
                         <td className="px-4 py-3">
                           {claim.claim_state === "pending_review" && !conflictedClaimIds.has(claim.claim_id) ? (
                             <button
-                              onClick={() => { setSelectedClaim(claim); setClaimDecision("accepted"); setClaimRationale(""); }}
+                              onClick={() => { setSelectedClaim(claim); setClaimRationale(""); }}
                               disabled={!canReview}
                               className="text-xs font-medium text-blue-700 hover:underline disabled:opacity-40"
                             >
@@ -524,10 +523,10 @@ function EvidenceContent() {
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <button onClick={() => setSelectedClaim(null)} className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700">Cancel</button>
-                <button onClick={() => { setClaimDecision("rejected"); void submitClaimReview(); }} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700 disabled:opacity-40">
+                <button onClick={() => void submitClaimReview("rejected")} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700 disabled:opacity-40">
                   Reject claim
                 </button>
-                <button onClick={() => { setClaimDecision("accepted"); void submitClaimReview(); }} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded bg-emerald-700 px-3 py-2 text-sm text-white disabled:opacity-40">
+                <button onClick={() => void submitClaimReview("accepted")} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded bg-emerald-700 px-3 py-2 text-sm text-white disabled:opacity-40">
                   {reviewingClaim ? "Saving…" : "Accept claim"}
                 </button>
               </div>
