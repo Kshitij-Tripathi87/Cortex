@@ -84,7 +84,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
       
       minio:
-        image: minio/minio:latest
+        image: quay.io/minio/minio:RELEASE.2024-03-30T09-41-56Z
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
@@ -209,13 +209,8 @@ jobs:
           /tmp/auditenv/bin/pip freeze --all \
             | grep -v '^-e' | grep -v '^pip==' | grep -v '^setuptools==' | grep -v '^wheel==' \
             > /tmp/audit-reqs.txt
-          # PYSEC-2026-1325 (ecdsa, via python-jose — used for JWT
-          # verification in app/modules/identity/provider.py) has no fix
-          # release upstream. Ignored explicitly here; re-evaluate when
-          # python-jose ships a fix or the identity module migrates to
-          # PyJWT-only.
           /tmp/auditenv/bin/pip-audit --no-deps --desc \
-            --requirement /tmp/audit-reqs.txt --ignore-vuln PYSEC-2026-1325
+            --requirement /tmp/audit-reqs.txt
       
       - name: Run dependency audit (Node)
         run: |
