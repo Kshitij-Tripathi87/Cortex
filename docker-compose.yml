@@ -49,6 +49,12 @@ services:
     container_name: cortex-backend
     environment:
       CORTEX_ENV: dev
+      CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-deterministic}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
+      CORTEX_LLM_TIMEOUT_S: ${CORTEX_LLM_TIMEOUT_S:-30}
+      CORTEX_LLM_MAX_OUTPUT_TOKENS: ${CORTEX_LLM_MAX_OUTPUT_TOKENS:-2048}
       CORTEX_DB_DSN: postgresql+asyncpg://postgres:postgres@postgres:5432/cortex
       CORTEX_REDIS_URL: redis://redis:6379/0
       CORTEX_S3_ENDPOINT: http://object-storage:8333
