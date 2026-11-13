@@ -205,6 +205,7 @@ def canonical_column_name(name: str, entity_type: str | None = None) -> str:
             return contextual
     return COLUMN_ALIASES.get(normalized, normalized)
 
+
 # Reverse lookup: column_field → canonical_entity type, for entity detection.
 # When a column's name (normalized) matches one of these, the compiler
 # infers the entity type for that row even without a successful mapping suggestion.
