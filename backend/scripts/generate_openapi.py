@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.main import app  # noqa: E402  (must follow the sys.path bootstrap)
+from app.main import app
 
 
 def main() -> None:
