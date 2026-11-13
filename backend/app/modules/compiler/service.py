@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState, ConflictSeverity, ReadinessState
 from app.common.ids import uuid7
-from app.modules.graph.entity_keys import COLUMN_TO_ENTITY_TYPE, canonical_column_name
+from app.modules.graph.entity_keys import infer_entity_type
 from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.compiler.models import (
     ConflictResolution,
@@ -74,11 +74,7 @@ async def extract_claims(
         if isinstance(row.provenance, dict) and row.provenance.get("profile_id")
     }
 
-    canonical_headers = sorted({canonical_column_name(profile.column_name) for profile in profiles})
-    row_entity_type = next(
-        (COLUMN_TO_ENTITY_TYPE[field] for field in canonical_headers if field in COLUMN_TO_ENTITY_TYPE),
-        None,
-    )
+    row_entity_type = infer_entity_type([profile.column_name for profile in profiles])
 
     for profile in profiles:
         # A retried batch compilation must not multiply the same column claims.
