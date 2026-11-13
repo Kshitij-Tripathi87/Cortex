@@ -127,7 +127,6 @@ async def detect_conflicts(
         select(EvidenceConflict.claim_ids)
         .where(EvidenceConflict.workspace_id == workspace_id)
         .where(EvidenceConflict.batch_id == batch_id)
-        .where(EvidenceConflict.status == "open")
     )
     existing_conflict_result = await db.execute(existing_conflict_stmt)
     existing_signatures = {
@@ -201,7 +200,7 @@ async def compute_readiness(
         select(EvidenceConflict)
         .where(EvidenceConflict.workspace_id == workspace_id)
         .where(EvidenceConflict.batch_id == batch_id)
-        .where(EvidenceConflict.status == "open")
+        .where(EvidenceConflict.status.in_(["open", "escalated"]))
     )
     conflict_result = await db.execute(conflict_stmt)
     conflicts = list(conflict_result.scalars().all())
@@ -277,7 +276,7 @@ async def resolve_conflict(
     allowed_actions = {"approved", "rejected", "suppressed", "escalated"}
     if action not in allowed_actions:
         raise ValueError(f"Unsupported conflict action: {action}")
-    if conflict.status != "open" and action != "escalated":
+    if conflict.status not in {"open", "escalated"}:
         raise ValueError(f"Conflict is already {conflict.status}")
     if action == "approved" and selected_claim_id is None:
         raise ValueError("A claim must be selected for approval")
