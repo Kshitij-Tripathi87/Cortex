@@ -59,6 +59,10 @@ def strict_auth_env(monkeypatch):
     """Run with CORTEX_ENV=pilot so identity resolves via real JWT verify."""
     monkeypatch.setenv("CORTEX_ENV", "pilot")
     monkeypatch.setenv("CORTEX_JWT_SECRET", JWT_SECRET)
+    monkeypatch.setenv("CORTEX_LLM_PROVIDER", "openai_compatible")
+    monkeypatch.setenv("CORTEX_LLM_API_KEY", "not-a-real-key-used-only-in-tests")
+    monkeypatch.setenv("CORTEX_LLM_BASE_URL", "https://model-gateway.test/v1")
+    monkeypatch.setenv("CORTEX_LLM_MODEL", "test-only-model")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

@@ -114,6 +114,8 @@ function EvidenceContent() {
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedClaim, setSelectedClaim] = useState<EvidenceClaim | null>(null);
   const [claimRationale, setClaimRationale] = useState("");
+  const [claimCanonicalEntity, setClaimCanonicalEntity] = useState("");
+  const [claimCanonicalField, setClaimCanonicalField] = useState("");
   const [reviewingClaim, setReviewingClaim] = useState(false);
   const [selectedConflict, setSelectedConflict] = useState<EvidenceConflict | null>(null);
   const [conflictClaimId, setConflictClaimId] = useState("");
@@ -200,17 +202,35 @@ function EvidenceContent() {
 
   async function submitClaimReview(decision: "accepted" | "rejected") {
     if (!batchId || !workspaceId || !selectedClaim || claimRationale.trim().length < 3) return;
+    const canonicalEntity = claimCanonicalEntity.trim();
+    const canonicalField = claimCanonicalField.trim();
+    if (decision === "accepted" && (!canonicalEntity || !canonicalField)) {
+      setError("Provide a canonical entity and field before accepting this claim.");
+      return;
+    }
+    if ((canonicalEntity && !canonicalField) || (!canonicalEntity && canonicalField)) {
+      setError("Canonical entity and canonical field must be supplied together.");
+      return;
+    }
     setReviewingClaim(true);
     setError(null);
     try {
       await apiClient.post<EvidenceClaim>(
         `/sources/batches/${encodeURIComponent(batchId)}/claims/${encodeURIComponent(selectedClaim.claim_id)}/review`,
-        { decision, rationale: claimRationale.trim() },
+        {
+          decision,
+          rationale: claimRationale.trim(),
+          ...(canonicalEntity && canonicalField
+            ? { canonical_entity: canonicalEntity, canonical_field: canonicalField }
+            : {}),
+        },
         { query: { workspace_id: workspaceId } },
       );
       setNotice(`Claim ${decision} and audit recorded.`);
       setSelectedClaim(null);
       setClaimRationale("");
+      setClaimCanonicalEntity("");
+      setClaimCanonicalField("");
       await loadBatch();
     } catch (reviewError) {
       setError(messageFor(reviewError));
@@ -457,7 +477,12 @@ function EvidenceContent() {
                         <td className="px-4 py-3">
                           {claim.claim_state === "pending_review" && !conflictedClaimIds.has(claim.claim_id) ? (
                             <button
-                              onClick={() => { setSelectedClaim(claim); setClaimRationale(""); }}
+                              onClick={() => {
+                                setSelectedClaim(claim);
+                                setClaimRationale("");
+                                setClaimCanonicalEntity(claim.canonical_entity ?? "");
+                                setClaimCanonicalField(claim.canonical_field ?? "");
+                              }}
                               disabled={!canReview}
                               className="text-xs font-medium text-blue-700 hover:underline disabled:opacity-40"
                             >
@@ -522,6 +547,31 @@ function EvidenceContent() {
                 <div><p className="text-xs text-slate-500">Source</p><p>{selectedClaim.source_column}</p></div>
                 <div><p className="text-xs text-slate-500">Suggested mapping</p><p>{selectedClaim.canonical_entity ?? "—"} · {selectedClaim.canonical_field ?? "—"}</p></div>
                 <div className="col-span-2"><p className="text-xs text-slate-500">Observed value</p><p className="mt-1 break-words rounded bg-slate-50 p-3 font-mono text-xs">{selectedClaim.raw_value || "—"}</p></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="claim-canonical-entity" className="mb-1 block text-xs font-medium text-slate-700">Canonical entity</label>
+                  <input
+                    id="claim-canonical-entity"
+                    value={claimCanonicalEntity}
+                    onChange={(event) => setClaimCanonicalEntity(event.target.value)}
+                    maxLength={64}
+                    className="w-full border border-slate-300 p-2 text-sm"
+                    placeholder="Supplier, PurchaseOrder, Shipment…"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="claim-canonical-field" className="mb-1 block text-xs font-medium text-slate-700">Canonical field</label>
+                  <input
+                    id="claim-canonical-field"
+                    value={claimCanonicalField}
+                    onChange={(event) => setClaimCanonicalField(event.target.value)}
+                    maxLength={128}
+                    pattern="[a-z][a-z0-9_]*"
+                    className="w-full border border-slate-300 p-2 font-mono text-sm"
+                    placeholder="supplier_id, sku, promised_delivery_at…"
+                  />
+                </div>
               </div>
               <div>
                 <label htmlFor="claim-rationale" className="mb-1 block text-xs font-medium text-slate-700">Review rationale (required)</label>

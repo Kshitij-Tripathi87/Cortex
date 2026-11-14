@@ -8,36 +8,58 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.modules.graph.entity_keys import ENTITY_COLUMN_ALIASES
+
 # Frozen alias registry (subset from docs/02-ontology.md §10)
 # Maps lowercased/normalized source column names to canonical entity types + fields.
 ALIAS_REGISTRY: dict[str, tuple[str, str]] = {
     # Supplier
     "supplier": ("Supplier", ""),
     "supplier_name": ("Supplier", "legal_name"),
-    "supplier_id": ("Supplier", "external_ids"),
+    "supplier_id": ("Supplier", "supplier_id"),
     "vendor": ("Supplier", ""),
     "vendor_name": ("Supplier", "legal_name"),
-    "vendor_id": ("Supplier", "external_ids"),
+    "vendor_id": ("Supplier", "supplier_id"),
     "vendor_master": ("Supplier", ""),
     "tax_id": ("Supplier", "tax_id"),
     "duns": ("Supplier", "duns_number"),
     "duns_number": ("Supplier", "duns_number"),
     "country": ("Supplier", "country"),
+    "vendor_code": ("Supplier", "supplier_id"),
+    "vendor_number": ("Supplier", "supplier_id"),
+    "vendor_no": ("Supplier", "supplier_id"),
+    "supplier_code": ("Supplier", "supplier_id"),
+    "supplier_number": ("Supplier", "supplier_id"),
+    "supplier_no": ("Supplier", "supplier_id"),
+    "customer_code": ("Customer", "customer_id"),
+    "customer_number": ("Customer", "customer_id"),
+    "carrier_code": ("Carrier", "carrier_id"),
+    "scac": ("Carrier", "carrier_id"),
+    "warehouse_code": ("Warehouse", "warehouse_id"),
+    "warehouse_number": ("Warehouse", "warehouse_id"),
+    "warehouse_no": ("Warehouse", "warehouse_id"),
+    "plant_code": ("Plant", "plant_id"),
+    "factory_id": ("Plant", "plant_id"),
+    "dc_id": ("Warehouse", "warehouse_id"),
+    "dc_code": ("Warehouse", "warehouse_id"),
+    "distribution_center_id": ("Warehouse", "warehouse_id"),
+    "port_code": ("Facility", "facility_id"),
+    "unlocode": ("Facility", "facility_id"),
     # Warehouse
     "warehouse": ("Warehouse", "name"),
     "warehouse_name": ("Warehouse", "name"),
-    "warehouse_id": ("Warehouse", "external_ids"),
+    "warehouse_id": ("Warehouse", "warehouse_id"),
     "dc": ("Warehouse", "name"),
     "distribution_center": ("Warehouse", "name"),
     "facility": ("Facility", "name"),
-    "facility_id": ("Facility", "external_ids"),
+    "facility_id": ("Facility", "facility_id"),
     "facility_name": ("Facility", "name"),
     "site": ("Facility", "name"),
-    "site_id": ("Facility", "external_ids"),
+    "site_id": ("Facility", "facility_id"),
     # Plant
     "plant": ("Plant", "name"),
     "plant_name": ("Plant", "name"),
-    "plant_id": ("Plant", "external_ids"),
+    "plant_id": ("Plant", "plant_id"),
     "factory": ("Plant", "name"),
     # Product
     "product": ("Product", "name"),
@@ -98,7 +120,7 @@ ALIAS_REGISTRY: dict[str, tuple[str, str]] = {
     # Customer
     "customer": ("Customer", "legal_name"),
     "customer_name": ("Customer", "legal_name"),
-    "customer_id": ("Customer", "external_ids"),
+    "customer_id": ("Customer", "customer_id"),
     "account": ("Customer", "legal_name"),
     "ship_to_customer": ("Customer", "legal_name"),
     # SalesOrder
@@ -107,6 +129,30 @@ ALIAS_REGISTRY: dict[str, tuple[str, str]] = {
     "order_number": ("SalesOrder", "so_number"),
     "customer_ref": ("SalesOrder", "customer_ref"),
     "requested_delivery_at": ("SalesOrder", "promised_delivery_at"),
+    "product_code": ("Product", "sku"),
+    "product_id": ("Product", "sku"),
+    "item_id": ("Product", "sku"),
+    "material_id": ("Product", "sku"),
+    "part_id": ("Product", "sku"),
+    "bom_id": ("BOM", "bom_id"),
+    "bom_number": ("BOM", "bom_id"),
+    "inventory_id": ("InventoryItem", "inventory_id"),
+    "inventory_item_id": ("InventoryItem", "inventory_id"),
+    "lot_id": ("InventoryLot", "lot_id"),
+    "lot_code": ("InventoryLot", "lot_id"),
+    "batch_number": ("InventoryLot", "lot_id"),
+    "purchase_order_id": ("PurchaseOrder", "po_number"),
+    "purchase_order_number": ("PurchaseOrder", "po_number"),
+    "po_id": ("PurchaseOrder", "po_number"),
+    "sales_order_id": ("SalesOrder", "so_number"),
+    "sales_order_number": ("SalesOrder", "so_number"),
+    "so_id": ("SalesOrder", "so_number"),
+    "shipment_number": ("Shipment", "shipment_id"),
+    "shipment_no": ("Shipment", "shipment_id"),
+    "consignment_id": ("Shipment", "shipment_id"),
+    "route_code": ("Route", "route_id"),
+    "route_number": ("Route", "route_id"),
+    "region_code": ("Region", "region_id"),
 }
 
 
@@ -132,7 +178,7 @@ def normalize_column_name(name: str) -> str:
     return s
 
 
-def suggest_mapping(source_column: str) -> MappingSuggestion:
+def suggest_mapping(source_column: str, row_entity_type: str | None = None) -> MappingSuggestion:
     """Produce a deterministic mapping suggestion for a source column name.
 
     Rules:
@@ -143,6 +189,21 @@ def suggest_mapping(source_column: str) -> MappingSuggestion:
     """
     raw = source_column.strip()
     normalized = normalize_column_name(raw)
+
+    # Contextual mappings take priority over global aliases. They describe the
+    # field on the current row entity (for example PurchaseOrder.supplier_id),
+    # not the entity referenced by that field.
+    if row_entity_type:
+        contextual_field = ENTITY_COLUMN_ALIASES.get((row_entity_type, normalized))
+        if contextual_field:
+            return MappingSuggestion(
+                source_column=raw,
+                canonical_entity=row_entity_type,
+                canonical_field=contextual_field,
+                confidence=1.0,
+                requires_review=False,
+                matched_alias=normalized,
+            )
 
     # 1. Exact normalized match
     if normalized in ALIAS_REGISTRY:

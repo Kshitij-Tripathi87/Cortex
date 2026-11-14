@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState
 from app.modules.compiler.models import EvidenceClaim
-from app.modules.graph.compiler import compile_evidence_to_graph
+from app.modules.graph.compiler import (
+    _canonicalize_source_row,
+    _detect_entity_type,
+    _detect_pk_column,
+    _resolve_fk_columns,
+    compile_evidence_to_graph,
+)
+from app.modules.graph.entity_keys import canonical_column_name
 from app.modules.graph.models import (
     GraphEdge,
     GraphNode,
@@ -222,3 +229,107 @@ async def test_second_batch_reuses_canonical_supplier_nodes_and_relationships(
         )
         == 6
     )
+
+
+def test_vendor_export_headers_resolve_to_supplier_primary_and_parent_keys() -> None:
+    headers = ["Vendor Code", "Vendor Name", "Parent Vendor Code"]
+
+    entity_type = _detect_entity_type(headers)
+    assert entity_type == "Supplier"
+    pk_source_column = _detect_pk_column(headers, entity_type)
+    assert pk_source_column == "Vendor Code"
+    assert canonical_column_name(pk_source_column, entity_type) == "supplier_id"
+    assert _resolve_fk_columns(headers, entity_type) == [
+        ("parent_supplier_id", "Supplier", "PARENT_OF", "parent_supplier_id")
+    ]
+
+    row = _canonicalize_source_row(
+        {
+            "Vendor Code": "V-001",
+            "Vendor Name": "Northwind Components",
+            "Parent Vendor Code": "V-ROOT",
+        },
+        entity_type,
+    )
+    assert row == {
+        "supplier_id": "V-001",
+        "vendor_name": "Northwind Components",
+        "parent_supplier_id": "V-ROOT",
+    }
+
+
+def test_purchase_order_export_resolves_vendor_and_destination_facility_edges():
+    headers = ["PO Number", "Vendor ID", "Ship To Warehouse Code"]
+
+    entity_type = _detect_entity_type(headers)
+    assert entity_type == "PurchaseOrder"
+    pk_source_column = _detect_pk_column(headers, entity_type)
+    assert pk_source_column == "PO Number"
+    assert canonical_column_name(pk_source_column, entity_type) == "po_number"
+    assert _resolve_fk_columns(headers, entity_type) == [
+        ("supplier_id", "Supplier", "ORDERS_FROM", "supplier_id"),
+        ("ship_to_facility_id", "Facility", "SHIPS_TO", "ship_to_facility_id"),
+    ]
+
+    row = _canonicalize_source_row(
+        {
+            "PO Number": "PO-1008",
+            "Vendor ID": "V-001",
+            "Ship To Warehouse Code": "WH-09",
+        },
+        entity_type,
+    )
+    assert row["po_number"] == "PO-1008"
+    assert row["supplier_id"] == "V-001"
+    assert row["ship_to_facility_id"] == "WH-09"
+
+
+def test_lot_number_alias_is_a_valid_inventory_lot_primary_key():
+    headers = ["Lot Number", "SKU", "Quantity"]
+    entity_type = _detect_entity_type(headers)
+
+    assert entity_type == "InventoryLot"
+    pk_source_column = _detect_pk_column(headers, entity_type)
+    assert pk_source_column == "Lot Number"
+    assert canonical_column_name(pk_source_column, entity_type) == "lot_id"
+
+
+def test_conflicting_duplicate_aliases_fail_closed():
+    with pytest.raises(ValueError, match="conflicting columns"):
+        _canonicalize_source_row(
+            {
+                "Vendor ID": "V-001",
+                "Supplier ID": "V-002",
+            },
+            "Supplier",
+        )
+
+
+def test_sales_order_customer_foreign_key_does_not_override_row_primary_key() -> None:
+    headers = ["SO Number", "Customer ID", "Ship From Warehouse ID"]
+    assert _detect_entity_type(headers) == "SalesOrder"
+
+
+def test_shipment_carrier_and_route_foreign_keys_do_not_override_row_entity() -> None:
+    headers = [
+        "Shipment Number",
+        "Carrier Code",
+        "Route Code",
+        "Origin Warehouse ID",
+        "Destination Port ID",
+    ]
+    assert _detect_entity_type(headers) == "Shipment"
+
+
+def test_inventory_identifier_wins_over_product_and_facility_foreign_keys() -> None:
+    headers = ["Inventory ID", "SKU", "Warehouse ID"]
+    assert _detect_entity_type(headers) == "InventoryItem"
+
+
+def test_reviewed_canonical_field_override_is_used_by_graph_row_normalizer() -> None:
+    row = _canonicalize_source_row(
+        {"Vendor Code": "V-007", "Vendor Name": "Northwind"},
+        "Supplier",
+        {"Vendor Code": "supplier_id", "Vendor Name": "legal_name"},
+    )
+    assert row == {"supplier_id": "V-007", "legal_name": "Northwind"}

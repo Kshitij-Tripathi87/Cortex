@@ -306,6 +306,43 @@ def test_semantic_vector_memory():
     assert top_score > 0.3
 
 
+def test_semantic_memory_embedding_is_stable_and_tenant_scoped():
+    """Local fallback vectors are repeatable and never cross tenant boundaries."""
+    from app.modules.memory.semantic_memory import (
+        SemanticMemoryEngine,
+        _simple_text_embedding,
+    )
+
+    phrase = "expedited freight approval threshold"
+    assert _simple_text_embedding(phrase) == _simple_text_embedding(phrase)
+
+    engine = SemanticMemoryEngine()
+    workspace_id = f"ws_{uuid7()}"
+    engine.index_document(
+        workspace_id=workspace_id,
+        tenant_id="tenant_a",
+        doc_type="policy",
+        title="Supplier expedite policy",
+        content="Expedited freight approval threshold is tier one.",
+    )
+    engine.index_document(
+        workspace_id=workspace_id,
+        tenant_id="tenant_b",
+        doc_type="policy",
+        title="Different tenant policy",
+        content="Expedited freight approval threshold is tier two.",
+    )
+
+    results = engine.search_similar(
+        query=phrase,
+        workspace_id=workspace_id,
+        tenant_id="tenant_a",
+        limit=5,
+    )
+    assert results
+    assert {document.tenant_id for _, document in results} == {"tenant_a"}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. Security Hardening & Automated Negative Isolation Tests
 # ─────────────────────────────────────────────────────────────────────────────
