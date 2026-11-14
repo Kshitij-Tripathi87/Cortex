@@ -116,8 +116,7 @@ def _detect_pk_column(
         return None
     for header in headers:
         if _mapped_source_field(header, entity_type, field_mappings) == pk_field:
-            # Preserve the helper's legacy contract: return the raw source header.
-            return header
+            return pk_field
     return None
 
 
@@ -364,10 +363,9 @@ async def compile_evidence_to_graph(
         headers = [
             _mapped_source_field(header, entity_type, field_mappings) for header in source_headers
         ]
-        pk_source_column = _detect_pk_column(source_headers, entity_type, field_mappings)
-        if pk_source_column is None:
+        pk_column = _detect_pk_column(source_headers, entity_type, field_mappings)
+        if pk_column is None:
             continue
-        pk_column = _mapped_source_field(pk_source_column, entity_type, field_mappings)
 
         fk_columns = _resolve_fk_columns(source_headers, entity_type, field_mappings)
 
