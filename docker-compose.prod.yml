@@ -95,6 +95,7 @@ services:
     container_name: cortex-backend-api-a
     environment:
       CORTEX_ENV: prod
+      CORTEX_OUTBOX_PUBLISHER_ENABLED: "false"
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:?Set CORTEX_DB_PASSWORD in the deployment environment}@postgres:5432/${CORTEX_DB_NAME:-cortex}
       CORTEX_REDIS_URL: redis://:${CORTEX_REDIS_PASSWORD:?Set CORTEX_REDIS_PASSWORD in the deployment environment}@redis:6379/0
       CORTEX_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -103,9 +104,9 @@ services:
       CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:?Set CORTEX_S3_SECRET_KEY in the deployment environment}
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?Set CORTEX_JWT_SECRET in the deployment environment}
       CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
-      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:?Set CORTEX_LLM_API_KEY in the deployment environment}
       CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
-      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:?Set CORTEX_LLM_MODEL in the deployment environment}
       CORTEX_LLM_TIMEOUT_S: ${CORTEX_LLM_TIMEOUT_S:-30}
       CORTEX_LLM_MAX_OUTPUT_TOKENS: ${CORTEX_LLM_MAX_OUTPUT_TOKENS:-2048}
       NODE_NAME: api-node-alpha
@@ -132,6 +133,7 @@ services:
     container_name: cortex-backend-api-b
     environment:
       CORTEX_ENV: prod
+      CORTEX_OUTBOX_PUBLISHER_ENABLED: "false"
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:?Set CORTEX_DB_PASSWORD in the deployment environment}@postgres:5432/${CORTEX_DB_NAME:-cortex}
       CORTEX_REDIS_URL: redis://:${CORTEX_REDIS_PASSWORD:?Set CORTEX_REDIS_PASSWORD in the deployment environment}@redis:6379/0
       CORTEX_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -140,9 +142,9 @@ services:
       CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:?Set CORTEX_S3_SECRET_KEY in the deployment environment}
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?Set CORTEX_JWT_SECRET in the deployment environment}
       CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
-      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:?Set CORTEX_LLM_API_KEY in the deployment environment}
       CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
-      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:?Set CORTEX_LLM_MODEL in the deployment environment}
       CORTEX_LLM_TIMEOUT_S: ${CORTEX_LLM_TIMEOUT_S:-30}
       CORTEX_LLM_MAX_OUTPUT_TOKENS: ${CORTEX_LLM_MAX_OUTPUT_TOKENS:-2048}
       NODE_NAME: api-node-beta
@@ -172,9 +174,9 @@ services:
       CORTEX_ENV: prod
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?Set CORTEX_JWT_SECRET in the deployment environment}
       CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
-      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:?Set CORTEX_LLM_API_KEY in the deployment environment}
       CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
-      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:?Set CORTEX_LLM_MODEL in the deployment environment}
       CORTEX_LLM_TIMEOUT_S: ${CORTEX_LLM_TIMEOUT_S:-30}
       CORTEX_LLM_MAX_OUTPUT_TOKENS: ${CORTEX_LLM_MAX_OUTPUT_TOKENS:-2048}
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:?Set CORTEX_DB_PASSWORD in the deployment environment}@postgres:5432/${CORTEX_DB_NAME:-cortex}
@@ -207,9 +209,9 @@ services:
       CORTEX_ENV: prod
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?Set CORTEX_JWT_SECRET in the deployment environment}
       CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
-      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:?Set CORTEX_LLM_API_KEY in the deployment environment}
       CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
-      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:?Set CORTEX_LLM_MODEL in the deployment environment}
       CORTEX_LLM_TIMEOUT_S: ${CORTEX_LLM_TIMEOUT_S:-30}
       CORTEX_LLM_MAX_OUTPUT_TOKENS: ${CORTEX_LLM_MAX_OUTPUT_TOKENS:-2048}
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:?Set CORTEX_DB_PASSWORD in the deployment environment}@postgres:5432/${CORTEX_DB_NAME:-cortex}
@@ -237,9 +239,9 @@ services:
       CORTEX_ENV: prod
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?Set CORTEX_JWT_SECRET in the deployment environment}
       CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
-      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:?Set CORTEX_LLM_API_KEY in the deployment environment}
       CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
-      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:?Set CORTEX_LLM_MODEL in the deployment environment}
       CORTEX_LLM_TIMEOUT_S: ${CORTEX_LLM_TIMEOUT_S:-30}
       CORTEX_LLM_MAX_OUTPUT_TOKENS: ${CORTEX_LLM_MAX_OUTPUT_TOKENS:-2048}
       CORTEX_DB_DSN: postgresql+asyncpg://${CORTEX_DB_USER:-cortex}:${CORTEX_DB_PASSWORD:?Set CORTEX_DB_PASSWORD in the deployment environment}@postgres:5432/${CORTEX_DB_NAME:-cortex}
@@ -259,9 +261,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL to the public API origin}
     container_name: cortex-frontend-prod
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL to the public API origin}
     ports:
       - "3000:3000"
     depends_on:
