@@ -236,7 +236,9 @@ def test_vendor_export_headers_resolve_to_supplier_primary_and_parent_keys() -> 
 
     entity_type = _detect_entity_type(headers)
     assert entity_type == "Supplier"
-    assert _detect_pk_column(headers, entity_type) == "supplier_id"
+    pk_source_column = _detect_pk_column(headers, entity_type)
+    assert pk_source_column == "Vendor Code"
+    assert canonical_column_name(pk_source_column, entity_type) == "supplier_id"
     assert _resolve_fk_columns(headers, entity_type) == [
         ("parent_supplier_id", "Supplier", "PARENT_OF", "parent_supplier_id")
     ]
@@ -261,7 +263,9 @@ def test_purchase_order_export_resolves_vendor_and_destination_facility_edges():
 
     entity_type = _detect_entity_type(headers)
     assert entity_type == "PurchaseOrder"
-    assert _detect_pk_column(headers, entity_type) == "po_number"
+    pk_source_column = _detect_pk_column(headers, entity_type)
+    assert pk_source_column == "PO Number"
+    assert canonical_column_name(pk_source_column, entity_type) == "po_number"
     assert _resolve_fk_columns(headers, entity_type) == [
         ("supplier_id", "Supplier", "ORDERS_FROM", "supplier_id"),
         ("ship_to_facility_id", "Facility", "SHIPS_TO", "ship_to_facility_id"),
@@ -285,8 +289,9 @@ def test_lot_number_alias_is_a_valid_inventory_lot_primary_key():
     entity_type = _detect_entity_type(headers)
 
     assert entity_type == "InventoryLot"
-    assert _detect_pk_column(headers, entity_type) == "lot_id"
-    assert canonical_column_name("Lot Number") == "lot_id"
+    pk_source_column = _detect_pk_column(headers, entity_type)
+    assert pk_source_column == "Lot Number"
+    assert canonical_column_name(pk_source_column, entity_type) == "lot_id"
 
 
 def test_conflicting_duplicate_aliases_fail_closed():
