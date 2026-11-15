@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import os
+
+# Explicit opt-in for isolated tests of the legacy process-local demo API.
+os.environ.setdefault("CORTEX_WORKSPACE_DEMO_ROUTES", "true")
 from collections.abc import AsyncGenerator, Generator
 from typing import Any, cast
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import BLANK_SCHEMA, MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -242,7 +246,7 @@ def nexus_db_path(tmp_path_factory):
     return base / "nexus.sqlite3"
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def nexus_db_engine(nexus_db_path):
     import app.modules.audit.models  # noqa: F401
     import app.modules.nexus_spine.persistence.models  # noqa: F401

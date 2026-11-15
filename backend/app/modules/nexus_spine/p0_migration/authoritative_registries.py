@@ -341,7 +341,7 @@ class AuthoritativeRegistryService:
         repo = get_scenario_repository()
         if decision_id is not None:
             recs = await repo.list_by_decision(session, decision_id)
-            recs = [r for r in recs if r.workspace_id == workspace_id]
+            recs = [r for r in recs if r.tenant_id == tenant_id and r.workspace_id == workspace_id]
         else:
             recs = await repo.list_by_workspace(session, tenant_id, workspace_id)
         return [_scenario_to_dict(rec) for rec in recs]

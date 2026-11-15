@@ -56,7 +56,7 @@ class EvaluateAgentRequest(BaseModel):
 class DeployReplicasRequest(BaseModel):
     agent_id: str
     version: str
-    workspace_id: str = "ws_default"
+    workspace_id: str
     replica_count: int = 2
 
 

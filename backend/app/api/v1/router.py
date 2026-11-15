@@ -79,8 +79,11 @@ api_router.include_router(agent_runtime.router, prefix="", tags=["Agent Runtime"
 api_router.include_router(intelligence_gateway.router, prefix="", tags=["Intelligence Gateway"])
 api_router.include_router(realtime.router, prefix="", tags=["Real-Time Streaming"])
 api_router.include_router(agents_router.router, prefix="", tags=["Agent Operations Center"])
-# Program S — Live Nexus Data Intelligence Workspace
-api_router.include_router(workspace.router, prefix="", tags=["Live Data Intelligence Workspace"])
+# The Program S in-memory API is fixed-tenant and unauthenticated; keep it opt-in.
+if get_settings().workspace_demo_routes:
+    api_router.include_router(
+        workspace.router, prefix="", tags=["Live Data Intelligence Workspace"]
+    )
 # Nexus Spine — Real Data Vertical Slice
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 

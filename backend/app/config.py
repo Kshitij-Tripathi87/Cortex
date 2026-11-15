@@ -181,6 +181,14 @@ class Settings(BaseSettings):
         "(default False). Never enable in production.",
     )
 
+    # Program S in-memory demo singleton (/workspace/*). It uses a fixed
+    # tenant and lacks authorization checks, so it is disabled by default.
+    workspace_demo_routes: bool = Field(
+        default=False,
+        description="Mount the unauthenticated fixed-tenant /workspace/* demo API. "
+        "Test/dev only; never enable in pilot, production or staging.",
+    )
+
     # Feature flags (ADR-0008). Settings-based in MVP; Phase 2 may move to
     # DB-backed or remote service. Read via `get_settings().feature_flags[name]`.
     feature_flags: dict[str, bool] = Field(

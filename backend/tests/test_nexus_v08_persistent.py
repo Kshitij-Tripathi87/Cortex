@@ -342,6 +342,40 @@ async def api_client(nexus_db_engine):
 
 class TestV082APIIntegration:
     @pytest.mark.asyncio
+    async def test_decision_mutations_reject_mismatched_workspace(self, api_client):
+        decision = await api_client.post(
+            "/nexus/decisions",
+            json={
+                "workspace_id": "WS1",
+                "situation": "workspace ownership check",
+                "options": [{"option_id": "O1"}],
+                "world_state_version": 1,
+                "world_state_hash": "h1",
+            },
+        )
+        assert decision.status_code == 201, decision.text
+        decision_id = decision.json()["data"]["decision"]["decision_id"]
+        responses = (
+            await api_client.post(
+                f"/nexus/decisions/{decision_id}/advance",
+                headers={"X-Workspace-Id": "WS2"},
+                json={"target_phase": "simulated"},
+            ),
+            await api_client.post(
+                f"/nexus/decisions/{decision_id}/execute", params={"workspace_id": "WS2"}
+            ),
+            await api_client.post(
+                f"/nexus/decisions/{decision_id}/outcome",
+                params={"workspace_id": "WS2"},
+                json={"outcome_status": "succeeded"},
+            ),
+            await api_client.post(
+                f"/nexus/decisions/{decision_id}/memory", params={"workspace_id": "WS2"}
+            ),
+        )
+        assert all(response.status_code == 404 for response in responses)
+
+    @pytest.mark.asyncio
     async def test_full_lifecycle_via_http(self, api_client):
         """Create → advance → execute → record outcome → memory → observe."""
         # Create
