@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
- 
+
 
 class ItemType(StrEnum):
     PRODUCT = "product"
