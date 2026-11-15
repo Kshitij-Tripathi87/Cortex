@@ -201,7 +201,9 @@ async def _apply_ingestion_rows(
     accepted = 0
     rejected = 0
     errors: list[dict[str, Any]] = []
-    batch_savepoint = session.begin_nested()
+    # AsyncSession.begin_nested() only *builds* the transaction object; it has
+    # to be awaited (or entered) before commit()/rollback() can be called on it.
+    batch_savepoint = await session.begin_nested()
     resolver_cache: dict[str, dict[str, UUID]] = {}
     strict_failure_row: int | None = None
 
