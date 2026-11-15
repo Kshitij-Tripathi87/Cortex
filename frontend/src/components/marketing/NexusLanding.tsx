@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 const stages = [
   {
@@ -124,7 +124,7 @@ export default function NexusLanding() {
   const [activeStage, setActiveStage] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.querySelector(".nx-site");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const elements = document.querySelectorAll<HTMLElement>(".nx-reveal");
