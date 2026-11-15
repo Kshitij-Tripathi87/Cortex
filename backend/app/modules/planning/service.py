@@ -13,6 +13,7 @@ from app.modules.planning.bom import explode_production_order
 from app.modules.planning.inventory import project_inventory
 from app.modules.planning.models import (
     BOMRevision,
+    DemandContribution,
     InventoryBalanceInput,
     InventoryProjection,
     MaterialReceipt,
@@ -143,7 +144,7 @@ def run_material_plan(
         )
         for order in sorted(snapshot.production_orders, key=lambda item: item.order_id)
     )
-    demand_by_key: dict[tuple[str, str], list] = {}
+    demand_by_key: dict[tuple[str, str], list[DemandContribution]] = {}
     warnings: list[str] = []
     for order_result in order_results:
         if order_result.status == ProjectionStatus.NOT_CALCULABLE:
@@ -162,12 +163,12 @@ def run_material_plan(
 
     projections: list[InventoryProjection] = []
     for key in sorted(demand_by_key):
-        balance = balances_by_key.get(key)
-        if balance is None:
+        matched_balance = balances_by_key.get(key)
+        if matched_balance is None:
             warnings.append(f"INVENTORY_BALANCE_MISSING:{key[0]}:{key[1]}")
             continue
         projected = project_inventory(
-            balance,
+            matched_balance,
             snapshot.receipts,
             tuple(demand_by_key[key]),
             start_date=start_date,

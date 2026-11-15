@@ -210,27 +210,27 @@ async def load_material_planning_snapshot(
     )
 
     balances: list[InventoryBalanceInput] = []
-    for row in inventory_rows:
-        component = components.get(row.component_id)
+    for inventory_row in inventory_rows:
+        component = components.get(inventory_row.component_id)
         if component is None:
             # The FK should prevent this; fail closed if the workspace data is inconsistent.
-            raise ValueError(f"INVENTORY_COMPONENT_NOT_FOUND:{row.component_id}")
+            raise ValueError(f"INVENTORY_COMPONENT_NOT_FOUND:{inventory_row.component_id}")
         balances.append(
             InventoryBalanceInput(
                 workspace_id=str(workspace_id),
                 snapshot_id=snapshot_id,
-                facility_id=str(row.warehouse_id),
-                material_id=str(row.component_id),
+                facility_id=str(inventory_row.warehouse_id),
+                material_id=str(inventory_row.component_id),
                 as_of=as_of,
-                quantity=Decimal(row.quantity),
-                quantity_basis=QuantityBasis(row.quantity_basis),
-                safety_stock_quantity=Decimal(row.safety_stock),
-                reserved_quantity=Decimal(row.reserved_quantity),
-                blocked_quantity=Decimal(row.blocked_quantity),
-                basis_excludes_reserved=row.basis_excludes_reserved,
-                basis_excludes_blocked=row.basis_excludes_blocked,
+                quantity=Decimal(inventory_row.quantity),
+                quantity_basis=QuantityBasis(inventory_row.quantity_basis),
+                safety_stock_quantity=Decimal(inventory_row.safety_stock),
+                reserved_quantity=Decimal(inventory_row.reserved_quantity),
+                blocked_quantity=Decimal(inventory_row.blocked_quantity),
+                basis_excludes_reserved=inventory_row.basis_excludes_reserved,
+                basis_excludes_blocked=inventory_row.basis_excludes_blocked,
                 uom=component.unit_of_measure,
-                source_refs=(row.source_ref or f"inventory:{row.id}",),
+                source_refs=(inventory_row.source_ref or f"inventory:{inventory_row.id}",),
             )
         )
 

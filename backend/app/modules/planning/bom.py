@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from app.modules.planning.models import (
@@ -43,7 +44,7 @@ def resolve_revision(
     item_id: str,
     item_type: ItemType,
     facility_id: str,
-    effective_at,
+    effective_at: date,
     explicit_revision_id: str | None = None,
 ) -> BOMRevision:
     candidates = [
@@ -150,9 +151,9 @@ def explode_production_order(
         if order.explicit_requirements and not order.explicit_requirements_authoritative:
             raise BOMResolutionError("AMBIGUOUS_REQUIREMENTS")
         if order.explicit_requirements_authoritative:
-            contributions = _explicit_contributions(order, converter)
+            explicit = _explicit_contributions(order, converter)
             return OrderRequirementsResult(
-                order.order_id, ProjectionStatus.COMPLETED, contributions
+                order.order_id, ProjectionStatus.COMPLETED, explicit
             )
 
         root_quantity = converter.convert(order.quantity, order.order_uom, order.item_base_uom)

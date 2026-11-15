@@ -116,9 +116,9 @@ def project_inventory(
         )
 
     seen_receipts: set[str] = set()
-    firm_by_date: dict = defaultdict(Decimal)
-    uncertain_by_date: dict = defaultdict(Decimal)
-    receipt_refs_by_date: dict = defaultdict(set)
+    firm_by_date: defaultdict[date, Decimal] = defaultdict(Decimal)
+    uncertain_by_date: defaultdict[date, Decimal] = defaultdict(Decimal)
+    receipt_refs_by_date: defaultdict[date, set[str]] = defaultdict(set)
     uncertain_total = Decimal("0")
     warnings: list[str] = []
     receipt_refs: set[str] = set()
@@ -181,8 +181,8 @@ def project_inventory(
         receipt_refs.add(receipt_reference)
         receipt_refs_by_date[receipt.expected_date].add(receipt_reference)
 
-    demand_by_date: dict = defaultdict(Decimal)
-    demand_refs_by_date: dict = defaultdict(set)
+    demand_by_date: defaultdict[date, Decimal] = defaultdict(Decimal)
+    demand_refs_by_date: defaultdict[date, set[str]] = defaultdict(set)
     total_uncovered = Decimal("0")
     for item in demand:
         if item.facility_id != balance.facility_id or item.material_id != balance.material_id:
