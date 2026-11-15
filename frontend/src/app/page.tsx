@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import NexusLanding from "@/components/marketing/NexusLanding";
 
 export default function RootPage() {
-  redirect("/workspace/cockpit");
+  return <NexusLanding />;
 }
