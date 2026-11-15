@@ -121,7 +121,7 @@ function NetworkField({
 }
 
 export default function NexusLanding() {
-  const [activeStage, setActiveStage] = useState(0);
+  const [activeStage, setActiveStage] = useState(0);\n  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const root = document.querySelector(".nx-site");
