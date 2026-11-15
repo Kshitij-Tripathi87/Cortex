@@ -174,7 +174,9 @@ jobs:
         working-directory: backend
     env:
       CORTEX_ENV: test
-      CORTEX_DB_DSN: sqlite+aiosqlite:///:memory:
+      # Quoted: a plain scalar ending in ":" is parsed as a mapping key, which
+      # made the whole workflow file invalid on the PR branch.
+      CORTEX_DB_DSN: "sqlite+aiosqlite:///:memory:"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
