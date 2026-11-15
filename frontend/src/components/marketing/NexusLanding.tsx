@@ -121,7 +121,8 @@ function NetworkField({
 }
 
 export default function NexusLanding() {
-  const [activeStage, setActiveStage] = useState(0);\n  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [activeStage, setActiveStage] = useState(0);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const root = document.querySelector(".nx-site");
@@ -206,11 +207,33 @@ export default function NexusLanding() {
             <a href="#intelligence">Intelligence</a>
             <a href="#approach">Approach</a>
           </nav>
+          <button
+            type="button"
+            className="nx-mobile-menu-toggle"
+            aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileNavOpen}
+            aria-controls="nx-mobile-navigation"
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            <span />
+            <span />
+          </button>
           <div className="nx-header-actions">
             <Link className="nx-text-link nx-workspace-link" href="/workspace/cockpit">Open workspace <span>↗</span></Link>
             <Link className="nx-button nx-button-dark nx-button-small" href="/demo">Request a demo <span>↗</span></Link>
           </div>
         </div>
+        <nav
+          id="nx-mobile-navigation"
+          className={`nx-mobile-nav ${mobileNavOpen ? "is-open" : ""}`}
+          aria-label="Mobile navigation"
+          aria-hidden={!mobileNavOpen}
+        >
+          <a href="#platform" onClick={() => setMobileNavOpen(false)}>Platform <span>01</span></a>
+          <a href="#intelligence" onClick={() => setMobileNavOpen(false)}>Intelligence <span>02</span></a>
+          <a href="#approach" onClick={() => setMobileNavOpen(false)}>Approach <span>03</span></a>
+          <Link href="/workspace/cockpit" onClick={() => setMobileNavOpen(false)}>Open workspace <span>↗</span></Link>
+        </nav>
       </header>
 
       <main>
