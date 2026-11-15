@@ -121,11 +121,11 @@ def test_order_row_parses_dates() -> None:
 @pytest.mark.parametrize(
     ("payload", "expected_code"),
     [
-        (b"sku, sku\\nA,B\\n", "DUPLICATE_HEADER"),
-        (b"sku,\\nA,B\\n", "BLANK_HEADER"),
-        (b"sku,name\\nA\\n", "MISSING_COLUMNS"),
-        (b"sku,name\\nA,Widget,EXTRA\\n", "EXTRA_COLUMNS"),
-        (b"sku,name\\n\\xff,Widget\\n", "INVALID_ENCODING"),
+        (b"sku, sku\nA,B\n", "DUPLICATE_HEADER"),
+        (b"sku,\nA,B\n", "BLANK_HEADER"),
+        (b"sku,name\nA\n", "MISSING_COLUMNS"),
+        (b"sku,name\nA,Widget,EXTRA\n", "EXTRA_COLUMNS"),
+        (b"sku,name\n\xff,Widget\n", "INVALID_ENCODING"),
     ],
 )
 def test_parse_csv_bytes_rejects_ambiguous_or_malformed_files(
@@ -137,4 +137,4 @@ def test_parse_csv_bytes_rejects_ambiguous_or_malformed_files(
 
 
 def test_parse_csv_bytes_keeps_blank_cell_for_schema_validation() -> None:
-    assert _parse_csv_bytes(b"sku,name\\nC-1,\\n") == [{"sku": "C-1", "name": ""}]
+    assert _parse_csv_bytes(b"sku,name\nC-1,\n") == [{"sku": "C-1", "name": ""}]
