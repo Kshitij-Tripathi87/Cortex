@@ -111,9 +111,10 @@ def _parse_xlsx(
             values_list = list(values)
             if not values_list or all(value is None for value in values_list):
                 continue
-            if len(values_list) > len(headers):
-                if any(value is not None for value in values_list[len(headers):]):
-                    raise SourceRowParseError(f"SOURCE_ROW_WIDTH_MISMATCH:{row_number}")
+            if len(values_list) > len(headers) and any(
+                value is not None for value in values_list[len(headers):]
+            ):
+                raise SourceRowParseError(f"SOURCE_ROW_WIDTH_MISMATCH:{row_number}")
             values_list = values_list[:len(headers)]
             if len(values_list) < len(headers):
                 values_list.extend([None] * (len(headers) - len(values_list)))

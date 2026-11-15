@@ -18,8 +18,8 @@ from app.modules.planning.models import (
     MaterialReceipt,
     ProductionOrder,
     ProjectionStatus,
-    UOMConverter,
     OrderRequirementsResult,
+    UOMConverter,
 )
 
 
@@ -183,9 +183,11 @@ def run_material_plan(
 
     if not projections:
         status = ProjectionStatus.NOT_CALCULABLE
-    elif any(p.status == ProjectionStatus.NOT_CALCULABLE for p in projections):
-        status = ProjectionStatus.DEGRADED
-    elif warnings or any(p.status == ProjectionStatus.DEGRADED for p in projections):
+    elif (
+        any(p.status == ProjectionStatus.NOT_CALCULABLE for p in projections)
+        or warnings
+        or any(p.status == ProjectionStatus.DEGRADED for p in projections)
+    ):
         status = ProjectionStatus.DEGRADED
     else:
         status = ProjectionStatus.COMPLETED

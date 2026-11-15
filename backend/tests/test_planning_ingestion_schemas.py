@@ -8,10 +8,10 @@ from pydantic import ValidationError
 from app.common.enums import MvpDatasetType
 from app.modules.ingestion.service import _DATASET_TO_SCHEMA
 from app.modules.supply_chain.schemas import (
+    ROW_SCHEMA_BY_DATASET,
     BOMLineRow,
     InventoryRow,
     PurchaseOrderLineRow,
-    ROW_SCHEMA_BY_DATASET,
 )
 
 

@@ -29,8 +29,8 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
-    Boolean,
     JSON,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
