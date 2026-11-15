@@ -5,18 +5,20 @@ name: Workflo CLI Release Gate
 # FILE MOUNT -> COMMAND EXECUTION -> TEST EXECUTION -> ARTIFACT COLLECTION ->
 # AGENT ANALYSIS -> REPORT -> SANDBOX DESTROY, plus security blocks.
 
+# The CLI package this gate builds lives in workflo-cli/, which is not in this
+# tree (it exists only on rc0/workflo-core-alpha). Every run step starts in that
+# directory, so a run triggered by anything else fails before it tests anything.
+# The gate therefore triggers only on the package itself. When the package
+# lands, add the backend Workflo paths (backend/app/api/v1/workflo.py and
+# backend/app/modules/workflo_backend/**) and this file back to the filters.
 on:
   push:
     branches: [main]
     paths:
       - "workflo-cli/**"
-      - "backend/app/modules/workflo/**"
-      - "backend/app/api/v1/workflo.py"
-      - ".github/workflows/workflo-cli.yml"
   pull_request:
     paths:
       - "workflo-cli/**"
-      - ".github/workflows/workflo-cli.yml"
   workflow_dispatch:
 
 jobs:

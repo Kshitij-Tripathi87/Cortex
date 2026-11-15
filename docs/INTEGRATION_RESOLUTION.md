@@ -56,6 +56,11 @@ Every PR head commit is an ancestor of the integration head. Merging the integra
 
 The consolidation branch carried PR #11's audit gate, which accepts no high or critical production advisories, together with `main`'s Next 14.2.35 manifest. That combination failed the gate. `frontend/package.json` and `frontend/package-lock.json` are taken from PR #11: Next 15.5.28, `eslint-config-next` 15.5.28, PostCSS 8.5.32 with overrides for `postcss` and `source-map-js`.
 
+### CI workflows
+
+- `workflo-cli.yml` now triggers only on changes under `workflo-cli/`. Its push filter also matched `backend/app/api/v1/workflo.py`, which this integration restores, so the merge would have started that gate on `main` for the first time. The gate builds a CLI package in `workflo-cli/`, which is not in the tree, and every step runs from that directory, so it would have failed before testing anything.
+- `ci.yml` gains PR #13's `priority-1-2-focused` job, `nexus-staging-verify.yml` is new on `main`, and `stress.yml` changes in comments only. No other gate is removed or relaxed.
+
 ## Migration order
 
 `016_outbox_claim_lease` → `017_nexus_task_runtime` → `018_idempotency_key_width` → `019_audit_subject_id_width` → `020_p1_p2_operational_planning` → `021_material_planning_runs` → `022_ingestion_file_digest` → `023_device_mesh`.
@@ -121,6 +126,7 @@ These are not resolved by this integration.
 - **RC0 release qualification.** Staging customer journey, backup/restore and rollback evidence are still required before RC0 production behaviour is activated.
 - **Workflo API.** Unmounted by decision; re-enabling it is a product decision.
 - **Legacy page retirement.** The six pages listed under PR #14 can be retired once the E2E specs and the logout and change-password UI move to the canonical routes.
+- **Workflo CLI gate.** When the `workflo-cli/` package lands, add the backend Workflo paths back to the trigger filters in `workflo-cli.yml`.
 - **`openapi-types` CI gate.** The job runs `git diff --exit-code` from `backend/` with paths relative to the repository root, so it matches no files and cannot fail. The artifacts had drifted on `main` for that reason.
 
 No production deployment or customer data migration is part of this integration branch.
