@@ -92,6 +92,7 @@ class ClaimReviewRequest(BaseModel):
     rationale: str = Field(min_length=3, max_length=2000)
     canonical_entity: str | None = Field(default=None, min_length=1, max_length=64)
     canonical_field: str | None = Field(default=None, min_length=1, max_length=128)
+    entity_key: str | None = Field(default=None, min_length=1, max_length=256)
 
 
 class ConflictResponse(BaseModel):
@@ -364,6 +365,11 @@ async def review_claim_endpoint(
         )
 
     mapping_supplied = payload.canonical_entity is not None or payload.canonical_field is not None
+    if payload.entity_key is not None and not mapping_supplied:
+        raise HTTPException(
+            status_code=422,
+            detail="entity_key requires a complete canonical entity and field mapping",
+        )
     if mapping_supplied and (not payload.canonical_entity or not payload.canonical_field):
         raise HTTPException(
             status_code=422,
@@ -397,9 +403,11 @@ async def review_claim_endpoint(
                 "canonical_entity": payload.canonical_entity,
                 "canonical_field": payload.canonical_field,
             },
+            "entity_key": payload.entity_key or (claim.provenance or {}).get("entity_key"),
         }
     claim.claim_state = payload.decision
     claim.requires_review = False
+    await detect_conflicts(db, workspace_id, batch_id)
     await emit_audit(
         db,
         event_type="evidence.claim.reviewed",
@@ -417,6 +425,7 @@ async def review_claim_endpoint(
             "confidence": claim.confidence,
             "canonical_entity": claim.canonical_entity,
             "canonical_field": claim.canonical_field,
+            "entity_key_supplied": payload.entity_key is not None,
         },
         message=f"Evidence claim {claim.claim_id} {payload.decision}",
     )

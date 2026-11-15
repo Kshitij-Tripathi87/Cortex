@@ -95,9 +95,6 @@ from app.modules.nexus_spine.p0_migration.llm_adapter import (
     get_llm_adapter,
 )
 from app.modules.nexus_spine.p0_migration.vanessa_tools import register_vanessa_tools
-from app.modules.audit.service import emit as emit_audit
-from app.modules.billing import EntitlementDenied, EntitlementService
-from app.modules.decision.decision_room import DecisionRoomService
 from app.modules.orchestration.capabilities import (
     JsonSchemaLiteValidator,
     WorkspaceCapabilityAuthorizer,
