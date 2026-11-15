@@ -179,7 +179,7 @@
           "auth"
         ],
         "summary": "Request Password Reset",
-        "description": "Request a single-use reset token. Uniform response \u2014 never reveals\nwhether the email exists.",
+        "description": "Request a single-use reset token. Uniform response — never reveals\nwhether the email exists.",
         "operationId": "request_password_reset_api_v1_auth_reset_request_post",
         "requestBody": {
           "content": {
@@ -1824,7 +1824,7 @@
           "graph"
         ],
         "summary": "Generate Recommendations",
-        "description": "Generate recommendations for a scenario.\n\nThis endpoint:\n  1. Loads or executes the specified scenario\n  2. Generates candidate recommendations based on scenario type\n  3. Scores and ranks recommendations\n  4. Returns structured recommendations with explanations and trade-offs\n\nRecommendations are advisory only \u2014 humans make final decisions.",
+        "description": "Generate recommendations for a scenario.\n\nThis endpoint:\n  1. Loads or executes the specified scenario\n  2. Generates candidate recommendations based on scenario type\n  3. Scores and ranks recommendations\n  4. Returns structured recommendations with explanations and trade-offs\n\nRecommendations are advisory only — humans make final decisions.",
         "operationId": "generate_recommendations_api_v1_graph_recommendations_generate_post",
         "parameters": [
           {
@@ -4722,7 +4722,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__api__v1__multi_agent__DeliberateRequest"
+                "$ref": "#/components/schemas/DeliberateRequest"
               }
             }
           },
@@ -6484,632 +6484,6 @@
         }
       }
     },
-    "/api/v1/workspace/state": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Workspace State",
-        "description": "Returns current workspace overview, loaded datasets, graph size, and active signals.",
-        "operationId": "get_workspace_state_api_v1_workspace_state_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Workspace State Api V1 Workspace State Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/demo/load": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Load Demo Incident",
-        "description": "Loads the canonical 6-minute controlled demo dataset into the live backend workspace.",
-        "operationId": "load_demo_incident_api_v1_workspace_demo_load_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Load Demo Incident Api V1 Workspace Demo Load Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/ingest-raw": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Ingest Raw Table",
-        "description": "Dynamically ingests raw CSV table and expands the operational graph proportionally.",
-        "operationId": "ingest_raw_table_api_v1_workspace_ingest_raw_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IngestRawRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Ingest Raw Table Api V1 Workspace Ingest Raw Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/upload": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Upload Dataset Files",
-        "description": "Multi-table CSV upload endpoint.",
-        "operationId": "upload_dataset_files_api_v1_workspace_upload_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_upload_dataset_files_api_v1_workspace_upload_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Upload Dataset Files Api V1 Workspace Upload Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/graph/subgraph": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Graph Subgraph",
-        "description": "Returns viewport-aware localized subgraph for high-performance canvas rendering.",
-        "operationId": "get_graph_subgraph_api_v1_workspace_graph_subgraph_get",
-        "parameters": [
-          {
-            "name": "center_node_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Focal node ID for 2-hop ego-network",
-              "title": "Center Node Id"
-            },
-            "description": "Focal node ID for 2-hop ego-network"
-          },
-          {
-            "name": "max_hops",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 4,
-              "minimum": 1,
-              "default": 2,
-              "title": "Max Hops"
-            }
-          },
-          {
-            "name": "limit_nodes",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 500,
-              "minimum": 10,
-              "default": 100,
-              "title": "Limit Nodes"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Graph Subgraph Api V1 Workspace Graph Subgraph Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/graph/critical-nodes": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Critical Nodes",
-        "description": "Returns ranked list of Single Points of Failure (SPOFs) and top PageRank hubs.",
-        "operationId": "get_critical_nodes_api_v1_workspace_graph_critical_nodes_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Critical Nodes Api V1 Workspace Graph Critical Nodes Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/signals": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Active Signals",
-        "description": "Returns detected operational anomaly signals and downstream blast radius exposure.",
-        "operationId": "get_active_signals_api_v1_workspace_signals_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Active Signals Api V1 Workspace Signals Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/deliberate": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Trigger Agent Deliberation",
-        "description": "Runs the live Multi-Agent Decision Room and counterfactual simulations.",
-        "operationId": "trigger_agent_deliberation_api_v1_workspace_deliberate_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/app__api__v1__workspace__DeliberateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Trigger Agent Deliberation Api V1 Workspace Deliberate Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/decisions/evidence": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Decision Evidence",
-        "description": "Returns the traversable Decision Evidence Graph with SHA-256 node hashes.\n\nWhen ``decision_id`` is provided the lookup is fail-closed: evidence is\nonly ever returned if it belongs to exactly that decision \u2014 never to an\nunrelated earlier or later decision.",
-        "operationId": "get_decision_evidence_api_v1_workspace_decisions_evidence_get",
-        "parameters": [
-          {
-            "name": "decision_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Decision to retrieve evidence for",
-              "title": "Decision Id"
-            },
-            "description": "Decision to retrieve evidence for"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Decision Evidence Api V1 Workspace Decisions Evidence Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/decisions/validity": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Decision Validity",
-        "description": "Returns whether the latest decision is valid or invalidated by world state mutation.",
-        "operationId": "get_decision_validity_api_v1_workspace_decisions_validity_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Decision Validity Api V1 Workspace Decisions Validity Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/query/ask": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Ask Workspace Question",
-        "description": "Natural-language data interrogation and evidence-backed answer generation.",
-        "operationId": "ask_workspace_question_api_v1_workspace_query_ask_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AskQuestionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Ask Workspace Question Api V1 Workspace Query Ask Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/query/readiness": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Check Query Readiness",
-        "description": "Preflight answerability check answering 'Can I answer this?' before execution.",
-        "operationId": "check_query_readiness_api_v1_workspace_query_readiness_get",
-        "parameters": [
-          {
-            "name": "query",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Query to evaluate answerability for",
-              "title": "Query"
-            },
-            "description": "Query to evaluate answerability for"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Check Query Readiness Api V1 Workspace Query Readiness Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/append-stream": {
-      "post": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Append Stream Event",
-        "description": "Injects live streaming event to mutate the operational graph via GraphDeltaEngine.",
-        "operationId": "append_stream_event_api_v1_workspace_append_stream_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StreamEventRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Append Stream Event Api V1 Workspace Append Stream Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/graph/delta": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Get Graph Deltas",
-        "description": "Returns list of incremental graph deltas since specified graph version.",
-        "operationId": "get_graph_deltas_api_v1_workspace_graph_delta_get",
-        "parameters": [
-          {
-            "name": "since_version",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Previous graph version",
-              "default": "",
-              "title": "Since Version"
-            },
-            "description": "Previous graph version"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Graph Deltas Api V1 Workspace Graph Delta Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workspace/stream": {
-      "get": {
-        "tags": [
-          "Live Data Intelligence Workspace",
-          "Live Data Intelligence Workspace"
-        ],
-        "summary": "Stream Workspace Events",
-        "description": "Server-Sent Events channel for live workspace reconciliation.\n\nEmits:\n- ``graph_delta``  \u2014 fired when the delta engine records new mutations;\n  payload includes ``seq`` (E1 monotonic per-engine sequence number)\n  and the canonical ``nodes_count`` / ``edges_count`` for client\n  reconciliation.\n- ``heartbeat``    \u2014 periodic authoritative versions + graph size,\n  with the current ``seq`` so clients can detect missed events.\n- ``resync``       \u2014 sent exactly once at connect time if the\n  client's ``since_seq`` is older than the oldest in-memory delta;\n  the client must do a full refresh on receipt.",
-        "operationId": "stream_workspace_events_api_v1_workspace_stream_get",
-        "parameters": [
-          {
-            "name": "since_seq",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "description": "E1 resync: the seq number the client last saw. The server replays all deltas with seq > since_seq before entering live tailing. -1 = no resync, jump straight to live.",
-              "default": -1,
-              "title": "Since Seq"
-            },
-            "description": "E1 resync: the seq number the client last saw. The server replays all deltas with seq > since_seq before entering live tailing. -1 = no resync, jump straight to live."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/spine/run": {
       "post": {
         "tags": [
@@ -8506,8 +7880,8 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1.0,
-              "minimum": 0.0,
+              "maximum": 1,
+              "minimum": 0,
               "default": 0.05,
               "title": "Bias Threshold"
             }
@@ -8767,8 +8141,8 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1.0,
-              "minimum": 0.0,
+              "maximum": 1,
+              "minimum": 0,
               "default": 0.15,
               "title": "Wape Threshold"
             }
@@ -8779,8 +8153,8 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1.0,
-              "minimum": 0.0,
+              "maximum": 1,
+              "minimum": 0,
               "default": 0.08,
               "title": "Bias Threshold"
             }
@@ -9487,9 +8861,9 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "default": 0.0,
+              "maximum": 1,
+              "minimum": 0,
+              "default": 0,
               "title": "Min Confidence"
             }
           }
@@ -10009,7 +9383,7 @@
           "Nexus Decision Intelligence"
         ],
         "summary": "Realtime Stream",
-        "description": "Live SSE: ``connected`` \u2192 durable catch-up \u2192 live tail with gap gate.\n\nIdentity resolves BEFORE the first byte: 401/403 surface as JSON, never\nas a 200 stream. Reconnects pass the last confirmed ``after_seq`` and\nreceive exactly the missed events before the live tail resumes. A\n``resync_needed`` frame means the client must replay-or-resnapshot.",
+        "description": "Live SSE: ``connected`` → durable catch-up → live tail with gap gate.\n\nIdentity resolves BEFORE the first byte: 401/403 surface as JSON, never\nas a 200 stream. Reconnects pass the last confirmed ``after_seq`` and\nreceive exactly the missed events before the live tail resumes. A\n``resync_needed`` frame means the client must replay-or-resnapshot.",
         "operationId": "realtime_stream_api_v1_nexus_realtime_stream_get",
         "parameters": [
           {
@@ -10099,7 +9473,7 @@
     "/healthz": {
       "get": {
         "summary": "Healthz",
-        "description": "Liveness probe \u2014 is the process running?",
+        "description": "Liveness probe — is the process running?",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -10116,7 +9490,7 @@
     "/readyz": {
       "get": {
         "summary": "Readyz",
-        "description": "Readiness probe \u2014 are dependencies healthy?\n\nF2: composes the verdict from the four mandatory\ndependency checks (db, redis, object_storage, audit\nchain) in ``app.infrastructure.health``. The response\nbody lists every component state so the on-call\nrunbook can read the 503 cause from the payload\nwithout checking logs.",
+        "description": "Readiness probe — are dependencies healthy?\n\nF2: composes the verdict from the four mandatory\ndependency checks (db, redis, object_storage, audit\nchain) in ``app.infrastructure.health``. The response\nbody lists every component state so the on-call\nrunbook can read the 503 cause from the payload\nwithout checking logs.",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {
@@ -10141,6 +9515,41 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/decisions/{decision_id}/receipt": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Decision Receipt",
+        "description": "Return a reconstructable read model from authoritative decision records.",
+        "operationId": "get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Decision Receipt Api V1 Nexus Decisions Decision Id Receipt Get"
+                }
               }
             }
           }
@@ -10456,15 +9865,15 @@
           },
           "limit": {
             "type": "integer",
-            "maximum": 20.0,
-            "minimum": 1.0,
+            "maximum": 20,
+            "minimum": 1,
             "title": "Limit",
             "default": 5
           },
           "min_similarity": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Min Similarity",
             "default": 0.1
           }
@@ -10475,20 +9884,6 @@
           "situation"
         ],
         "title": "AnalogousRequest"
-      },
-      "AskQuestionRequest": {
-        "properties": {
-          "query": {
-            "type": "string",
-            "title": "Query",
-            "description": "Operational natural language question"
-          }
-        },
-        "type": "object",
-        "required": [
-          "query"
-        ],
-        "title": "AskQuestionRequest"
       },
       "AuditEventResponse": {
         "properties": {
@@ -10758,23 +10153,6 @@
         },
         "type": "object",
         "title": "Body_run_spine_api_v1_spine_run_post"
-      },
-      "Body_upload_dataset_files_api_v1_workspace_upload_post": {
-        "properties": {
-          "files": {
-            "items": {
-              "type": "string",
-              "contentMediaType": "application/octet-stream"
-            },
-            "type": "array",
-            "title": "Files"
-          }
-        },
-        "type": "object",
-        "required": [
-          "files"
-        ],
-        "title": "Body_upload_dataset_files_api_v1_workspace_upload_post"
       },
       "Body_upload_source_file_api_v1_sources_upload_post": {
         "properties": {
@@ -11078,10 +10456,10 @@
           },
           "canary_pct": {
             "type": "number",
-            "maximum": 100.0,
-            "minimum": 0.0,
+            "maximum": 100,
+            "minimum": 0,
             "title": "Canary Pct",
-            "default": 10.0
+            "default": 10
           },
           "workspace_id": {
             "type": "string",
@@ -11182,7 +10560,7 @@
           "quantity": {
             "type": "number",
             "title": "Quantity",
-            "default": 0.0
+            "default": 0
           },
           "target_entity_id": {
             "anyOf": [
@@ -11198,7 +10576,7 @@
           "cost_usd": {
             "type": "number",
             "title": "Cost Usd",
-            "default": 0.0
+            "default": 0
           },
           "objective": {
             "type": "string",
@@ -11426,8 +10804,8 @@
           },
           "top_k": {
             "type": "integer",
-            "maximum": 50.0,
-            "minimum": 1.0,
+            "maximum": 50,
+            "minimum": 1,
             "title": "Top K",
             "default": 10
           }
@@ -12328,14 +11706,14 @@
           },
           "horizon_days": {
             "type": "integer",
-            "maximum": 90.0,
-            "minimum": 1.0,
+            "maximum": 90,
+            "minimum": 1,
             "title": "Horizon Days",
             "default": 14
           },
           "world_state_version": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "World State Version",
             "default": 1
           },
@@ -12392,8 +11770,7 @@
           },
           "workspace_id": {
             "type": "string",
-            "title": "Workspace Id",
-            "default": "ws_default"
+            "title": "Workspace Id"
           },
           "replica_count": {
             "type": "integer",
@@ -12404,7 +11781,8 @@
         "type": "object",
         "required": [
           "agent_id",
-          "version"
+          "version",
+          "workspace_id"
         ],
         "title": "DeployReplicasRequest"
       },
@@ -12564,10 +11942,10 @@
           },
           "confidence": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Confidence",
-            "default": 1.0
+            "default": 1
           },
           "confidence_reason": {
             "anyOf": [
@@ -12842,7 +12220,7 @@
           "weight": {
             "type": "number",
             "title": "Weight",
-            "default": 1.0
+            "default": 1
           }
         },
         "additionalProperties": false,
@@ -13444,8 +12822,8 @@
           },
           "max_discoveries": {
             "type": "integer",
-            "maximum": 50.0,
-            "minimum": 1.0,
+            "maximum": 50,
+            "minimum": 1,
             "title": "Max Discoveries",
             "default": 15
           }
@@ -13635,42 +13013,6 @@
         ],
         "title": "IngestContractRequest"
       },
-      "IngestRawRequest": {
-        "properties": {
-          "table_name": {
-            "type": "string",
-            "title": "Table Name",
-            "description": "Table name (e.g. orders, sellers, customers, order_items)"
-          },
-          "csv_content": {
-            "type": "string",
-            "title": "Csv Content",
-            "description": "Raw CSV content string"
-          },
-          "primary_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Primary Key"
-          },
-          "max_rows": {
-            "type": "integer",
-            "title": "Max Rows",
-            "default": 5000
-          }
-        },
-        "type": "object",
-        "required": [
-          "table_name",
-          "csv_content"
-        ],
-        "title": "IngestRawRequest"
-      },
       "IngestionAccepted": {
         "properties": {
           "ingestion_id": {
@@ -13834,7 +13176,7 @@
           "error_rate_pct": {
             "type": "number",
             "title": "Error Rate Pct",
-            "default": 0.0
+            "default": 0
           },
           "workspace_id": {
             "type": "string",
@@ -15744,8 +15086,8 @@
           },
           "episodes": {
             "type": "integer",
-            "maximum": 20.0,
-            "minimum": 1.0,
+            "maximum": 20,
+            "minimum": 1,
             "title": "Episodes",
             "default": 3
           }
@@ -15774,8 +15116,8 @@
           },
           "max_steps": {
             "type": "integer",
-            "maximum": 50.0,
-            "minimum": 1.0,
+            "maximum": 50,
+            "minimum": 1,
             "title": "Max Steps",
             "default": 10
           }
@@ -16253,7 +15595,7 @@
           "min_confidence": {
             "type": "number",
             "title": "Min Confidence",
-            "default": 0.0
+            "default": 0
           },
           "max_recommendations": {
             "anyOf": [
@@ -16679,10 +16021,10 @@
           },
           "confidence": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Confidence",
-            "default": 1.0
+            "default": 1
           },
           "provenance": {
             "anyOf": [
@@ -16919,7 +16261,7 @@
           "rationale"
         ],
         "title": "ResolveRequest",
-        "description": "Payload for conflict resolution.\n\n``rationale`` must be non-empty \u2014 humans must record a reason. ``action``\nis constrained to the known resolution verbs; anything else is a 422."
+        "description": "Payload for conflict resolution.\n\n``rationale`` must be non-empty — humans must record a reason. ``action``\nis constrained to the known resolution verbs; anything else is a 422."
       },
       "RiskInferenceRequest": {
         "properties": {
@@ -16935,7 +16277,7 @@
           },
           "world_state_version": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "World State Version",
             "default": 1
           }
@@ -16968,17 +16310,17 @@
           },
           "horizon_ticks": {
             "type": "integer",
-            "maximum": 30.0,
-            "minimum": 1.0,
+            "maximum": 30,
+            "minimum": 1,
             "title": "Horizon Ticks",
             "default": 7
           },
           "initial_severity_pct": {
             "type": "number",
-            "maximum": 100.0,
-            "minimum": 0.0,
+            "maximum": 100,
+            "minimum": 0,
             "title": "Initial Severity Pct",
-            "default": 100.0
+            "default": 100
           }
         },
         "type": "object",
@@ -17018,7 +16360,7 @@
           "risk_score": {
             "type": "number",
             "title": "Risk Score",
-            "default": 0.0
+            "default": 0
           },
           "gnn_risk_score": {
             "anyOf": [
@@ -18542,70 +17884,70 @@
             "minimum": 0.05,
             "title": "Outbox Sweep Interval S",
             "description": "Idle delay between outbox sweep passes",
-            "default": 1.0
+            "default": 1
           },
           "outbox_batch_size": {
             "type": "integer",
-            "maximum": 5000.0,
-            "minimum": 1.0,
+            "maximum": 5000,
+            "minimum": 1,
             "title": "Outbox Batch Size",
             "description": "Max outbox rows claimed per sweep pass",
             "default": 100
           },
           "outbox_lease_s": {
             "type": "number",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Outbox Lease S",
             "description": "Claim lease: a claimed-but-unpublished row becomes reclaimable by a peer after this long (worker-crash recovery)",
-            "default": 30.0
+            "default": 30
           },
           "outbox_retry_base_s": {
             "type": "number",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Outbox Retry Base S",
             "description": "Failed-publish backoff base (doubles per attempt)",
-            "default": 1.0
+            "default": 1
           },
           "outbox_retry_max_s": {
             "type": "number",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Outbox Retry Max S",
             "description": "Failed-publish backoff cap",
-            "default": 60.0
+            "default": 60
           },
           "outbox_max_attempts": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Outbox Max Attempts",
             "description": "Attempts after which an unpublished row is flagged poison (loudly metriced; still retried with capped backoff, never dropped)",
             "default": 50
           },
           "realtime_replay_limit": {
             "type": "integer",
-            "maximum": 5000.0,
-            "minimum": 1.0,
+            "maximum": 5000,
+            "minimum": 1,
             "title": "Realtime Replay Limit",
             "description": "Max events per replay page",
             "default": 500
           },
           "realtime_resync_threshold": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Realtime Resync Threshold",
             "description": "Gap size above which clients must snapshot/resync instead of replaying event-by-event",
             "default": 1000
           },
           "realtime_sse_heartbeat_s": {
             "type": "number",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Realtime Sse Heartbeat S",
             "description": "SSE keepalive comment interval",
-            "default": 15.0
+            "default": 15
           },
           "rate_limit_default_rps": {
             "type": "number",
             "title": "Rate Limit Default Rps",
-            "default": 10.0
+            "default": 10
           },
           "rate_limit_default_burst": {
             "type": "integer",
@@ -18615,7 +17957,7 @@
           "rate_limit_expensive_rps": {
             "type": "number",
             "title": "Rate Limit Expensive Rps",
-            "default": 1.0
+            "default": 1
           },
           "rate_limit_expensive_burst": {
             "type": "integer",
@@ -18630,7 +17972,7 @@
           "circuit_breaker_timeout": {
             "type": "number",
             "title": "Circuit Breaker Timeout",
-            "default": 30.0
+            "default": 30
           },
           "jwt_secret": {
             "type": "string",
@@ -18650,8 +17992,8 @@
           },
           "jwt_expiry_minutes": {
             "type": "integer",
-            "maximum": 1440.0,
-            "minimum": 5.0,
+            "maximum": 1440,
+            "minimum": 5,
             "title": "Jwt Expiry Minutes",
             "default": 60
           },
@@ -18695,6 +18037,12 @@
             "type": "object",
             "title": "Feature Flags",
             "description": "Feature flag toggles. Each flag is a boolean."
+          },
+          "workspace_demo_routes": {
+            "type": "boolean",
+            "title": "Workspace Demo Routes",
+            "description": "Mount the unauthenticated fixed-tenant /workspace/* demo API. Test/dev only; never enable in pilot, production or staging.",
+            "default": false
           }
         },
         "type": "object",
@@ -19277,7 +18625,7 @@
         "properties": {
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version"
           },
           "timestamp": {
@@ -19297,16 +18645,16 @@
           },
           "world_state_version": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "World State Version",
             "description": "World-state version when snapshot was taken"
           },
           "confidence": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Confidence",
-            "default": 1.0
+            "default": 1
           }
         },
         "type": "object",
@@ -19316,7 +18664,7 @@
           "world_state_version"
         ],
         "title": "StateSnapshot",
-        "description": "A snapshot of an entity's state at a specific point in time.\n\nState snapshots form the historical state vector \u2014 every entity has one\ncurrent snapshot and an append-only history. Snapshots are content-hashed\nso the truth-loop (forecast vs reality) can correlate predictions with\nactual world state."
+        "description": "A snapshot of an entity's state at a specific point in time.\n\nState snapshots form the historical state vector — every entity has one\ncurrent snapshot and an append-only history. Snapshots are content-hashed\nso the truth-loop (forecast vs reality) can correlate predictions with\nactual world state."
       },
       "StateVariableResponse": {
         "properties": {
@@ -19360,27 +18708,6 @@
           "value"
         ],
         "title": "StateVariableResponse"
-      },
-      "StreamEventRequest": {
-        "properties": {
-          "event_type": {
-            "type": "string",
-            "title": "Event Type",
-            "description": "e.g. ORDER_PLACED, SELLER_DEGRADATION"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload",
-            "description": "Structured event payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "event_type",
-          "payload"
-        ],
-        "title": "StreamEventRequest"
       },
       "SubmitEventRequest": {
         "properties": {
@@ -19564,8 +18891,8 @@
           },
           "top_k": {
             "type": "integer",
-            "maximum": 20.0,
-            "minimum": 1.0,
+            "maximum": 20,
+            "minimum": 1,
             "title": "Top K",
             "default": 5
           }
@@ -19763,7 +19090,7 @@
           "max_compute_budget_usd": {
             "type": "number",
             "title": "Max Compute Budget Usd",
-            "default": 25.0
+            "default": 25
           },
           "workspace_id": {
             "type": "string",
@@ -20429,7 +19756,7 @@
         ],
         "title": "WorldStateResponse"
       },
-      "app__api__v1__multi_agent__DeliberateRequest": {
+      "DeliberateRequest": {
         "properties": {
           "workspace_id": {
             "type": "string",
@@ -20450,24 +19777,6 @@
           "workspace_id",
           "world_id"
         ],
-        "title": "DeliberateRequest"
-      },
-      "app__api__v1__workspace__DeliberateRequest": {
-        "properties": {
-          "incident_entity_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Entity Id",
-            "description": "Target entity ID to investigate"
-          }
-        },
-        "type": "object",
         "title": "DeliberateRequest"
       }
     }
