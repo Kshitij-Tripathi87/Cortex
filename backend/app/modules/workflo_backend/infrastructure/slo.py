@@ -57,15 +57,15 @@ ROUTE_FAMILIES: tuple[str, ...] = (
 # P50 and P95 are informational. See docs/architecture/F1_SLO_CATALOG.md.
 LATENCY_TARGETS: dict[str, dict[str, float]] = {
     "workspace": {"p50": 0.05, "p95": 0.20, "p99": 0.50},
-    "ingest":    {"p50": 0.20, "p95": 0.80, "p99": 2.00},
-    "graph":     {"p50": 0.10, "p95": 0.40, "p99": 1.00},
+    "ingest": {"p50": 0.20, "p95": 0.80, "p99": 2.00},
+    "graph": {"p50": 0.10, "p95": 0.40, "p99": 1.00},
     "decisions": {"p50": 0.15, "p95": 0.60, "p99": 1.50},
-    "realtime":  {"p50": 0.01, "p95": 0.05, "p99": 0.20},
-    "agents":    {"p50": 0.30, "p95": 1.50, "p99": 3.00},
-    "workflow":  {"p50": 0.20, "p95": 1.00, "p99": 2.50},
-    "twin":      {"p50": 0.10, "p95": 0.50, "p99": 1.50},
-    "admin":     {"p50": 0.20, "p95": 1.00, "p99": 2.00},
-    "health":    {"p50": 0.005, "p95": 0.02, "p99": 0.05},
+    "realtime": {"p50": 0.01, "p95": 0.05, "p99": 0.20},
+    "agents": {"p50": 0.30, "p95": 1.50, "p99": 3.00},
+    "workflow": {"p50": 0.20, "p95": 1.00, "p99": 2.50},
+    "twin": {"p50": 0.10, "p95": 0.50, "p99": 1.50},
+    "admin": {"p50": 0.20, "p95": 1.00, "p99": 2.00},
+    "health": {"p50": 0.005, "p95": 0.02, "p99": 0.05},
 }
 
 
@@ -73,7 +73,16 @@ LATENCY_TARGETS: dict[str, dict[str, float]] = {
 # stay in sync with the histogram definition in
 # app/infrastructure/metrics.py. The regression test pins both.
 LATENCY_HISTOGRAM_BUCKETS: tuple[float, ...] = (
-    0.01, 0.025, 0.05, 0.10, 0.25, 0.50, 1.0, 2.5, 5.0, 10.0,
+    0.01,
+    0.025,
+    0.05,
+    0.10,
+    0.25,
+    0.50,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
 )
 
 

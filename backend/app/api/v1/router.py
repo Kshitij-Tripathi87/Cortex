@@ -32,6 +32,7 @@ from app.api.v1 import (
     knowledge,
     multi_agent,
     planning,
+    workflo,
     nexus_persistent,
     nexus_v07,
     readiness,
@@ -52,6 +53,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(sources.router, prefix="/sources", tags=["sources"])
 api_router.include_router(planning.router, prefix="/planning", tags=["material planning"])
+api_router.include_router(workflo.router, prefix="", tags=["Workflo"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(readiness.router, prefix="/readiness", tags=["readiness"])
 api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
@@ -80,7 +82,8 @@ api_router.include_router(intelligence_gateway.router, prefix="", tags=["Intelli
 api_router.include_router(realtime.router, prefix="", tags=["Real-Time Streaming"])
 api_router.include_router(agents_router.router, prefix="", tags=["Agent Operations Center"])
 # Program S — Live Nexus Data Intelligence Workspace
-api_router.include_router(workspace.router, prefix="", tags=["Live Data Intelligence Workspace"])
+if get_settings().workspace_demo_routes:
+    api_router.include_router(workspace.router, prefix="", tags=["Live Data Intelligence Workspace"])
 # Nexus Spine — Real Data Vertical Slice
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
 

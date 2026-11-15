@@ -56,7 +56,11 @@ class EvaluateAgentRequest(BaseModel):
 class DeployReplicasRequest(BaseModel):
     agent_id: str
     version: str
-    workspace_id: str = "ws_default"
+    # Required, like TrainAgentRequest / EvaluateAgentRequest /
+    # ConfigureCanaryRequest above. A tenant identifier must never silently
+    # fall back to a demo workspace: the default previously published
+    # `ws_default` into the OpenAPI contract (readiness matrix item 17).
+    workspace_id: str
     replica_count: int = 2
 
 

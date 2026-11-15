@@ -50,6 +50,7 @@ class SecurityFinding:
         description: Human-readable description.
         fixed_version: The version that fixes it, if known.
     """
+
     package: str
     version: str
     vulnerability_id: str
@@ -112,9 +113,7 @@ def run_scan(
     if proc.returncode not in (0, 1):
         # Genuine error (pip-audit not found, network error,
         # etc.). Fail closed.
-        raise subprocess.CalledProcessError(
-            proc.returncode, cmd, proc.stdout, proc.stderr
-        )
+        raise subprocess.CalledProcessError(proc.returncode, cmd, proc.stdout, proc.stderr)
 
     return parse_audit_output(proc.stdout)
 

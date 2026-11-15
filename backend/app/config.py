@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -145,18 +145,6 @@ class Settings(BaseSettings):
     jwt_audience: str = Field(default="cortex-api")
     jwt_expiry_minutes: int = Field(default=60, ge=5, le=1440)
 
-    # Operational intelligence provider (OpenAI-compatible chat completions).
-    # Deterministic mode is for dev/test only; staging/pilot/prod must use a
-    # configured model endpoint so production never silently degrades to keywords.
-    llm_provider: str = Field(
-        default="deterministic", description="deterministic|openai_compatible"
-    )
-    llm_api_key: SecretStr = Field(default=SecretStr(""), description="Model gateway API key")
-    llm_base_url: str = Field(default="https://api.openai.com/v1")
-    llm_model: str = Field(default="", description="Exact model/deployment name")
-    llm_timeout_s: float = Field(default=30.0, ge=1.0, le=180.0)
-    llm_max_output_tokens: int = Field(default=2048, ge=256, le=8192)
-
     # CORS
     cors_allowed_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -179,6 +167,32 @@ class Settings(BaseSettings):
         default=False,
         description="Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* "
         "(default False). Never enable in production.",
+    )
+
+    # Program S in-memory demo singleton (`/workspace/*`).
+    #
+    # That router keeps one process-local `LiveNexusWorkspace` pinned to the
+    # literal tenant `ws_default`/`org_default` and performs NO authentication
+    # or `require_workspace_access` check, so any caller who knows the URL
+    # reaches a fixed tenant's state (register finding F1; readiness matrix
+    # row 3: "isolation holds only on paths the UI doesn't use").
+    #
+    # It is therefore NOT mounted by default. RC0 requires that no
+    # customer-facing canonical route read process-local demo state, and the
+    # frontend no longer calls these endpoints. The flag exists only for the
+    # Program S/T integration suites (see tests/conftest.py) and local
+    # demonstration; retire the router once those suites are ported to the
+    # canonical `/nexus/*` surface.
+    #
+    # Deliberately a plain bool defaulting to False rather than an env-derived
+    # default: the OpenAPI contract is generated from the module-level app, and
+    # an env-dependent mount would make `scripts.generate_types` output vary
+    # with ambient CORTEX_ENV, flapping the CI openapi-types drift gate.
+    workspace_demo_routes: bool = Field(
+        default=False,
+        description="Mount the unauthenticated, fixed-tenant /workspace/* demo "
+        "singleton (default False). Test/dev affordance only — never enable in "
+        "pilot/prod/staging.",
     )
 
     # Feature flags (ADR-0008). Settings-based in MVP; Phase 2 may move to
@@ -207,23 +221,6 @@ class Settings(BaseSettings):
                 )
             if len(self.jwt_secret) < 32:
                 raise ValueError("CORTEX_JWT_SECRET must be at least 32 characters for HS256")
-            if self.llm_provider.strip().lower() != "openai_compatible":
-                raise ValueError(
-                    "CORTEX_LLM_PROVIDER=openai_compatible is required in staging/pilot/prod; "
-                    "deterministic intent matching is not an acceptable production intelligence provider"
-                )
-            if not self.llm_model.strip():
-                raise ValueError("CORTEX_LLM_MODEL must name the configured production model")
-            if not self.llm_api_key.get_secret_value().strip():
-                raise ValueError("CORTEX_LLM_API_KEY must be set for the production model gateway")
-            if not self.llm_base_url.lower().startswith("https://"):
-                raise ValueError("CORTEX_LLM_BASE_URL must use HTTPS in staging/pilot/prod")
-        if self.llm_provider.strip().lower() not in {"deterministic", "openai_compatible"}:
-            raise ValueError("CORTEX_LLM_PROVIDER must be deterministic or openai_compatible")
-        if self.llm_provider.strip().lower() == "openai_compatible" and not self.llm_model.strip():
-            raise ValueError("CORTEX_LLM_MODEL is required when using openai_compatible provider")
-        if not self.llm_base_url.startswith(("http://", "https://")):
-            raise ValueError("CORTEX_LLM_BASE_URL must be an HTTP(S) URL")
         return self
 
     model_config = {

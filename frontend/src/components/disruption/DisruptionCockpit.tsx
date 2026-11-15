@@ -80,7 +80,7 @@ function riskLabel(risk: Risk): string {
 }
 
 export default function DisruptionCockpit() {
-  const { status, workspace } = useAuth();
+  const { status, workspace, user } = useAuth();
   const [risks, setRisks] = useState<Risk[]>([]);
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -99,7 +99,7 @@ export default function DisruptionCockpit() {
       const [riskResponse, nodeResponse, edgeResponse] = await Promise.all([
         apiClient.get<RiskEnvelope>("/nexus/risks", { workspace_id: workspace.id, status: "open" }),
         apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 200 }),
-        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 200 }),
+        apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 300 }),
       ]);
       const nextRisks = riskResponse.data?.risks ?? [];
       setRisks(nextRisks);
@@ -177,8 +177,32 @@ export default function DisruptionCockpit() {
   }
 
   return (
-    <div className="min-w-0">
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-3 sm:px-8">
+    <main className="min-h-screen bg-bg text-ink">
+      <div className="mx-auto flex min-h-screen max-w-[1600px]">
+        <aside className="hidden w-[224px] shrink-0 border-r border-border bg-surface/40 px-4 py-5 lg:flex lg:flex-col">
+          <Link href="/" className="mb-10 flex items-center gap-2 px-2">
+            <span className="flex h-7 w-7 items-center justify-center bg-accent text-sm font-bold text-white">C</span>
+            <span className="text-sm font-semibold tracking-tight">Cortex</span>
+          </Link>
+          <div className="mb-3 px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">Disruption intelligence</div>
+          <nav className="space-y-1">
+            <NavItem active label="Overview" />
+            <NavItem href="/upload" label="Data readiness" />
+            <NavItem href="/nexus/decision-room" label="Decision room" />
+            <NavItem href="/evidence" label="Evidence" />
+            <NavItem href="/scenarios" label="Scenario lab" />
+          </nav>
+          <div className="mt-auto border-t border-border pt-4">
+            <div className="px-2 text-[11px] text-ink-secondary">{user?.email ?? "Operator"}</div>
+            <div className="mt-1 flex items-center gap-2 px-2 text-[10px] text-ink-muted">
+              <span className={`status-dot ${connection === "live" ? "status-dot-live" : "status-dot-warning"}`} />
+              {connection === "live" ? "Authoritative state connected" : "State unavailable"}
+            </div>
+          </div>
+        </aside>
+
+        <section className="min-w-0 flex-1">
+          <header className="flex min-h-16 flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-3 sm:px-8">
             <div>
               <div className="flex items-center gap-2 text-[11px] text-ink-muted">
                 <span className="font-semibold text-ink">Cortex</span>
@@ -249,7 +273,7 @@ export default function DisruptionCockpit() {
               <div className="min-w-0 border border-border bg-surface">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
                   <div><p className="eyebrow">Impact assessment</p><h2 className="mt-1 text-base font-semibold">Dependency view</h2><p className="mt-1 text-xs text-ink-secondary">Relationships loaded from the current workspace graph.</p></div>
-                  <Link href="/nexus/world" className="button-secondary">Inspect full graph</Link>
+                  <Link href="/graph" className="button-secondary">Inspect full graph</Link>
                 </div>
                 <DependencyMap nodes={nodes} edges={edges} selectedRisk={selectedRisk} />
                 {selectedRisk && <RiskSummary risk={selectedRisk} />}
@@ -264,7 +288,7 @@ export default function DisruptionCockpit() {
                   <WorkflowStep number="02" title="Simulate" detail="Compare feasible recovery options." />
                   <WorkflowStep number="03" title="Approve" detail="Record the decision and outcome." />
                 </div>
-                <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4"><Link href="/nexus/scenarios" className="button-primary">Open scenario lab</Link><Link href="/nexus/decision-room" className="button-secondary">Review decisions</Link></div>
+                <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4"><Link href="/scenarios" className="button-primary">Open scenario lab</Link><Link href="/nexus/decision-room" className="button-secondary">Review decisions</Link></div>
               </div>
               <div className="border border-border bg-surface p-5">
                 <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Grounded investigation</p><h2 className="mt-1 text-base font-semibold">Ask about this workspace</h2></div><span className="font-mono text-[10px] text-ink-muted">EVIDENCE-BOUND</span></div>
@@ -273,12 +297,19 @@ export default function DisruptionCockpit() {
               </div>
             </section>
           </div>
-    </div>
+        </section>
+      </div>
+    </main>
   );
 }
 
 function StatusPanel({ title, detail, action }: { title: string; detail: string; action?: React.ReactNode }) {
-  return <div className="flex min-h-[70vh] items-center justify-center px-6 text-center"><div className="max-w-md"><div className="mx-auto mb-5 flex h-10 w-10 items-center justify-center bg-accent text-lg font-bold text-white">C</div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-ink-secondary">{detail}</p>{action && <div className="mt-6">{action}</div>}</div></div>;
+  return <main className="flex min-h-screen items-center justify-center bg-bg px-6 text-center"><div className="max-w-md"><div className="mx-auto mb-5 flex h-10 w-10 items-center justify-center bg-accent text-lg font-bold text-white">C</div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-ink-secondary">{detail}</p>{action && <div className="mt-6">{action}</div>}</div></main>;
+}
+
+function NavItem({ label, href, active = false }: { label: string; href?: string; active?: boolean }) {
+  const className = `block border-l-2 px-3 py-2 text-sm ${active ? "border-accent bg-surface-2 text-ink" : "border-transparent text-ink-secondary hover:bg-surface hover:text-ink"}`;
+  return href ? <Link href={href} className={className}>{label}</Link> : <span className={className}>{label}</span>;
 }
 
 function DataPoint({ label, value }: { label: string; value: string }) {

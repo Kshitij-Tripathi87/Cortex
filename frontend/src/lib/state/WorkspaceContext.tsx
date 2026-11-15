@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/lib/auth";
 import {
   GraphNode,
   GraphEdge,
@@ -22,19 +23,8 @@ import {
   EvidenceVersionTuple,
 } from "@/types/nexus";
 import { CANDIDATE_NAME_MAP, mapCounterfactual } from "@/types/nexus";
-import {
-  fetchWorkspaceState,
-  loadDemoDataset,
-  fetchActiveSignals,
-  triggerDeliberation,
-  appendStreamEvent,
-} from "@/lib/api/nexusClient";
-import { fetchOperationalSubgraph, fetchCriticalNodes } from "@/lib/api/graph";
-import { fetchDecisionValidity, fetchDecisionEvidence, approveDecision } from "@/lib/api/decisions";
-import { fetchCounterfactuals } from "@/lib/api/scenarios";
-import { fetchEvidenceForDecision, fetchEvidenceGraph } from "@/lib/api/evidence";
-import { deliberate as fetchAgentDeliberation, fetchAgentMessages } from "@/lib/api/agents";
-import { executeDecision } from "@/lib/api/execution";
+import { fetchActiveSignals } from "@/lib/api/signals";
+import { fetchOperationalSubgraph } from "@/lib/api/graph";
 import { RealtimeClient } from "@/lib/realtime/client";
 import { getAuthToken } from "@/lib/api";
 
@@ -145,6 +135,8 @@ const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(undefi
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { workspace } = useAuth();
+  const workspaceId = workspace?.id ?? "";
   // Shell identity / connection (spec §6 / §58). Starts disconnected; populated from backend.
   const [workspaceName, setWorkspaceName] = useState<string>("Default Workspace");
   const [environmentLabel, setEnvironmentLabel] = useState<string>(
@@ -166,7 +158,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   // Graph Overlay Mode
   const [graphMode, setGraphMode] = useState<GraphMode>("WORLD");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>("");
-  const [graphVersion, setGraphVersion] = useState<string>("graph_v1");
+  const [graphVersion, setGraphVersion] = useState<string>("unknown");
 
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -196,7 +188,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const [reconciliationState, setReconciliationState] = useState<ReconciliationState>({
     last_event_id: "evt_0",
     last_world_state_version: 0,
-    last_graph_version: "graph_v0",
+    last_graph_version: "unknown",
     is_reconciling: false,
     missed_events_count: 0,
     resync_status: "OFFLINE",
@@ -227,7 +219,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   // risk_changed, forecast_updated, …); reactions mirror the legacy
   // handlers (refetch authoritative state, flip decision validity).
   useEffect(() => {
-    const workspaceId = process.env.NEXT_PUBLIC_NEXUS_WORKSPACE_ID || "default_workspace";
+    if (!workspaceId) {
+      setRealtimeStatus("OFFLINE");
+      return;
+    }
     const cursorKey = `cortex:realtime_seq:${workspaceId}`;
     let initialSeq = 0;
     try {
@@ -282,10 +277,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     const unsubSignal = client.on("risk.inferred", () => {
-      fetchActiveSignals().then(setSignals).catch(() => {});
+      fetchActiveSignals(workspaceId).then(setSignals).catch(() => setRealtimeStatus("OFFLINE"));
     });
     const unsubRisk = client.on("risk_changed", () => {
-      fetchActiveSignals().then(setSignals).catch(() => {});
+      fetchActiveSignals(workspaceId).then(setSignals).catch(() => setRealtimeStatus("OFFLINE"));
     });
     const unsubDecisionInvalidated = client.on("decision_invalidated", (event) => {
       const reason =
@@ -328,7 +323,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
       unsubscribeState();
       client.disconnect();
     };
-  }, []);
+  // refreshLiveState is declared below this effect; it is intentionally read
+  // from the effect closure after render rather than evaluated here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
 
   const openWhyModal = (subject: WhySubject) => {
     setWhySubject(subject);
@@ -344,67 +342,28 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const refreshLiveState = useCallback(async () => {
     setLoading(true);
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const data = await fetchWorkspaceState();
-      if (data.workspace_id) setWorkspaceName(String(data.workspace_id));
-      if (data.total_raw_rows !== undefined) setTotalRows(data.total_raw_rows);
-      if (data.entities_resolved !== undefined) setEntitiesResolved(data.entities_resolved);
-      const ga = data.graph_analytics;
-      if (ga) {
-        if (ga.coverage) {
-          if (ga.coverage.total_nodes_created !== undefined) setNodesCount(ga.coverage.total_nodes_created);
-          if (ga.coverage.total_edges_created !== undefined) setEdgesCount(ga.coverage.total_edges_created);
-          if (ga.coverage.relationship_coverage_pct !== undefined) setRelationshipCoveragePct(ga.coverage.relationship_coverage_pct);
-        }
-        if (ga.graph_version) {
-          setGraphVersion(ga.graph_version);
-        } else if (data.graph_version) {
-          setGraphVersion(data.graph_version);
-        }
-      }
-      if (data.world_state_version !== undefined) setWorldStateVersion(data.world_state_version);
+      const [sigData, subgraph] = await Promise.all([
+        fetchActiveSignals(workspaceId),
+        fetchOperationalSubgraph(workspaceId, undefined, 2, 100),
+      ]);
+      setWorkspaceName(workspace?.name ?? workspaceId);
+      setEnvironmentLabel("LIVE");
+      setIsDemoLoaded(false);
+      setSignals(sigData);
+      setNodes(subgraph.nodes || []);
+      setEdges(subgraph.edges || []);
+      setNodesCount(subgraph.nodes_count);
+      setEdgesCount(subgraph.edges_count);
+      setTotalRows(subgraph.nodes_count + subgraph.edges_count);
+      setEntitiesResolved(subgraph.nodes_count);
       setWorldStateUpdatedAt("just now");
-
-      const loaded = (data.datasets_loaded || []).length > 0;
-      setIsDemoLoaded(loaded);
-      if (loaded) setEnvironmentLabel("CONTROLLED DEMO");
-
-      if (data.is_last_decision_valid !== undefined) {
-        setIsDecisionValid(Boolean(data.is_last_decision_valid));
-      }
-      if (data.invalidation_reason) setInvalidationReason(data.invalidation_reason);
-
-      // Fetch operational signals after state
-      try {
-        const sigData = await fetchActiveSignals();
-        setSignals(sigData);
-      } catch {
-        setSignals([]);
-      }
-
-      // Fetch subgraph for the graph view
-      try {
-        const subgraph = await fetchOperationalSubgraph(undefined, 2, 100);
-        setNodes(subgraph.nodes || []);
-        setEdges(subgraph.edges || []);
-      } catch {
-        setNodes([]);
-        setEdges([]);
-      }
-
-      // Fetch decision validity
-      try {
-        const validity = await fetchDecisionValidity();
-        if (validity.decision_id) {
-          setIsDecisionValid(validity.is_valid);
-          if (validity.invalidation_reason) setInvalidationReason(validity.invalidation_reason);
-        }
-      } catch {
-        // ignore
-      }
     } catch {
-      // Backend unreachable: keep honest empty/disconnected shell state (spec §38/§59).
-      // Do NOT inject fake/hardcoded data.
+      // Backend unreachable: keep honest empty/disconnected shell state.
       setIsDemoLoaded(false);
       setEnvironmentLabel("OFFLINE");
       setSignals([]);
@@ -413,116 +372,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const loadControlledDemo = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await loadDemoDataset();
-      if (data.workspace_state?.workspace_id) setWorkspaceName(String(data.workspace_state.workspace_id));
-      if (data.workspace_state) {
-        const ws = data.workspace_state;
-        if (ws.total_raw_rows !== undefined) setTotalRows(ws.total_raw_rows);
-        if (ws.entities_resolved !== undefined) setEntitiesResolved(ws.entities_resolved);
-        const ga = ws.graph_analytics;
-        if (ga) {
-          if (ga.coverage) {
-            if (ga.coverage.total_nodes_created !== undefined) setNodesCount(ga.coverage.total_nodes_created);
-            if (ga.coverage.total_edges_created !== undefined) setEdgesCount(ga.coverage.total_edges_created);
-            if (ga.coverage.relationship_coverage_pct !== undefined) setRelationshipCoveragePct(ga.coverage.relationship_coverage_pct);
-          }
-          if (ga.graph_version) setGraphVersion(ga.graph_version);
-        }
-        if (ws.world_state_version !== undefined) setWorldStateVersion(ws.world_state_version);
-        setWorldStateUpdatedAt("just now");
-      }
-      setIsDemoLoaded(true);
-      setEnvironmentLabel("CONTROLLED DEMO");
-      // After loading demo, refresh live state to get signals, subgraph, etc.
-      await refreshLiveState();
-    } catch {
-      setIsDemoLoaded(false);
-      setEnvironmentLabel("OFFLINE");
-      setLoading(false);
-    }
-  }, [refreshLiveState]);
-
-  // After initial load + demo, fetch deliberate data (candidates + agent messages)
-  useEffect(() => {
-    if (isDemoLoaded) {
-      (async () => {
-        try {
-          const del = await triggerDeliberation();
-          // Populate decision from deliberation result
-          if (del.deliberation_result?.decision_card?.selected_candidate) {
-            setLatestDecision({
-              decision_id: del.deliberation_result.decision_id,
-              title: "Expedited Air Freight + Cross-Docking",
-              target_entity_id: del.deliberation_result.target_entity,
-              selected_candidate: del.deliberation_result.counterfactuals[0]?.candidate_id ?? "",
-              action_summary: del.deliberation_result.counterfactuals[0]?.action_type ?? "",
-              estimated_cost_usd: del.deliberation_result.counterfactuals[0]?.operational_cost_usd ?? 0,
-              net_economic_value_usd: del.deliberation_result.counterfactuals[0]?.net_economic_value_usd ?? 0,
-              sla_protection_pct: 100 - (del.deliberation_result.counterfactuals[0]?.sla_breach_pct ?? 0),
-              governance_status: "APPROVED_FOR_EXECUTION",
-              created_at: new Date().toISOString(),
-              world_state_version: del.deliberation_result.decision_card.selected_candidate ? worldStateVersion : 0,
-              graph_version: graphVersion,
-              is_valid: true,
-            });
-          }
-
-          // Populate candidates from counterfactuals
-          const cands = del.deliberation_result?.counterfactuals?.map((c: any) => ({
-            candidate_id: c.candidate_id,
-            name: c.name ?? CANDIDATE_NAME_MAP[c.candidate_id] ?? c.candidate_id,
-            action_type: c.action_type,
-            predicted_delay_days: c.predicted_delay_days,
-            sla_breach_pct: c.sla_breach_pct,
-            operational_cost_usd: c.operational_cost_usd,
-            revenue_protected_usd: c.revenue_protected_usd,
-            net_economic_value_usd: c.net_economic_value_usd,
-            is_optimal_choice: c.is_optimal_choice,
-            confidence_pct: c.confidence_pct ?? 0,
-          })) || [];
-          setCandidates(cands);
-
-          // Populate agent messages from message stream
-          const msgs = del.deliberation_result?.message_stream?.map((m: any, idx: number) => ({
-            message_id: m.id ?? `msg_${idx}`,
-            sender_role: m.sender ?? "AGENT",
-            sender_name: m.sender ?? "Agent",
-            sender_version: "v4",
-            content: m.content ?? "",
-            evidence_refs: m.evidence_refs ?? [],
-            phase: m.phase ?? "OBSERVATION",
-            timestamp: m.timestamp ?? new Date().toISOString(),
-          })) || [];
-          setAgentMessages(msgs);
-
-          // Update decision lifecycle
-          setDecisionLifecycleState("APPROVED_FOR_EXECUTION");
-          setDecisionFreshnessState("VALID");
-          setDecisionFreshnessExplanation(`Verified against World State v${worldStateVersion}.`);
-          setActiveWorkflowStep(6);
-        } catch {
-          // If deliberate fails keep empty candidates/messages — honest fallback.
-          setCandidates([]);
-          setAgentMessages([]);
-        }
-      })();
-    }
-  }, [isDemoLoaded, worldStateVersion, graphVersion]);
+  }, [workspace?.name, workspaceId]);
 
   // Initial load
   useEffect(() => {
-    (async () => {
-      await refreshLiveState();
-      if (!isDemoLoaded) {
-        await loadControlledDemo();
-      }
-    })();
-  }, []);
+    void refreshLiveState();
+  }, [refreshLiveState]);
 
   const launchIntent = useCallback((type: IntentType, targetId: string, secondaryId?: string) => {
     setCurrentIntent({
@@ -548,32 +403,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const getEntityLineage = (entityId: string): EntityLineage => {
-    if (entityId === "seller_01a00b8e99") {
-      return {
-        entity_id: "seller_01a00b8e99",
-        entity_type: "SELLER",
-        source_dataset: "olist_sellers_dataset.csv",
-        source_row_index: 482,
-        canonical_key: "seller_id:01a00b8e99",
-        ingested_at: "2026-08-16T23:50:14Z",
-        pagerank: 0.042,
-        betweenness: 0.31,
-        connected_degree: 14,
-        active_signals: ["SELLER_DEGRADATION (+90%)"],
-        affected_decisions: ["dec_live_01"],
-      };
-    }
+    const node = nodes.find((candidate) => candidate.id === entityId);
     return {
       entity_id: entityId,
-      entity_type: "ENTITY",
-      source_dataset: "olist_dataset.csv",
-      source_row_index: 1,
+      entity_type: node?.type ?? "ENTITY",
+      source_dataset: "",
+      source_row_index: 0,
       canonical_key: `id:${entityId}`,
-      ingested_at: "2026-08-16T23:50:00Z",
-      pagerank: 0.01,
-      betweenness: 0.01,
-      connected_degree: 2,
-      active_signals: [],
+      ingested_at: "",
+      pagerank: node?.pagerank ?? 0,
+      betweenness: node?.betweenness ?? 0,
+      connected_degree: node?.degree ?? 0,
+      active_signals: signals.filter((signal) => signal.entity_id === entityId).map((signal) => signal.signal_type),
       affected_decisions: [],
     };
   };
@@ -610,137 +451,50 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const getEvidenceVersionTuple = (): EvidenceVersionTuple => ({
-    dataset_version: "olist_2026_q3_v1",
+    dataset_version: "unknown",
     graph_version: graphVersion,
     world_state_version: worldStateVersion,
-    feature_version: "feat_spof_pagerank_v2",
-    model_version: "gnn_carrier_risk_v4.1",
-    agent_version: "swarm_protocol_v4",
-    policy_version: "pol_logistics_sop_2026",
-    simulation_version: "mc_twin_sim_1000",
-    decision_version: "dec_candidate_c_v1",
+    feature_version: "unknown",
+    model_version: "unknown",
+    agent_version: "unknown",
+    policy_version: "unknown",
+    simulation_version: "unknown",
+    decision_version: "unknown",
   });
 
   const injectStreamEvent = async () => {
-    try {
-      await appendStreamEvent("SELLER_DEGRADATION_TELEMETRY", {
-        seller_id: "seller_01a00b8e99",
-        metric: "dispatch_latency_breach",
-      });
-    } catch {
-      // Graceful fallback — UI will reflect backend state.
-    }
-    const nextVersion = worldStateVersion + 1;
-    setWorldStateVersion(nextVersion);
-    setWorldStateUpdatedAt("just now");
-    setGraphVersion(`graph_v${nextVersion - 99}`);
-    setIsDecisionValid(false);
-    setDecisionLifecycleState("INVALIDATED");
-    setDecisionFreshnessState("INVALIDATED");
-    setDecisionFreshnessExplanation(
-      `Invalidated because seller_01a00b8e99 changed state in World State v${nextVersion}.`
-    );
-    setInvalidationReason(
-      `World State evolved to v${nextVersion}: Dependent entity seller_01a00b8e99 state mutated via live telemetry stream.`
-    );
+    await refreshLiveState();
   };
 
   const redeliberate = async () => {
-    try {
-      const del = await triggerDeliberation("seller_01a00b8e99");
-      // Populate decision, candidates, messages from the deliberation result.
-      if (del.deliberation_result?.decision_card?.selected_candidate) {
-        setLatestDecision({
-          decision_id: del.deliberation_result.decision_id,
-          title: "Expedited Air Freight + Cross-Docking",
-          target_entity_id: del.deliberation_result.target_entity,
-          selected_candidate: del.deliberation_result.counterfactuals[0]?.candidate_id ?? "",
-          action_summary: del.deliberation_result.counterfactuals[0]?.action_type ?? "",
-          estimated_cost_usd: del.deliberation_result.counterfactuals[0]?.operational_cost_usd ?? 0,
-          net_economic_value_usd: del.deliberation_result.counterfactuals[0]?.net_economic_value_usd ?? 0,
-          sla_protection_pct: 100 - (del.deliberation_result.counterfactuals[0]?.sla_breach_pct ?? 0),
-          governance_status: "APPROVED_FOR_EXECUTION",
-          created_at: new Date().toISOString(),
-          world_state_version: worldStateVersion,
-          graph_version: graphVersion,
-          is_valid: true,
-        });
-      }
-
-      const cands = del.deliberation_result?.counterfactuals?.map((c: any) => ({
-        candidate_id: c.candidate_id,
-        name: c.name ?? CANDIDATE_NAME_MAP[c.candidate_id] ?? c.candidate_id,
-        action_type: c.action_type,
-        predicted_delay_days: c.predicted_delay_days,
-        sla_breach_pct: c.sla_breach_pct,
-        operational_cost_usd: c.operational_cost_usd,
-        revenue_protected_usd: c.revenue_protected_usd,
-        net_economic_value_usd: c.net_economic_value_usd,
-        is_optimal_choice: c.is_optimal_choice,
-        confidence_pct: c.confidence_pct ?? 0,
-      })) || [];
-      setCandidates(cands);
-
-      const msgs = del.deliberation_result?.message_stream?.map((m: any, idx: number) => ({
-        message_id: m.id ?? `msg_${idx}`,
-        sender_role: m.sender ?? "AGENT",
-        sender_name: m.sender ?? "Agent",
-        sender_version: "v4",
-        content: m.content ?? "",
-        evidence_refs: m.evidence_refs ?? [],
-        phase: m.phase ?? "OBSERVATION",
-        timestamp: m.timestamp ?? new Date().toISOString(),
-      })) || [];
-      setAgentMessages(msgs);
-
-      setIsDecisionValid(true);
-      setInvalidationReason(null);
-      setDecisionLifecycleState("APPROVED_FOR_EXECUTION");
-      setDecisionFreshnessState("VALID");
-      setDecisionFreshnessExplanation(`Re-verified and approved against World State v${worldStateVersion}.`);
-      setActiveWorkflowStep(6);
-    } catch {
-      setIsDecisionValid(false);
-      setInvalidationReason("Deliberation failed — backend unreachable");
-      setDecisionLifecycleState("REVIEW");
-      setDecisionFreshnessState("STALE");
-      setDecisionFreshnessExplanation("Deliberation could not be completed — backend unreachable.");
-    }
+    await refreshLiveState();
   };
 
   // Workflow Continuity Scope (populated from whatever state we have)
   const workflowScope: WorkflowContinuityScope = {
-    entity: "seller_01a00b8e99",
-    graph_scope: "2-hop ego-graph (8 nodes, 7 edges)",
+    entity: signals[0]?.entity_id ?? nodes[0]?.id ?? "No active entity",
+    graph_scope: `${nodes.length} nodes, ${edges.length} edges`,
     signal_scope: signals.map((s) => s.signal_type + " (" + Math.round(s.deviation_pct) + "%)"),
     world_state: worldStateVersion,
     risk_scope:
       signals.length > 0
-        ? `${signals.length} exposed orders, $${signals.reduce((acc, s) => acc + s.metric_value * 50, 0) * 10}.00 exposure`
-        : "No signals — no exposure estimate",
-    agents: ["Logistics Specialist (v4)", "Risk Analyst (v4)", "Supervisor (v4)"],
+        ? `${signals.length} active signals`
+        : "No active signals",
+    agents: [],
     scenario:
       candidates.length > 0
         ? `Candidate ${candidates[0]?.name ?? "?"} (${candidates[0]?.action_type ?? "?"})`
         : "No candidates — run analysis",
   };
 
-  // Operator Governance (static, dataset-rooted)
+  // Operator Governance is populated by the canonical decision lifecycle.
   const [operatorGovernance, setOperatorGovernance] = useState<OperatorGovernance>({
-    decision_id: "DEC-1029",
-    owner: "Procurement Dispatch",
-    reviewer: "Chief Operating Officer (COO)",
-    status: "AWAITING_REVIEW",
-    comments: [
-      {
-        comment_id: "c1",
-        author: "Alex Morgan",
-        role: "Procurement Lead",
-        text: "Candidate C satisfies minimum SLA thresholds. Route VCP->SDU is pre-cleared.",
-        timestamp: "23:55:09Z",
-      },
-    ],
-    audit_hash: "5a3d7611e98094cd1071b563810a99c430f2",
+    decision_id: "",
+    owner: "",
+    reviewer: "",
+    status: "DRAFT",
+    comments: [],
+    audit_hash: "",
   });
 
   const assignDecision = (owner: string, reviewer: string) => {

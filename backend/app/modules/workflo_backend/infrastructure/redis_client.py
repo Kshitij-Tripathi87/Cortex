@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 import redis.asyncio as redis
@@ -26,7 +26,7 @@ class RedisClient:
     _SOCKET_TIMEOUT_S: float = 0.5
 
     def __init__(self, settings: Settings) -> None:
-        self._redis = redis.from_url(  # type: ignore[no-untyped-call]
+        self._redis: redis.Redis = redis.from_url(  # type: ignore[no-untyped-call]
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,

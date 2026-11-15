@@ -137,7 +137,7 @@ class MetricsMiddleware:
 
         status_code = "500"
 
-        async def send_wrapper(message: dict[str, Any]) -> None
+        async def send_wrapper(message: dict[str, Any]) -> None:
             nonlocal status_code
             if message["type"] == "http.response.start":
                 status_code = str(message["status"])

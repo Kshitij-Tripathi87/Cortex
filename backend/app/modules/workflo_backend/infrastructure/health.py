@@ -39,6 +39,7 @@ default checks use the same code paths the real probe uses.
 
 from __future__ import annotations
 
+import inspect
 import os
 from collections.abc import Awaitable
 from dataclasses import asdict, dataclass
@@ -187,8 +188,6 @@ async def check_dependencies(
     which means callers can mix sync and async checks without
     special-casing.
     """
-    import inspect
-
     statuses: list[ComponentStatus] = []
     all_ok = True
     for name, check in checks:

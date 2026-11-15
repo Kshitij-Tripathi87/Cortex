@@ -3,17 +3,16 @@
  *
  * v0.8.5-B3: `fetchScenarios` / `simulateScenario` target the CANONICAL
  * persistent endpoints (`/nexus/scenarios`) — the old `/scenarios` routes
- * never existed (register §1 row 9). `createScenario` completes the client
- * for the canonical Scenario Studio surface (Nexus demo spec §2.D);
- * authentication is injected by the shared client (`./http`), so callers
- * need no token bridging.
+ * never existed (register §1 row 9). These two functions currently have no
+ * importers; they are kept correct (not deleted) for the frontend-rewire
+ * slice. Authentication is injected by the shared client (`./http`), so
+ * callers need no token bridging.
  *
  * The former `fetchCounterfactuals` (which posted to the unauthenticated
  * `/workspace/deliberate` demo singleton) has been removed under the RC0
  * rewire; nothing imported it.
  */
 
-import type { RawCounterfactual } from "@/types/nexus";
 import { request } from "./http";
 
 export interface ScenarioMutation {
@@ -82,29 +81,6 @@ interface Envelope<T> {
   data: T;
 }
 
-export async function createScenario(req: {
-  workspace_id: string;
-  name: string;
-  world_state_version: number;
-  description?: string;
-  is_baseline?: boolean;
-  mutations?: ScenarioMutation[];
-}): Promise<{ scenario: CanonicalScenario }> {
-  const envelope = await request<Envelope<{ scenario: CanonicalScenario }>>({
-    method: "POST",
-    path: "/nexus/scenarios",
-    body: {
-      workspace_id: req.workspace_id,
-      name: req.name,
-      world_state_version: req.world_state_version,
-      description: req.description ?? "",
-      is_baseline: req.is_baseline ?? false,
-      mutations: req.mutations ?? [],
-    },
-  });
-  return envelope.data;
-}
-
 export async function fetchScenarios(
   workspaceId: string,
 ): Promise<{ scenarios: CanonicalScenario[]; count: number }> {
@@ -125,13 +101,4 @@ export async function simulateScenario(req: SimulationRequest): Promise<Simulati
     },
   });
   return envelope.data;
-}
-
-export async function fetchCounterfactuals(incidentEntityId: string): Promise<RawCounterfactual[]> {
-  const data = await request<{ counterfactuals: RawCounterfactual[] }>({
-    path: "/workspace/deliberate",
-    method: "POST",
-    body: { incident_entity_id: incidentEntityId },
-  });
-  return data.counterfactuals || [];
 }

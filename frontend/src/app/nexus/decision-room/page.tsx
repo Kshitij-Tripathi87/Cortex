@@ -1,70 +1,27 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
-
-/**
- * Decision Room (demo spec §2.E).
- *
- * The human-approval gate of the governed pipeline. All records come from
- * the canonical `/nexus/decisions/*` surface: decision state machine,
- * evidence DAG, approval trail (including policy-check results), and the
- * reconstructable Decision Receipt. Approval and rejection are the only
- * phase changes an operator can trigger here — the backend enforces
- * authorization, transitions, and world-state freshness.
- */
 
 type Envelope<T> = { data?: T };
 
 interface Decision {
   decision_id: string;
   phase?: string;
-  situation?: string | null;
-  recommended_option_id?: string | null;
-  chosen_option?: string | null;
-  options?: Array<Record<string, unknown>> | null;
-  policy_id?: string | null;
-  recommended_nev?: number | null;
-  recommended_sla?: number | null;
-  recommended_cost?: number | null;
-  confidence?: number | null;
-  world_state_version?: number | null;
-  world_state_hash?: string | null;
-  evidence_root_id?: string | null;
-  evidence_root_hash?: string | null;
-  deterministic_hash?: string | null;
-  outcome_status?: string | null;
-  actual_result_text?: string | null;
-  created_at?: string | null;
+  title?: string;
+  situation?: string;
+  recommended_option?: string;
+  world_state_version?: number;
+  world_state_hash?: string;
   [key: string]: unknown;
 }
 
-interface EvidenceNode {
-  node_id?: string;
-  node_type?: string;
-  label?: string;
-  checksum?: string;
-  source_entity_id?: string | null;
-  created_at?: string | null;
-}
-
 interface EvidenceGraph {
-  nodes?: EvidenceNode[];
+  nodes?: Array<Record<string, unknown>>;
   edges?: Array<Record<string, unknown>>;
   node_count?: number;
   edge_count?: number;
-}
-
-interface ApprovalRecord {
-  approval_id?: string;
-  approver_id?: string;
-  approver_role?: string | null;
-  approved?: boolean;
-  rejection_reason?: string | null;
-  policy_checks?: Record<string, unknown> | null;
-  created_at?: string | null;
 }
 
 interface DecisionReceipt {
@@ -74,43 +31,13 @@ interface DecisionReceipt {
   provenance?: Record<string, unknown>;
 }
 
-const PHASE_BADGES: Record<string, string> = {
-  simulated: "badge badge-neutral",
-  policy_checked: "badge badge-neutral",
-  awaiting_approval: "badge border-warning/50 bg-warning-subtle text-warning",
-  approved: "badge badge-positive",
-  rejected: "badge border-critical/50 bg-critical-subtle text-critical",
-  authorized: "badge badge-positive",
-  executing: "badge badge-neutral",
-  executed: "badge badge-positive",
-  stale: "badge border-critical/50 bg-critical-subtle text-critical",
-};
-
-function phaseBadge(phase?: string): string {
-  return PHASE_BADGES[phase ?? ""] ?? "badge badge-neutral";
-}
-
-function money(value?: number | null): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  if (Math.abs(value) >= 10_000_000) return `₹${(value / 10_000_000).toFixed(1)}Cr`;
-  if (Math.abs(value) >= 100_000) return `₹${(value / 100_000).toFixed(1)}L`;
-  if (Math.abs(value) >= 1_000) return `₹${(value / 1_000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-}
-
-function shortHash(value?: string | null): string {
-  if (!value) return "—";
-  return value.length > 18 ? `${value.slice(0, 18)}…` : value;
-}
-
 export default function DecisionRoomPage() {
   const { status, workspace } = useAuth();
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [evidence, setEvidence] = useState<EvidenceGraph | null>(null);
-  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
+  const [approvals, setApprovals] = useState<Array<Record<string, unknown>>>([]);
   const [receipt, setReceipt] = useState<DecisionReceipt | null>(null);
-  const [phaseFilter, setPhaseFilter] = useState<"all" | "awaiting_approval" | "approved">("all");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [outcomeText, setOutcomeText] = useState("");
@@ -118,30 +45,25 @@ export default function DecisionRoomPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("phase");
-    if (requested === "awaiting_approval" || requested === "approved") setPhaseFilter(requested);
-  }, []);
-
-  const loadDecisions = useCallback(async () => {
     if (status !== "AUTHENTICATED" || !workspace?.id) return;
+    let cancelled = false;
     void apiClient
       .get<Envelope<{ decisions?: Decision[] }>>("/nexus/decisions", {
         workspace_id: workspace.id,
       })
       .then((response) => {
+        if (cancelled) return;
         const items = response.data?.decisions ?? [];
         setDecisions(items);
-        setSelected((current) => {
-          if (current && items.some((item) => item.decision_id === current.decision_id)) return current;
-          return items[0] ?? null;
-        });
+        setSelected(items[0] ?? null);
       })
-      .catch(() => setError("Decisions are unavailable for this workspace."));
+      .catch(() => {
+        if (!cancelled) setError("Decisions are unavailable for this workspace.");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [status, workspace?.id]);
-
-  useEffect(() => {
-    void loadDecisions();
-  }, [loadDecisions]);
 
   useEffect(() => {
     if (!selected?.decision_id) {
@@ -154,8 +76,12 @@ export default function DecisionRoomPage() {
     const decisionId = encodeURIComponent(selected.decision_id);
     void Promise.all([
       apiClient.get<Envelope<EvidenceGraph>>(`/nexus/decisions/${decisionId}/evidence`),
-      apiClient.get<Envelope<{ approvals?: ApprovalRecord[] }>>(`/nexus/decisions/${decisionId}/approvals`),
-      apiClient.get<Envelope<{ receipt?: DecisionReceipt }>>(`/nexus/decisions/${decisionId}/receipt`),
+      apiClient.get<Envelope<{ approvals?: Array<Record<string, unknown>> }>>(
+        `/nexus/decisions/${decisionId}/approvals`,
+      ),
+      apiClient.get<Envelope<{ receipt?: DecisionReceipt }>>(
+        `/nexus/decisions/${decisionId}/receipt`,
+      ),
     ])
       .then(([evidenceResponse, approvalResponse, receiptResponse]) => {
         if (cancelled) return;
@@ -185,9 +111,9 @@ export default function DecisionRoomPage() {
       const decision = response.data?.decision;
       if (decision) {
         setSelected(decision);
-        setDecisions((current) => current.map((item) => (item.decision_id === decision.decision_id ? decision : item)));
+        setDecisions((current) => current.map((item) => item.decision_id === decision.decision_id ? decision : item));
       }
-      setNotice(`Decision ${targetPhase}. The transition is recorded in the Decision Receipt.`);
+      setNotice(`Decision ${targetPhase}.`);
       setReceiptReload((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Decision transition failed");
@@ -210,7 +136,7 @@ export default function DecisionRoomPage() {
       const decision = response.data?.decision;
       if (decision) {
         setSelected(decision);
-        setDecisions((current) => current.map((item) => (item.decision_id === decision.decision_id ? decision : item)));
+        setDecisions((current) => current.map((item) => item.decision_id === decision.decision_id ? decision : item));
       }
       setNotice("Approved action executed and recorded.");
       setReceiptReload((value) => value + 1);
@@ -239,7 +165,7 @@ export default function DecisionRoomPage() {
       const decision = response.data?.decision;
       if (decision) {
         setSelected(decision);
-        setDecisions((current) => current.map((item) => (item.decision_id === decision.decision_id ? decision : item)));
+        setDecisions((current) => current.map((item) => item.decision_id === decision.decision_id ? decision : item));
       }
       setOutcomeText("");
       setNotice("Outcome recorded in the Decision Receipt.");
@@ -251,329 +177,106 @@ export default function DecisionRoomPage() {
     }
   };
 
-  const filteredDecisions = useMemo(() => {
-    if (phaseFilter === "all") return decisions;
-    return decisions.filter((decision) => decision.phase === phaseFilter);
-  }, [decisions, phaseFilter]);
-
-  if (status === "CHECKING" || status === "UNKNOWN") {
-    return <CenteredNote title="Opening Cortex" detail="Checking your workspace session…" />;
-  }
   if (status !== "AUTHENTICATED") {
-    return (
-      <CenteredNote
-        title="Sign in to Cortex"
-        detail="The Decision Room is available to authenticated operators."
-        action={<Link href="/auth/login?next=%2Fnexus%2Fdecision-room" className="button-primary">Sign in</Link>}
-      />
-    );
+    return <main className="min-h-screen bg-[#0a0a0b] p-8 font-mono text-xs text-[#9ca3af]">Authentication is required.</main>;
   }
 
   return (
-    <div className="min-w-0">
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-3 sm:px-8">
+    <main className="min-h-screen bg-[#0a0a0b] p-6 font-mono text-xs text-[#e5e5e5]">
+      <header className="mb-6 flex items-center justify-between border-b border-[#26262b] pb-4">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-ink-muted">
-            <span className="font-semibold text-ink">Cortex</span>
-            <span>/</span>
-            <span>Decision Room</span>
-          </div>
-          <p className="mt-1 text-[11px] text-ink-secondary">Evidence, policy results, approvals, and outcome trace</p>
+          <p className="text-[9px] uppercase tracking-widest text-[#06b6d4]">Cortex</p>
+          <h1 className="mt-1 text-lg font-bold tracking-widest text-white">DECISION ROOM</h1>
+          <p className="mt-1 text-[10px] text-[#6b7280]">Evidence, alternatives, approvals, and outcome trace</p>
         </div>
-        <span className="font-mono text-[10px] text-ink-muted">{workspace?.name ?? "Workspace"}</span>
+        <a href="/nexus/cockpit" className="border border-[#26262b] px-3 py-2 text-[10px] uppercase tracking-widest text-[#9ca3af] hover:text-white">Cockpit</a>
       </header>
 
-      <div className="space-y-5 px-5 py-6 sm:px-8">
-        {error && <div className="notice-error" role="alert">{error}</div>}
-        {notice && (
-          <div className="border border-border bg-surface px-4 py-3 text-xs text-ink-secondary" role="status">{notice}</div>
-        )}
+      {error && <div className="mb-4 border border-[#e5484d]/50 bg-[#e5484d]/10 p-3 text-[#e5484d]">{error}</div>}
+      {notice && <div className="mb-4 border border-[#86efac]/40 bg-[#86efac]/10 p-3 text-[#86efac]">{notice}</div>}
+      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+        <aside className="border border-[#26262b] bg-[#0f0f11]">
+          <div className="border-b border-[#26262b] px-3 py-2 text-[9px] uppercase tracking-widest text-[#6b7280]">Decisions</div>
+          {decisions.length === 0 && <p className="p-3 text-[#6b7280]">No decisions recorded.</p>}
+          {decisions.map((decision) => (
+            <button
+              key={decision.decision_id}
+              onClick={() => setSelected(decision)}
+              className={`block w-full border-b border-[#1a1a1d] px-3 py-3 text-left ${selected?.decision_id === decision.decision_id ? "bg-[#1a1a1d]" : "hover:bg-[#151517]"}`}
+            >
+              <div className="text-white">{decision.title ?? decision.decision_id}</div>
+              <div className="mt-1 text-[9px] uppercase tracking-widest text-[#06b6d4]">{decision.phase ?? "UNKNOWN"}</div>
+            </button>
+          ))}
+        </aside>
 
-        <div className="flex flex-wrap gap-px border border-border bg-border" role="tablist" aria-label="Decision phase filter">
-          {([["all", "All decisions"], ["awaiting_approval", "Pending decisions"], ["approved", "Approved"]] as const).map(
-            ([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={phaseFilter === value}
-                onClick={() => setPhaseFilter(value)}
-                className={`px-4 py-2 text-xs font-medium transition-colors ${
-                  phaseFilter === value ? "bg-surface-2 text-ink" : "bg-surface text-ink-secondary hover:text-ink"
-                }`}
-              >
-                {label}
-              </button>
-            ),
-          )}
-        </div>
-
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="border border-border bg-surface">
-            <div className="border-b border-border px-4 py-3">
-              <span className="eyebrow">Decisions ({filteredDecisions.length})</span>
-            </div>
-            {filteredDecisions.length === 0 ? (
-              <p className="px-4 py-8 text-center text-xs text-ink-secondary">
-                {decisions.length === 0
-                  ? "No decisions recorded. Decisions appear after the pipeline proposes a governed action."
-                  : "No decisions in this phase."}
-              </p>
-            ) : (
-              <div className="max-h-[600px] divide-y divide-border overflow-y-auto">
-                {filteredDecisions.map((decision) => (
-                  <button
-                    key={decision.decision_id}
-                    type="button"
-                    onClick={() => setSelected(decision)}
-                    className={`block w-full px-4 py-3 text-left transition-colors hover:bg-surface-2 ${
-                      selected?.decision_id === decision.decision_id ? "border-l-2 border-accent bg-surface-2" : "border-l-2 border-transparent"
-                    }`}
-                  >
-                    <div className="truncate text-sm font-medium text-ink">{decision.decision_id}</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className={phaseBadge(decision.phase)}>{(decision.phase ?? "UNKNOWN").toUpperCase()}</span>
-                      {decision.outcome_status && (
-                        <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-ink-muted">
-                          {decision.outcome_status}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {selected ? (
-            <div className="min-w-0 space-y-5">
-              <div className="border border-border bg-surface">
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
+        <section className="space-y-4">
+          {!selected && <div className="border border-[#26262b] p-6 text-[#6b7280]">Select a decision after the workspace produces one.</div>}
+          {selected && (
+            <>
+              <div className="border border-[#26262b] bg-[#0f0f11] p-4">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <span className="eyebrow">Recommended action</span>
-                    <h2 className="mt-1 text-base font-semibold">
-                      {selected.recommended_option_id ?? selected.chosen_option ?? "—"}
-                    </h2>
-                    <p className="mt-1 font-mono text-[10px] text-ink-muted">{selected.decision_id}</p>
+                    <p className="text-[9px] uppercase tracking-widest text-[#06b6d4]">Decision</p>
+                    <h2 className="mt-1 text-base font-bold text-white">{selected.title ?? selected.decision_id}</h2>
+                    <p className="mt-2 text-[#9ca3af]">{selected.situation ?? "No situation summary recorded."}</p>
                   </div>
-                  <span className={phaseBadge(selected.phase)}>{(selected.phase ?? "UNKNOWN").toUpperCase()}</span>
+                  <span className="border border-[#06b6d4]/50 px-2 py-1 text-[9px] uppercase tracking-widest text-[#06b6d4]">{selected.phase ?? "UNKNOWN"}</span>
                 </div>
-
-                {selected.situation && (
-                  <p className="border-b border-border px-5 py-3 text-xs leading-5 text-ink-secondary">{selected.situation}</p>
-                )}
-
-                <dl className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
-                  <Detail label="World state" value={selected.world_state_version ? `v${selected.world_state_version}` : "—"} />
-                  <Detail label="Expected NEV" value={money(selected.recommended_nev)} />
-                  <Detail label="Expected SLA" value={selected.recommended_sla === null || selected.recommended_sla === undefined ? "—" : `${Math.round(selected.recommended_sla * 100)}%`} />
-                  <Detail label="Expected cost" value={money(selected.recommended_cost)} />
-                  <Detail label="Confidence" value={selected.confidence === null || selected.confidence === undefined ? "—" : `${Math.round(selected.confidence * 100)}%`} />
-                  <Detail label="Policy" value={selected.policy_id ?? "not recorded"} />
-                  <Detail label="Alternatives on record" value={String(selected.options?.length ?? 0)} />
-                  <Detail label="Evidence root" value={shortHash(selected.evidence_root_hash)} />
-                  <Detail label="State hash" value={shortHash(selected.world_state_hash)} />
+                <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div><dt className="text-[9px] uppercase text-[#6b7280]">World state</dt><dd className="mt-1 text-white">{String(selected.world_state_version ?? "—")}</dd></div>
+                  <div><dt className="text-[9px] uppercase text-[#6b7280]">Recommended option</dt><dd className="mt-1 text-white">{String(selected.recommended_option ?? "—")}</dd></div>
+                  <div><dt className="text-[9px] uppercase text-[#6b7280]">Decision ID</dt><dd className="mt-1 break-all text-white">{selected.decision_id}</dd></div>
                 </dl>
-
-                {(selected.options ?? []).length > 0 && (
-                  <div className="border-t border-border px-5 py-3">
-                    <span className="eyebrow">Alternative actions considered</span>
-                    <ul className="mt-2 space-y-1 font-mono text-[10px] text-ink-secondary">
-                      {(selected.options ?? []).map((option, index) => (
-                        <li key={index}>· {JSON.stringify(option)}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-end gap-3 border-t border-border px-5 py-4">
+                <div className="mt-5 flex flex-wrap items-end gap-3 border-t border-[#26262b] pt-4">
                   {selected.phase === "awaiting_approval" && (
                     <>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void advance("approved")}
-                        className="button-primary disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Approve proposal
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void advance("rejected")}
-                        className="button-secondary border-critical/50 text-critical hover:bg-critical-subtle disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Reject proposal
-                      </button>
+                      <button disabled={busy} onClick={() => void advance("approved")} className="border border-[#86efac]/60 bg-[#14532d]/40 px-3 py-2 text-[10px] uppercase tracking-widest text-[#86efac] disabled:opacity-50">Approve proposal</button>
+                      <button disabled={busy} onClick={() => void advance("rejected")} className="border border-[#e5484d]/60 bg-[#7f1d1d]/30 px-3 py-2 text-[10px] uppercase tracking-widest text-[#fca5a5] disabled:opacity-50">Reject proposal</button>
                     </>
                   )}
                   {selected.phase === "approved" && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void execute()}
-                      className="button-primary disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Execute approved action
-                    </button>
+                    <button disabled={busy} onClick={() => void execute()} className="border border-[#facc15]/60 bg-[#713f12]/30 px-3 py-2 text-[10px] uppercase tracking-widest text-[#fde68a] disabled:opacity-50">Execute approved action</button>
                   )}
                   {selected.phase === "executed" && (
                     <>
-                      <input
-                        value={outcomeText}
-                        onChange={(event) => setOutcomeText(event.target.value)}
-                        placeholder="Describe the observed outcome"
-                        className="field min-w-[240px] flex-1"
-                        aria-label="Observed outcome"
-                      />
-                      <button
-                        type="button"
-                        disabled={busy || !outcomeText.trim()}
-                        onClick={() => void recordOutcome()}
-                        className="button-primary disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Record outcome
-                      </button>
+                      <input value={outcomeText} onChange={(event) => setOutcomeText(event.target.value)} placeholder="Describe the observed outcome" className="min-w-[260px] flex-1 border border-[#26262b] bg-[#0a0a0b] px-3 py-2 text-[10px] text-white placeholder:text-[#6b7280]" />
+                      <button disabled={busy || !outcomeText.trim()} onClick={() => void recordOutcome()} className="border border-[#06b6d4]/60 bg-[#164e63]/40 px-3 py-2 text-[10px] uppercase tracking-widest text-[#67e8f9] disabled:opacity-50">Record outcome</button>
                     </>
                   )}
-                  {selected.phase === "stale" && (
-                    <p className="text-xs text-warning">
-                      World state advanced past this decision — it is invalid and requires a fresh proposal.
-                    </p>
-                  )}
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="border border-border bg-surface">
-                  <div className="border-b border-border px-4 py-3">
-                    <span className="eyebrow">Supporting evidence ({evidence?.node_count ?? evidence?.nodes?.length ?? 0})</span>
-                    <p className="mt-1 text-[11px] text-ink-secondary">
-                      {evidence?.edge_count ?? evidence?.edges?.length ?? 0} relationships · every claim is inspectable before approval
-                    </p>
-                  </div>
-                  <ul className="max-h-72 divide-y divide-border overflow-y-auto">
-                    {(evidence?.nodes ?? []).map((node) => (
-                      <li key={node.node_id} className="px-4 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-xs text-ink" title={node.label}>{node.label ?? node.node_id}</span>
-                          <span className="badge badge-neutral">{(node.node_type ?? "claim").toUpperCase()}</span>
-                        </div>
-                        <p className="mt-0.5 font-mono text-[9px] text-ink-muted">
-                          {node.checksum ? `checksum ${node.checksum.slice(0, 14)}…` : "no checksum"}
-                          {node.created_at ? ` · ${new Date(node.created_at).toLocaleString()}` : ""}
-                        </p>
-                      </li>
-                    ))}
-                    {(evidence?.nodes ?? []).length === 0 && (
-                      <li className="px-4 py-6 text-center text-xs text-ink-secondary">No evidence nodes recorded.</li>
-                    )}
-                  </ul>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="border border-[#26262b] bg-[#0f0f11] p-4">
+                  <h3 className="mb-3 text-[9px] uppercase tracking-widest text-[#06b6d4]">Evidence chain</h3>
+                  <p className="text-2xl text-white">{evidence?.node_count ?? evidence?.nodes?.length ?? 0}</p>
+                  <p className="text-[10px] text-[#6b7280]">evidence nodes · {evidence?.edge_count ?? evidence?.edges?.length ?? 0} relationships</p>
+                  <p className="mt-3 text-[10px] text-[#9ca3af]">Inspect source and derivation records before approving a consequential action.</p>
                 </div>
-
-                <div className="border border-border bg-surface">
-                  <div className="border-b border-border px-4 py-3">
-                    <span className="eyebrow">Approval & policy trail ({approvals.length})</span>
-                  </div>
-                  <ul className="max-h-72 divide-y divide-border overflow-y-auto">
-                    {approvals.map((approval) => (
-                      <li key={approval.approval_id} className="px-4 py-2 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[10px] text-ink">
-                            {approval.approver_id ?? "unknown actor"}
-                            {approval.approver_role ? ` · ${approval.approver_role}` : ""}
-                          </span>
-                          <span className={approval.approved ? "badge badge-positive" : "badge border-critical/50 bg-critical-subtle text-critical"}>
-                            {approval.approved ? "APPROVED" : "REJECTED"}
-                          </span>
-                        </div>
-                        {approval.rejection_reason && (
-                          <p className="mt-1 text-[11px] text-critical">Reason: {approval.rejection_reason}</p>
-                        )}
-                        {approval.policy_checks && Object.keys(approval.policy_checks).length > 0 && (
-                          <div className="mt-1 font-mono text-[9px] leading-4 text-ink-muted">
-                            {Object.entries(approval.policy_checks).map(([key, value]) => (
-                              <div key={key}>{key}: {String(value)}</div>
-                            ))}
-                          </div>
-                        )}
-                        {approval.created_at && (
-                          <p className="mt-0.5 font-mono text-[9px] text-ink-muted">{new Date(approval.created_at).toLocaleString()}</p>
-                        )}
-                      </li>
-                    ))}
-                    {approvals.length === 0 && (
-                      <li className="px-4 py-6 text-center text-xs text-ink-secondary">No approval events recorded.</li>
-                    )}
-                  </ul>
+                <div className="border border-[#26262b] bg-[#0f0f11] p-4">
+                  <h3 className="mb-3 text-[9px] uppercase tracking-widest text-[#06b6d4]">Approval history</h3>
+                  <p className="text-2xl text-white">{approvals.length}</p>
+                  <p className="text-[10px] text-[#6b7280]">recorded approval events</p>
+                  {approvals.slice(0, 3).map((approval, index) => (
+                    <p key={index} className="mt-2 text-[10px] text-[#9ca3af]">{String(approval.status ?? approval.phase ?? "Recorded approval")}</p>
+                  ))}
                 </div>
               </div>
 
-              <div id="receipt" className="border border-border bg-surface">
-                <div className="border-b border-border px-4 py-3">
-                  <span className="eyebrow">Decision receipt ({receipt?.receipt_version ?? "—"})</span>
-                  <p className="mt-1 text-[11px] text-ink-secondary">
-                    Reconstructed from authoritative decision, evidence, approval, transition, and scenario records.
-                  </p>
+              <div className="border border-[#26262b] bg-[#0f0f11] p-4">
+                <h3 className="mb-3 text-[9px] uppercase tracking-widest text-[#06b6d4]">Decision Receipt</h3>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div><span className="text-[9px] uppercase text-[#6b7280]">Receipt version</span><p className="mt-1 text-white">{receipt?.receipt_version ?? "—"}</p></div>
+                  <div><span className="text-[9px] uppercase text-[#6b7280]">Transitions</span><p className="mt-1 text-white">{receipt?.transitions?.length ?? 0}</p></div>
+                  <div><span className="text-[9px] uppercase text-[#6b7280]">Scenarios</span><p className="mt-1 text-white">{receipt?.scenarios?.length ?? 0}</p></div>
                 </div>
-                <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
-                  <div>
-                    <span className="eyebrow">Transition history</span>
-                    <ul className="mt-2 space-y-1 font-mono text-[10px] text-ink-secondary">
-                      {(receipt?.transitions ?? []).map((transition, index) => (
-                        <li key={index}>
-                          · {String(transition.to_phase ?? transition.phase ?? "transition")}
-                          {transition.created_at ? ` · ${new Date(String(transition.created_at)).toLocaleString()}` : ""}
-                        </li>
-                      ))}
-                      {(receipt?.transitions ?? []).length === 0 && <li className="text-ink-muted">No transitions recorded.</li>}
-                    </ul>
-                  </div>
-                  <div>
-                    <span className="eyebrow">Provenance</span>
-                    <dl className="mt-2 space-y-1 font-mono text-[10px] text-ink-secondary">
-                      {Object.entries(receipt?.provenance ?? {}).map(([key, value]) => (
-                        <div key={key} className="flex justify-between gap-3">
-                          <dt className="text-ink-muted">{key}</dt>
-                          <dd className="truncate">{value === null || value === undefined ? "—" : String(value)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <p className="mt-2 font-mono text-[10px] text-ink-muted">
-                      Scenarios linked: {(receipt?.scenarios ?? []).length} · deterministic hash {shortHash(selected.deterministic_hash)}
-                    </p>
-                  </div>
-                </div>
+                <p className="mt-3 text-[10px] text-[#9ca3af]">This receipt is reconstructed from authoritative decision, evidence, approval, transition, and scenario records.</p>
               </div>
-            </div>
-          ) : (
-            <div className="border border-border bg-surface p-8 text-center text-xs text-ink-secondary">
-              Select a decision to inspect its evidence and approvals.
-            </div>
+            </>
           )}
-        </div>
+        </section>
       </div>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-surface px-4 py-3">
-      <dt className="font-mono text-[9px] uppercase tracking-[0.1em] text-ink-muted">{label}</dt>
-      <dd className="mt-1 truncate font-mono text-sm text-ink" title={value}>{value}</dd>
-    </div>
-  );
-}
-
-function CenteredNote({ title, detail, action }: { title: string; detail: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex min-h-[70vh] items-center justify-center px-6 text-center">
-      <div className="max-w-md">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 text-sm text-ink-secondary">{detail}</p>
-        {action && <div className="mt-6">{action}</div>}
-      </div>
-    </div>
+    </main>
   );
 }
