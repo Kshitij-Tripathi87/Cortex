@@ -28,6 +28,32 @@ def _workspace_db_id(workspace_id: str) -> UUID | None:
         return None
 
 
+def _rls_enforced(db: AsyncSession) -> bool:
+    """Report whether this session's database carries the migration-002 RLS gate.
+
+    Row-level security, the ``set_config`` GUC writer and the schema-qualified
+    ``core`` access tables exist only on PostgreSQL. The SQLite engines used
+    for local development and by the unit-test fixtures hold schema-less
+    tables only, so there is no organization to resolve and no policy to
+    satisfy there. Same dialect guard as ``acquire_world_write_lock`` and the
+    outbox publisher's advisory locks.
+    """
+    return db.get_bind().dialect.name == "postgresql"
+
+
+async def _workspace_tenant(db: AsyncSession, workspace_id: str) -> str | None:
+    """Resolve the organization (tenant root) that owns ``workspace_id``."""
+    from app.modules.access.models import Organization, Workspace
+
+    row = await db.execute(
+        select(Organization.id)
+        .join(Workspace, Workspace.organization_id == Organization.id)
+        .where(Workspace.id == _workspace_db_id(workspace_id))
+    )
+    org = row.scalar()
+    return str(org) if org is not None else None
+
+
 async def emit(
     db: AsyncSession,
     *,
@@ -54,19 +80,17 @@ async def emit(
     "system" for workspace-less events; the GUCs are then set from the
     row's own server-validated values via SET LOCAL — scoped to this
     transaction and auto-unset at commit/rollback.
+
+    The gate applies on PostgreSQL only (see ``_rls_enforced``). On other
+    dialects the row is still written with an explicit tenant — the caller's
+    ``tenant_id`` or "system" — but nothing is looked up and no GUC is set.
     """
 
-    from app.modules.access.models import Organization, Workspace
+    rls_enforced = _rls_enforced(db)
 
     effective_tenant = tenant_id
-    if effective_tenant is None and workspace_id is not None:
-        row = await db.execute(
-            select(Organization.id)
-            .join(Workspace, Workspace.organization_id == Organization.id)
-            .where(Workspace.id == _workspace_db_id(workspace_id))
-        )
-        org = row.scalar()
-        effective_tenant = str(org) if org is not None else None
+    if effective_tenant is None and workspace_id is not None and rls_enforced:
+        effective_tenant = await _workspace_tenant(db, workspace_id)
     if effective_tenant is None:
         effective_tenant = "system"
 
@@ -86,9 +110,10 @@ async def emit(
         message=message,
         occurred_at=datetime.now(UTC),
     )
-    await set_tenant_context(
-        db, TenantContext(tenant_id=effective_tenant, workspace_id=workspace_id or "")
-    )
+    if rls_enforced:
+        await set_tenant_context(
+            db, TenantContext(tenant_id=effective_tenant, workspace_id=workspace_id or "")
+        )
     db.add(event)
     await db.flush()
     return event
@@ -107,19 +132,13 @@ async def list_events(
 
     RLS: the workspace's organization is set as the session tenant so the
     tenant_isolation policy returns exactly that org's rows (and no other
-    tenant's — the default-deny applies when unset).
+    tenant's — the default-deny applies when unset). PostgreSQL only; the
+    explicit workspace filter below scopes the read on every dialect.
     """
 
-    from app.modules.access.models import Organization, Workspace
-
-    row = await db.execute(
-        select(Organization.id)
-        .join(Workspace, Workspace.organization_id == Organization.id)
-        .where(Workspace.id == workspace_id)
-    )
-    org = row.scalar()
-    tenant = str(org) if org is not None else "system"
-    await set_tenant_context(db, TenantContext(tenant_id=tenant, workspace_id=workspace_id))
+    if _rls_enforced(db):
+        tenant = await _workspace_tenant(db, workspace_id) or "system"
+        await set_tenant_context(db, TenantContext(tenant_id=tenant, workspace_id=workspace_id))
     stmt = (
         select(AuditEvent)
         .where(AuditEvent.workspace_id == workspace_id)
