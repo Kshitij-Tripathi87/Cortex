@@ -262,8 +262,11 @@ async def test_claim_extraction_is_idempotent_for_retried_batch_compile(
         ),
     ]
 
-    first = await extract_claims(db_session, workspace_id, batch_id, file_id, profiles)
-    second = await extract_claims(db_session, workspace_id, batch_id, file_id, profiles)
+    # Claims are compiled per source cell, so the compile needs the parsed rows.
+    raw_rows: list[dict[str, object]] = [{"supplier_id": "SUP-001", "supplier_name": "Acme Ltd"}]
+
+    first = await extract_claims(db_session, workspace_id, batch_id, file_id, profiles, raw_rows)
+    second = await extract_claims(db_session, workspace_id, batch_id, file_id, profiles, raw_rows)
     await db_session.flush()
 
     claims = list(

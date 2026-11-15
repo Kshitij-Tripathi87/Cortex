@@ -40,6 +40,9 @@ class ReadinessResult:
     accepted_claim_count: int
     pending_claim_count: int
     assumptions: list[str] = field(default_factory=list)
+    explanation: str = ""
+
+
 async def extract_claims(
     db: AsyncSession,
     workspace_id: str,

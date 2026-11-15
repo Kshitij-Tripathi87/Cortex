@@ -29,12 +29,16 @@ async def test_claim_extraction_is_idempotent(db_session) -> None:
     db_session.add(profile)
     await db_session.flush()
 
+    # Claims are compiled per source cell, so the compile needs the parsed rows.
+    raw_rows: list[dict[str, object]] = [{"supplier_id": "supplier-1"}]
+
     first = await extract_claims(
         db_session,
         "workspace-1",
         "batch-1",
         "file-1",
         [profile],
+        raw_rows,
     )
     second = await extract_claims(
         db_session,
@@ -42,6 +46,7 @@ async def test_claim_extraction_is_idempotent(db_session) -> None:
         "batch-1",
         "file-1",
         [profile],
+        raw_rows,
     )
 
     claims = (
