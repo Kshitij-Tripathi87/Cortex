@@ -179,7 +179,7 @@
           "auth"
         ],
         "summary": "Request Password Reset",
-        "description": "Request a single-use reset token. Uniform response — never reveals\nwhether the email exists.",
+        "description": "Request a single-use reset token. Uniform response \u2014 never reveals\nwhether the email exists.",
         "operationId": "request_password_reset_api_v1_auth_reset_request_post",
         "requestBody": {
           "content": {
@@ -458,6 +458,77 @@
         }
       }
     },
+    "/api/v1/sources/batches/{batch_id}/claims/{claim_id}/review": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Review Claim Endpoint",
+        "description": "Record an explicit, audited human decision for a pending source claim.",
+        "operationId": "review_claim_endpoint_api_v1_sources_batches__batch_id__claims__claim_id__review_post",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "claim_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Claim Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources/batches/{batch_id}/conflicts": {
       "get": {
         "tags": [
@@ -586,7 +657,7 @@
           "sources"
         ],
         "summary": "Compile Batch",
-        "description": "Compile a batch: extract claims, detect conflicts, compute readiness.",
+        "description": "Compile source rows into evidence claims, then assess conflicts/readiness.",
         "operationId": "compile_batch_api_v1_sources_batches__batch_id__compile_post",
         "parameters": [
           {
@@ -617,6 +688,106 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Compile Batch Api V1 Sources Batches  Batch Id  Compile Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/planning/material-plan": {
+      "post": {
+        "tags": [
+          "material planning"
+        ],
+        "summary": "Calculate a snapshot-bound manufacturing material plan",
+        "description": "Calculate material requirements and shortage timelines for one workspace.",
+        "operationId": "create_material_plan_api_v1_planning_material_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterialPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Material Plan Api V1 Planning Material Plan Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/planning/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "material planning"
+        ],
+        "summary": "Retrieve a persisted material-planning run",
+        "description": "Return a previously persisted planning run without exposing other tenants.",
+        "operationId": "get_material_plan_run_api_v1_planning_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Material Plan Run Api V1 Planning Runs  Run Id  Get"
                 }
               }
             }
@@ -897,7 +1068,7 @@
           "graph"
         ],
         "summary": "Compile Batch To Graph",
-        "description": "Compile approved evidence claims for a batch into the operational graph.",
+        "description": "Publish one reviewed source batch into the canonical operational graph.",
         "operationId": "compile_batch_to_graph_api_v1_graph_batches__batch_id__compile_post",
         "parameters": [
           {
@@ -1824,7 +1995,7 @@
           "graph"
         ],
         "summary": "Generate Recommendations",
-        "description": "Generate recommendations for a scenario.\n\nThis endpoint:\n  1. Loads or executes the specified scenario\n  2. Generates candidate recommendations based on scenario type\n  3. Scores and ranks recommendations\n  4. Returns structured recommendations with explanations and trade-offs\n\nRecommendations are advisory only — humans make final decisions.",
+        "description": "Generate recommendations for a scenario.\n\nThis endpoint:\n  1. Loads or executes the specified scenario\n  2. Generates candidate recommendations based on scenario type\n  3. Scores and ranks recommendations\n  4. Returns structured recommendations with explanations and trade-offs\n\nRecommendations are advisory only \u2014 humans make final decisions.",
         "operationId": "generate_recommendations_api_v1_graph_recommendations_generate_post",
         "parameters": [
           {
@@ -6525,41 +6696,20 @@
         }
       }
     },
-    "/api/v1/workflo/health": {
-      "get": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Health",
-        "operationId": "health_api_v1_workflo_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Health Api V1 Workflo Health Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/sandboxes": {
+    "/api/v1/nexus/tasks": {
       "post": {
         "tags": [
-          "Workflo"
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
         ],
-        "summary": "Create Sandbox",
-        "operationId": "create_sandbox_api_v1_workflo_sandboxes_post",
+        "summary": "Create Task",
+        "description": "Golden-path entry: create a durable task and drive it to a decision.\n\nPOST /nexus/tasks -> durable task creation -> MAF runtime -> proposal ->\nDecision Room. The response carries the durable status (AWAITING_APPROVAL\nfor consequential plans, terminal otherwise). The persistence/checkpoint\nmachinery remains the only authority; this route composes it, it does not\nreplace it.",
+        "operationId": "create_task_api_v1_nexus_tasks_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SandboxCreateRequest"
+                "$ref": "#/components/schemas/TaskSubmitRequest"
               }
             }
           },
@@ -6573,7 +6723,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Create Sandbox Api V1 Workflo Sandboxes Post"
+                  "title": "Response Create Task Api V1 Nexus Tasks Post"
                 }
               }
             }
@@ -6591,63 +6741,32 @@
         }
       }
     },
-    "/api/v1/workflo/sandboxes/{sandbox_id}": {
+    "/api/v1/nexus/tasks/{task_id}": {
       "get": {
         "tags": [
-          "Workflo"
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
         ],
-        "summary": "Inspect Sandbox",
-        "operationId": "inspect_sandbox_api_v1_workflo_sandboxes__sandbox_id__get",
+        "summary": "Get Task",
+        "description": "Read one task's durable identity and lifecycle state.",
+        "operationId": "get_task_api_v1_nexus_tasks__task_id__get",
         "parameters": [
           {
-            "name": "sandbox_id",
+            "name": "task_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Sandbox Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Inspect Sandbox Api V1 Workflo Sandboxes  Sandbox Id  Get"
-                }
-              }
+              "title": "Task Id"
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Destroy Sandbox",
-        "operationId": "destroy_sandbox_api_v1_workflo_sandboxes__sandbox_id__delete",
-        "parameters": [
           {
-            "name": "sandbox_id",
-            "in": "path",
+            "name": "workspace_id",
+            "in": "query",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Sandbox Id"
+              "title": "Workspace Id"
             }
           }
         ],
@@ -6659,7 +6778,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Destroy Sandbox Api V1 Workflo Sandboxes  Sandbox Id  Delete"
+                  "title": "Response Get Task Api V1 Nexus Tasks  Task Id  Get"
                 }
               }
             }
@@ -6677,21 +6796,78 @@
         }
       }
     },
-    "/api/v1/workflo/sandboxes/{sandbox_id}/files": {
+    "/api/v1/nexus/tasks/{task_id}/run": {
       "post": {
         "tags": [
-          "Workflo"
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
         ],
-        "summary": "Write File",
-        "operationId": "write_file_api_v1_workflo_sandboxes__sandbox_id__files_post",
+        "summary": "Run Task",
+        "description": "Resume the durable task from its last committed checkpoint.\n\nSafe to call repeatedly and after any worker restart. Before approval\nthis can never execute a consequential write; after an APPROVED record\nit drives EXECUTING -> outcome.",
+        "operationId": "run_task_api_v1_nexus_tasks__task_id__run_post",
         "parameters": [
           {
-            "name": "sandbox_id",
+            "name": "task_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Sandbox Id"
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Task Api V1 Nexus Tasks  Task Id  Run Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nexus/tasks/{task_id}/approvals": {
+      "post": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Decide Task Approval",
+        "description": "Record the human decision and drive the governed execution.\n\nAPPROVED is the only key into EXECUTING: the durable approval row is\nwritten with the authenticated approver's identity, then the task is\nresumed so the consequential write, outcome, and NexusTrace complete.",
+        "operationId": "decide_task_approval_api_v1_nexus_tasks__task_id__approvals_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
             }
           }
         ],
@@ -6700,63 +6876,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FileWriteRequest"
+                "$ref": "#/components/schemas/TaskApprovalRequest"
               }
             }
           }
         },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Write File Api V1 Workflo Sandboxes  Sandbox Id  Files Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "List Files",
-        "operationId": "list_files_api_v1_workflo_sandboxes__sandbox_id__files_get",
-        "parameters": [
-          {
-            "name": "sandbox_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Sandbox Id"
-            }
-          },
-          {
-            "name": "path",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Path"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6765,7 +6889,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response List Files Api V1 Workflo Sandboxes  Sandbox Id  Files Get"
+                  "title": "Response Decide Task Approval Api V1 Nexus Tasks  Task Id  Approvals Post"
                 }
               }
             }
@@ -6783,30 +6907,32 @@
         }
       }
     },
-    "/api/v1/workflo/sandboxes/{sandbox_id}/files/content": {
+    "/api/v1/nexus/tasks/{task_id}/trace": {
       "get": {
         "tags": [
-          "Workflo"
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
         ],
-        "summary": "Read File",
-        "operationId": "read_file_api_v1_workflo_sandboxes__sandbox_id__files_content_get",
+        "summary": "Get Task Trace",
+        "description": "Reconstruct the durable NexusTrace for one task.\n\nAssembled entirely from PostgreSQL durable records (task, transitions,\nintent, plan, runs, steps, invocations, evidence, proposals, approvals,\nexecution, outcome) via NexusTaskRuntime.build_nexus_trace.",
+        "operationId": "get_task_trace_api_v1_nexus_tasks__task_id__trace_get",
         "parameters": [
           {
-            "name": "sandbox_id",
+            "name": "task_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Sandbox Id"
+              "title": "Task Id"
             }
           },
           {
-            "name": "path",
+            "name": "workspace_id",
             "in": "query",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Path"
+              "title": "Workspace Id"
             }
           }
         ],
@@ -6818,319 +6944,8 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Read File Api V1 Workflo Sandboxes  Sandbox Id  Files Content Get"
+                  "title": "Response Get Task Trace Api V1 Nexus Tasks  Task Id  Trace Get"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/sandboxes/{sandbox_id}/execute": {
-      "post": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Execute",
-        "operationId": "execute_api_v1_workflo_sandboxes__sandbox_id__execute_post",
-        "parameters": [
-          {
-            "name": "sandbox_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Sandbox Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExecuteRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Execute Api V1 Workflo Sandboxes  Sandbox Id  Execute Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/agent/plan": {
-      "post": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Agent Plan",
-        "operationId": "agent_plan_api_v1_workflo_agent_plan_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentPlanRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Agent Plan Api V1 Workflo Agent Plan Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/agent/continue": {
-      "post": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Agent Continue",
-        "operationId": "agent_continue_api_v1_workflo_agent_continue_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentContinueRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Agent Continue Api V1 Workflo Agent Continue Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/runs": {
-      "post": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Create Run",
-        "operationId": "create_run_api_v1_workflo_runs_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RunCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Create Run Api V1 Workflo Runs Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/runs/{run_id}": {
-      "get": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Get Run",
-        "operationId": "get_run_api_v1_workflo_runs__run_id__get",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Run Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Run Api V1 Workflo Runs  Run Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/runs/{run_id}/artifacts": {
-      "get": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "List Run Artifacts",
-        "operationId": "list_run_artifacts_api_v1_workflo_runs__run_id__artifacts_get",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Run Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Run Artifacts Api V1 Workflo Runs  Run Id  Artifacts Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workflo/runs/{run_id}/events": {
-      "get": {
-        "tags": [
-          "Workflo"
-        ],
-        "summary": "Stream Events",
-        "operationId": "stream_events_api_v1_workflo_runs__run_id__events_get",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Run Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -7880,8 +7695,8 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1,
-              "minimum": 0,
+              "maximum": 1.0,
+              "minimum": 0.0,
               "default": 0.05,
               "title": "Bias Threshold"
             }
@@ -8141,8 +7956,8 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1,
-              "minimum": 0,
+              "maximum": 1.0,
+              "minimum": 0.0,
               "default": 0.15,
               "title": "Wape Threshold"
             }
@@ -8153,8 +7968,8 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1,
-              "minimum": 0,
+              "maximum": 1.0,
+              "minimum": 0.0,
               "default": 0.08,
               "title": "Bias Threshold"
             }
@@ -8861,9 +8676,9 @@
             "required": false,
             "schema": {
               "type": "number",
-              "maximum": 1,
-              "minimum": 0,
-              "default": 0,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "default": 0.0,
               "title": "Min Confidence"
             }
           }
@@ -9307,6 +9122,52 @@
         }
       }
     },
+    "/api/v1/nexus/decisions/{decision_id}/receipt": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Decision Receipt",
+        "description": "Return a reconstructable read model from authoritative decision records.",
+        "operationId": "get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Decision Receipt Api V1 Nexus Decisions  Decision Id  Receipt Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/nexus/realtime/events": {
       "get": {
         "tags": [
@@ -9376,6 +9237,61 @@
         }
       }
     },
+    "/api/v1/nexus/tasks/{task_id}/decision-room": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Get Decision Room",
+        "description": "Project one task's durable runtime into the Decision Room view.",
+        "operationId": "get_decision_room_api_v1_nexus_tasks__task_id__decision_room_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Decision Room Api V1 Nexus Tasks  Task Id  Decision Room Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/nexus/realtime/stream": {
       "get": {
         "tags": [
@@ -9383,7 +9299,7 @@
           "Nexus Decision Intelligence"
         ],
         "summary": "Realtime Stream",
-        "description": "Live SSE: ``connected`` → durable catch-up → live tail with gap gate.\n\nIdentity resolves BEFORE the first byte: 401/403 surface as JSON, never\nas a 200 stream. Reconnects pass the last confirmed ``after_seq`` and\nreceive exactly the missed events before the live tail resumes. A\n``resync_needed`` frame means the client must replay-or-resnapshot.",
+        "description": "Live SSE: ``connected`` \u2192 durable catch-up \u2192 live tail with gap gate.\n\nIdentity resolves BEFORE the first byte: 401/403 surface as JSON, never\nas a 200 stream. Reconnects pass the last confirmed ``after_seq`` and\nreceive exactly the missed events before the live tail resumes. A\n``resync_needed`` frame means the client must replay-or-resnapshot.",
         "operationId": "realtime_stream_api_v1_nexus_realtime_stream_get",
         "parameters": [
           {
@@ -9470,10 +9386,567 @@
         }
       }
     },
+    "/api/v1/devices": {
+      "get": {
+        "tags": [
+          "Device Mesh"
+        ],
+        "summary": "List Devices",
+        "operationId": "list_devices_api_v1_devices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Devices Api V1 Devices Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device Mesh"
+        ],
+        "summary": "Register Device",
+        "description": "Register (or re-enroll) this device in the mesh.",
+        "operationId": "register_device_api_v1_devices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Device Api V1 Devices Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{device_id}": {
+      "get": {
+        "tags": [
+          "Device Mesh"
+        ],
+        "summary": "Get Device",
+        "operationId": "get_device_api_v1_devices__device_id__get",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Device Api V1 Devices  Device Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{device_id}/heartbeat": {
+      "post": {
+        "tags": [
+          "Device Mesh"
+        ],
+        "summary": "Device Heartbeat",
+        "operationId": "device_heartbeat_api_v1_devices__device_id__heartbeat_post",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceHeartbeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Device Heartbeat Api V1 Devices  Device Id  Heartbeat Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mobile/bootstrap": {
+      "get": {
+        "tags": [
+          "Mobile"
+        ],
+        "summary": "Mobile Bootstrap",
+        "description": "Authoritative snapshot: user, devices, active_tasks, pending_approvals,\nrecent_events. The phone's state is reconstructible from this response.",
+        "operationId": "mobile_bootstrap_api_v1_mobile_bootstrap_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Mobile Bootstrap Api V1 Mobile Bootstrap Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mobile/sessions": {
+      "post": {
+        "tags": [
+          "Mobile"
+        ],
+        "summary": "Create Mobile Session",
+        "description": "Create a session row (user | voice | task). Task sessions carry the\ntask ref \u2014 voice reconnects never create tasks.",
+        "operationId": "create_mobile_session_api_v1_mobile_sessions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobileSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Mobile Session Api V1 Mobile Sessions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Mobile"
+        ],
+        "summary": "List Mobile Sessions",
+        "operationId": "list_mobile_sessions_api_v1_mobile_sessions_get",
+        "parameters": [
+          {
+            "name": "session_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Mobile Sessions Api V1 Mobile Sessions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mobile/push/register": {
+      "post": {
+        "tags": [
+          "Mobile"
+        ],
+        "summary": "Register Push",
+        "description": "Enroll a push token: one device, one provider, one token.",
+        "operationId": "register_push_api_v1_mobile_push_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Push Api V1 Mobile Push Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mobile/notifications": {
+      "get": {
+        "tags": [
+          "Mobile"
+        ],
+        "summary": "List Notifications",
+        "description": "The phone's durable notification state (reconstructed on reconnect).",
+        "operationId": "list_notifications_api_v1_mobile_notifications_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Notifications Api V1 Mobile Notifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/token": {
+      "post": {
+        "tags": [
+          "Voice"
+        ],
+        "summary": "Voice Token",
+        "description": "Short-lived, scoped voice token \u2014 identity validated server-side.",
+        "operationId": "voice_token_api_v1_voice_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Voice Token Api V1 Voice Token Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/sessions": {
+      "post": {
+        "tags": [
+          "Voice"
+        ],
+        "summary": "Create Voice Session",
+        "operationId": "create_voice_session_api_v1_voice_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Voice Session Api V1 Voice Sessions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/sessions/{voice_session_id}": {
+      "get": {
+        "tags": [
+          "Voice"
+        ],
+        "summary": "Get Voice Session",
+        "operationId": "get_voice_session_api_v1_voice_sessions__voice_session_id__get",
+        "parameters": [
+          {
+            "name": "voice_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Voice Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Voice Session Api V1 Voice Sessions  Voice Session Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/sessions/{voice_session_id}/state": {
+      "post": {
+        "tags": [
+          "Voice"
+        ],
+        "summary": "Transition Voice Session",
+        "operationId": "transition_voice_session_api_v1_voice_sessions__voice_session_id__state_post",
+        "parameters": [
+          {
+            "name": "voice_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Voice Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceStateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Transition Voice Session Api V1 Voice Sessions  Voice Session Id  State Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "summary": "Healthz",
-        "description": "Liveness probe — is the process running?",
+        "description": "Liveness probe \u2014 is the process running?",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -9490,7 +9963,7 @@
     "/readyz": {
       "get": {
         "summary": "Readyz",
-        "description": "Readiness probe — are dependencies healthy?\n\nF2: composes the verdict from the four mandatory\ndependency checks (db, redis, object_storage, audit\nchain) in ``app.infrastructure.health``. The response\nbody lists every component state so the on-call\nrunbook can read the 503 cause from the payload\nwithout checking logs.",
+        "description": "Readiness probe \u2014 are dependencies healthy?\n\nF2: composes the verdict from the four mandatory\ndependency checks (db, redis, object_storage, audit\nchain) in ``app.infrastructure.health``. The response\nbody lists every component state so the on-call\nrunbook can read the 503 cause from the payload\nwithout checking logs.",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {
@@ -9515,41 +9988,6 @@
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/nexus/decisions/{decision_id}/receipt": {
-      "get": {
-        "tags": [
-          "Nexus Decision Intelligence"
-        ],
-        "summary": "Get Decision Receipt",
-        "description": "Return a reconstructable read model from authoritative decision records.",
-        "operationId": "get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get",
-        "parameters": [
-          {
-            "name": "decision_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Decision Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Decision Receipt Api V1 Nexus Decisions Decision Id Receipt Get"
-                }
               }
             }
           }
@@ -9770,31 +10208,6 @@
         ],
         "title": "AffectedWarehouseBlock"
       },
-      "AgentContinueRequest": {
-        "properties": {
-          "run_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Run Id"
-          },
-          "result": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Result"
-          }
-        },
-        "type": "object",
-        "required": [
-          "result"
-        ],
-        "title": "AgentContinueRequest"
-      },
       "AgentDomain": {
         "type": "string",
         "enum": [
@@ -9836,27 +10249,6 @@
         ],
         "title": "AgentGroundingAuditRequest"
       },
-      "AgentPlanRequest": {
-        "properties": {
-          "intent": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Intent"
-          },
-          "file_index": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "File Index"
-          }
-        },
-        "type": "object",
-        "required": [
-          "intent"
-        ],
-        "title": "AgentPlanRequest"
-      },
       "AnalogousRequest": {
         "properties": {
           "situation": {
@@ -9865,15 +10257,15 @@
           },
           "limit": {
             "type": "integer",
-            "maximum": 20,
-            "minimum": 1,
+            "maximum": 20.0,
+            "minimum": 1.0,
             "title": "Limit",
             "default": 5
           },
           "min_similarity": {
             "type": "number",
-            "maximum": 1,
-            "minimum": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
             "title": "Min Similarity",
             "default": 0.1
           }
@@ -10252,6 +10644,22 @@
             "type": "string",
             "title": "Claim Id"
           },
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "source_file_id": {
+            "type": "string",
+            "title": "Source File Id"
+          },
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
           "source_column": {
             "type": "string",
             "title": "Source Column"
@@ -10300,20 +10708,97 @@
           "claim_state": {
             "type": "string",
             "title": "Claim State"
+          },
+          "requires_review": {
+            "type": "boolean",
+            "title": "Requires Review"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
           }
         },
         "type": "object",
         "required": [
           "claim_id",
+          "workspace_id",
+          "source_file_id",
+          "batch_id",
+          "row_number",
           "source_column",
           "canonical_entity",
           "canonical_field",
           "raw_value",
           "normalized_value",
           "confidence",
-          "claim_state"
+          "claim_state",
+          "requires_review",
+          "created_at"
         ],
         "title": "ClaimResponse"
+      },
+      "ClaimReviewRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Decision"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Rationale"
+          },
+          "canonical_entity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Entity"
+          },
+          "canonical_field": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Field"
+          },
+          "entity_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "rationale"
+        ],
+        "title": "ClaimReviewRequest"
       },
       "CloseLoopRequest": {
         "properties": {
@@ -10456,10 +10941,10 @@
           },
           "canary_pct": {
             "type": "number",
-            "maximum": 100,
-            "minimum": 0,
+            "maximum": 100.0,
+            "minimum": 0.0,
             "title": "Canary Pct",
-            "default": 10
+            "default": 10.0
           },
           "workspace_id": {
             "type": "string",
@@ -10560,7 +11045,7 @@
           "quantity": {
             "type": "number",
             "title": "Quantity",
-            "default": 0
+            "default": 0.0
           },
           "target_entity_id": {
             "anyOf": [
@@ -10576,7 +11061,7 @@
           "cost_usd": {
             "type": "number",
             "title": "Cost Usd",
-            "default": 0
+            "default": 0.0
           },
           "objective": {
             "type": "string",
@@ -10804,8 +11289,8 @@
           },
           "top_k": {
             "type": "integer",
-            "maximum": 50,
-            "minimum": 1,
+            "maximum": 50.0,
+            "minimum": 1.0,
             "title": "Top K",
             "default": 10
           }
@@ -11638,6 +12123,29 @@
         "title": "DecisionSnapshotResponse",
         "description": "Complete decision snapshot with outcomes and lessons."
       },
+      "DeliberateRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "world_id": {
+            "type": "string",
+            "title": "World Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "world_id"
+        ],
+        "title": "DeliberateRequest"
+      },
       "DeliberationRequest": {
         "properties": {
           "task_type": {
@@ -11706,14 +12214,14 @@
           },
           "horizon_days": {
             "type": "integer",
-            "maximum": 90,
-            "minimum": 1,
+            "maximum": 90.0,
+            "minimum": 1.0,
             "title": "Horizon Days",
             "default": 14
           },
           "world_state_version": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "World State Version",
             "default": 1
           },
@@ -11785,6 +12293,78 @@
           "workspace_id"
         ],
         "title": "DeployReplicasRequest"
+      },
+      "DeviceHeartbeatRequest": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DeviceHeartbeatRequest"
+      },
+      "DeviceRegisterRequest": {
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "platform": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Platform"
+          },
+          "agent_version": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Agent Version",
+            "default": "v1.0"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "platform"
+        ],
+        "title": "DeviceRegisterRequest"
       },
       "DiffRequest": {
         "properties": {
@@ -11942,10 +12522,10 @@
           },
           "confidence": {
             "type": "number",
-            "maximum": 1,
-            "minimum": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
             "title": "Confidence",
-            "default": 1
+            "default": 1.0
           },
           "confidence_reason": {
             "anyOf": [
@@ -12220,7 +12800,7 @@
           "weight": {
             "type": "number",
             "title": "Weight",
-            "default": 1
+            "default": 1.0
           }
         },
         "additionalProperties": false,
@@ -12277,31 +12857,6 @@
           "label"
         ],
         "title": "EvidenceNodeRequest"
-      },
-      "ExecuteRequest": {
-        "properties": {
-          "command": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Command"
-          },
-          "timeout_s": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Timeout S"
-          }
-        },
-        "type": "object",
-        "required": [
-          "command"
-        ],
-        "title": "ExecuteRequest"
       },
       "FeatureSnapshotResponse": {
         "properties": {
@@ -12436,25 +12991,6 @@
           "columns"
         ],
         "title": "FileProfileResponse"
-      },
-      "FileWriteRequest": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Path"
-          },
-          "content_base64": {
-            "type": "string",
-            "title": "Content Base64"
-          }
-        },
-        "type": "object",
-        "required": [
-          "path",
-          "content_base64"
-        ],
-        "title": "FileWriteRequest"
       },
       "FindPathsRequest": {
         "properties": {
@@ -12822,8 +13358,8 @@
           },
           "max_discoveries": {
             "type": "integer",
-            "maximum": 50,
-            "minimum": 1,
+            "maximum": 50.0,
+            "minimum": 1.0,
             "title": "Max Discoveries",
             "default": 15
           }
@@ -13032,6 +13568,17 @@
             "type": "integer",
             "title": "File Size Bytes"
           },
+          "file_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Sha256"
+          },
           "rows_total": {
             "anyOf": [
               {
@@ -13089,6 +13636,17 @@
           "file_size_bytes": {
             "type": "integer",
             "title": "File Size Bytes"
+          },
+          "file_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Sha256"
           },
           "status": {
             "type": "string",
@@ -13176,7 +13734,7 @@
           "error_rate_pct": {
             "type": "number",
             "title": "Error Rate Pct",
-            "default": 0
+            "default": 0.0
           },
           "workspace_id": {
             "type": "string",
@@ -13492,6 +14050,34 @@
         ],
         "title": "LoginResponse"
       },
+      "MaterialPlanRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "As Of",
+            "description": "Effective business date asserted for the currently stored inventory dataset. This endpoint does not query historical inventory archives."
+          },
+          "horizon_days": {
+            "type": "integer",
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Horizon Days",
+            "default": 90
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "as_of"
+        ],
+        "title": "MaterialPlanRequest"
+      },
       "MeOrganization": {
         "properties": {
           "id": {
@@ -13662,6 +14248,41 @@
           "message"
         ],
         "title": "MessageResponse"
+      },
+      "MobileSessionRequest": {
+        "properties": {
+          "session_type": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Session Type"
+          },
+          "ref_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Id"
+          },
+          "ttl_s": {
+            "type": "integer",
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Ttl S",
+            "default": 86400
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_type"
+        ],
+        "title": "MobileSessionRequest"
       },
       "ModelEvaluateRequest": {
         "properties": {
@@ -13874,7 +14495,12 @@
           "edges",
           "inventory",
           "bom",
-          "orders"
+          "orders",
+          "bom_revisions",
+          "bom_lines",
+          "production_orders",
+          "purchase_order_lines",
+          "uom_conversions"
         ],
         "title": "MvpDatasetType",
         "description": "Permitted values for `dataset_type` in the CSV ingestion endpoint."
@@ -15046,6 +15672,35 @@
         "title": "ProvenanceRecord",
         "description": "One step in an entity's chain of custody.\n\nEvery mutation to an entity appends a ProvenanceRecord. This gives the\nsystem an immutable audit trail suitable for evidence retrieval, compliance\nreview, and root-cause analysis."
       },
+      "PushRegisterRequest": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Device Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Provider",
+            "default": "stub"
+          },
+          "push_token": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Push Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_id",
+          "push_token"
+        ],
+        "title": "PushRegisterRequest"
+      },
       "RLActionRequest": {
         "properties": {
           "workspace_id": {
@@ -15086,8 +15741,8 @@
           },
           "episodes": {
             "type": "integer",
-            "maximum": 20,
-            "minimum": 1,
+            "maximum": 20.0,
+            "minimum": 1.0,
             "title": "Episodes",
             "default": 3
           }
@@ -15116,8 +15771,8 @@
           },
           "max_steps": {
             "type": "integer",
-            "maximum": 50,
-            "minimum": 1,
+            "maximum": 50.0,
+            "minimum": 1.0,
             "title": "Max Steps",
             "default": 10
           }
@@ -15595,7 +16250,7 @@
           "min_confidence": {
             "type": "number",
             "title": "Min Confidence",
-            "default": 0
+            "default": 0.0
           },
           "max_recommendations": {
             "anyOf": [
@@ -16021,10 +16676,10 @@
           },
           "confidence": {
             "type": "number",
-            "maximum": 1,
-            "minimum": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
             "title": "Confidence",
-            "default": 1
+            "default": 1.0
           },
           "provenance": {
             "anyOf": [
@@ -16243,8 +16898,8 @@
             "enum": [
               "approved",
               "rejected",
-              "deferred",
-              "merge"
+              "suppressed",
+              "escalated"
             ],
             "title": "Action",
             "default": "approved"
@@ -16261,7 +16916,7 @@
           "rationale"
         ],
         "title": "ResolveRequest",
-        "description": "Payload for conflict resolution.\n\n``rationale`` must be non-empty — humans must record a reason. ``action``\nis constrained to the known resolution verbs; anything else is a 422."
+        "description": "Payload for conflict resolution.\n\n``rationale`` must be non-empty \u2014 humans must record a reason. ``action``\nis constrained to the known resolution verbs; anything else is a 422."
       },
       "RiskInferenceRequest": {
         "properties": {
@@ -16277,7 +16932,7 @@
           },
           "world_state_version": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "World State Version",
             "default": 1
           }
@@ -16310,17 +16965,17 @@
           },
           "horizon_ticks": {
             "type": "integer",
-            "maximum": 30,
-            "minimum": 1,
+            "maximum": 30.0,
+            "minimum": 1.0,
             "title": "Horizon Ticks",
             "default": 7
           },
           "initial_severity_pct": {
             "type": "number",
-            "maximum": 100,
-            "minimum": 0,
+            "maximum": 100.0,
+            "minimum": 0.0,
             "title": "Initial Severity Pct",
-            "default": 100
+            "default": 100.0
           }
         },
         "type": "object",
@@ -16360,7 +17015,7 @@
           "risk_score": {
             "type": "number",
             "title": "Risk Score",
-            "default": 0
+            "default": 0.0
           },
           "gnn_risk_score": {
             "anyOf": [
@@ -16632,49 +17287,6 @@
         ],
         "title": "RuleTriggerRequest"
       },
-      "RunCreateRequest": {
-        "properties": {
-          "workspace_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Workspace Id"
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 128,
-            "title": "Name",
-            "default": "run"
-          },
-          "intent": {
-            "type": "string",
-            "title": "Intent",
-            "default": ""
-          },
-          "files": {
-            "items": {
-              "$ref": "#/components/schemas/FileWriteRequest"
-            },
-            "type": "array",
-            "title": "Files"
-          },
-          "command": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Command"
-          }
-        },
-        "type": "object",
-        "required": [
-          "workspace_id"
-        ],
-        "title": "RunCreateRequest"
-      },
       "RunResultResponse": {
         "properties": {
           "run_id": {
@@ -16875,39 +17487,6 @@
           "customer_facing"
         ],
         "title": "SLAResponse"
-      },
-      "SandboxCreateRequest": {
-        "properties": {
-          "workspace_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Workspace Id"
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Name"
-          },
-          "policy": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Policy"
-          }
-        },
-        "type": "object",
-        "required": [
-          "workspace_id",
-          "name"
-        ],
-        "title": "SandboxCreateRequest"
       },
       "ScenarioAssumptionResponse": {
         "properties": {
@@ -17884,70 +18463,70 @@
             "minimum": 0.05,
             "title": "Outbox Sweep Interval S",
             "description": "Idle delay between outbox sweep passes",
-            "default": 1
+            "default": 1.0
           },
           "outbox_batch_size": {
             "type": "integer",
-            "maximum": 5000,
-            "minimum": 1,
+            "maximum": 5000.0,
+            "minimum": 1.0,
             "title": "Outbox Batch Size",
             "description": "Max outbox rows claimed per sweep pass",
             "default": 100
           },
           "outbox_lease_s": {
             "type": "number",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Outbox Lease S",
             "description": "Claim lease: a claimed-but-unpublished row becomes reclaimable by a peer after this long (worker-crash recovery)",
-            "default": 30
+            "default": 30.0
           },
           "outbox_retry_base_s": {
             "type": "number",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Outbox Retry Base S",
             "description": "Failed-publish backoff base (doubles per attempt)",
-            "default": 1
+            "default": 1.0
           },
           "outbox_retry_max_s": {
             "type": "number",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Outbox Retry Max S",
             "description": "Failed-publish backoff cap",
-            "default": 60
+            "default": 60.0
           },
           "outbox_max_attempts": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Outbox Max Attempts",
             "description": "Attempts after which an unpublished row is flagged poison (loudly metriced; still retried with capped backoff, never dropped)",
             "default": 50
           },
           "realtime_replay_limit": {
             "type": "integer",
-            "maximum": 5000,
-            "minimum": 1,
+            "maximum": 5000.0,
+            "minimum": 1.0,
             "title": "Realtime Replay Limit",
             "description": "Max events per replay page",
             "default": 500
           },
           "realtime_resync_threshold": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Realtime Resync Threshold",
             "description": "Gap size above which clients must snapshot/resync instead of replaying event-by-event",
             "default": 1000
           },
           "realtime_sse_heartbeat_s": {
             "type": "number",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Realtime Sse Heartbeat S",
             "description": "SSE keepalive comment interval",
-            "default": 15
+            "default": 15.0
           },
           "rate_limit_default_rps": {
             "type": "number",
             "title": "Rate Limit Default Rps",
-            "default": 10
+            "default": 10.0
           },
           "rate_limit_default_burst": {
             "type": "integer",
@@ -17957,7 +18536,7 @@
           "rate_limit_expensive_rps": {
             "type": "number",
             "title": "Rate Limit Expensive Rps",
-            "default": 1
+            "default": 1.0
           },
           "rate_limit_expensive_burst": {
             "type": "integer",
@@ -17972,7 +18551,7 @@
           "circuit_breaker_timeout": {
             "type": "number",
             "title": "Circuit Breaker Timeout",
-            "default": 30
+            "default": 30.0
           },
           "jwt_secret": {
             "type": "string",
@@ -17992,10 +18571,49 @@
           },
           "jwt_expiry_minutes": {
             "type": "integer",
-            "maximum": 1440,
-            "minimum": 5,
+            "maximum": 1440.0,
+            "minimum": 5.0,
             "title": "Jwt Expiry Minutes",
             "default": 60
+          },
+          "llm_provider": {
+            "type": "string",
+            "title": "Llm Provider",
+            "description": "deterministic|openai_compatible",
+            "default": "deterministic"
+          },
+          "llm_api_key": {
+            "type": "string",
+            "format": "password",
+            "title": "Llm Api Key",
+            "description": "Model gateway API key",
+            "default": "",
+            "writeOnly": true
+          },
+          "llm_base_url": {
+            "type": "string",
+            "title": "Llm Base Url",
+            "default": "https://api.openai.com/v1"
+          },
+          "llm_model": {
+            "type": "string",
+            "title": "Llm Model",
+            "description": "Exact model/deployment name",
+            "default": ""
+          },
+          "llm_timeout_s": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": 1.0,
+            "title": "Llm Timeout S",
+            "default": 30.0
+          },
+          "llm_max_output_tokens": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "minimum": 256.0,
+            "title": "Llm Max Output Tokens",
+            "default": 2048
           },
           "cors_allowed_origins": {
             "items": {
@@ -18030,6 +18648,12 @@
             "description": "Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* (default False). Never enable in production.",
             "default": false
           },
+          "workspace_demo_routes": {
+            "type": "boolean",
+            "title": "Workspace Demo Routes",
+            "description": "Mount the unauthenticated, fixed-tenant /workspace/* demo singleton (default False). Test/dev affordance only \u2014 never enable in pilot/prod/staging.",
+            "default": false
+          },
           "feature_flags": {
             "additionalProperties": {
               "type": "boolean"
@@ -18037,12 +18661,6 @@
             "type": "object",
             "title": "Feature Flags",
             "description": "Feature flag toggles. Each flag is a boolean."
-          },
-          "workspace_demo_routes": {
-            "type": "boolean",
-            "title": "Workspace Demo Routes",
-            "description": "Mount the unauthenticated fixed-tenant /workspace/* demo API. Test/dev only; never enable in pilot, production or staging.",
-            "default": false
           }
         },
         "type": "object",
@@ -18625,7 +19243,7 @@
         "properties": {
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version"
           },
           "timestamp": {
@@ -18645,16 +19263,16 @@
           },
           "world_state_version": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "World State Version",
             "description": "World-state version when snapshot was taken"
           },
           "confidence": {
             "type": "number",
-            "maximum": 1,
-            "minimum": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
             "title": "Confidence",
-            "default": 1
+            "default": 1.0
           }
         },
         "type": "object",
@@ -18664,7 +19282,7 @@
           "world_state_version"
         ],
         "title": "StateSnapshot",
-        "description": "A snapshot of an entity's state at a specific point in time.\n\nState snapshots form the historical state vector — every entity has one\ncurrent snapshot and an append-only history. Snapshots are content-hashed\nso the truth-loop (forecast vs reality) can correlate predictions with\nactual world state."
+        "description": "A snapshot of an entity's state at a specific point in time.\n\nState snapshots form the historical state vector \u2014 every entity has one\ncurrent snapshot and an append-only history. Snapshots are content-hashed\nso the truth-loop (forecast vs reality) can correlate predictions with\nactual world state."
       },
       "StateVariableResponse": {
         "properties": {
@@ -18891,8 +19509,8 @@
           },
           "top_k": {
             "type": "integer",
-            "maximum": 20,
-            "minimum": 1,
+            "maximum": 20.0,
+            "minimum": 1.0,
             "title": "Top K",
             "default": 5
           }
@@ -18904,6 +19522,119 @@
           "target_supplier_id"
         ],
         "title": "SupplierSimilarityRequest"
+      },
+      "TaskApprovalRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "approved"
+        ],
+        "title": "TaskApprovalRequest"
+      },
+      "TaskSubmitRequest": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "title": "Workspace Id"
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Objective"
+          },
+          "world_state_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "World State Version"
+          },
+          "risk_class": {
+            "type": "string",
+            "title": "Risk Class",
+            "default": "MEDIUM"
+          },
+          "entity_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Entity Ids"
+          },
+          "required_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Capabilities"
+          },
+          "step_arguments": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Step Arguments"
+          },
+          "dependencies": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Dependencies"
+          },
+          "budget": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Budget",
+            "default": 100.0
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "objective",
+          "world_state_version"
+        ],
+        "title": "TaskSubmitRequest"
       },
       "TemporalBacktestRequest": {
         "properties": {
@@ -19090,7 +19821,7 @@
           "max_compute_budget_usd": {
             "type": "number",
             "title": "Max Compute Budget Usd",
-            "default": 25
+            "default": 25.0
           },
           "workspace_id": {
             "type": "string",
@@ -19575,6 +20306,7 @@
         "properties": {
           "query": {
             "type": "string",
+            "maxLength": 8000,
             "minLength": 1,
             "title": "Query"
           }
@@ -19585,6 +20317,78 @@
           "query"
         ],
         "title": "VanessaAskRequest"
+      },
+      "VoiceSessionRequest": {
+        "properties": {
+          "workspace_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Id"
+          },
+          "device_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Device Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_id"
+        ],
+        "title": "VoiceSessionRequest"
+      },
+      "VoiceStateRequest": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "State"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "title": "VoiceStateRequest"
+      },
+      "VoiceTokenRequest": {
+        "properties": {
+          "workspace_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Id"
+          },
+          "device_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Device Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_id"
+        ],
+        "title": "VoiceTokenRequest"
       },
       "WorkspaceFeaturesResponse": {
         "properties": {
@@ -19755,29 +20559,6 @@
           "metadata"
         ],
         "title": "WorldStateResponse"
-      },
-      "DeliberateRequest": {
-        "properties": {
-          "workspace_id": {
-            "type": "string",
-            "title": "Workspace Id"
-          },
-          "world_id": {
-            "type": "string",
-            "title": "World Id"
-          },
-          "version": {
-            "type": "integer",
-            "title": "Version",
-            "default": 1
-          }
-        },
-        "type": "object",
-        "required": [
-          "workspace_id",
-          "world_id"
-        ],
-        "title": "DeliberateRequest"
       }
     }
   }

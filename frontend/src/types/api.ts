@@ -221,6 +221,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sources/batches/{batch_id}/claims/{claim_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Claim Endpoint
+         * @description Record an explicit, audited human decision for a pending source claim.
+         */
+        post: operations["review_claim_endpoint_api_v1_sources_batches__batch_id__claims__claim_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources/batches/{batch_id}/conflicts": {
         parameters: {
             query?: never;
@@ -272,9 +292,49 @@ export interface paths {
         put?: never;
         /**
          * Compile Batch
-         * @description Compile a batch: extract claims, detect conflicts, compute readiness.
+         * @description Compile source rows into evidence claims, then assess conflicts/readiness.
          */
         post: operations["compile_batch_api_v1_sources_batches__batch_id__compile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/planning/material-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calculate a snapshot-bound manufacturing material plan
+         * @description Calculate material requirements and shortage timelines for one workspace.
+         */
+        post: operations["create_material_plan_api_v1_planning_material_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/planning/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a persisted material-planning run
+         * @description Return a previously persisted planning run without exposing other tenants.
+         */
+        get: operations["get_material_plan_run_api_v1_planning_runs__run_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -372,7 +432,7 @@ export interface paths {
         put?: never;
         /**
          * Compile Batch To Graph
-         * @description Compile approved evidence claims for a batch into the operational graph.
+         * @description Publish one reviewed source batch into the canonical operational graph.
          */
         post: operations["compile_batch_to_graph_api_v1_graph_batches__batch_id__compile_post"];
         delete?: never;
@@ -2713,24 +2773,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflo/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health */
-        get: operations["health_api_v1_workflo_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/sandboxes": {
+    "/api/v1/nexus/tasks": {
         parameters: {
             query?: never;
             header?: never;
@@ -2739,59 +2782,35 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Sandbox */
-        post: operations["create_sandbox_api_v1_workflo_sandboxes_post"];
+        /**
+         * Create Task
+         * @description Golden-path entry: create a durable task and drive it to a decision.
+         *
+         *     POST /nexus/tasks -> durable task creation -> MAF runtime -> proposal ->
+         *     Decision Room. The response carries the durable status (AWAITING_APPROVAL
+         *     for consequential plans, terminal otherwise). The persistence/checkpoint
+         *     machinery remains the only authority; this route composes it, it does not
+         *     replace it.
+         */
+        post: operations["create_task_api_v1_nexus_tasks_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflo/sandboxes/{sandbox_id}": {
+    "/api/v1/nexus/tasks/{task_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Inspect Sandbox */
-        get: operations["inspect_sandbox_api_v1_workflo_sandboxes__sandbox_id__get"];
-        put?: never;
-        post?: never;
-        /** Destroy Sandbox */
-        delete: operations["destroy_sandbox_api_v1_workflo_sandboxes__sandbox_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/sandboxes/{sandbox_id}/files": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Files */
-        get: operations["list_files_api_v1_workflo_sandboxes__sandbox_id__files_get"];
-        put?: never;
-        /** Write File */
-        post: operations["write_file_api_v1_workflo_sandboxes__sandbox_id__files_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/sandboxes/{sandbox_id}/files/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read File */
-        get: operations["read_file_api_v1_workflo_sandboxes__sandbox_id__files_content_get"];
+        /**
+         * Get Task
+         * @description Read one task's durable identity and lifecycle state.
+         */
+        get: operations["get_task_api_v1_nexus_tasks__task_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2800,7 +2819,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflo/sandboxes/{sandbox_id}/execute": {
+    "/api/v1/nexus/tasks/{task_id}/run": {
         parameters: {
             query?: never;
             header?: never;
@@ -2809,15 +2828,22 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Execute */
-        post: operations["execute_api_v1_workflo_sandboxes__sandbox_id__execute_post"];
+        /**
+         * Run Task
+         * @description Resume the durable task from its last committed checkpoint.
+         *
+         *     Safe to call repeatedly and after any worker restart. Before approval
+         *     this can never execute a consequential write; after an APPROVED record
+         *     it drives EXECUTING -> outcome.
+         */
+        post: operations["run_task_api_v1_nexus_tasks__task_id__run_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflo/agent/plan": {
+    "/api/v1/nexus/tasks/{task_id}/approvals": {
         parameters: {
             query?: never;
             header?: never;
@@ -2826,91 +2852,37 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Agent Plan */
-        post: operations["agent_plan_api_v1_workflo_agent_plan_post"];
+        /**
+         * Decide Task Approval
+         * @description Record the human decision and drive the governed execution.
+         *
+         *     APPROVED is the only key into EXECUTING: the durable approval row is
+         *     written with the authenticated approver's identity, then the task is
+         *     resumed so the consequential write, outcome, and NexusTrace complete.
+         */
+        post: operations["decide_task_approval_api_v1_nexus_tasks__task_id__approvals_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflo/agent/continue": {
+    "/api/v1/nexus/tasks/{task_id}/trace": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** Agent Continue */
-        post: operations["agent_continue_api_v1_workflo_agent_continue_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Run */
-        post: operations["create_run_api_v1_workflo_runs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/runs/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Run */
-        get: operations["get_run_api_v1_workflo_runs__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/runs/{run_id}/artifacts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Run Artifacts */
-        get: operations["list_run_artifacts_api_v1_workflo_runs__run_id__artifacts_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflo/runs/{run_id}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Stream Events */
-        get: operations["stream_events_api_v1_workflo_runs__run_id__events_get"];
+        /**
+         * Get Task Trace
+         * @description Reconstruct the durable NexusTrace for one task.
+         *
+         *     Assembled entirely from PostgreSQL durable records (task, transitions,
+         *     intent, plan, runs, steps, invocations, evidence, proposals, approvals,
+         *     execution, outcome) via NexusTaskRuntime.build_nexus_trace.
+         */
+        get: operations["get_task_trace_api_v1_nexus_tasks__task_id__trace_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3499,12 +3471,7 @@ export interface paths {
         };
         /**
          * Get Decision Receipt
-         * @description Return the reconstructable RC0 Decision Receipt.
-         *
-         *     The receipt is a read model over authoritative records. It deliberately
-         *     does not create a second lifecycle or hash authority: decision state and
-         *     transitions come from the decision service, evidence and approvals come
-         *     from the registry, and scenarios remain isolated projections.
+         * @description Return a reconstructable read model from authoritative decision records.
          */
         get: operations["get_decision_receipt_api_v1_nexus_decisions__decision_id__receipt_get"];
         put?: never;
@@ -3533,6 +3500,26 @@ export interface paths {
          *     an authoritative snapshot instead.
          */
         get: operations["realtime_events_api_v1_nexus_realtime_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nexus/tasks/{task_id}/decision-room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision Room
+         * @description Project one task's durable runtime into the Decision Room view.
+         */
+        get: operations["get_decision_room_api_v1_nexus_tasks__task_id__decision_room_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3585,6 +3572,215 @@ export interface paths {
         get: operations["realtime_health_api_v1_nexus_realtime_health_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Devices */
+        get: operations["list_devices_api_v1_devices_get"];
+        put?: never;
+        /**
+         * Register Device
+         * @description Register (or re-enroll) this device in the mesh.
+         */
+        post: operations["register_device_api_v1_devices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Device */
+        get: operations["get_device_api_v1_devices__device_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices/{device_id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Device Heartbeat */
+        post: operations["device_heartbeat_api_v1_devices__device_id__heartbeat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mobile/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mobile Bootstrap
+         * @description Authoritative snapshot: user, devices, active_tasks, pending_approvals,
+         *     recent_events. The phone's state is reconstructible from this response.
+         */
+        get: operations["mobile_bootstrap_api_v1_mobile_bootstrap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mobile/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Mobile Sessions */
+        get: operations["list_mobile_sessions_api_v1_mobile_sessions_get"];
+        put?: never;
+        /**
+         * Create Mobile Session
+         * @description Create a session row (user | voice | task). Task sessions carry the
+         *     task ref — voice reconnects never create tasks.
+         */
+        post: operations["create_mobile_session_api_v1_mobile_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mobile/push/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Push
+         * @description Enroll a push token: one device, one provider, one token.
+         */
+        post: operations["register_push_api_v1_mobile_push_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mobile/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notifications
+         * @description The phone's durable notification state (reconstructed on reconnect).
+         */
+        get: operations["list_notifications_api_v1_mobile_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Voice Token
+         * @description Short-lived, scoped voice token — identity validated server-side.
+         */
+        post: operations["voice_token_api_v1_voice_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Voice Session */
+        post: operations["create_voice_session_api_v1_voice_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/sessions/{voice_session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Voice Session */
+        get: operations["get_voice_session_api_v1_voice_sessions__voice_session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/sessions/{voice_session_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition Voice Session */
+        post: operations["transition_voice_session_api_v1_voice_sessions__voice_session_id__state_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3743,15 +3939,6 @@ export interface components {
             /** Coverage Days */
             coverage_days: number | null;
         };
-        /** AgentContinueRequest */
-        AgentContinueRequest: {
-            /** Run Id */
-            run_id?: string | null;
-            /** Result */
-            result: {
-                [key: string]: unknown;
-            };
-        };
         /**
          * AgentDomain
          * @enum {string}
@@ -3772,13 +3959,6 @@ export interface components {
              * @default 1
              */
             version: number;
-        };
-        /** AgentPlanRequest */
-        AgentPlanRequest: {
-            /** Intent */
-            intent: string;
-            /** File Index */
-            file_index?: string[];
         };
         /** AnalogousRequest */
         AnalogousRequest: {
@@ -3945,6 +4125,14 @@ export interface components {
         ClaimResponse: {
             /** Claim Id */
             claim_id: string;
+            /** Workspace Id */
+            workspace_id: string;
+            /** Source File Id */
+            source_file_id: string;
+            /** Batch Id */
+            batch_id: string;
+            /** Row Number */
+            row_number: number;
             /** Source Column */
             source_column: string;
             /** Canonical Entity */
@@ -3959,6 +4147,26 @@ export interface components {
             confidence: number;
             /** Claim State */
             claim_state: string;
+            /** Requires Review */
+            requires_review: boolean;
+            /** Created At */
+            created_at: string;
+        };
+        /** ClaimReviewRequest */
+        ClaimReviewRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accepted" | "rejected";
+            /** Rationale */
+            rationale: string;
+            /** Canonical Entity */
+            canonical_entity?: string | null;
+            /** Canonical Field */
+            canonical_field?: string | null;
+            /** Entity Key */
+            entity_key?: string | null;
         };
         /** CloseLoopRequest */
         CloseLoopRequest: {
@@ -4562,6 +4770,27 @@ export interface components {
              */
             replica_count: number;
         };
+        /** DeviceHeartbeatRequest */
+        DeviceHeartbeatRequest: {
+            /** Status */
+            status?: string | null;
+        };
+        /** DeviceRegisterRequest */
+        DeviceRegisterRequest: {
+            /** Device Id */
+            device_id?: string | null;
+            /** Platform */
+            platform: string;
+            /**
+             * Agent Version
+             * @default v1.0
+             */
+            agent_version: string;
+            /** Capabilities */
+            capabilities?: string[];
+            /** Public Key */
+            public_key?: string | null;
+        };
         /** DiffRequest */
         DiffRequest: {
             /** From Snapshot Id */
@@ -4772,13 +5001,6 @@ export interface components {
             /** Source Entity Id */
             source_entity_id?: string | null;
         };
-        /** ExecuteRequest */
-        ExecuteRequest: {
-            /** Command */
-            command: string;
-            /** Timeout S */
-            timeout_s?: number | null;
-        };
         /** FeatureSnapshotResponse */
         FeatureSnapshotResponse: {
             /** Workspace Id */
@@ -4815,13 +5037,6 @@ export interface components {
             columns: {
                 [key: string]: unknown;
             }[];
-        };
-        /** FileWriteRequest */
-        FileWriteRequest: {
-            /** Path */
-            path: string;
-            /** Content Base64 */
-            content_base64: string;
         };
         /** FindPathsRequest */
         FindPathsRequest: {
@@ -5106,6 +5321,8 @@ export interface components {
             file_key: string;
             /** File Size Bytes */
             file_size_bytes: number;
+            /** File Sha256 */
+            file_sha256?: string | null;
             /**
              * Rows Total
              * @description Populated on completion only
@@ -5132,6 +5349,8 @@ export interface components {
             file_name: string;
             /** File Size Bytes */
             file_size_bytes: number;
+            /** File Sha256 */
+            file_sha256?: string | null;
             /** Status */
             status: string;
             /** Rows Total */
@@ -5299,6 +5518,25 @@ export interface components {
             /** Organization Id */
             organization_id?: string | null;
         };
+        /** MaterialPlanRequest */
+        MaterialPlanRequest: {
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+            /**
+             * As Of
+             * Format: date
+             * @description Effective business date asserted for the currently stored inventory dataset. This endpoint does not query historical inventory archives.
+             */
+            as_of: string;
+            /**
+             * Horizon Days
+             * @default 90
+             */
+            horizon_days: number;
+        };
         /** MeOrganization */
         MeOrganization: {
             /**
@@ -5362,6 +5600,18 @@ export interface components {
             success: boolean;
             /** Message */
             message: string;
+        };
+        /** MobileSessionRequest */
+        MobileSessionRequest: {
+            /** Session Type */
+            session_type: string;
+            /** Ref Id */
+            ref_id?: string | null;
+            /**
+             * Ttl S
+             * @default 86400
+             */
+            ttl_s: number;
         };
         /** ModelEvaluateRequest */
         ModelEvaluateRequest: {
@@ -5449,7 +5699,7 @@ export interface components {
          * @description Permitted values for `dataset_type` in the CSV ingestion endpoint.
          * @enum {string}
          */
-        MvpDatasetType: "suppliers" | "components" | "warehouses" | "factories" | "products" | "customers" | "edges" | "inventory" | "bom" | "orders";
+        MvpDatasetType: "suppliers" | "components" | "warehouses" | "factories" | "products" | "customers" | "edges" | "inventory" | "bom" | "orders" | "bom_revisions" | "bom_lines" | "production_orders" | "purchase_order_lines" | "uom_conversions";
         /** NodeFeaturesResponse */
         NodeFeaturesResponse: {
             /** Node Id */
@@ -5914,6 +6164,18 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+        };
+        /** PushRegisterRequest */
+        PushRegisterRequest: {
+            /** Device Id */
+            device_id: string;
+            /**
+             * Provider
+             * @default stub
+             */
+            provider: string;
+            /** Push Token */
+            push_token: string;
         };
         /** RLActionRequest */
         RLActionRequest: {
@@ -6399,7 +6661,7 @@ export interface components {
              * @default approved
              * @enum {string}
              */
-            action: "approved" | "rejected" | "deferred" | "merge";
+            action: "approved" | "rejected" | "suppressed" | "escalated";
             /** Rationale */
             rationale: string;
         };
@@ -6561,25 +6823,6 @@ export interface components {
              */
             combinator: string;
         };
-        /** RunCreateRequest */
-        RunCreateRequest: {
-            /** Workspace Id */
-            workspace_id: string;
-            /**
-             * Name
-             * @default run
-             */
-            name: string;
-            /**
-             * Intent
-             * @default
-             */
-            intent: string;
-            /** Files */
-            files?: components["schemas"]["FileWriteRequest"][];
-            /** Command */
-            command?: string | null;
-        };
         /** RunResultResponse */
         RunResultResponse: {
             /** Run Id */
@@ -6657,17 +6900,6 @@ export interface components {
             comparison: string;
             /** Customer Facing */
             customer_facing: boolean;
-        };
-        /** SandboxCreateRequest */
-        SandboxCreateRequest: {
-            /** Workspace Id */
-            workspace_id: string;
-            /** Name */
-            name: string;
-            /** Policy */
-            policy?: {
-                [key: string]: unknown;
-            } | null;
         };
         /** ScenarioAssumptionResponse */
         ScenarioAssumptionResponse: {
@@ -7221,6 +7453,40 @@ export interface components {
              */
             jwt_expiry_minutes: number;
             /**
+             * Llm Provider
+             * @description deterministic|openai_compatible
+             * @default deterministic
+             */
+            llm_provider: string;
+            /**
+             * Llm Api Key
+             * Format: password
+             * @description Model gateway API key
+             * @default
+             */
+            llm_api_key: string;
+            /**
+             * Llm Base Url
+             * @default https://api.openai.com/v1
+             */
+            llm_base_url: string;
+            /**
+             * Llm Model
+             * @description Exact model/deployment name
+             * @default
+             */
+            llm_model: string;
+            /**
+             * Llm Timeout S
+             * @default 30
+             */
+            llm_timeout_s: number;
+            /**
+             * Llm Max Output Tokens
+             * @default 2048
+             */
+            llm_max_output_tokens: number;
+            /**
              * Cors Allowed Origins
              * @description Allowed CORS origins (comma-separated)
              */
@@ -7596,6 +7862,50 @@ export interface components {
              */
             top_k: number;
         };
+        /** TaskApprovalRequest */
+        TaskApprovalRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Approved */
+            approved: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** TaskSubmitRequest */
+        TaskSubmitRequest: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Objective */
+            objective: string;
+            /** World State Version */
+            world_state_version: number;
+            /**
+             * Risk Class
+             * @default MEDIUM
+             */
+            risk_class: string;
+            /** Entity Ids */
+            entity_ids?: string[];
+            /** Required Capabilities */
+            required_capabilities?: string[];
+            /** Step Arguments */
+            step_arguments?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** Dependencies */
+            dependencies?: {
+                [key: string]: string[];
+            };
+            /**
+             * Budget
+             * @default 100
+             */
+            budget: number;
+            /** Deadline */
+            deadline?: string | null;
+        };
         /** TemporalBacktestRequest */
         TemporalBacktestRequest: {
             /** Workspace Id */
@@ -7876,6 +8186,25 @@ export interface components {
         VanessaAskRequest: {
             /** Query */
             query: string;
+        };
+        /** VoiceSessionRequest */
+        VoiceSessionRequest: {
+            /** Workspace Id */
+            workspace_id?: string | null;
+            /** Device Id */
+            device_id: string;
+        };
+        /** VoiceStateRequest */
+        VoiceStateRequest: {
+            /** State */
+            state: string;
+        };
+        /** VoiceTokenRequest */
+        VoiceTokenRequest: {
+            /** Workspace Id */
+            workspace_id?: string | null;
+            /** Device Id */
+            device_id: string;
         };
         /** WorkspaceFeaturesResponse */
         WorkspaceFeaturesResponse: {
@@ -8286,6 +8615,44 @@ export interface operations {
             };
         };
     };
+    review_claim_endpoint_api_v1_sources_batches__batch_id__claims__claim_id__review_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_conflicts_api_v1_sources_batches__batch_id__conflicts_get: {
         parameters: {
             query: {
@@ -8366,6 +8733,76 @@ export interface operations {
             header?: never;
             path: {
                 batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_material_plan_api_v1_planning_material_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_material_plan_run_api_v1_planning_runs__run_id__get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                run_id: string;
             };
             cookie?: never;
         };
@@ -8779,7 +9216,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -8814,7 +9253,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -8849,7 +9290,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -12040,9 +12483,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -12141,9 +12582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -12176,9 +12615,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -12211,9 +12648,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -12280,7 +12715,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -12349,29 +12786,7 @@ export interface operations {
             };
         };
     };
-    health_api_v1_workflo_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    create_sandbox_api_v1_workflo_sandboxes_post: {
+    create_task_api_v1_nexus_tasks_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -12380,7 +12795,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SandboxCreateRequest"];
+                "application/json": components["schemas"]["TaskSubmitRequest"];
             };
         };
         responses: {
@@ -12406,152 +12821,14 @@ export interface operations {
             };
         };
     };
-    inspect_sandbox_api_v1_workflo_sandboxes__sandbox_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sandbox_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    destroy_sandbox_api_v1_workflo_sandboxes__sandbox_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sandbox_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_files_api_v1_workflo_sandboxes__sandbox_id__files_get: {
-        parameters: {
-            query?: {
-                path?: string;
-            };
-            header?: never;
-            path: {
-                sandbox_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    write_file_api_v1_workflo_sandboxes__sandbox_id__files_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sandbox_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FileWriteRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_file_api_v1_workflo_sandboxes__sandbox_id__files_content_get: {
+    get_task_api_v1_nexus_tasks__task_id__get: {
         parameters: {
             query: {
-                path: string;
+                workspace_id: string;
             };
             header?: never;
             path: {
-                sandbox_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
@@ -12579,154 +12856,14 @@ export interface operations {
             };
         };
     };
-    execute_api_v1_workflo_sandboxes__sandbox_id__execute_post: {
+    run_task_api_v1_nexus_tasks__task_id__run_post: {
         parameters: {
-            query?: never;
+            query: {
+                workspace_id: string;
+            };
             header?: never;
             path: {
-                sandbox_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExecuteRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    agent_plan_api_v1_workflo_agent_plan_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AgentPlanRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    agent_continue_api_v1_workflo_agent_continue_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AgentContinueRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_run_api_v1_workflo_runs_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RunCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_run_api_v1_workflo_runs__run_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
@@ -12754,16 +12891,20 @@ export interface operations {
             };
         };
     };
-    list_run_artifacts_api_v1_workflo_runs__run_id__artifacts_get: {
+    decide_task_approval_api_v1_nexus_tasks__task_id__approvals_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                run_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskApprovalRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -12787,12 +12928,14 @@ export interface operations {
             };
         };
     };
-    stream_events_api_v1_workflo_runs__run_id__events_get: {
+    get_task_trace_api_v1_nexus_tasks__task_id__trace_get: {
         parameters: {
-            query?: never;
+            query: {
+                workspace_id: string;
+            };
             header?: never;
             path: {
-                run_id: string;
+                task_id: string;
             };
             cookie?: never;
         };
@@ -12804,7 +12947,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -14222,6 +14367,41 @@ export interface operations {
             };
         };
     };
+    get_decision_room_api_v1_nexus_tasks__task_id__decision_room_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     realtime_stream_api_v1_nexus_realtime_stream_get: {
         parameters: {
             query: {
@@ -14273,6 +14453,431 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    list_devices_api_v1_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    register_device_api_v1_devices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_device_api_v1_devices__device_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    device_heartbeat_api_v1_devices__device_id__heartbeat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceHeartbeatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mobile_bootstrap_api_v1_mobile_bootstrap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    list_mobile_sessions_api_v1_mobile_sessions_get: {
+        parameters: {
+            query?: {
+                session_type?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_mobile_session_api_v1_mobile_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_push_api_v1_mobile_push_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_mobile_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_token_api_v1_voice_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_voice_session_api_v1_voice_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voice_session_api_v1_voice_sessions__voice_session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                voice_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_voice_session_api_v1_voice_sessions__voice_session_id__state_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                voice_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceStateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
