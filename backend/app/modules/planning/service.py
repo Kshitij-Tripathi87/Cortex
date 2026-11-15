@@ -17,8 +17,8 @@ from app.modules.planning.models import (
     InventoryProjection,
     MaterialReceipt,
     ProductionOrder,
-    ProjectionStatus,
     OrderRequirementsResult,
+    ProjectionStatus,
     UOMConverter,
 )
 

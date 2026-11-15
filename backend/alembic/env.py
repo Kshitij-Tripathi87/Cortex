@@ -17,8 +17,8 @@ if os.environ.get("CORTEX_TEST_DATABASE_URL"):
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from app.infrastructure.database import Base  # noqa: E402 - after alembic config
 import app.modules.supply_chain.models  # noqa: E402,F401 - register supply-chain tables
+from app.infrastructure.database import Base  # noqa: E402 - after alembic config
 
 target_metadata = Base.metadata
 
