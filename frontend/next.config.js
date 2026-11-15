@@ -6,6 +6,9 @@ const apiBase = (
 
 const nextConfig = {
   reactStrictMode: true,
+  // Emit .next/standalone for the production Docker image
+  // (frontend/Dockerfile copies /app/.next/standalone and runs server.js).
+  // `next start` (used by e2e) keeps working — standalone is additive.
   output: "standalone",
   env: {
     // Public variables are inlined at build time. Production images must use

@@ -108,9 +108,7 @@ class CacheManager:
         key = self._world_state_key(tenant_id, workspace_id, version)
         await self._set(key, state_data, ttl_seconds)
 
-    async def get_decision(
-        self, tenant_id: str, decision_id: str
-    ) -> dict[str, Any] | None:
+    async def get_decision(self, tenant_id: str, decision_id: str) -> dict[str, Any] | None:
         key = self._decision_key(tenant_id, decision_id)
         return await self._get(key)
 
@@ -124,9 +122,7 @@ class CacheManager:
         key = self._decision_key(tenant_id, decision_id)
         await self._set(key, data, ttl_seconds)
 
-    async def get_simulation(
-        self, tenant_id: str, simulation_id: str
-    ) -> dict[str, Any] | None:
+    async def get_simulation(self, tenant_id: str, simulation_id: str) -> dict[str, Any] | None:
         key = self._simulation_key(tenant_id, simulation_id)
         return await self._get(key)
 
@@ -225,9 +221,7 @@ class CacheManager:
 
     async def invalidate(self, pattern_or_key: str) -> None:
         """Invalidate cache keys matching a pattern."""
-        self._local_cache = {
-            k: v for k, v in self._local_cache.items() if pattern_or_key not in k
-        }
+        self._local_cache = {k: v for k, v in self._local_cache.items() if pattern_or_key not in k}
         self._stats.invalidations += 1
 
     # ─────────────────────────────────────────────────────────────────────────

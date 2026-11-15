@@ -429,6 +429,21 @@ class TestV082APIIntegration:
         assert r.status_code == 200, r.text
         assert r.json()["data"]["decision"]["phase"] == "outcome_recorded"
 
+        # The receipt is a read model over the same durable lifecycle. It must
+        # expose evidence, approvals, scenarios, transitions, and outcome
+        # provenance without creating a second source of truth.
+        r = await api_client.get(f"/nexus/decisions/{did}/receipt")
+        assert r.status_code == 200, r.text
+        receipt = r.json()["data"]["receipt"]
+        assert receipt["receipt_version"] == "rc0"
+        assert receipt["decision_id"] == did
+        assert receipt["decision"]["phase"] == "outcome_recorded"
+        assert receipt["decision"]["outcome_status"] == "succeeded"
+        assert receipt["transitions"]
+        assert receipt["approvals"]
+        assert "nodes" in receipt["evidence"]
+        assert isinstance(receipt["scenarios"], list)
+
         # Record forecast + observation
         fid = f"F-{uuid.uuid4().hex[:8]}"
         r = await api_client.post(

@@ -215,6 +215,8 @@ export function useRealtimeEvent<T = any>(
   useEffect(() => {
     const unsubscribe = nexusRealtime.on(eventType, handler);
     return unsubscribe;
+  // The caller owns the custom dependency list for this legacy hook.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
 

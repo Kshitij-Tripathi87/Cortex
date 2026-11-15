@@ -4,8 +4,9 @@ import "@/components/marketing/landing.css";
 import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Cortex Nexus — Autonomous Decision Intelligence & Operational Digital Twin",
-  description: "Enterprise operational intelligence platform for supply chains, graph analytics, and multi-agent model orchestration.",
+  title: "Cortex — Enterprise Intelligence & Action Platform",
+  description:
+    "Cortex connects enterprise data, builds trusted operational context, and coordinates evidence-backed, governed decisions and actions.",
 };
 
 export default function RootLayout({

@@ -158,3 +158,51 @@
     }
   }
 }
+
+@layer components {
+  .eyebrow {
+    @apply font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted;
+  }
+
+  .button-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-hover;
+  }
+
+  .button-secondary {
+    @apply inline-flex items-center justify-center gap-2 border border-border bg-surface px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink;
+  }
+
+  .badge {
+    @apply inline-flex items-center border px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.1em];
+  }
+
+  .badge-positive {
+    @apply bg-accent-subtle text-accent;
+    border-color: rgba(22, 163, 74, 0.4);
+  }
+
+  .badge-neutral {
+    @apply border-border bg-surface-2 text-ink-muted;
+  }
+
+  .field {
+    @apply border border-border bg-bg px-3 py-2 text-xs text-ink outline-none placeholder:text-ink-muted focus:border-accent;
+  }
+
+  .notice-error {
+    @apply bg-critical-subtle px-4 py-3 text-xs text-critical;
+    border: 1px solid rgba(220, 38, 38, 0.5);
+  }
+
+  .status-dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
+  }
+
+  .status-dot-live {
+    @apply bg-accent;
+  }
+
+  .status-dot-warning {
+    @apply bg-warning;
+  }
+}

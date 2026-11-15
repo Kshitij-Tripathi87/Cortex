@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess  # noqa: S404 - commands run under a strict allowlist policy
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,6 +118,13 @@ def _sandbox_env() -> dict[str, str]:
         value = os.environ.get(key)
         if value:
             env[key] = value
+    # ``python`` must resolve to the interpreter running the control plane,
+    # including on Windows where the App Execution Alias can otherwise win
+    # over a venv and return 9009 without executing the command. Preserve the
+    # host PATH for other allowlisted tools, but put this interpreter first.
+    interpreter_dir = str(Path(sys.executable).resolve().parent)
+    host_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join(part for part in (interpreter_dir, host_path) if part)
     env["WORKFLO_SANDBOX"] = "1"
     return env
 

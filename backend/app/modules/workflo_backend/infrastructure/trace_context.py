@@ -191,16 +191,13 @@ class traced_section:
         self._span: Span | None = None
 
     def __enter__(self) -> Span:
-        self._span = self._tracer.start_span(self._name,
-                                             attributes=self._attributes)
+        self._span = self._tracer.start_span(self._name, attributes=self._attributes)
         return self._span
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         if self._span is None:
             return
         if exc_type is not None:
-            self._span.set_status(
-                trace.Status(trace.StatusCode.ERROR, str(exc))
-            )
+            self._span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             self._span.record_exception(exc)
         self._span.end()

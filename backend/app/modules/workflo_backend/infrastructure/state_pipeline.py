@@ -218,7 +218,9 @@ class RealtimeStatePipeline:
             "avg_latency_ms": round(avg, 2),
             "p50_latency_ms": round(p50, 2),
             "p95_latency_ms": round(p95, 2),
-            "latest_operation": self._latency_history[-1].to_dict() if self._latency_history else None,
+            "latest_operation": self._latency_history[-1].to_dict()
+            if self._latency_history
+            else None,
         }
 
 
