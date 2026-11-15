@@ -124,7 +124,14 @@ export default function NexusLanding() {
   const [activeStage, setActiveStage] = useState(0);
 
   useEffect(() => {
+    const root = document.querySelector(".nx-site");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const elements = document.querySelectorAll<HTMLElement>(".nx-reveal");
+    if (reducedMotion) {
+      elements.forEach((element) => element.classList.add("is-visible"));
+      return;
+    }
+    root?.classList.add("is-motion-ready");
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -149,7 +156,7 @@ export default function NexusLanding() {
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
-        if (visible instanceof IntersectionObserverEntry) {
+        if (visible) {
           const nextStage = Number((visible.target as HTMLElement).dataset.storyStep);
           if (Number.isInteger(nextStage)) setActiveStage(nextStage);
         }
