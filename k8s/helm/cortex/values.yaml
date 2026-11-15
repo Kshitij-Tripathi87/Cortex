@@ -120,12 +120,19 @@ config:
   CORTEX_PORT: 8000
   OTEL_SERVICE_NAME: cortex-backend
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  CORTEX_LLM_PROVIDER: openai_compatible
+  CORTEX_LLM_BASE_URL: https://api.openai.com/v1
+  CORTEX_LLM_MODEL: ""
+  CORTEX_LLM_TIMEOUT_S: "30"
+  CORTEX_LLM_MAX_OUTPUT_TOKENS: "2048"
 
 # Secrets (use external secret management in production)
 secrets:
   dbPassword: ""
   s3AccessKey: ""
   s3SecretKey: ""
+  jwtSecret: ""
+  llmApiKey: ""
 
 # Monitoring
 monitoring:

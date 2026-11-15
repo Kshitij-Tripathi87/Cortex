@@ -244,6 +244,7 @@ def nexus_db_path(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 async def nexus_db_engine(nexus_db_path):
+    import app.modules.audit.models  # noqa: F401
     import app.modules.nexus_spine.persistence.models  # noqa: F401
     from app.infrastructure.database import Base
 
@@ -259,7 +260,7 @@ async def nexus_db_engine(nexus_db_path):
     # break SQLite create_all).
     nexus_metadata = MetaData()
     for table in Base.metadata.sorted_tables:
-        if table.name.startswith("nexus_"):
+        if table.name.startswith("nexus_") or table.name == "audit_events":
             table.to_metadata(
                 nexus_metadata,
                 schema=None,

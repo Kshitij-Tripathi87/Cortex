@@ -16,6 +16,11 @@ data:
   CORTEX_S3_USE_PATH_STYLE: "true"
   OTEL_SERVICE_NAME: {{ .Values.config.OTEL_SERVICE_NAME | quote }}
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.config.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}
+  CORTEX_LLM_PROVIDER: {{ .Values.config.CORTEX_LLM_PROVIDER | quote }}
+  CORTEX_LLM_BASE_URL: {{ .Values.config.CORTEX_LLM_BASE_URL | quote }}
+  CORTEX_LLM_MODEL: {{ .Values.config.CORTEX_LLM_MODEL | quote }}
+  CORTEX_LLM_TIMEOUT_S: {{ .Values.config.CORTEX_LLM_TIMEOUT_S | quote }}
+  CORTEX_LLM_MAX_OUTPUT_TOKENS: {{ .Values.config.CORTEX_LLM_MAX_OUTPUT_TOKENS | quote }}
 ---
 apiVersion: v1
 kind: Secret

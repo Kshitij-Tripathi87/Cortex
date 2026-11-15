@@ -79,6 +79,11 @@ from app.modules.nexus_spine.p0_migration import (
     get_authoritative_truth_loop,
     get_authz,
 )
+from app.modules.nexus_spine.p0_migration.llm_adapter import (
+    LLMProviderError,
+    get_llm_adapter,
+)
+from app.modules.nexus_spine.p0_migration.vanessa_tools import register_vanessa_tools
 
 router = APIRouter(prefix="/nexus", tags=["Nexus Decision Intelligence"])
 
@@ -996,7 +1001,7 @@ async def predict_risk(
 
 class VanessaAskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    query: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=8000)
 
 
 @router.post("/vanessa/ask")
@@ -1010,48 +1015,62 @@ async def vanessa_ask(
     require_workspace_access(workspace_id, auth)
     p = _principal(auth, workspace_id)
 
-    # Build a pipeline with tool executors bound to this request's session
-    from app.modules.nexus_spine.p0_migration import DeterministicLLMAdapter
+    # Model classification and synthesis are backed by the configured provider.
+    # The provider only receives workspace-scoped evidence returned by fixed tools.
+    # No write/approval/execution tools are registered on this route.
+    settings = get_settings()
+    try:
+        pipeline = VanessaPipeline(llm=get_llm_adapter(settings))
+        register_vanessa_tools(pipeline, session, p, workspace_id)
+        response = await pipeline.handle(p, body.query, workspace_id=workspace_id)
+    except LLMProviderError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Nexus reasoning is temporarily unavailable. The configured model gateway "
+                "did not complete the request; no operational action was taken."
+            ),
+        ) from exc
+    except Exception as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Nexus could not complete the intelligence request; no operational action was taken.",
+        ) from exc
 
-    pipeline = VanessaPipeline(llm=DeterministicLLMAdapter())
+    response_data = response.to_dict()
+    response_data["model_provider"] = settings.llm_provider
+    response_data["model"] = (
+        settings.llm_model
+        if settings.llm_provider == "openai_compatible"
+        else "deterministic-dev-test"
+    )
 
-    # Register a handful of read-only tools that answer from PG.
-    svc = get_authoritative_decision_service()
-    truth = get_authoritative_truth_loop()
-    tenant_id = p.tenant_id
+    from app.modules.audit.service import emit as emit_audit
 
-    async def _cockpit_read(_tc: Any, _p: Any) -> dict[str, Any]:
-        decisions = await svc.list_by_workspace(
-            session, tenant_id=tenant_id, workspace_id=workspace_id, limit=20
-        )
-        calib = await truth.calibration_for(session, tenant_id=tenant_id, workspace_id=workspace_id)
-        return {
-            "summary": f"{len(decisions)} decisions in workspace; {len(calib)} SKUs calibrated",
-            "decisions_count": len(decisions),
-            "calibrated_skus": len(calib),
-            "world_state_version": decisions[0]["world_state_version"] if decisions else 0,
-        }
-
-    async def _decisions_list(_tc: Any, _p: Any) -> dict[str, Any]:
-        items = await svc.list_by_workspace(
-            session, tenant_id=tenant_id, workspace_id=workspace_id, limit=20
-        )
-        return {"decisions": items, "count": len(items)}
-
-    async def _explain(_tc: Any, _p: Any) -> dict[str, str]:
-        return {"message": "Nexus v0.8 persistent API is authoritative in PostgreSQL."}
-
-    # Note: we intentionally do NOT register approve/execute/outcome tools
-    # via Vanessa here. Operational actions must go through explicit
-    # /governance endpoints (two-phase human action) and cannot be
-    # triggered by the LLM.
-
-    pipeline.register_tool_executor("nexus.cockpit.read", _cockpit_read)
-    pipeline.register_tool_executor("nexus.decision.list", _decisions_list)
-    pipeline.register_tool_executor("nexus.explain", _explain)
-
-    response = await pipeline.handle(p, body.query, workspace_id=workspace_id)
-    return _envelope(request, response.to_dict(), correlation_id=response.trace_id)
+    await emit_audit(
+        session,
+        event_type="nexus.vanessa.query",
+        workspace_id=workspace_id,
+        actor_id=auth.user_id or "unknown",
+        actor_type="user",
+        subject_type="VanessaTrace",
+        subject_id=response.trace_id,
+        correlation_id=response.trace_id,
+        request_id=getattr(request.state, "request_id", None),
+        payload={
+            "intent": response.intent.value,
+            "tools_used": response.actions_taken,
+            "evidence_count": len(response.evidence),
+            "permission_denied": bool(response.permission_denied),
+            "model_provider": settings.llm_provider,
+            "model": settings.llm_model if settings.llm_provider == "openai_compatible" else None,
+        },
+        message="Workspace-scoped Nexus intelligence query completed",
+    )
+    await commit_and_notify(session)
+    return _envelope(request, response_data, correlation_id=response.trace_id)
 
 
 # ─────────────────────────────────────────────────────────────────────

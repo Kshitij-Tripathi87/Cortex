@@ -12,6 +12,7 @@ malicious or oversized multipart payload cannot exhaust server memory.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -32,6 +33,7 @@ from app.modules.compiler.service import (
     extract_claims,
     resolve_conflict,
 )
+from app.modules.graph.entity_keys import ENTITY_PRIMARY_KEYS, FACILITY_ENTITY_TYPES
 from app.modules.sources.models import SourceBatch
 from app.modules.sources.service import get_batch, get_file, list_profiles, process_upload
 
@@ -87,6 +89,8 @@ class ClaimResponse(BaseModel):
 class ClaimReviewRequest(BaseModel):
     decision: Literal["accepted", "rejected"]
     rationale: str = Field(min_length=3, max_length=2000)
+    canonical_entity: str | None = Field(default=None, min_length=1, max_length=64)
+    canonical_field: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class ConflictResponse(BaseModel):
@@ -358,6 +362,41 @@ async def review_claim_endpoint(
             detail="Resolve the claim's open or escalated conflict in Conflict Center before reviewing it",
         )
 
+    mapping_supplied = payload.canonical_entity is not None or payload.canonical_field is not None
+    if mapping_supplied and (not payload.canonical_entity or not payload.canonical_field):
+        raise HTTPException(
+            status_code=422,
+            detail="canonical_entity and canonical_field must be supplied together",
+        )
+    if (
+        payload.decision == ClaimState.ACCEPTED.value
+        and not mapping_supplied
+        and (not claim.canonical_entity or not claim.canonical_field)
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="This claim has no complete canonical mapping. Supply canonical_entity and canonical_field before accepting it.",
+        )
+    if mapping_supplied:
+        allowed_entities = (
+            set(ENTITY_PRIMARY_KEYS) | set(FACILITY_ENTITY_TYPES) | {"Facility", "Organization"}
+        )
+        if payload.canonical_entity not in allowed_entities:
+            raise HTTPException(status_code=422, detail="Unsupported canonical entity type")
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,127}", payload.canonical_field or ""):
+            raise HTTPException(
+                status_code=422, detail="canonical_field must be a lowercase snake_case identifier"
+            )
+        claim.canonical_entity = payload.canonical_entity
+        claim.canonical_field = payload.canonical_field
+        claim.confidence = 1.0
+        claim.provenance = {
+            **(claim.provenance or {}),
+            "human_mapping_review": {
+                "canonical_entity": payload.canonical_entity,
+                "canonical_field": payload.canonical_field,
+            },
+        }
     claim.claim_state = payload.decision
     claim.requires_review = False
     await emit_audit(
@@ -375,6 +414,8 @@ async def review_claim_endpoint(
             "source_file_id": claim.source_file_id,
             "source_column": claim.source_column,
             "confidence": claim.confidence,
+            "canonical_entity": claim.canonical_entity,
+            "canonical_field": claim.canonical_field,
         },
         message=f"Evidence claim {claim.claim_id} {payload.decision}",
     )

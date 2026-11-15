@@ -187,3 +187,160 @@ async def test_claim_review_rejects_cross_workspace_access_and_non_reviewers(
     stored_claim = await db_session.get(EvidenceClaim, claim_id)
     assert stored_claim is not None
     assert stored_claim.claim_state == ClaimState.PENDING_REVIEW.value
+
+
+@pytest.mark.asyncio
+async def test_claim_review_can_set_an_audited_canonical_mapping(db_session: AsyncSession) -> None:
+    workspace_id = str(uuid4())
+    batch_id = str(uuid4())
+    claim_id = str(uuid4())
+    actor_id = str(uuid4())
+    db_session.add(
+        SourceBatch(
+            batch_id=batch_id,
+            workspace_id=workspace_id,
+            checksum=(uuid4().hex * 2)[:64],
+            source_system_hint="erp",
+            file_count=1,
+        )
+    )
+    db_session.add(
+        EvidenceClaim(
+            claim_id=claim_id,
+            workspace_id=workspace_id,
+            source_file_id=str(uuid4()),
+            batch_id=batch_id,
+            row_number=0,
+            source_column="Vendor Code",
+            canonical_entity=None,
+            canonical_field=None,
+            raw_value="SUP-007",
+            normalized_value=None,
+            confidence=0.0,
+            claim_state=ClaimState.PENDING_REVIEW.value,
+            provenance={},
+            requires_review=True,
+        )
+    )
+    await db_session.flush()
+
+    app = FastAPI()
+    app.include_router(sources.router, prefix="/api/v1/sources")
+
+    async def override_db() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    async def override_user() -> AuthContext:
+        return AuthContext(
+            user_id=actor_id,
+            roles=["admin"],
+            workspace_ids=[workspace_id],
+            is_anonymous=False,
+        )
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            f"/api/v1/sources/batches/{batch_id}/claims/{claim_id}/review",
+            params={"workspace_id": workspace_id},
+            json={
+                "decision": "accepted",
+                "rationale": "Verified against the vendor master identifier column.",
+                "canonical_entity": "Supplier",
+                "canonical_field": "supplier_id",
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["canonical_entity"] == "Supplier"
+    assert body["canonical_field"] == "supplier_id"
+    assert body["confidence"] == 1.0
+    stored_claim = await db_session.get(EvidenceClaim, claim_id)
+    assert stored_claim is not None
+    assert stored_claim.canonical_entity == "Supplier"
+    assert stored_claim.canonical_field == "supplier_id"
+    assert stored_claim.provenance["human_mapping_review"]["canonical_field"] == "supplier_id"
+
+
+@pytest.mark.asyncio
+async def test_claim_review_requires_a_complete_supported_canonical_mapping(
+    db_session: AsyncSession,
+) -> None:
+    workspace_id = str(uuid4())
+    batch_id = str(uuid4())
+    claim_id = str(uuid4())
+    db_session.add(
+        SourceBatch(
+            batch_id=batch_id,
+            workspace_id=workspace_id,
+            checksum=(uuid4().hex * 2)[:64],
+            source_system_hint="erp",
+            file_count=1,
+        )
+    )
+    db_session.add(
+        EvidenceClaim(
+            claim_id=claim_id,
+            workspace_id=workspace_id,
+            source_file_id=str(uuid4()),
+            batch_id=batch_id,
+            row_number=0,
+            source_column="Unknown Header",
+            canonical_entity=None,
+            canonical_field=None,
+            raw_value="some value",
+            normalized_value=None,
+            confidence=0.0,
+            claim_state=ClaimState.PENDING_REVIEW.value,
+            provenance={},
+            requires_review=True,
+        )
+    )
+    await db_session.flush()
+
+    app = FastAPI()
+    app.include_router(sources.router, prefix="/api/v1/sources")
+
+    async def override_db() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    async def override_user() -> AuthContext:
+        return AuthContext(
+            user_id=str(uuid4()),
+            roles=["admin"],
+            workspace_ids=[workspace_id],
+            is_anonymous=False,
+        )
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        incomplete = await client.post(
+            f"/api/v1/sources/batches/{batch_id}/claims/{claim_id}/review",
+            params={"workspace_id": workspace_id},
+            json={
+                "decision": "accepted",
+                "rationale": "Mapping has not been completed.",
+            },
+        )
+        assert incomplete.status_code == 422
+
+        unsupported = await client.post(
+            f"/api/v1/sources/batches/{batch_id}/claims/{claim_id}/review",
+            params={"workspace_id": workspace_id},
+            json={
+                "decision": "accepted",
+                "rationale": "Mapping has not been completed.",
+                "canonical_entity": "__import__",
+                "canonical_field": "supplier_id",
+            },
+        )
+        assert unsupported.status_code == 422
+
+    stored_claim = await db_session.get(EvidenceClaim, claim_id)
+    assert stored_claim is not None
+    assert stored_claim.claim_state == ClaimState.PENDING_REVIEW.value
