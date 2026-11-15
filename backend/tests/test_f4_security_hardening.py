@@ -108,19 +108,21 @@ class TestSetTenantContext:
         # Two calls: one for tenant_id, one for workspace_id
         assert session.execute.call_count == 2
         calls = session.execute.call_args_list
-        # First call: SET LOCAL app.current_tenant_id = :tenant_id
+        # First call: set_config('app.tenant_id', :tenant_id, true) — the
+        # bind-parameter-safe form of SET LOCAL; the GUC name MUST match
+        # the RLS policies (migration 002).
         sql_1 = calls[0].args[0]
         params_1 = (
             calls[0].kwargs.get("parameters") or calls[0].args[1] if len(calls[0].args) > 1 else {}
         )
-        assert "SET LOCAL app.current_tenant_id" in str(sql_1)
+        assert "set_config('app.tenant_id'" in str(sql_1)
         assert params_1.get("tenant_id") == "org_1"
-        # Second call: SET LOCAL app.current_workspace_id = :workspace_id
+        # Second call: set_config('app.workspace_id', :workspace_id, true)
         sql_2 = calls[1].args[0]
         params_2 = (
             calls[1].kwargs.get("parameters") or calls[1].args[1] if len(calls[1].args) > 1 else {}
         )
-        assert "SET LOCAL app.current_workspace_id" in str(sql_2)
+        assert "set_config('app.workspace_id'" in str(sql_2)
         assert params_2.get("workspace_id") == "ws_1"
 
     @pytest.mark.asyncio

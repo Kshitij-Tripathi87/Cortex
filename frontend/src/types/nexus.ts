@@ -492,5 +492,176 @@ export function mapCounterfactual(raw: RawCounterfactual): ScenarioCandidate {
 }
 
 
+/*
+ * Decision-1 - Decision Room as a read-only projection of the durable
+ * runtime (GET /api/v1/nexus/tasks/{task_id}/decision-room).
+ *
+ * Every field mirrors the backend projection derived from PostgreSQL
+ * durable records via NexusTaskRuntime.build_nexus_trace. The frontend
+ * renders these verbatim; it owns NO state machine, NO approval logic,
+ * NO execution logic, and NO World State mutation - authority stays
+ * server-side (the durable approval row is the only key into EXECUTING).
+ */
 
+export interface DecisionRoomTaskView {
+  task_id: string;
+  trace_id: string;
+  status: string;
+  objective: string;
+  world_state_version: number;
+  budget: number;
+  deadline: string | null;
+  requires_approval: boolean;
+}
 
+export interface DecisionRoomPlanStep {
+  step_id: string;
+  title: string;
+  agent_role: string;
+  dependencies: string[];
+  required_capabilities: string[];
+  expected_outputs: string[];
+}
+
+export interface DecisionRoomPlan {
+  task_id: string;
+  objective: string;
+  steps: DecisionRoomPlanStep[];
+  assumptions: string[];
+}
+
+export interface DecisionRoomRunRecord {
+  run_id: string;
+  run_number: number;
+  status: string;
+  world_state_version: number;
+  checkpoint_step: string | null;
+}
+
+export interface DecisionRoomStepRecord {
+  run_id: string;
+  step_id: string;
+  agent_role: string;
+  status: string;
+  error: string | null;
+  invocation_ids: string[];
+  evidence_refs: string[];
+}
+
+export interface DecisionRoomInvocationRecord {
+  invocation_id: string;
+  step_id: string;
+  capability_id: string;
+  capability_version: string;
+  status: string;
+  side_effect: string;
+  world_state_version: number;
+  arguments_sha256: string;
+  evidence_refs: string[];
+  error: string | null;
+  authorization: {
+    allowed: boolean | null;
+    policy_id: string | null;
+    reason: string | null;
+  };
+}
+
+export interface DecisionRoomEvidenceRecord {
+  ref: string;
+  source_invocation_id: string | null;
+  payload_digest: string | null;
+}
+
+export interface DecisionRoomProposalRecord {
+  agent_id: string;
+  agent_role: string;
+  statement: string;
+  actions: Record<string, unknown>[];
+  evidence_refs: string[];
+  confidence: number;
+  assumptions: string[];
+}
+
+export interface DecisionRoomPolicyResult {
+  capability_id: string;
+  capability_version: string;
+  status: string;
+  error: string | null;
+  allowed: boolean | null;
+  policy_id: string | null;
+  reason: string | null;
+}
+
+export interface DecisionRoomApprovalRecord {
+  decision: string;
+  approver_id: string | null;
+  reason: string | null;
+  decided_at: string;
+}
+
+export interface DecisionRoomExecutionRecord {
+  execution_id: string;
+  status: string;
+  attempts: number;
+  idempotency_key: string;
+  failure_reason: string | null;
+}
+
+export interface DecisionRoomOutcomeRecord {
+  status: string;
+  recommendation: string | null;
+  result_payload: Record<string, unknown>;
+  completed_at: string;
+}
+
+export interface DecisionRoomPendingDecision {
+  awaited_since: string | null;
+  reason: string | null;
+  approval_required_for: string[];
+  consequential_proposals: DecisionRoomProposalRecord[];
+  evidence_refs: string[];
+}
+
+export interface DecisionRoomView {
+  task: DecisionRoomTaskView;
+  pending_decision: DecisionRoomPendingDecision | null;
+  recommendation:
+    | {
+        statement: string;
+        evidence_refs: string[];
+        confidence?: number;
+        source: string;
+      }
+    | null;
+  plan: DecisionRoomPlan | null;
+  runs: DecisionRoomRunRecord[];
+  steps: DecisionRoomStepRecord[];
+  invocations: DecisionRoomInvocationRecord[];
+  evidence: DecisionRoomEvidenceRecord[];
+  proposals: DecisionRoomProposalRecord[];
+  policy_results: DecisionRoomPolicyResult[];
+  approvals: DecisionRoomApprovalRecord[];
+  execution: DecisionRoomExecutionRecord | null;
+  outcome: DecisionRoomOutcomeRecord | null;
+  consequential_capabilities: string[];
+}
+
+/** Envelope shape returned by every canonical /api/v1/nexus endpoint. */
+export interface DecisionRoomResponse {
+  request_id: string;
+  correlation_id: string | null;
+  timestamp: string;
+  data: { decision_room: DecisionRoomView };
+}
+
+/** Server-enforced approval decision response (POST /tasks/{id}/approvals). */
+export interface TaskApprovalResponse {
+  request_id: string;
+  correlation_id: string | null;
+  timestamp: string;
+  data: {
+    task_id: string;
+    status: string;
+    approved: boolean;
+  };
+}

@@ -263,11 +263,17 @@ def _to_inventory_data(i: Inventory) -> InventoryData:
         from datetime import UTC
 
         last_updated = last_updated.replace(tzinfo=UTC)
+    # Migration 020 widened inventory quantity and safety stock from INTEGER
+    # to NUMERIC(18, 4) for the material planner. The disruption engines still
+    # model whole units and combine these values with float arithmetic, where
+    # a Decimal operand raises TypeError, so convert at this boundary.
+    # Whole-unit rows (everything written before 020) are unchanged; a
+    # fractional remainder is dropped.
     return InventoryData(
         warehouse_id=i.warehouse_id,
         component_id=i.component_id,
-        quantity=i.quantity,
-        safety_stock=i.safety_stock,
+        quantity=int(i.quantity),
+        safety_stock=int(i.safety_stock),
         daily_usage=0,
         last_updated_at=last_updated,
     )

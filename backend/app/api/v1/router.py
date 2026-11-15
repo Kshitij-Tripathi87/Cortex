@@ -13,6 +13,13 @@ Nexus routing (v0.8.2 closeout — routing flip + dual-path removal):
                           explicitly enabled (unit tests, migration tooling,
                           historical v0.7 demonstrations). Never mounted in
                           production by default.
+
+  * /workspace/*        → the Program S in-memory demo singleton, mounted ONLY
+                          when CORTEX_WORKSPACE_DEMO_ROUTES is explicitly
+                          enabled. It hardcodes the tenant ws_default/
+                          org_default and performs no authz, so it must never
+                          be reachable in a customer deployment (RC0). The
+                          frontend no longer calls it.
 """
 
 from fastapi import APIRouter
@@ -23,6 +30,7 @@ from app.api.v1 import (
     audit,
     auth,
     briefs,
+    devices,
     execution,
     gnn,
     governance,
@@ -30,9 +38,11 @@ from app.api.v1 import (
     ingestion,
     intelligence_gateway,
     knowledge,
+    mobile,
     multi_agent,
     nexus_persistent,
     nexus_v07,
+    planning,
     readiness,
     realtime,
     rl,
@@ -41,6 +51,7 @@ from app.api.v1 import (
     spine,
     twin,
     validation,
+    voice,
     workspace,
     world,
 )
@@ -50,6 +61,7 @@ from app.config import get_settings
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(sources.router, prefix="/sources", tags=["sources"])
+api_router.include_router(planning.router, prefix="/planning", tags=["material planning"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(readiness.router, prefix="/readiness", tags=["readiness"])
 api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
@@ -77,10 +89,24 @@ api_router.include_router(agent_runtime.router, prefix="", tags=["Agent Runtime"
 api_router.include_router(intelligence_gateway.router, prefix="", tags=["Intelligence Gateway"])
 api_router.include_router(realtime.router, prefix="", tags=["Real-Time Streaming"])
 api_router.include_router(agents_router.router, prefix="", tags=["Agent Operations Center"])
-# Program S — Live Nexus Data Intelligence Workspace
-api_router.include_router(workspace.router, prefix="", tags=["Live Data Intelligence Workspace"])
+# Program S — Live Nexus Data Intelligence Workspace.
+# Mounted ONLY when explicitly enabled: this router holds a process-local
+# singleton pinned to the literal tenant ws_default/org_default with no
+# authz, so leaving it reachable would defeat tenant isolation (RC0). The
+# Program S/T suites opt in via tests/conftest.py.
+if get_settings().workspace_demo_routes:
+    api_router.include_router(
+        workspace.router, prefix="", tags=["Live Data Intelligence Workspace"]
+    )
 # Nexus Spine — Real Data Vertical Slice
 api_router.include_router(spine.router, prefix="/spine", tags=["Nexus Spine"])
+# Workflo — Sandboxed QA & Runtime Execution Control Plane.
+# Deliberately NOT mounted. main removed the mount in 8357310 and that
+# decision is kept here; the router (app.api.v1.workflo) and its package
+# (app.modules.workflo_backend) stay importable and are exercised by
+# tests/test_workflo.py and tests/test_workflo_api.py, which mount the router
+# on a private FastAPI app. Re-enabling it is a product decision, not a merge
+# side effect: add `workflo` to the import above and include its router here.
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus Decision Intelligence — v0.8.2 routing flip
@@ -95,6 +121,17 @@ api_router.include_router(
     prefix="",
     tags=["Nexus Decision Intelligence"],
 )
+
+# ─────────────────────────────────────────────────────────────────────
+# Device Mesh + Mobile + Voice (Day 25 phone client)
+#
+# The phone is a first-class capability-bearing Vanessa node: devices,
+# mobile bootstrap, and provider-agnostic voice sessions. The REST API
+# and the realtime channel remain the only authoritative surfaces.
+# ─────────────────────────────────────────────────────────────────────
+api_router.include_router(devices.router, prefix="", tags=["Device Mesh"])
+api_router.include_router(mobile.router, prefix="", tags=["Mobile"])
+api_router.include_router(voice.router, prefix="", tags=["Voice"])
 
 # ─────────────────────────────────────────────────────────────────────
 # Nexus v0.7 legacy — in-memory singletons, demoted 2026-09 (v0.8.2).

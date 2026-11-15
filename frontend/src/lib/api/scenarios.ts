@@ -13,7 +13,6 @@
  * rewire; nothing imported it.
  */
 
-import type { RawCounterfactual } from "@/types/nexus";
 import { request } from "./http";
 
 export interface ScenarioMutation {
@@ -125,13 +124,4 @@ export async function simulateScenario(req: SimulationRequest): Promise<Simulati
     },
   });
   return envelope.data;
-}
-
-export async function fetchCounterfactuals(incidentEntityId: string): Promise<RawCounterfactual[]> {
-  const data = await request<{ counterfactuals: RawCounterfactual[] }>({
-    path: "/workspace/deliberate",
-    method: "POST",
-    body: { incident_entity_id: incidentEntityId },
-  });
-  return data.counterfactuals || [];
 }

@@ -86,10 +86,19 @@ CANONICAL_NEXUS_PATHS = {
     ("POST", "/api/v1/nexus/decisions/{decision_id}/evidence/edges"),
     ("GET", "/api/v1/nexus/decisions/{decision_id}/evidence"),
     ("GET", "/api/v1/nexus/decisions/{decision_id}/approvals"),
+    ("GET", "/api/v1/nexus/decisions/{decision_id}/receipt"),
     # v0.8.5-B4 — durable realtime: replay, SSE stream, relay health
     ("GET", "/api/v1/nexus/realtime/events"),
     ("GET", "/api/v1/nexus/realtime/stream"),
     ("GET", "/api/v1/nexus/realtime/health"),
+    # Decision-1 — Decision Room: read-only projection of the durable runtime
+    ("GET", "/api/v1/nexus/tasks/{task_id}/decision-room"),
+    # v0.8.6 — Golden-path durable task runtime: create/resume/approve/trace
+    ("POST", "/api/v1/nexus/tasks"),
+    ("GET", "/api/v1/nexus/tasks/{task_id}"),
+    ("POST", "/api/v1/nexus/tasks/{task_id}/run"),
+    ("POST", "/api/v1/nexus/tasks/{task_id}/approvals"),
+    ("GET", "/api/v1/nexus/tasks/{task_id}/trace"),
 }
 
 # Authoritative operations that used to live on the v0.7 in-memory router

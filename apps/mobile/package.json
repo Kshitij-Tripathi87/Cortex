@@ -1,0 +1,30 @@
+﻿{
+  "name": "vanessa-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vanessa phone client - a first-class capability-bearing Nexus node (Day 25/26)",
+  "main": "index.js",
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "typecheck": "tsc --noEmit",
+    "test:contract": "node --experimental-strip-types tests/client-contract.test.ts"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
+    "react-native-safe-area-context": "^4.12.0",
+    "react-native-screens": "^4.4.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@babel/preset-env": "^7.25.0",
+    "@babel/preset-typescript": "^7.24.0",
+    "@react-native/babel-preset": "0.76.5",
+    "@react-native/metro-config": "0.76.5",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,5 @@
+# Kept so `COPY --from=builder /app/public ./public` in frontend/Dockerfile
+# has a source even though this app ships no static assets yet. The Docker
+# build fails with "/app/public: not found" when this directory is absent
+# (the runner-stage `mkdir -p ./public` does not create the COPY source in
+# the builder stage).

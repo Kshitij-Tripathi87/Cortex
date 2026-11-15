@@ -16,6 +16,7 @@ import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -91,6 +92,7 @@ class ClaimReviewRequest(BaseModel):
     rationale: str = Field(min_length=3, max_length=2000)
     canonical_entity: str | None = Field(default=None, min_length=1, max_length=64)
     canonical_field: str | None = Field(default=None, min_length=1, max_length=128)
+    entity_key: str | None = Field(default=None, min_length=1, max_length=256)
 
 
 class ConflictResponse(BaseModel):
@@ -363,6 +365,11 @@ async def review_claim_endpoint(
         )
 
     mapping_supplied = payload.canonical_entity is not None or payload.canonical_field is not None
+    if payload.entity_key is not None and not mapping_supplied:
+        raise HTTPException(
+            status_code=422,
+            detail="entity_key requires a complete canonical entity and field mapping",
+        )
     if mapping_supplied and (not payload.canonical_entity or not payload.canonical_field):
         raise HTTPException(
             status_code=422,
@@ -396,9 +403,11 @@ async def review_claim_endpoint(
                 "canonical_entity": payload.canonical_entity,
                 "canonical_field": payload.canonical_field,
             },
+            "entity_key": payload.entity_key or (claim.provenance or {}).get("entity_key"),
         }
     claim.claim_state = payload.decision
     claim.requires_review = False
+    await detect_conflicts(db, workspace_id, batch_id)
     await emit_audit(
         db,
         event_type="evidence.claim.reviewed",
@@ -416,6 +425,7 @@ async def review_claim_endpoint(
             "confidence": claim.confidence,
             "canonical_entity": claim.canonical_entity,
             "canonical_field": claim.canonical_field,
+            "entity_key_supplied": payload.entity_key is not None,
         },
         message=f"Evidence claim {claim.claim_id} {payload.decision}",
     )
@@ -540,11 +550,13 @@ async def compile_batch(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Compile a batch: extract claims, detect conflicts, compute readiness."""
+    """Compile source rows into evidence claims, then assess conflicts/readiness."""
     require_workspace_access(workspace_id, auth)
     batch = await _load_batch_for_workspace(db, batch_id, workspace_id)
 
+    from app.infrastructure.storage_client import get_storage
     from app.modules.sources.models import SourceFile
+    from app.modules.sources.row_parser import SourceRowParseError, parse_source_rows
 
     file_stmt = (
         select(SourceFile)
@@ -555,11 +567,32 @@ async def compile_batch(
     files = list(file_result.scalars().all())
 
     claims_created = 0
-    for file in files:
-        if file.profiled:
-            profiles = await list_profiles(db, file.file_id)
-            result = await extract_claims(db, batch.workspace_id, batch_id, file.file_id, profiles)
-            claims_created += result.claims_created
+    rows_compiled = 0
+    claims_requiring_review = 0
+    storage = get_storage()
+
+    for source_file in files:
+        if not source_file.profiled:
+            continue
+        profiles = await list_profiles(db, source_file.file_id)
+        try:
+            raw_bytes = await run_in_threadpool(storage.get_object, source_file.storage_key)
+            raw_rows = await run_in_threadpool(
+                parse_source_rows, raw_bytes, source_file.original_name
+            )
+        except SourceRowParseError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - retrieval failure is not a successful compile
+            raise HTTPException(
+                status_code=503, detail="Source artifact could not be retrieved"
+            ) from exc
+
+        result = await extract_claims(
+            db, batch.workspace_id, batch_id, source_file.file_id, profiles, raw_rows
+        )
+        claims_created += result.claims_created
+        claims_requiring_review += result.claims_requiring_review
+        rows_compiled += len(raw_rows)
 
     conflicts = await detect_conflicts(db, batch.workspace_id, batch_id)
     readiness = await compute_readiness(db, batch.workspace_id, batch_id)
@@ -573,6 +606,8 @@ async def compile_batch(
     return {
         "batch_id": batch_id,
         "claims_created": claims_created,
+        "claims_requiring_review": claims_requiring_review,
+        "rows_compiled": rows_compiled,
         "conflicts_detected": conflicts.conflicts_detected,
         "blocking_conflicts": conflicts.blocking_conflicts,
         "readiness": readiness.state,
