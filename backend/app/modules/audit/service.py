@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.ids import uuid7
 from app.infrastructure.tenant import TenantContext, set_tenant_context
 from app.modules.audit.models import AuditEvent
+
+
+def _workspace_db_id(workspace_id: str) -> UUID | None:
+    """Convert an authenticated workspace identifier for UUID-backed access models.
+
+    The public API and audit row retain string IDs, while access.Workspace.id
+    is SQLAlchemy UUID(as_uuid=True). Passing the raw string to that column
+    raises AttributeError during bind processing instead of producing a
+    normal scoped lookup.
+    """
+    try:
+        return UUID(str(workspace_id))
+    except (TypeError, ValueError):
+        return None
 
 
 async def emit(
@@ -48,7 +63,7 @@ async def emit(
         row = await db.execute(
             select(Organization.id)
             .join(Workspace, Workspace.organization_id == Organization.id)
-            .where(Workspace.id == workspace_id)
+            .where(Workspace.id == _workspace_db_id(workspace_id))
         )
         org = row.scalar()
         effective_tenant = str(org) if org is not None else None
