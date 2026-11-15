@@ -95,12 +95,16 @@ async def set_tenant_context(
     # block in the dependency). If called outside a
     # transaction, the SET will error, which is correct
     # fail-closed behavior.
+    # set_config(..., true) is the bind-parameter-safe form of SET LOCAL:
+    # utility commands (SET LOCAL) cannot take bind params through the
+    # extended protocol. The GUC names MUST match the RLS policies
+    # (migration 002): app.tenant_id / app.workspace_id.
     await session.execute(
-        text("SET LOCAL app.current_tenant_id = :tenant_id"),
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": ctx.tenant_id},
     )
     await session.execute(
-        text("SET LOCAL app.current_workspace_id = :workspace_id"),
+        text("SELECT set_config('app.workspace_id', :workspace_id, true)"),
         {"workspace_id": ctx.workspace_id},
     )
 

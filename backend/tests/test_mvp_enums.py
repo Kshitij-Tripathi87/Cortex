@@ -1,5 +1,5 @@
 """MVP enums sanity tests — make sure every enum declares the documented
-members and that `MvpDatasetType` covers all 10 dataset types the
+members and that `MvpDatasetType` covers every supported dataset type the
 ingestion endpoint and row-schema map expect."""
 
 from __future__ import annotations
@@ -31,10 +31,15 @@ EXPECTED_DATASETS = {
     "inventory",
     "bom",
     "orders",
+    "bom_revisions",
+    "bom_lines",
+    "production_orders",
+    "purchase_order_lines",
+    "uom_conversions",
 }
 
 
-def test_mvp_dataset_type_covers_all_ten_datasets() -> None:
+def test_mvp_dataset_type_covers_all_supported_datasets() -> None:
     actual = {m.value for m in MvpDatasetType}
     assert actual == EXPECTED_DATASETS
 

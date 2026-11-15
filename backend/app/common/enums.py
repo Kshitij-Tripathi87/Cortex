@@ -92,6 +92,11 @@ class MvpDatasetType(StrEnum):
     INVENTORY = "inventory"
     BOM = "bom"
     ORDERS = "orders"
+    BOM_REVISIONS = "bom_revisions"
+    BOM_LINES = "bom_lines"
+    PRODUCTION_ORDERS = "production_orders"
+    PURCHASE_ORDER_LINES = "purchase_order_lines"
+    UOM_CONVERSIONS = "uom_conversions"
 
 
 class SupplierStatus(StrEnum):
