@@ -415,18 +415,9 @@ async def ingest_csv_streaming(
 
 
 def _parse_csv_from_tempfile(path: str) -> list[dict[str, str]]:
-    """Parse CSV from a temporary file path."""
-    out: list[dict[str, str]] = []
-    with open(path, encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        for raw in reader:
-            out.append(
-                {
-                    (k or "").strip(): (v.strip() if isinstance(v, str) else v)
-                    for k, v in raw.items()
-                }
-            )
-    return out
+    """Read the staged upload and apply the same structural CSV validation."""
+    with open(path, "rb") as file_handle:
+        return _parse_csv_bytes(file_handle.read())
 
 
 def _build_key(workspace_id: UUID, run_id: UUID, file_name: str) -> str:
