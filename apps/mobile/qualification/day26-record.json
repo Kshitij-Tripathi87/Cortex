@@ -1,0 +1,18 @@
+{
+  "device": "phone-1790635110292-jqhsv7",
+  "app_version": "0.1.0",
+  "backend_version": "healthy",
+  "auth": "PASS",
+  "bootstrap": "PASS",
+  "device_mesh": "PASS",
+  "approvals": "PASS",
+  "push": "PASS",
+  "voice": "PASS",
+  "cold_restart": "PASS",
+  "network_transition": "SKIP",
+  "checks_passed": 26,
+  "checks_failed": 0,
+  "failures": [],
+  "recorded_at": "2026-09-28T22:38:32.930Z",
+  "backend_url": "http://127.0.0.1:8000"
+}
