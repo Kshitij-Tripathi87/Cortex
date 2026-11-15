@@ -9,10 +9,19 @@ Create Date: 2026-09-28
     ``020_device_mesh`` (revises ``019_audit_subject_id_width``), which
     collided with ``020_p1_p2_operational_planning`` (PR #12) and produced
     two Alembic heads. It now follows ``022_ingestion_file_digest`` so the
-    history stays linear. The DDL is unchanged and idempotent: a database
-    that already ran the original ``020_device_mesh`` can be re-pointed with
-    ``alembic stamp 019_audit_subject_id_width`` and upgraded normally; the
-    "create only when missing" guards below skip the tables it already has.
+    history stays linear. The DDL is unchanged and idempotent.
+
+    A database that already ran the original ``020_device_mesh`` records a
+    revision this tree no longer contains, so ``alembic upgrade head`` stops
+    with "Can't locate revision identified by '020_device_mesh'". Re-point
+    it first, then upgrade::
+
+        alembic stamp --purge 019_audit_subject_id_width
+        alembic upgrade head
+
+    ``--purge`` is required: a plain ``stamp`` fails on the same unknown
+    revision. The "create only when missing" guards below skip the tables
+    such a database already has.
 
     Creates the capability-bearing device tables:
 
