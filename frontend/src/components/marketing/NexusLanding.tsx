@@ -246,7 +246,7 @@ export default function NexusLanding() {
                 Cortex Nexus turns fragmented operational data into a shared, evidence-linked world state — so teams can understand risk, test decisions, and act with confidence.
               </p>
               <div className="nx-hero-actions">
-                <Link href="/demo" className="nx-button nx-button-dark">Explore Nexus <span>↗</span></Link>
+                <Link href="/platform" className="nx-button nx-button-dark">Explore the platform <span>↗</span></Link>
                 <a href="#platform" className="nx-button nx-button-light">See how it works <span>↓</span></a>
               </div>
               <div className="nx-hero-footnote">
