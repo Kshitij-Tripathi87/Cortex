@@ -17,8 +17,15 @@ from app.modules.planning.models import (
     UOMConverter,
 )
 
-_FIRM_RECEIPT_STATUSES = {"open", "confirmed", "partially_received", "partial" }
-_EXCLUDED_RECEIPT_STATUSES = {"cancelled", "canceled", "closed", "received", "complete", "completed"}
+_FIRM_RECEIPT_STATUSES = {"open", "confirmed", "partially_received", "partial"}
+_EXCLUDED_RECEIPT_STATUSES = {
+    "cancelled",
+    "canceled",
+    "closed",
+    "received",
+    "complete",
+    "completed",
+}
 
 
 class InventoryProjectionError(ValueError):
@@ -61,14 +68,18 @@ def _opening_usable(balance: InventoryBalanceInput) -> Decimal:
     return usable
 
 
-def _uncovered_demand(item: DemandContribution, converter: UOMConverter, target_uom: str) -> Decimal:
+def _uncovered_demand(
+    item: DemandContribution, converter: UOMConverter, target_uom: str
+) -> Decimal:
     if item.gross_quantity < 0 or item.reserved_quantity < 0:
         raise InventoryProjectionError("DEMAND_QUANTITY_NEGATIVE", item.contribution_id)
     try:
         gross = converter.convert(item.gross_quantity, item.uom, target_uom)
         reserved = converter.convert(item.reserved_quantity, item.uom, target_uom)
     except ValueError as exc:
-        raise InventoryProjectionError("DEMAND_UOM_CONVERSION_MISSING", item.contribution_id) from exc
+        raise InventoryProjectionError(
+            "DEMAND_UOM_CONVERSION_MISSING", item.contribution_id
+        ) from exc
     if item.reservation_linked:
         if reserved > gross:
             raise InventoryProjectionError("RESERVATION_EXCEEDS_DEMAND", item.contribution_id)
@@ -109,10 +120,23 @@ def project_inventory(
         opening = _opening_usable(balance)
     except InventoryProjectionError as exc:
         return InventoryProjection(
-            balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-            ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-            start_date, end_date, balance.quantity, None, None, (), Decimal("0"),
-            Decimal("0"), (str(exc),), balance.source_refs,
+            balance.workspace_id,
+            balance.snapshot_id,
+            balance.facility_id,
+            balance.material_id,
+            ProjectionStatus.NOT_CALCULABLE,
+            balance.quantity_basis,
+            balance.uom,
+            start_date,
+            end_date,
+            balance.quantity,
+            None,
+            None,
+            (),
+            Decimal("0"),
+            Decimal("0"),
+            (str(exc),),
+            balance.source_refs,
         )
 
     seen_receipts: set[str] = set()
@@ -128,10 +152,23 @@ def project_inventory(
             continue
         if receipt.receipt_id in seen_receipts:
             return InventoryProjection(
-                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-                start_date, end_date, opening, None, None, (), Decimal("0"), Decimal("0"),
-                (f"DUPLICATE_RECEIPT_ID:{receipt.receipt_id}",), balance.source_refs,
+                balance.workspace_id,
+                balance.snapshot_id,
+                balance.facility_id,
+                balance.material_id,
+                ProjectionStatus.NOT_CALCULABLE,
+                balance.quantity_basis,
+                balance.uom,
+                start_date,
+                end_date,
+                opening,
+                None,
+                None,
+                (),
+                Decimal("0"),
+                Decimal("0"),
+                (f"DUPLICATE_RECEIPT_ID:{receipt.receipt_id}",),
+                balance.source_refs,
             )
         seen_receipts.add(receipt.receipt_id)
         status = receipt.status.strip().lower()
@@ -144,10 +181,23 @@ def project_inventory(
             remaining = receipt.remaining_open_quantity()
         except ValueError as exc:
             return InventoryProjection(
-                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-                start_date, end_date, opening, None, None, (), Decimal("0"), Decimal("0"),
-                (str(exc),), balance.source_refs,
+                balance.workspace_id,
+                balance.snapshot_id,
+                balance.facility_id,
+                balance.material_id,
+                ProjectionStatus.NOT_CALCULABLE,
+                balance.quantity_basis,
+                balance.uom,
+                start_date,
+                end_date,
+                opening,
+                None,
+                None,
+                (),
+                Decimal("0"),
+                Decimal("0"),
+                (str(exc),),
+                balance.source_refs,
             )
         if remaining == 0:
             continue
@@ -155,10 +205,23 @@ def project_inventory(
             remaining = converter.convert(remaining, receipt.uom, balance.uom)
         except ValueError:
             return InventoryProjection(
-                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-                start_date, end_date, opening, None, None, (), Decimal("0"), Decimal("0"),
-                (f"RECEIPT_UOM_CONVERSION_MISSING:{receipt.receipt_id}",), balance.source_refs,
+                balance.workspace_id,
+                balance.snapshot_id,
+                balance.facility_id,
+                balance.material_id,
+                ProjectionStatus.NOT_CALCULABLE,
+                balance.quantity_basis,
+                balance.uom,
+                start_date,
+                end_date,
+                opening,
+                None,
+                None,
+                (),
+                Decimal("0"),
+                Decimal("0"),
+                (f"RECEIPT_UOM_CONVERSION_MISSING:{receipt.receipt_id}",),
+                balance.source_refs,
             )
         if receipt.expected_date is None:
             warnings.append(f"RECEIPT_DATE_MISSING:{receipt.receipt_id}")
@@ -191,18 +254,44 @@ def project_inventory(
             uncovered = _uncovered_demand(item, converter, balance.uom)
         except InventoryProjectionError as exc:
             return InventoryProjection(
-                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-                start_date, end_date, opening, None, None, (), uncertain_total, total_uncovered,
-                (str(exc),), balance.source_refs,
+                balance.workspace_id,
+                balance.snapshot_id,
+                balance.facility_id,
+                balance.material_id,
+                ProjectionStatus.NOT_CALCULABLE,
+                balance.quantity_basis,
+                balance.uom,
+                start_date,
+                end_date,
+                opening,
+                None,
+                None,
+                (),
+                uncertain_total,
+                total_uncovered,
+                (str(exc),),
+                balance.source_refs,
             )
         if item.need_at < balance.as_of:
             warnings.append(f"DEMAND_DATE_PRECEDES_SNAPSHOT:{item.contribution_id}")
             return InventoryProjection(
-                balance.workspace_id, balance.snapshot_id, balance.facility_id, balance.material_id,
-                ProjectionStatus.NOT_CALCULABLE, balance.quantity_basis, balance.uom,
-                start_date, end_date, opening, None, None, (), uncertain_total, total_uncovered,
-                tuple(warnings), balance.source_refs,
+                balance.workspace_id,
+                balance.snapshot_id,
+                balance.facility_id,
+                balance.material_id,
+                ProjectionStatus.NOT_CALCULABLE,
+                balance.quantity_basis,
+                balance.uom,
+                start_date,
+                end_date,
+                opening,
+                None,
+                None,
+                (),
+                uncertain_total,
+                total_uncovered,
+                tuple(warnings),
+                balance.source_refs,
             )
         if start_date <= item.need_at <= end_date:
             demand_by_date[item.need_at] += uncovered
@@ -225,8 +314,10 @@ def project_inventory(
             first_safety = current
         if first_negative is None and closing < 0:
             first_negative = current
-        status = "shortage" if closing < 0 else (
-            "at_risk" if closing < balance.safety_stock_quantity else "healthy"
+        status = (
+            "shortage"
+            if closing < 0
+            else ("at_risk" if closing < balance.safety_stock_quantity else "healthy")
         )
         buckets.append(
             DailyInventoryBucket(
@@ -248,9 +339,7 @@ def project_inventory(
         firm_by_date[day] > 0 and demand_by_date[day] > 0
         for day in set(firm_by_date) & set(demand_by_date)
     ):
-        warnings.append(
-            "SAME_DAY_RECEIPTS_ASSUMED_AVAILABLE_BEFORE_DEMAND"
-        )
+        warnings.append("SAME_DAY_RECEIPTS_ASSUMED_AVAILABLE_BEFORE_DEMAND")
 
     result_status = ProjectionStatus.DEGRADED if warnings else ProjectionStatus.COMPLETED
     return InventoryProjection(

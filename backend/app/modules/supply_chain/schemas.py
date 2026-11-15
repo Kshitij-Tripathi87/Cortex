@@ -107,9 +107,7 @@ class InventoryRow(BaseModel):
         if self.quantity_basis != "physical_on_hand" and (
             self.basis_excludes_reserved is None or self.basis_excludes_blocked is None
         ):
-            raise ValueError(
-                "available/free inventory must declare reserved and blocked semantics"
-            )
+            raise ValueError("available/free inventory must declare reserved and blocked semantics")
         return self
 
 
@@ -117,7 +115,6 @@ class BomRow(BaseModel):
     product_sku: str
     component_sku: str
     quantity_per_unit: Annotated[Decimal, Field(gt=0)]
-
 
 
 class BOMRevisionRow(BaseModel):

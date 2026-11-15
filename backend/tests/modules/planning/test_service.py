@@ -103,9 +103,7 @@ def test_snapshot_mismatch_is_rejected_before_calculation():
         inventory_balances=(bad_balance,),
     )
     with pytest.raises(ValueError, match="SNAPSHOT_BOUNDARY_MISMATCH"):
-        run_material_plan(
-            bad_snapshot, start_date=date(2026, 11, 4), end_date=date(2026, 11, 5)
-        )
+        run_material_plan(bad_snapshot, start_date=date(2026, 11, 4), end_date=date(2026, 11, 5))
 
 
 def test_missing_inventory_balance_is_not_fabricated():
@@ -118,8 +116,6 @@ def test_missing_inventory_balance_is_not_fabricated():
         production_orders=snapshot.production_orders,
         inventory_balances=(),
     )
-    result = run_material_plan(
-        missing, start_date=date(2026, 11, 4), end_date=date(2026, 11, 8)
-    )
+    result = run_material_plan(missing, start_date=date(2026, 11, 4), end_date=date(2026, 11, 8))
     assert result.status == ProjectionStatus.NOT_CALCULABLE
     assert "INVENTORY_SNAPSHOT_MISSING" in result.warnings

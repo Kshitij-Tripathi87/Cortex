@@ -59,10 +59,7 @@ def _json_value(value: Any) -> Any:
 
 
 def _row_payload(row: Any) -> dict[str, Any]:
-    return {
-        column.name: _json_value(getattr(row, column.name))
-        for column in row.__table__.columns
-    }
+    return {column.name: _json_value(getattr(row, column.name)) for column in row.__table__.columns}
 
 
 def _sorted_payload(rows: list[Any]) -> list[dict[str, Any]]:
@@ -89,16 +86,12 @@ async def load_material_planning_snapshot(
     inventory_rows = list(inventory_result.scalars().all())
 
     production_result = await session.execute(
-        select(ProductionOrderRecord).where(
-            ProductionOrderRecord.workspace_id == workspace_id
-        )
+        select(ProductionOrderRecord).where(ProductionOrderRecord.workspace_id == workspace_id)
     )
     production_rows = list(production_result.scalars().all())
 
     revision_result = await session.execute(
-        select(BOMRevisionRecord).where(
-            BOMRevisionRecord.workspace_id == workspace_id
-        )
+        select(BOMRevisionRecord).where(BOMRevisionRecord.workspace_id == workspace_id)
     )
     revision_rows = list(revision_result.scalars().all())
 
@@ -108,38 +101,35 @@ async def load_material_planning_snapshot(
     line_rows = list(line_result.scalars().all())
 
     receipt_result = await session.execute(
-        select(PurchaseOrderLineRecord).where(
-            PurchaseOrderLineRecord.workspace_id == workspace_id
-        )
+        select(PurchaseOrderLineRecord).where(PurchaseOrderLineRecord.workspace_id == workspace_id)
     )
     receipt_rows = list(receipt_result.scalars().all())
 
     uom_result = await session.execute(
-        select(UOMConversionRecord).where(
-            UOMConversionRecord.workspace_id == workspace_id
-        )
+        select(UOMConversionRecord).where(UOMConversionRecord.workspace_id == workspace_id)
     )
     uom_rows = list(uom_result.scalars().all())
 
-    customer_result = await session.execute(
-        select(Order).where(Order.workspace_id == workspace_id)
-    )
+    customer_result = await session.execute(select(Order).where(Order.workspace_id == workspace_id))
     customer_orders = tuple(customer_result.scalars().all())
 
     component_ids = {row.component_id for row in inventory_rows}
     component_ids.update(
-        row.child_item_id
-        for row in line_rows
-        if row.child_item_type == ItemType.COMPONENT.value
+        row.child_item_id for row in line_rows if row.child_item_type == ItemType.COMPONENT.value
     )
-    component_result = await session.execute(
-        select(Component)
-        .where(Component.workspace_id == workspace_id)
-        .where(Component.id.in_(component_ids))
-    ) if component_ids else None
+    component_result = (
+        await session.execute(
+            select(Component)
+            .where(Component.workspace_id == workspace_id)
+            .where(Component.id.in_(component_ids))
+        )
+        if component_ids
+        else None
+    )
     components = (
         {row.id: row for row in component_result.scalars().all()}
-        if component_result is not None else {}
+        if component_result is not None
+        else {}
     )
 
     all_payload = {
@@ -168,9 +158,7 @@ async def load_material_planning_snapshot(
                 usage_uom=row.usage_uom,
                 child_base_uom=row.child_base_uom,
                 child_is_assembly=row.child_is_assembly,
-                scrap_factor=(
-                    Decimal(row.scrap_factor) if row.scrap_factor is not None else None
-                ),
+                scrap_factor=(Decimal(row.scrap_factor) if row.scrap_factor is not None else None),
                 valid_from=row.valid_from,
                 valid_to=row.valid_to,
             )
@@ -245,9 +233,7 @@ async def load_material_planning_snapshot(
             status=row.status,
             confirmed=row.confirmed,
             uom=row.uom,
-            open_quantity=(
-                Decimal(row.open_quantity) if row.open_quantity is not None else None
-            ),
+            open_quantity=(Decimal(row.open_quantity) if row.open_quantity is not None else None),
             supplier_id=str(row.supplier_id),
             source_ref=row.source_ref or f"purchase-order-line:{row.id}",
         )

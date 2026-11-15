@@ -66,18 +66,16 @@ def _projection_payload(projection: InventoryProjection) -> dict[str, Any]:
         "opening_usable_quantity": _decimal(projection.opening_usable_quantity),
         "first_safety_stock_breach": (
             projection.first_safety_stock_breach.isoformat()
-            if projection.first_safety_stock_breach else None
+            if projection.first_safety_stock_breach
+            else None
         ),
         "first_negative_balance": (
             projection.first_negative_balance.isoformat()
-            if projection.first_negative_balance else None
+            if projection.first_negative_balance
+            else None
         ),
-        "uncovered_requirement_quantity": _decimal(
-            projection.uncovered_requirement_quantity
-        ),
-        "uncertain_receipts_excluded": _decimal(
-            projection.uncertain_receipts_excluded
-        ),
+        "uncovered_requirement_quantity": _decimal(projection.uncovered_requirement_quantity),
+        "uncertain_receipts_excluded": _decimal(projection.uncertain_receipts_excluded),
         "warnings": list(projection.warnings),
         "daily_buckets": [
             {
@@ -139,9 +137,7 @@ def run_material_plan(
         balances_by_key[key] = balance
 
     order_results = tuple(
-        explode_production_order(
-            order, snapshot.bom_revisions, snapshot.uom_converter
-        )
+        explode_production_order(order, snapshot.bom_revisions, snapshot.uom_converter)
         for order in sorted(snapshot.production_orders, key=lambda item: item.order_id)
     )
     demand_by_key: dict[tuple[str, str], list[DemandContribution]] = {}
@@ -177,8 +173,7 @@ def run_material_plan(
         )
         projections.append(projected)
         warnings.extend(
-            f"PROJECTION_WARNING:{key[0]}:{key[1]}:{warning}"
-            for warning in projected.warnings
+            f"PROJECTION_WARNING:{key[0]}:{key[1]}:{warning}" for warning in projected.warnings
         )
 
     if not projections:

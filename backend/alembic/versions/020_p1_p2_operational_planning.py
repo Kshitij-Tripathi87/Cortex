@@ -29,8 +29,7 @@ def _table_exists(schema: str, table: str) -> bool:
 
 def _columns(schema: str, table: str) -> set[str]:
     return {
-        column["name"]
-        for column in sa.inspect(op.get_bind()).get_columns(table, schema=schema)
+        column["name"] for column in sa.inspect(op.get_bind()).get_columns(table, schema=schema)
     }
 
 
@@ -53,8 +52,10 @@ def upgrade() -> None:
             op.add_column(
                 "inventory",
                 sa.Column(
-                    "reserved_quantity", sa.Numeric(18, 4),
-                    nullable=False, server_default=sa.text("0"),
+                    "reserved_quantity",
+                    sa.Numeric(18, 4),
+                    nullable=False,
+                    server_default=sa.text("0"),
                 ),
                 schema="inventory",
             )
@@ -62,8 +63,10 @@ def upgrade() -> None:
             op.add_column(
                 "inventory",
                 sa.Column(
-                    "blocked_quantity", sa.Numeric(18, 4),
-                    nullable=False, server_default=sa.text("0"),
+                    "blocked_quantity",
+                    sa.Numeric(18, 4),
+                    nullable=False,
+                    server_default=sa.text("0"),
                 ),
                 schema="inventory",
             )
@@ -71,8 +74,10 @@ def upgrade() -> None:
             op.add_column(
                 "inventory",
                 sa.Column(
-                    "quantity_basis", sa.String(32),
-                    nullable=False, server_default=sa.text("'physical_on_hand'"),
+                    "quantity_basis",
+                    sa.String(32),
+                    nullable=False,
+                    server_default=sa.text("'physical_on_hand'"),
                 ),
                 schema="inventory",
             )
@@ -99,16 +104,31 @@ def upgrade() -> None:
         op.create_table(
             "bom_revisions",
             sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-            sa.Column("workspace_id", _UUID, sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "workspace_id",
+                _UUID,
+                sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column("parent_item_type", sa.String(32), nullable=False),
             sa.Column("parent_item_id", _UUID, nullable=False),
             sa.Column("revision_code", sa.String(64), nullable=False),
-            sa.Column("facility_id", _UUID, sa.ForeignKey("operational.factories.id", ondelete="SET NULL"), nullable=True),
+            sa.Column(
+                "facility_id",
+                _UUID,
+                sa.ForeignKey("operational.factories.id", ondelete="SET NULL"),
+                nullable=True,
+            ),
             sa.Column("valid_from", sa.Date(), nullable=True),
             sa.Column("valid_to", sa.Date(), nullable=True),
             sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column("source_ref", sa.String(512), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.text("now()"),
+            ),
             schema="inventory",
         )
         op.create_index(
@@ -122,8 +142,18 @@ def upgrade() -> None:
         op.create_table(
             "bom_lines",
             sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-            sa.Column("workspace_id", _UUID, sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False),
-            sa.Column("revision_id", _UUID, sa.ForeignKey("inventory.bom_revisions.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "workspace_id",
+                _UUID,
+                sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
+            sa.Column(
+                "revision_id",
+                _UUID,
+                sa.ForeignKey("inventory.bom_revisions.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column("line_code", sa.String(64), nullable=False),
             sa.Column("child_item_type", sa.String(32), nullable=False),
             sa.Column("child_item_id", _UUID, nullable=False),
@@ -135,7 +165,12 @@ def upgrade() -> None:
             sa.Column("valid_from", sa.Date(), nullable=True),
             sa.Column("valid_to", sa.Date(), nullable=True),
             sa.Column("source_ref", sa.String(512), nullable=True),
-            sa.UniqueConstraint("workspace_id", "revision_id", "line_code", name="uq_bom_lines_workspace_revision_line"),
+            sa.UniqueConstraint(
+                "workspace_id",
+                "revision_id",
+                "line_code",
+                name="uq_bom_lines_workspace_revision_line",
+            ),
             schema="inventory",
         )
         op.create_index(
@@ -149,12 +184,19 @@ def upgrade() -> None:
         op.create_table(
             "uom_conversions",
             sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-            sa.Column("workspace_id", _UUID, sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "workspace_id",
+                _UUID,
+                sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column("from_uom", sa.String(32), nullable=False),
             sa.Column("to_uom", sa.String(32), nullable=False),
             sa.Column("factor", sa.Numeric(24, 12), nullable=False),
             sa.Column("source_ref", sa.String(512), nullable=True),
-            sa.UniqueConstraint("workspace_id", "from_uom", "to_uom", name="uq_uom_conversions_workspace_pair"),
+            sa.UniqueConstraint(
+                "workspace_id", "from_uom", "to_uom", name="uq_uom_conversions_workspace_pair"
+            ),
             schema="inventory",
         )
 
@@ -162,10 +204,25 @@ def upgrade() -> None:
         op.create_table(
             "production_orders",
             sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-            sa.Column("workspace_id", _UUID, sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "workspace_id",
+                _UUID,
+                sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column("order_number", sa.String(128), nullable=False),
-            sa.Column("factory_id", _UUID, sa.ForeignKey("operational.factories.id", ondelete="RESTRICT"), nullable=False),
-            sa.Column("warehouse_id", _UUID, sa.ForeignKey("operational.warehouses.id", ondelete="RESTRICT"), nullable=False),
+            sa.Column(
+                "factory_id",
+                _UUID,
+                sa.ForeignKey("operational.factories.id", ondelete="RESTRICT"),
+                nullable=False,
+            ),
+            sa.Column(
+                "warehouse_id",
+                _UUID,
+                sa.ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
+                nullable=False,
+            ),
             sa.Column("item_type", sa.String(32), nullable=False),
             sa.Column("item_id", _UUID, nullable=False),
             sa.Column("quantity", sa.Numeric(18, 4), nullable=False),
@@ -173,10 +230,22 @@ def upgrade() -> None:
             sa.Column("item_base_uom", sa.String(32), nullable=False),
             sa.Column("material_need_at", sa.Date(), nullable=False),
             sa.Column("status", sa.String(32), nullable=False),
-            sa.Column("bom_revision_id", _UUID, sa.ForeignKey("inventory.bom_revisions.id", ondelete="SET NULL"), nullable=True),
+            sa.Column(
+                "bom_revision_id",
+                _UUID,
+                sa.ForeignKey("inventory.bom_revisions.id", ondelete="SET NULL"),
+                nullable=True,
+            ),
             sa.Column("source_ref", sa.String(512), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-            sa.UniqueConstraint("workspace_id", "order_number", name="uq_production_orders_workspace_number"),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.text("now()"),
+            ),
+            sa.UniqueConstraint(
+                "workspace_id", "order_number", name="uq_production_orders_workspace_number"
+            ),
             schema="orders",
         )
         op.create_index(
@@ -190,22 +259,54 @@ def upgrade() -> None:
         op.create_table(
             "purchase_order_lines",
             sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-            sa.Column("workspace_id", _UUID, sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"), nullable=False),
+            sa.Column(
+                "workspace_id",
+                _UUID,
+                sa.ForeignKey("core.workspaces.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
             sa.Column("po_number", sa.String(128), nullable=False),
             sa.Column("line_number", sa.String(32), nullable=False),
-            sa.Column("supplier_id", _UUID, sa.ForeignKey("operational.suppliers.id", ondelete="RESTRICT"), nullable=False),
-            sa.Column("warehouse_id", _UUID, sa.ForeignKey("operational.warehouses.id", ondelete="RESTRICT"), nullable=False),
-            sa.Column("component_id", _UUID, sa.ForeignKey("operational.components.id", ondelete="RESTRICT"), nullable=False),
+            sa.Column(
+                "supplier_id",
+                _UUID,
+                sa.ForeignKey("operational.suppliers.id", ondelete="RESTRICT"),
+                nullable=False,
+            ),
+            sa.Column(
+                "warehouse_id",
+                _UUID,
+                sa.ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
+                nullable=False,
+            ),
+            sa.Column(
+                "component_id",
+                _UUID,
+                sa.ForeignKey("operational.components.id", ondelete="RESTRICT"),
+                nullable=False,
+            ),
             sa.Column("ordered_quantity", sa.Numeric(18, 4), nullable=False),
-            sa.Column("received_quantity", sa.Numeric(18, 4), nullable=False, server_default=sa.text("0")),
+            sa.Column(
+                "received_quantity", sa.Numeric(18, 4), nullable=False, server_default=sa.text("0")
+            ),
             sa.Column("open_quantity", sa.Numeric(18, 4), nullable=True),
             sa.Column("expected_date", sa.Date(), nullable=True),
             sa.Column("status", sa.String(32), nullable=False),
             sa.Column("confirmed", sa.Boolean(), nullable=False, server_default=sa.false()),
             sa.Column("uom", sa.String(32), nullable=False),
             sa.Column("source_ref", sa.String(512), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-            sa.UniqueConstraint("workspace_id", "po_number", "line_number", name="uq_purchase_order_lines_workspace_line"),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.text("now()"),
+            ),
+            sa.UniqueConstraint(
+                "workspace_id",
+                "po_number",
+                "line_number",
+                name="uq_purchase_order_lines_workspace_line",
+            ),
             schema="orders",
         )
         op.create_index(

@@ -55,9 +55,7 @@ def _validate_headers(headers: list[Any], max_columns: int) -> list[str]:
     return normalized
 
 
-def _parse_csv(
-    data: bytes, *, max_rows: int, max_columns: int
-) -> list[dict[str, Any]]:
+def _parse_csv(data: bytes, *, max_rows: int, max_columns: int) -> list[dict[str, Any]]:
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -81,9 +79,7 @@ def _parse_csv(
     return rows
 
 
-def _parse_xlsx(
-    data: bytes, *, max_rows: int, max_columns: int
-) -> list[dict[str, Any]]:
+def _parse_xlsx(data: bytes, *, max_rows: int, max_columns: int) -> list[dict[str, Any]]:
     try:
         import openpyxl
     except ImportError as exc:
@@ -112,10 +108,10 @@ def _parse_xlsx(
             if not values_list or all(value is None for value in values_list):
                 continue
             if len(values_list) > len(headers) and any(
-                value is not None for value in values_list[len(headers):]
+                value is not None for value in values_list[len(headers) :]
             ):
                 raise SourceRowParseError(f"SOURCE_ROW_WIDTH_MISMATCH:{row_number}")
-            values_list = values_list[:len(headers)]
+            values_list = values_list[: len(headers)]
             if len(values_list) < len(headers):
                 values_list.extend([None] * (len(headers) - len(values_list)))
             rows.append(dict(zip(headers, values_list, strict=True)))

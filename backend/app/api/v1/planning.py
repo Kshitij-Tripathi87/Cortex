@@ -81,20 +81,18 @@ def _plan_payload(result: Any) -> dict[str, Any]:
                 "uom": projection.uom,
                 "start_date": projection.start_date.isoformat(),
                 "end_date": projection.end_date.isoformat(),
-                "opening_usable_quantity": format(
-                    projection.opening_usable_quantity, "f"
-                ),
+                "opening_usable_quantity": format(projection.opening_usable_quantity, "f"),
                 "first_safety_stock_breach": (
                     projection.first_safety_stock_breach.isoformat()
-                    if projection.first_safety_stock_breach else None
+                    if projection.first_safety_stock_breach
+                    else None
                 ),
                 "first_negative_balance": (
                     projection.first_negative_balance.isoformat()
-                    if projection.first_negative_balance else None
+                    if projection.first_negative_balance
+                    else None
                 ),
-                "uncertain_receipts_excluded": format(
-                    projection.uncertain_receipts_excluded, "f"
-                ),
+                "uncertain_receipts_excluded": format(projection.uncertain_receipts_excluded, "f"),
                 "uncovered_requirement_quantity": format(
                     projection.uncovered_requirement_quantity, "f"
                 ),
@@ -108,9 +106,7 @@ def _plan_payload(result: Any) -> dict[str, Any]:
                         "uncertain_receipts": format(bucket.uncertain_receipts, "f"),
                         "uncovered_demand": format(bucket.uncovered_demand, "f"),
                         "closing_quantity": format(bucket.closing_quantity, "f"),
-                        "safety_stock_quantity": format(
-                            bucket.safety_stock_quantity, "f"
-                        ),
+                        "safety_stock_quantity": format(bucket.safety_stock_quantity, "f"),
                         "status": bucket.status,
                         "demand_refs": list(bucket.demand_refs),
                         "receipt_refs": list(bucket.receipt_refs),
@@ -137,9 +133,7 @@ async def create_material_plan(
         # All source tables must be read from one consistent PostgreSQL
         # transaction snapshot. Auth resolution does not use this DB session.
         if session.get_bind().dialect.name == "postgresql":
-            await session.execute(
-                text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-            )
+            await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
         loaded = await load_material_planning_snapshot(
             session, request.workspace_id, as_of=request.as_of
         )
@@ -155,18 +149,16 @@ async def create_material_plan(
         )
         payload["historical_inventory_lookup_supported"] = False
         payload["warnings"] = sorted(
-            set(payload["warnings"])
-            | {"AS_OF_DATE_APPLIES_TO_CURRENTLY_STORED_INVENTORY_ROWS"}
+            set(payload["warnings"]) | {"AS_OF_DATE_APPLIES_TO_CURRENTLY_STORED_INVENTORY_ROWS"}
         )
 
         risk_by_material: list[dict[str, Any]] = []
         affected_production_order_ids: set[str] = set()
-        production_orders = {
-            order.order_id: order for order in loaded.snapshot.production_orders
-        }
+        production_orders = {order.order_id: order for order in loaded.snapshot.production_orders}
         for projection in result.inventory_projections:
             risky_buckets = [
-                bucket for bucket in projection.daily_buckets
+                bucket
+                for bucket in projection.daily_buckets
                 if bucket.status in {"at_risk", "shortage"}
             ]
             order_ids = {
@@ -182,11 +174,13 @@ async def create_material_plan(
                         "material_id": projection.material_id,
                         "first_safety_stock_breach": (
                             projection.first_safety_stock_breach.isoformat()
-                            if projection.first_safety_stock_breach else None
+                            if projection.first_safety_stock_breach
+                            else None
                         ),
                         "first_negative_balance": (
                             projection.first_negative_balance.isoformat()
-                            if projection.first_negative_balance else None
+                            if projection.first_negative_balance
+                            else None
                         ),
                         "affected_production_order_ids": sorted(order_ids),
                     }
@@ -195,8 +189,7 @@ async def create_material_plan(
         affected_product_ids = {
             UUID(order.item_id)
             for order_id, order in production_orders.items()
-            if order_id in affected_production_order_ids
-            and order.item_type.value == "product"
+            if order_id in affected_production_order_ids and order.item_type.value == "product"
         }
         potentially_exposed_customer_orders = [
             {
@@ -217,8 +210,7 @@ async def create_material_plan(
         payload["potentially_exposed_customer_orders"] = potentially_exposed_customer_orders
         if potentially_exposed_customer_orders:
             payload["warnings"] = sorted(
-                set(payload["warnings"])
-                | {"CUSTOMER_ORDER_EXPOSURE_IS_PRODUCT_LEVEL_ONLY"}
+                set(payload["warnings"]) | {"CUSTOMER_ORDER_EXPOSURE_IS_PRODUCT_LEVEL_ONLY"}
             )
 
         persisted_hash = hashlib.sha256(

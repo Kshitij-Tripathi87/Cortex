@@ -31,11 +31,17 @@ def _order(quantity="10", *, revision=None):
 def test_multilevel_bom_explosion_multiplies_each_level():
     revisions = (
         BOMRevision(
-            "r-product", "P-100", ItemType.PRODUCT, "A",
+            "r-product",
+            "P-100",
+            ItemType.PRODUCT,
+            "A",
             (BOMLine("L1", "A-10", ItemType.COMPONENT, Decimal("2"), "EA", "EA", True),),
         ),
         BOMRevision(
-            "r-assembly", "A-10", ItemType.COMPONENT, "A",
+            "r-assembly",
+            "A-10",
+            ItemType.COMPONENT,
+            "A",
             (BOMLine("L2", "C-01", ItemType.COMPONENT, Decimal("3"), "EA", "EA"),),
         ),
     )
@@ -50,18 +56,27 @@ def test_multilevel_bom_explosion_multiplies_each_level():
 def test_shared_material_on_distinct_branches_is_additive_and_keeps_lineage():
     revisions = (
         BOMRevision(
-            "rp", "P-100", ItemType.PRODUCT, "A",
+            "rp",
+            "P-100",
+            ItemType.PRODUCT,
+            "A",
             (
                 BOMLine("L-A", "A", ItemType.COMPONENT, Decimal("1"), "EA", "EA", True),
                 BOMLine("L-B", "B", ItemType.COMPONENT, Decimal("1"), "EA", "EA", True),
             ),
         ),
         BOMRevision(
-            "ra", "A", ItemType.COMPONENT, "A",
+            "ra",
+            "A",
+            ItemType.COMPONENT,
+            "A",
             (BOMLine("L-A-C", "C-01", ItemType.COMPONENT, Decimal("2"), "EA", "EA"),),
         ),
         BOMRevision(
-            "rb", "B", ItemType.COMPONENT, "A",
+            "rb",
+            "B",
+            ItemType.COMPONENT,
+            "A",
             (BOMLine("L-B-C", "C-01", ItemType.COMPONENT, Decimal("3"), "EA", "EA"),),
         ),
     )
@@ -79,11 +94,17 @@ def test_shared_material_on_distinct_branches_is_additive_and_keeps_lineage():
 def test_cycle_fails_closed():
     revisions = (
         BOMRevision(
-            "rp", "P-100", ItemType.PRODUCT, "A",
+            "rp",
+            "P-100",
+            ItemType.PRODUCT,
+            "A",
             (BOMLine("L1", "A-10", ItemType.COMPONENT, Decimal("1"), "EA", "EA", True),),
         ),
         BOMRevision(
-            "ra", "A-10", ItemType.COMPONENT, "A",
+            "ra",
+            "A-10",
+            ItemType.COMPONENT,
+            "A",
             (BOMLine("L2", "P-100", ItemType.PRODUCT, Decimal("1"), "EA", "EA", True),),
         ),
     )
@@ -94,8 +115,20 @@ def test_cycle_fails_closed():
 
 def test_overlapping_revision_is_ambiguous():
     revisions = (
-        BOMRevision("r1", "P-100", ItemType.PRODUCT, "A", (BOMLine("1", "C", ItemType.COMPONENT, Decimal("1"), "EA", "EA"),)),
-        BOMRevision("r2", "P-100", ItemType.PRODUCT, "B", (BOMLine("2", "D", ItemType.COMPONENT, Decimal("1"), "EA", "EA"),)),
+        BOMRevision(
+            "r1",
+            "P-100",
+            ItemType.PRODUCT,
+            "A",
+            (BOMLine("1", "C", ItemType.COMPONENT, Decimal("1"), "EA", "EA"),),
+        ),
+        BOMRevision(
+            "r2",
+            "P-100",
+            ItemType.PRODUCT,
+            "B",
+            (BOMLine("2", "D", ItemType.COMPONENT, Decimal("1"), "EA", "EA"),),
+        ),
     )
     result = explode_production_order(_order(revision=None), revisions)
     assert result.status == ProjectionStatus.NOT_CALCULABLE
@@ -105,7 +138,10 @@ def test_overlapping_revision_is_ambiguous():
 def test_uom_conversion_is_explicit():
     revisions = (
         BOMRevision(
-            "rp", "P-100", ItemType.PRODUCT, "A",
+            "rp",
+            "P-100",
+            ItemType.PRODUCT,
+            "A",
             (BOMLine("L1", "C-01", ItemType.COMPONENT, Decimal("2"), "KG", "G"),),
         ),
     )
@@ -119,7 +155,10 @@ def test_uom_conversion_is_explicit():
 def test_missing_uom_conversion_fails_closed():
     revisions = (
         BOMRevision(
-            "rp", "P-100", ItemType.PRODUCT, "A",
+            "rp",
+            "P-100",
+            ItemType.PRODUCT,
+            "A",
             (BOMLine("L1", "C-01", ItemType.COMPONENT, Decimal("2"), "KG", "G"),),
         ),
     )
@@ -130,13 +169,24 @@ def test_missing_uom_conversion_fails_closed():
 
 def test_authoritative_explicit_requirements_do_not_explode_bom():
     order = ProductionOrder(
-        order_id="MO-EX", facility_id="PLANT-1", item_id="P-100",
-        item_type=ItemType.PRODUCT, quantity=Decimal("10"), order_uom="EA",
-        item_base_uom="EA", material_need_at=date(2026, 11, 10), status="released",
+        order_id="MO-EX",
+        facility_id="PLANT-1",
+        item_id="P-100",
+        item_type=ItemType.PRODUCT,
+        quantity=Decimal("10"),
+        order_uom="EA",
+        item_base_uom="EA",
+        material_need_at=date(2026, 11, 10),
+        status="released",
         explicit_requirements=(
             ExplicitMaterialRequirement(
-                "REQ-1", "C-99", Decimal("25"), "EA", date(2026, 11, 8),
-                Decimal("5"), True,
+                "REQ-1",
+                "C-99",
+                Decimal("25"),
+                "EA",
+                date(2026, 11, 8),
+                Decimal("5"),
+                True,
             ),
         ),
         explicit_requirements_authoritative=True,
@@ -149,9 +199,15 @@ def test_authoritative_explicit_requirements_do_not_explode_bom():
 
 def test_partial_explicit_requirements_are_not_mixed_with_bom():
     order = ProductionOrder(
-        order_id="MO-P", facility_id="PLANT-1", item_id="P-100",
-        item_type=ItemType.PRODUCT, quantity=Decimal("10"), order_uom="EA",
-        item_base_uom="EA", material_need_at=date(2026, 11, 10), status="released",
+        order_id="MO-P",
+        facility_id="PLANT-1",
+        item_id="P-100",
+        item_type=ItemType.PRODUCT,
+        quantity=Decimal("10"),
+        order_uom="EA",
+        item_base_uom="EA",
+        material_need_at=date(2026, 11, 10),
+        status="released",
         explicit_requirements=(
             ExplicitMaterialRequirement("R", "C", Decimal("1"), "EA", date(2026, 11, 9)),
         ),
@@ -162,12 +218,16 @@ def test_partial_explicit_requirements_are_not_mixed_with_bom():
     assert result.error_code == "AMBIGUOUS_REQUIREMENTS"
 
 
-
 def test_in_progress_order_requires_remaining_quantity_instead_of_using_original_order_qty():
     active_order = ProductionOrder(
-        order_id="MO-ACTIVE", facility_id="PLANT-1", item_id="P-100",
-        item_type=ItemType.PRODUCT, quantity=Decimal("10"), order_uom="EA",
-        item_base_uom="EA", material_need_at=date(2026, 11, 10),
+        order_id="MO-ACTIVE",
+        facility_id="PLANT-1",
+        item_id="P-100",
+        item_type=ItemType.PRODUCT,
+        quantity=Decimal("10"),
+        order_uom="EA",
+        item_base_uom="EA",
+        material_need_at=date(2026, 11, 10),
         status="in_production",
     )
     active_result = explode_production_order(active_order, ())

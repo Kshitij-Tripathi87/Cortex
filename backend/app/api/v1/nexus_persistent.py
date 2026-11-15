@@ -2009,9 +2009,7 @@ async def get_decision_receipt(
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return a reconstructable read model from authoritative decision records."""
-    principal, decision = await _decision_scope(
-        session, auth, decision_id, "nexus.evidence.read"
-    )
+    principal, decision = await _decision_scope(session, auth, decision_id, "nexus.evidence.read")
     _authz_check(principal, "nexus.approval.read", decision["workspace_id"])
     registry = get_authoritative_registry_service()
     evidence = await registry.get_evidence_graph(session, decision_id)

@@ -56,9 +56,7 @@ def resolve_revision(
     ]
     if explicit_revision_id:
         selected = [
-            revision
-            for revision in candidates
-            if revision.revision_id == explicit_revision_id
+            revision for revision in candidates if revision.revision_id == explicit_revision_id
         ]
         if len(selected) != 1:
             raise BOMResolutionError("EXPLICIT_BOM_REVISION_NOT_EFFECTIVE", explicit_revision_id)
@@ -91,9 +89,7 @@ def _explicit_contributions(
             raise BOMResolutionError("NEGATIVE_REQUIREMENT_QUANTITY", requirement.requirement_id)
         if requirement.reserved_quantity > requirement.quantity:
             raise BOMResolutionError("RESERVATION_EXCEEDS_REQUIREMENT", requirement.requirement_id)
-        quantity = converter.convert(
-            requirement.quantity, requirement.uom, requirement.uom
-        )
+        quantity = converter.convert(requirement.quantity, requirement.uom, requirement.uom)
         result.append(
             DemandContribution(
                 contribution_id=requirement.requirement_id,
@@ -152,9 +148,7 @@ def explode_production_order(
             raise BOMResolutionError("AMBIGUOUS_REQUIREMENTS")
         if order.explicit_requirements_authoritative:
             explicit = _explicit_contributions(order, converter)
-            return OrderRequirementsResult(
-                order.order_id, ProjectionStatus.COMPLETED, explicit
-            )
+            return OrderRequirementsResult(order.order_id, ProjectionStatus.COMPLETED, explicit)
 
         root_quantity = converter.convert(order.quantity, order.order_uom, order.item_base_uom)
         root_revision = resolve_revision(

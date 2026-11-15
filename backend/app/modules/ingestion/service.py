@@ -213,11 +213,13 @@ async def _apply_ingestion_rows(
         except Exception as exc:  # noqa: BLE001 - persist only sanitized details
             rejected += 1
             if len(errors) < 100:
-                errors.append({
-                    "row": row_number,
-                    "phase": "validation",
-                    "message": _safe_row_error(exc),
-                })
+                errors.append(
+                    {
+                        "row": row_number,
+                        "phase": "validation",
+                        "message": _safe_row_error(exc),
+                    }
+                )
             if strict:
                 strict_failure_row = row_number
                 break
@@ -240,11 +242,13 @@ async def _apply_ingestion_rows(
         except Exception as exc:  # noqa: BLE001 - isolate persistence failures per row
             rejected += 1
             if len(errors) < 100:
-                errors.append({
-                    "row": row_number,
-                    "phase": "persistence",
-                    "message": _safe_row_error(exc),
-                })
+                errors.append(
+                    {
+                        "row": row_number,
+                        "phase": "persistence",
+                        "message": _safe_row_error(exc),
+                    }
+                )
             if strict:
                 strict_failure_row = row_number
                 break
@@ -331,11 +335,13 @@ def _parse_csv_bytes(data: bytes) -> list[dict[str, str]]:
                     "MISSING_COLUMNS",
                     f"CSV row {row_number} contains fewer values than the header",
                 )
-            rows.append({
-                key: value.strip()
-                for key, value in raw_row.items()
-                if key is not None and isinstance(value, str)
-            })
+            rows.append(
+                {
+                    key: value.strip()
+                    for key, value in raw_row.items()
+                    if key is not None and isinstance(value, str)
+                }
+            )
         return rows
     except csv.Error as exc:
         raise CsvStructureError("CSV_PARSE_ERROR", "CSV syntax is invalid") from exc
@@ -623,9 +629,7 @@ async def _insert_inventory(
     warehouse_id = await _resolve_node(
         session, workspace_id, cache, "warehouse", row.warehouse_code
     )
-    component_id = await _resolve_node(
-        session, workspace_id, cache, "component", row.component_sku
-    )
+    component_id = await _resolve_node(session, workspace_id, cache, "component", row.component_sku)
     stmt = (
         select(Inventory)
         .where(Inventory.workspace_id == workspace_id)
@@ -724,7 +728,8 @@ async def _insert_bom_revision(
     )
     facility_id = (
         await _resolve_node(session, workspace_id, cache, "factory", row.factory_code)
-        if row.factory_code else None
+        if row.factory_code
+        else None
     )
     stmt = (
         select(BOMRevisionRecord)
@@ -764,7 +769,8 @@ async def _insert_bom_line(
     )
     facility_id = (
         await _resolve_node(session, workspace_id, cache, "factory", row.factory_code)
-        if row.factory_code else None
+        if row.factory_code
+        else None
     )
     revision = await _resolve_revision(
         session,
@@ -869,15 +875,11 @@ async def _insert_production_order(
 async def _insert_purchase_order_line(
     session: AsyncSession, workspace_id: UUID, row: PurchaseOrderLineRow, cache: dict
 ) -> None:
-    supplier_id = await _resolve_node(
-        session, workspace_id, cache, "supplier", row.supplier_name
-    )
+    supplier_id = await _resolve_node(session, workspace_id, cache, "supplier", row.supplier_name)
     warehouse_id = await _resolve_node(
         session, workspace_id, cache, "warehouse", row.warehouse_code
     )
-    component_id = await _resolve_node(
-        session, workspace_id, cache, "component", row.component_sku
-    )
+    component_id = await _resolve_node(session, workspace_id, cache, "component", row.component_sku)
     stmt = (
         select(PurchaseOrderLineRecord)
         .where(PurchaseOrderLineRecord.workspace_id == workspace_id)

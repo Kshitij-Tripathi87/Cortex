@@ -66,10 +66,16 @@ def test_hand_calculated_projection_reservations_are_netted_once():
 
 def test_confirmed_receipt_uses_open_quantity_not_ordered_quantity():
     receipt = MaterialReceipt(
-        receipt_id="PO-1-1", facility_id="plant-1", material_id="C-01",
-        ordered_quantity=Decimal("100"), received_quantity=Decimal("70"),
-        open_quantity=Decimal("30"), expected_date=date(2026, 11, 7),
-        status="partially_received", confirmed=True, uom="EA",
+        receipt_id="PO-1-1",
+        facility_id="plant-1",
+        material_id="C-01",
+        ordered_quantity=Decimal("100"),
+        received_quantity=Decimal("70"),
+        open_quantity=Decimal("30"),
+        expected_date=date(2026, 11, 7),
+        status="partially_received",
+        confirmed=True,
+        uom="EA",
     )
     result = project_inventory(
         _balance(),
@@ -84,12 +90,22 @@ def test_confirmed_receipt_uses_open_quantity_not_ordered_quantity():
 
 def test_unconfirmed_receipt_is_excluded_from_base_projection():
     receipt = MaterialReceipt(
-        "PO-1-2", "plant-1", "C-01", Decimal("50"), Decimal("0"),
-        date(2026, 11, 6), "open", False, "EA",
+        "PO-1-2",
+        "plant-1",
+        "C-01",
+        Decimal("50"),
+        Decimal("0"),
+        date(2026, 11, 6),
+        "open",
+        False,
+        "EA",
     )
     result = project_inventory(
-        _balance(), (receipt,), (),
-        start_date=date(2026, 11, 4), end_date=date(2026, 11, 8),
+        _balance(),
+        (receipt,),
+        (),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 8),
     )
     assert result.uncertain_receipts_excluded == Decimal("50")
     assert result.daily_buckets[2].closing_quantity == Decimal("75")
@@ -101,7 +117,8 @@ def test_safety_stock_breach_and_negative_balance_are_distinct():
         _balance(safety_stock_quantity=Decimal("50")),
         (),
         (_demand("80", 5),),
-        start_date=date(2026, 11, 4), end_date=date(2026, 11, 6),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 6),
     )
     assert result.first_safety_stock_breach == date(2026, 11, 5)
     assert result.first_negative_balance == date(2026, 11, 5)
@@ -110,8 +127,11 @@ def test_safety_stock_breach_and_negative_balance_are_distinct():
 
 def test_no_crossing_in_horizon_returns_none():
     result = project_inventory(
-        _balance(), (), (),
-        start_date=date(2026, 11, 4), end_date=date(2026, 11, 7),
+        _balance(),
+        (),
+        (),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 7),
     )
     assert result.first_safety_stock_breach is None
     assert result.first_negative_balance is None
@@ -128,7 +148,8 @@ def test_unknown_inventory_basis_semantics_is_not_calculable():
         ),
         (),
         (),
-        start_date=date(2026, 11, 4), end_date=date(2026, 11, 8),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 8),
     )
     assert result.status == ProjectionStatus.NOT_CALCULABLE
     assert any("INVENTORY_BASIS_SEMANTICS_UNKNOWN" in x for x in result.warnings)
@@ -137,8 +158,11 @@ def test_unknown_inventory_basis_semantics_is_not_calculable():
 def test_unlinked_reservation_blocks_precise_projection():
     demand = _demand("30", 5, reserved="10", linked=False, ref="REQ-UNLINKED")
     result = project_inventory(
-        _balance(), (), (demand,),
-        start_date=date(2026, 11, 4), end_date=date(2026, 11, 8),
+        _balance(),
+        (),
+        (demand,),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 8),
     )
     assert result.status == ProjectionStatus.NOT_CALCULABLE
     assert any("UNLINKED_RESERVATION" in x for x in result.warnings)
@@ -146,12 +170,22 @@ def test_unlinked_reservation_blocks_precise_projection():
 
 def test_facility_balances_are_not_pooled():
     other_facility = MaterialReceipt(
-        "PO-OTHER", "plant-2", "C-01", Decimal("100"), Decimal("0"),
-        date(2026, 11, 5), "confirmed", True, "EA",
+        "PO-OTHER",
+        "plant-2",
+        "C-01",
+        Decimal("100"),
+        Decimal("0"),
+        date(2026, 11, 5),
+        "confirmed",
+        True,
+        "EA",
     )
     result = project_inventory(
-        _balance(), (other_facility,), (),
-        start_date=date(2026, 11, 4), end_date=date(2026, 11, 6),
+        _balance(),
+        (other_facility,),
+        (),
+        start_date=date(2026, 11, 4),
+        end_date=date(2026, 11, 6),
     )
     assert result.daily_buckets[1].confirmed_receipts == Decimal("0")
 
@@ -176,8 +210,16 @@ def test_negative_reservation_or_blocked_bucket_is_rejected_for_any_quantity_bas
 
 def test_receipt_open_quantity_cannot_exceed_unreceived_order_quantity():
     receipt = MaterialReceipt(
-        "PO-OVER", "plant-1", "C-01", Decimal("100"), Decimal("70"),
-        date(2026, 11, 6), "open", True, "EA", open_quantity=Decimal("40"),
+        "PO-OVER",
+        "plant-1",
+        "C-01",
+        Decimal("100"),
+        Decimal("70"),
+        date(2026, 11, 6),
+        "open",
+        True,
+        "EA",
+        open_quantity=Decimal("40"),
     )
     result = project_inventory(
         _balance(),
@@ -187,18 +229,22 @@ def test_receipt_open_quantity_cannot_exceed_unreceived_order_quantity():
         end_date=date(2026, 11, 8),
     )
     assert result.status == ProjectionStatus.NOT_CALCULABLE
-    assert any(
-        "RECEIPT_OPEN_QUANTITY_EXCEEDS_REMAINDER" in warning
-        for warning in result.warnings
-    )
+    assert any("RECEIPT_OPEN_QUANTITY_EXCEEDS_REMAINDER" in warning for warning in result.warnings)
 
 
 def test_confirmed_receipt_uom_conversion_is_explicit():
     from app.modules.planning.models import UOMConverter
 
     receipt = MaterialReceipt(
-        "PO-KG", "plant-1", "C-01", Decimal("1"), Decimal("0"),
-        date(2026, 11, 5), "confirmed", True, "KG",
+        "PO-KG",
+        "plant-1",
+        "C-01",
+        Decimal("1"),
+        Decimal("0"),
+        date(2026, 11, 5),
+        "confirmed",
+        True,
+        "KG",
     )
     result = project_inventory(
         _balance(),

@@ -63,9 +63,9 @@ async def extract_claims(
     )
     existing = list(existing_result.scalars().all())
     completed = [
-        claim for claim in existing
-        if isinstance(claim.provenance, dict)
-        and claim.provenance.get("extraction_version") == 2
+        claim
+        for claim in existing
+        if isinstance(claim.provenance, dict) and claim.provenance.get("extraction_version") == 2
     ]
     if completed:
         return ClaimExtractionResult(
@@ -90,39 +90,39 @@ async def extract_claims(
                 continue
             confidence = float(profile.mapping_confidence or 0.0)
             needs_review = (
-                profile.requires_review
-                or not profile.recommended_mapping
-                or confidence < 0.90
+                profile.requires_review or not profile.recommended_mapping or confidence < 0.90
             )
-            db.add(EvidenceClaim(
-                claim_id=uuid7(),
-                workspace_id=workspace_id,
-                source_file_id=file_id,
-                batch_id=batch_id,
-                row_number=row_number,
-                source_column=column_name,
-                canonical_entity=None,
-                canonical_field=profile.recommended_mapping,
-                raw_value=str(raw_value),
-                normalized_value=str(raw_value).strip(),
-                confidence=confidence,
-                claim_state=ClaimState.PENDING_REVIEW.value,
-                provenance={
-                    "extraction_version": 2,
-                    "profile_id": profile.profile_id,
-                    "column_index": column_index,
-                    "source_locator": {
-                        "file_id": file_id,
-                        "row_number": row_number,
-                        "physical_line_number": row_number + 1,
-                        "column_name": column_name,
+            db.add(
+                EvidenceClaim(
+                    claim_id=uuid7(),
+                    workspace_id=workspace_id,
+                    source_file_id=file_id,
+                    batch_id=batch_id,
+                    row_number=row_number,
+                    source_column=column_name,
+                    canonical_entity=None,
+                    canonical_field=profile.recommended_mapping,
+                    raw_value=str(raw_value),
+                    normalized_value=str(raw_value).strip(),
+                    confidence=confidence,
+                    claim_state=ClaimState.PENDING_REVIEW.value,
+                    provenance={
+                        "extraction_version": 2,
+                        "profile_id": profile.profile_id,
+                        "column_index": column_index,
+                        "source_locator": {
+                            "file_id": file_id,
+                            "row_number": row_number,
+                            "physical_line_number": row_number + 1,
+                            "column_name": column_name,
+                        },
+                        "row_sha256": row_hash,
+                        "entity_key": None,
+                        "mapping_is_suggestion": True,
                     },
-                    "row_sha256": row_hash,
-                    "entity_key": None,
-                    "mapping_is_suggestion": True,
-                },
-                requires_review=needs_review,
-            ))
+                    requires_review=needs_review,
+                )
+            )
             created += 1
             review_count += int(needs_review)
             if created > 250_000:
@@ -147,10 +147,14 @@ async def detect_conflicts(
         select(EvidenceClaim)
         .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
-        .where(EvidenceClaim.claim_state.in_([
-            ClaimState.ACCEPTED.value,
-            ClaimState.PENDING_REVIEW.value,
-        ]))
+        .where(
+            EvidenceClaim.claim_state.in_(
+                [
+                    ClaimState.ACCEPTED.value,
+                    ClaimState.PENDING_REVIEW.value,
+                ]
+            )
+        )
     )
     claims = list(result.scalars().all())
     existing_result = await db.execute(
@@ -178,19 +182,21 @@ async def detect_conflicts(
         signature = tuple(sorted(claim.claim_id for claim in claim_list))
         if len(values) <= 1 or signature in existing_signatures:
             continue
-        db.add(EvidenceConflict(
-            conflict_id=uuid7(),
-            workspace_id=workspace_id,
-            batch_id=batch_id,
-            claim_ids=[claim.claim_id for claim in claim_list],
-            canonical_entity=entity,
-            canonical_field=field_name,
-            severity=ConflictSeverity.MAJOR.value,
-            blocking=True,
-            status="open",
-            review_required=True,
-            explanation=f"Conflicting values for resolved {entity}.{field_name} entity.",
-        ))
+        db.add(
+            EvidenceConflict(
+                conflict_id=uuid7(),
+                workspace_id=workspace_id,
+                batch_id=batch_id,
+                claim_ids=[claim.claim_id for claim in claim_list],
+                canonical_entity=entity,
+                canonical_field=field_name,
+                severity=ConflictSeverity.MAJOR.value,
+                blocking=True,
+                status="open",
+                review_required=True,
+                explanation=f"Conflicting values for resolved {entity}.{field_name} entity.",
+            )
+        )
         created += 1
         blocking += 1
 
@@ -228,7 +234,11 @@ async def compute_readiness(
         select(EvidenceClaim)
         .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
-        .where(EvidenceClaim.claim_state.notin_([ClaimState.SUPERSEDED.value, ClaimState.REJECTED.value]))
+        .where(
+            EvidenceClaim.claim_state.notin_(
+                [ClaimState.SUPERSEDED.value, ClaimState.REJECTED.value]
+            )
+        )
     )
     claim_result = await db.execute(claim_stmt)
     claims = list(claim_result.scalars().all())

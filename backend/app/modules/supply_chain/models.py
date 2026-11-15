@@ -278,12 +278,8 @@ class Inventory(Base):
     )
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
     safety_stock: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
-    reserved_quantity: Mapped[Decimal] = mapped_column(
-        Numeric(18, 4), nullable=False, default=0
-    )
-    blocked_quantity: Mapped[Decimal] = mapped_column(
-        Numeric(18, 4), nullable=False, default=0
-    )
+    reserved_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
+    blocked_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
     quantity_basis: Mapped[str] = mapped_column(
         String(32), nullable=False, default="physical_on_hand"
     )
@@ -444,7 +440,9 @@ class BOMLineRecord(Base):
     __tablename__ = "bom_lines"
     __table_args__ = (
         UniqueConstraint(
-            "workspace_id", "revision_id", "line_code",
+            "workspace_id",
+            "revision_id",
+            "line_code",
             name="uq_bom_lines_workspace_revision_line",
         ),
         Index("ix_bom_lines_workspace_revision", "workspace_id", "revision_id"),
@@ -477,7 +475,9 @@ class UOMConversionRecord(Base):
     __tablename__ = "uom_conversions"
     __table_args__ = (
         UniqueConstraint(
-            "workspace_id", "from_uom", "to_uom",
+            "workspace_id",
+            "from_uom",
+            "to_uom",
             name="uq_uom_conversions_workspace_pair",
         ),
         {"schema": "inventory"},
@@ -502,7 +502,8 @@ class ProductionOrderRecord(Base):
     __tablename__ = "production_orders"
     __table_args__ = (
         UniqueConstraint(
-            "workspace_id", "order_number",
+            "workspace_id",
+            "order_number",
             name="uq_production_orders_workspace_number",
         ),
         Index("ix_production_orders_workspace_need", "workspace_id", "material_need_at"),
@@ -515,11 +516,13 @@ class ProductionOrderRecord(Base):
     )
     order_number: Mapped[str] = mapped_column(String(128), nullable=False)
     factory_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("operational.factories.id", ondelete="RESTRICT"),
+        PgUUID(as_uuid=True),
+        ForeignKey("operational.factories.id", ondelete="RESTRICT"),
         nullable=False,
     )
     warehouse_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
+        PgUUID(as_uuid=True),
+        ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
         nullable=False,
     )
     item_type: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -530,7 +533,8 @@ class ProductionOrderRecord(Base):
     material_need_at: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     bom_revision_id: Mapped[UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("inventory.bom_revisions.id", ondelete="SET NULL"),
+        PgUUID(as_uuid=True),
+        ForeignKey("inventory.bom_revisions.id", ondelete="SET NULL"),
         nullable=True,
     )
     source_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -543,7 +547,9 @@ class PurchaseOrderLineRecord(Base):
     __tablename__ = "purchase_order_lines"
     __table_args__ = (
         UniqueConstraint(
-            "workspace_id", "po_number", "line_number",
+            "workspace_id",
+            "po_number",
+            "line_number",
             name="uq_purchase_order_lines_workspace_line",
         ),
         Index("ix_purchase_order_lines_workspace_receipt", "workspace_id", "expected_date"),
@@ -557,15 +563,18 @@ class PurchaseOrderLineRecord(Base):
     po_number: Mapped[str] = mapped_column(String(128), nullable=False)
     line_number: Mapped[str] = mapped_column(String(32), nullable=False)
     supplier_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("operational.suppliers.id", ondelete="RESTRICT"),
+        PgUUID(as_uuid=True),
+        ForeignKey("operational.suppliers.id", ondelete="RESTRICT"),
         nullable=False,
     )
     warehouse_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
+        PgUUID(as_uuid=True),
+        ForeignKey("operational.warehouses.id", ondelete="RESTRICT"),
         nullable=False,
     )
     component_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("operational.components.id", ondelete="RESTRICT"),
+        PgUUID(as_uuid=True),
+        ForeignKey("operational.components.id", ondelete="RESTRICT"),
         nullable=False,
     )
     ordered_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
@@ -579,7 +588,6 @@ class PurchaseOrderLineRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
-
 
 
 class MaterialPlanningRunRecord(Base):

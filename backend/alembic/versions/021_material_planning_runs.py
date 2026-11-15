@@ -45,7 +45,12 @@ def upgrade() -> None:
         sa.Column("result_sha256", sa.String(64), nullable=False),
         sa.Column("input_snapshot", sa.JSON(), nullable=False),
         sa.Column("result_payload", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         schema="inventory",
     )
     op.create_index(
