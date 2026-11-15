@@ -18,6 +18,15 @@ Target: `main`
 
 `016_outbox_claim_lease` → `017_nexus_task_runtime` → `018_idempotency_key_width` → `019_audit_subject_id_width` → `020_p1_p2_operational_planning` → `021_material_planning_runs` → `022_ingestion_file_digest`.
 
+## Implementation completed on the integration branch
+
+- Durable task endpoints and Decision Room projection are integrated while the current LLM-backed Vanessa route remains authoritative.
+- Planning API routing and task/manufacturing ORM registration are included.
+- Source evidence compilation records row-level locators and SHA-256 provenance. Conflict detection requires a resolved canonical entity, field and entity key.
+- CSV ingestion enforces UTF-8, strict quoting, unique non-blank headers and exact row width. Per-row savepoints isolate partial failures; strict mode rolls back all entity rows. Error logs do not store uploaded row values.
+- Uploaded ingestion artifacts record SHA-256 using migration 022.
+- The Alembic environment imports both task-runtime and manufacturing ORM models.
+
 ## Validation required before merge
 
 - Backend lint, format, typecheck and test suite on the exact integration head.
