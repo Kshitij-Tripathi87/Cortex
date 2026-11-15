@@ -40,7 +40,7 @@ class ReadinessResult:
     accepted_claim_count: int
     pending_claim_count: int
     assumptions: list[str] = field(default_factory=list)
- async def extract_claims(
+async def extract_claims(
     db: AsyncSession,
     workspace_id: str,
     batch_id: str,
@@ -193,10 +193,6 @@ async def detect_conflicts(
 
     await db.flush()
     return ConflictDetectionResult(conflicts_detected=created, blocking_conflicts=blocking)
-
-
-blocking_conflicts
-    )
 
 
 async def compute_readiness(

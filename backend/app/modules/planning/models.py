@@ -6,11 +6,11 @@ convert timestamps into the facility calendar before constructing inputs.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
-from collections.abc import Mapping
 
 
 class ItemType(StrEnum):

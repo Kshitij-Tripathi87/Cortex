@@ -22,7 +22,6 @@ from app.modules.planning.models import (
     UOMConverter,
 )
 
-
 ALGORITHM_VERSION = "cortex-material-plan-v1"
 
 
