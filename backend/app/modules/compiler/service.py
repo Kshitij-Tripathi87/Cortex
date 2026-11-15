@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -15,8 +17,6 @@ from app.modules.compiler.models import (
     EvidenceClaim,
     EvidenceConflict,
 )
-from app.modules.graph.entity_keys import infer_entity_type
-from app.modules.inference.rules_provider import suggest_mapping
 from app.modules.sources.models import SourceColumnProfile
 
 
@@ -49,76 +49,112 @@ async def extract_claims(
     batch_id: str,
     file_id: str,
     profiles: list[SourceColumnProfile],
+    raw_rows: list[dict[str, object]],
 ) -> ClaimExtractionResult:
-    """Extract evidence claims from profiled source file columns.
+    """Persist one evidence claim per non-empty source row/column.
 
-    Each column profile becomes a set of claims (one per row, simplified for Phase 2).
-    In Phase 2, we create one claim per column per file as a placeholder; Phase 3+
-    will expand to per-row claims.
+    Claims preserve the original cell value and a deterministic row hash.
+    Mapping suggestions remain proposals: an unmapped or low-confidence
+    field is never promoted to a canonical fact by this function.
     """
-    claims_created = 0
-    claims_requiring_review = 0
+    if not raw_rows:
+        return ClaimExtractionResult(claims_created=0, claims_requiring_review=0)
 
     existing_stmt = (
-        select(EvidenceClaim.source_column, EvidenceClaim.provenance)
+        select(EvidenceClaim)
         .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
         .where(EvidenceClaim.source_file_id == file_id)
     )
     existing_result = await db.execute(existing_stmt)
-    existing_rows = list(existing_result.all())
-    existing_columns = {row.source_column for row in existing_rows}
-    existing_profile_ids = {
-        row.provenance.get("profile_id")
-        for row in existing_rows
-        if isinstance(row.provenance, dict) and row.provenance.get("profile_id")
-    }
+    existing_claims = list(existing_result.scalars().all())
 
-    row_entity_type = infer_entity_type([profile.column_name for profile in profiles])
+    # Compile is safe to retry. A completed v2 row-level compilation is a no-op.
+    if any(
+        isinstance(claim.provenance, dict)
+        and claim.provenance.get("extraction_version") == 2
+        for claim in existing_claims
+    ):
+        return ClaimExtractionResult(
+            claims_created=0,
+            claims_requiring_review=sum(
+                1 for claim in existing_claims if claim.requires_review
+                and isinstance(claim.provenance, dict)
+                and claim.provenance.get("extraction_version") == 2
+            ),
+        )
 
-    for profile in profiles:
-        # A retried batch compilation must not multiply the same column claims.
-        if profile.profile_id in existing_profile_ids or profile.column_name in existing_columns:
-            continue
-        existing_columns.add(profile.column_name)
-        suggestion = suggest_mapping(profile.column_name, row_entity_type=row_entity_type)
-        canonical_field = suggestion.canonical_field or profile.recommended_mapping
-        confidence = max(profile.mapping_confidence or 0.0, suggestion.confidence)
-        requires_review = (
-            profile.requires_review
-            or suggestion.requires_review
-            or not suggestion.canonical_entity
-            or not canonical_field
-            or confidence < 0.9
-        )
-        claim = EvidenceClaim(
-            claim_id=uuid7(),
-            workspace_id=workspace_id,
-            source_file_id=file_id,
-            batch_id=batch_id,
-            row_number=0,  # Phase 2: one claim per column
-            source_column=profile.column_name,
-            canonical_entity=suggestion.canonical_entity,
-            canonical_field=canonical_field,
-            raw_value=", ".join(profile.sample_values),
-            normalized_value=None,
-            confidence=confidence,
-            claim_state=ClaimState.PENDING_REVIEW.value,
-            provenance={
-                "profile_id": profile.profile_id,
-                "inferred_type": profile.inferred_type,
-                "matched_alias": suggestion.matched_alias,
-            },
-            requires_review=requires_review,
-        )
-        if claim.requires_review:
-            claims_requiring_review += 1
-        db.add(claim)
-        claims_created += 1
+    # Retire old column-summary placeholders without deleting their audit history.
+    for claim in existing_claims:
+        if claim.row_number == 0:
+            claim.claim_state = ClaimState.SUPERSEDED.value
+
+    profiles_by_name = {profile.column_name: profile for profile in profiles}
+    claims_created = 0
+    claims_requiring_review = 0
+    max_claims = 250_000
+
+    for row_number, raw_row in enumerate(raw_rows, start=1):
+        row_payload = json.dumps(
+            raw_row, sort_keys=True, separators=(",", ":"), default=str
+        ).encode("utf-8")
+        row_hash = hashlib.sha256(row_payload).hexdigest()
+
+        for column_index, (column_name, raw_value) in enumerate(raw_row.items()):
+            profile = profiles_by_name.get(column_name)
+            if profile is None or raw_value is None:
+                continue
+            raw_text = str(raw_value)
+            if raw_text.strip() == "":
+                continue
+
+            confidence = float(profile.mapping_confidence or 0.0)
+            requires_review = (
+                profile.requires_review
+                or not profile.recommended_mapping
+                or confidence < 0.90
+            )
+            db.add(
+                EvidenceClaim(
+                    claim_id=uuid7(),
+                    workspace_id=workspace_id,
+                    source_file_id=file_id,
+                    batch_id=batch_id,
+                    row_number=row_number,
+                    source_column=column_name,
+                    canonical_entity=None,
+                    canonical_field=profile.recommended_mapping,
+                    raw_value=raw_text,
+                    normalized_value=raw_text.strip(),
+                    confidence=confidence,
+                    claim_state=ClaimState.PENDING_REVIEW.value,
+                    provenance={
+                        "extraction_version": 2,
+                        "profile_id": profile.profile_id,
+                        "column_index": column_index,
+                        "source_locator": {
+                            "file_id": file_id,
+                            "row_number": row_number,
+                            "physical_line_number": row_number + 1,
+                            "column_name": column_name,
+                        },
+                        "row_sha256": row_hash,
+                        "entity_key": None,
+                        "mapping_is_suggestion": True,
+                    },
+                    requires_review=requires_review,
+                )
+            )
+            claims_created += 1
+            if requires_review:
+                claims_requiring_review += 1
+            if claims_created > max_claims:
+                raise ValueError("SOURCE_CLAIM_LIMIT_EXCEEDED")
 
     await db.flush()
     return ClaimExtractionResult(
-        claims_created=claims_created, claims_requiring_review=claims_requiring_review
+        claims_created=claims_created,
+        claims_requiring_review=claims_requiring_review,
     )
 
 
@@ -127,10 +163,11 @@ async def detect_conflicts(
     workspace_id: str,
     batch_id: str,
 ) -> ConflictDetectionResult:
-    """Detect conflicts among pending claims in a batch.
+    """Detect conflicts only after entity identity and field are resolved.
 
-    Phase 2 logic: conflicts arise when multiple claims target the same canonical_field
-    with different normalized_value. Blocking if severity is critical/major.
+    Grouping all rows by column name creates false conflicts. Claims without
+    a resolved canonical entity key remain reviewable evidence but cannot
+    create entity-level conflicts.
     """
     stmt = (
         select(EvidenceClaim)
@@ -141,61 +178,67 @@ async def detect_conflicts(
     result = await db.execute(stmt)
     claims = list(result.scalars().all())
 
-    existing_conflict_stmt = (
-        select(EvidenceConflict.claim_ids)
+    existing_stmt = (
+        select(EvidenceConflict)
         .where(EvidenceConflict.workspace_id == workspace_id)
         .where(EvidenceConflict.batch_id == batch_id)
     )
-    existing_conflict_result = await db.execute(existing_conflict_stmt)
+    existing_result = await db.execute(existing_stmt)
     existing_signatures = {
-        tuple(sorted(claim_ids)) for claim_ids in existing_conflict_result.scalars().all()
+        tuple(sorted(conflict.claim_ids))
+        for conflict in existing_result.scalars().all()
     }
+
+    grouped: dict[tuple[str, str, str], list[EvidenceClaim]] = {}
+    for claim in claims:
+        provenance = claim.provenance if isinstance(claim.provenance, dict) else {}
+        entity_key = provenance.get("entity_key")
+        if not claim.canonical_entity or not claim.canonical_field or not entity_key:
+            continue
+        key = (claim.canonical_entity, claim.canonical_field, str(entity_key))
+        grouped.setdefault(key, []).append(claim)
 
     conflicts_detected = 0
     blocking_conflicts = 0
-
-    # Group by (canonical_entity, canonical_field)
-    from collections import defaultdict
-
-    grouped: dict[tuple[str | None, str | None], list[EvidenceClaim]] = defaultdict(list)
-    for claim in claims:
-        key = (claim.canonical_entity, claim.canonical_field)
-        if claim.canonical_field:
-            grouped[key].append(claim)
-
-    for (entity, field_name), claim_list in grouped.items():
+    for (entity, field_name, _entity_key), claim_list in sorted(grouped.items()):
         if len(claim_list) <= 1:
             continue
-        # Check for value disagreement
-        values = set(c.normalized_value or c.raw_value for c in claim_list)
-        signature = tuple(sorted(c.claim_id for c in claim_list))
-        if len(values) > 1 and signature not in existing_signatures:
-            severity = ConflictSeverity.MAJOR.value if entity else ConflictSeverity.WARNING.value
-            is_blocking = severity in {
-                ConflictSeverity.MAJOR.value,
-                ConflictSeverity.CRITICAL.value,
-            }
-            conflict = EvidenceConflict(
+        values = {
+            claim.normalized_value if claim.normalized_value is not None else claim.raw_value
+            for claim in claim_list
+        }
+        if len(values) <= 1:
+            continue
+        claim_ids = sorted(claim.claim_id for claim in claim_list)
+        signature = tuple(claim_ids)
+        if signature in existing_signatures:
+            continue
+
+        db.add(
+            EvidenceConflict(
                 conflict_id=uuid7(),
                 workspace_id=workspace_id,
                 batch_id=batch_id,
-                claim_ids=[c.claim_id for c in claim_list],
+                claim_ids=claim_ids,
                 canonical_entity=entity,
                 canonical_field=field_name,
-                severity=severity,
-                blocking=is_blocking,
+                severity=ConflictSeverity.MAJOR.value,
+                blocking=True,
                 status="open",
                 review_required=True,
-                explanation=f"Multiple claims for {entity or 'unknown'}.{field_name or 'unknown'} with differing values: {values}",
+                explanation=(
+                    f"Conflicting values for {entity}.{field_name} on the same "
+                    f"canonical entity: {', '.join(sorted(str(value) for value in values))}"
+                ),
             )
-            db.add(conflict)
-            conflicts_detected += 1
-            if is_blocking:
-                blocking_conflicts += 1
+        )
+        conflicts_detected += 1
+        blocking_conflicts += 1
 
     await db.flush()
     return ConflictDetectionResult(
-        conflicts_detected=conflicts_detected, blocking_conflicts=blocking_conflicts
+        conflicts_detected=conflicts_detected,
+        blocking_conflicts=blocking_conflicts,
     )
 
 
@@ -238,7 +281,10 @@ async def compute_readiness(
     assumptions: list[str] = []
     explanation = ""
 
-    if blocking_count > 0:
+    if not claims:
+        state = ReadinessState.BLOCKED.value
+        explanation = "No row-level source claims were compiled; downstream projection is blocked."
+    elif blocking_count > 0:
         state = ReadinessState.BLOCKED.value
         explanation = (
             f"Batch blocked by {blocking_count} blocking conflict(s). Resolve conflicts to proceed."

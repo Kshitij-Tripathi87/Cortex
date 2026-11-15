@@ -31,6 +31,7 @@ from app.api.v1 import (
     intelligence_gateway,
     knowledge,
     multi_agent,
+    planning,
     nexus_persistent,
     nexus_v07,
     readiness,
@@ -50,6 +51,7 @@ from app.config import get_settings
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(sources.router, prefix="/sources", tags=["sources"])
+api_router.include_router(planning.router, prefix="/planning", tags=["material planning"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(readiness.router, prefix="/readiness", tags=["readiness"])
 api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
