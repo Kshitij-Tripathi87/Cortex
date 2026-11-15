@@ -7,8 +7,8 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from app.modules.planning.models import (
-    DemandContribution,
     DailyInventoryBucket,
+    DemandContribution,
     InventoryBalanceInput,
     InventoryProjection,
     MaterialReceipt,
@@ -252,10 +252,7 @@ def project_inventory(
             "SAME_DAY_RECEIPTS_ASSUMED_AVAILABLE_BEFORE_DEMAND"
         )
 
-    if warnings:
-        result_status = ProjectionStatus.DEGRADED
-    else:
-        result_status = ProjectionStatus.COMPLETED
+    result_status = ProjectionStatus.DEGRADED if warnings else ProjectionStatus.COMPLETED
     return InventoryProjection(
         workspace_id=balance.workspace_id,
         snapshot_id=balance.snapshot_id,

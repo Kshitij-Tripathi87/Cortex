@@ -7,7 +7,6 @@ from decimal import Decimal
 from app.modules.planning.models import (
     BOMRevision,
     DemandContribution,
-    ExplicitMaterialRequirement,
     ItemType,
     OrderRequirementsResult,
     ProductionOrder,
