@@ -227,6 +227,7 @@ async def compute_readiness(
         select(EvidenceClaim)
         .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
+        .where(EvidenceClaim.claim_state.notin_([ClaimState.SUPERSEDED.value, ClaimState.REJECTED.value]))
     )
     claim_result = await db.execute(claim_stmt)
     claims = list(claim_result.scalars().all())
