@@ -49,7 +49,7 @@ Every PR head commit is an ancestor of the integration head. Merging the integra
 - PR #14's side taken for `config.py`, `agents_router.py`, `stress.yml`, the eleven `workflo_backend` files, the restored `tests/test_workflo.py` and `tests/test_workflo_api.py`, and the `agents/[id]` redirect.
 - Applied without conflict: the frontend library rewire (`http.ts` delegates to the auth client; signals, graph, realtime, `WorkspaceContext`, `AskNexusBar`), removal of seven demo clients, `/nexus/cockpit` on `DisruptionCockpit`, and redirects for `/agents`, `/decisions`, `/graph`, `/mvp`, `/propagation`, `/recommendations`, `/scenarios` and `/signals`.
 - The Workflo router is **not** mounted. `main` removed the mount in 8357310 and that decision is kept; `app/api/v1/router.py` documents how to re-enable it. The package and its tests remain in the tree.
-- Six files under `frontend/src/app/` stay at their `main` version instead of PR #14's retirement redirects: `app/page.tsx`, `nexus/page.tsx`, `conflicts/page.tsx`, `readiness/page.tsx`, `audit/page.tsx` and `workspace/layout.tsx`. The release E2E specs assert those pages, `/app` holds the only logout and change-password UI, and the Decision Room at `/workspace/agents/decision-room` renders under that layout.
+- Six files under `frontend/src/app/` stay at their `main` version instead of PR #14's retirement redirects: `app/page.tsx`, `nexus/page.tsx`, `conflicts/page.tsx`, `readiness/page.tsx`, `audit/page.tsx` and `workspace/layout.tsx`. The release E2E specs assert those pages, `/app` holds the only logout and change-password UI, and the Decision Room at `/workspace/agents/decision-room` renders under that layout. Follow-up: `nexus/page.tsx`, `conflicts/page.tsx` and `readiness/page.tsx` have since been retired (see "Follow-up fixes" below).
 - PR #14's RC0 release changes are not release-qualified until staging acceptance, disaster-recovery rehearsal and rollback rehearsal are evidenced. Merging the code does not bypass those requirements.
 
 ### Frontend dependencies
@@ -118,6 +118,15 @@ Run locally before the pull request was opened, on Python 3.11 and Node 22 (CI u
 
 Docker image builds, Compose validation, the secrets scan and the object-storage-backed paths can only run in CI.
 
+## Follow-up fixes
+
+Found on the merged build and fixed after the integration. All three defects predate it: `main` had them before the merge.
+
+- **Source upload returned HTTP 500 on PostgreSQL.** Eight timestamp columns in `modules/sources/models.py`, `modules/compiler/models.py` and `modules/events/integration_events.py` were declared as bare `Mapped[datetime]`. SQLAlchemy binds such a column as `TIMESTAMP WITHOUT TIME ZONE`, while the migrations create `TIMESTAMP WITH TIME ZONE` and the application writes timezone-aware values, so asyncpg rejected every insert on the intake path: upload, claim extraction, conflict detection, conflict resolution and readiness. The columns now declare `DateTime(timezone=True)`. No migration is needed.
+- **Readiness could be stored only once per database.** `POST /api/v1/readiness/batches/{batch_id}` saved every assessment under the primary key `"temp"`. The evidence page requests an assessment on each load, so the second request failed with a duplicate key. The fixed key is removed and the model default generates one.
+- **Legacy pages that called missing APIs.** `/nexus` requested the `/api/v1/workspace/*` demo API, which is mounted only when `CORTEX_WORKSPACE_DEMO_ROUTES` is set (off by default). `/conflicts` and `/readiness` requested `GET /api/v1/conflicts` and `GET /api/v1/readiness`, which do not exist. The three pages now carry PR #14's redirects: `/nexus` to `/nexus/cockpit`, the other two to `/upload`.
+- **Coverage.** Before this, no test stored an upload: the backend intake tests ran on SQLite, which accepts the values, and none of them called the upload; the browser test only opened the form. Added `tests/test_timestamp_columns_timezone_aware.py` (every ORM timestamp column is timezone-aware; needs no database), `tests/test_source_intake_postgres.py` (upload, prepare, review, conflicts and readiness over HTTP on real PostgreSQL), `tests/test_readiness_api.py`, and a browser test in `frontend/tests/critical-path-e2e.spec.ts` that uploads a file, prepares its claims and reloads the evidence page.
+
 ## Open items
 
 These are not resolved by this integration.
@@ -125,7 +134,8 @@ These are not resolved by this integration.
 - **Mobile client security review.** `apps/mobile/App.tsx` keeps tokens in an in-memory map and uses placeholder identity values (an empty workspace id, a fixed `phone-001` device id). It needs secure on-device storage and real identity wiring before it is distributed.
 - **RC0 release qualification.** Staging customer journey, backup/restore and rollback evidence are still required before RC0 production behaviour is activated.
 - **Workflo API.** Unmounted by decision; re-enabling it is a product decision.
-- **Legacy page retirement.** The six pages listed under PR #14 can be retired once the E2E specs and the logout and change-password UI move to the canonical routes.
+- **Legacy page retirement.** Three of the six pages listed under PR #14 are retired (`/nexus`, `/conflicts`, `/readiness`; see "Follow-up fixes"). The remaining three (`app/page.tsx`, `audit/page.tsx`, `workspace/layout.tsx`) can be retired once the E2E specs and the logout and change-password UI move to the canonical routes.
+- **Conflict resolution.** Conflicts are detected only between claims that carry an entity key. The key is set only by the claim review, which also takes the claim out of the pending state, so every claim in a conflict is already accepted. `resolve_conflict` requires a pending claim for `approved` and for `rejected` with a selected claim, so both return HTTP 409; "reject all" closes the conflict and leaves both claims accepted. The evidence page does not send `entity_key`, so batches reviewed there never raise a conflict. Which value wins when accepted claims disagree is a product decision.
 - **Workflo CLI gate.** When the `workflo-cli/` package lands, add the backend Workflo paths back to the trigger filters in `workflo-cli.yml`.
 - **`openapi-types` CI gate.** The job runs `git diff --exit-code` from `backend/` with paths relative to the repository root, so it matches no files and cannot fail. The artifacts had drifted on `main` for that reason.
 
