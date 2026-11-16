@@ -1,9 +1,10 @@
 /**
  * Cortex Frontend — Critical-Path E2E Spec
  *
- * Phase 2 completion: covers the 6 main business routes with the
+ * Phase 2 completion: covers the main business routes with the
  * happy path + every state in the route/state matrix:
- *   /upload, /evidence, /conflicts, /readiness, /audit, /nexus
+ *   /upload, /evidence, /audit, /nexus/cockpit
+ * plus the retired routes that now redirect: /conflicts, /readiness, /nexus
  *
  * Designed to run against a backend that is reachable at
  * `NEXUS_BACKEND_URL` (default http://localhost:8000) and a frontend at
@@ -71,16 +72,60 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await expect(page.getByRole('link', { name: 'Upload source data' })).toBeVisible();
   });
 
-  test('conflicts page renders with severity/status filters', async ({ page }) => {
-    await page.goto(`${BASE_URL}/conflicts`);
-    await expect(page.locator('h1, h2').first()).toBeVisible();
-    const filter = page.locator('select, [role="combobox"]').first();
-    await expect(filter).toBeVisible();
+  test('uploaded source file is accepted and its evidence can be prepared', async ({ page, request }) => {
+    const serverErrors: string[] = [];
+    page.on('response', (response) => {
+      if (response.status() >= 500) {
+        serverErrors.push(`${response.request().method()} ${new URL(response.url()).pathname} -> ${response.status()}`);
+      }
+    });
+
+    await createLoggedInSession(page, request, 'intake');
+    await page.goto(`${BASE_URL}/upload`);
+    await page.locator('#source-system').selectOption('erp');
+    await page.locator('#source-file').setInputFiles({
+      name: 'suppliers.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('supplier_id,supplier_name,country\nS-1,Acme Metals,DE\nS-2,Borealis Plastics,SE\n'),
+    });
+    const uploadResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/sources/upload') && response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Upload source' }).click();
+    const upload = await uploadResponse;
+    // The second argument surfaces the response body in the failure message
+    // (visible in CI annotations), e.g. a database or object-storage error.
+    expect(upload.status(), `upload body: ${await upload.text()}`).toBe(200);
+    await expect(page.getByText('Upload accepted')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('link', { name: 'Review evidence and publish' }).click();
+    await expect(page).toHaveURL(/\/evidence\?batch_id=/);
+    await expect(page.getByRole('heading', { name: 'Evidence review' })).toBeVisible();
+    await expect(page.getByText('No claims have been prepared for this batch.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Prepare claims' }).first().click();
+    await expect(page.getByText(/Prepared batch: 6 new claims/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+
+    // The page requests a readiness assessment on every load, so reopening it
+    // must keep working (the second assessment used to fail with HTTP 500).
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Readiness gate' })).toBeVisible();
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+
+    expect(serverErrors).toEqual([]);
   });
 
-  test('readiness page renders with batch selector', async ({ page }) => {
-    await page.goto(`${BASE_URL}/readiness`);
-    await expect(page.locator('h1, h2').first()).toBeVisible();
+  test('retired conflict and readiness routes lead to source intake', async ({ page }) => {
+    // Conflicts and the readiness gate are part of /evidence?batch_id=…, which
+    // is reached from an upload. The old standalone pages called API routes
+    // that do not exist.
+    for (const path of ['/conflicts', '/readiness']) {
+      await page.goto(`${BASE_URL}${path}`);
+      await expect(page).toHaveURL(/\/upload$/);
+      await expect(page.locator('h1, h2').first()).toBeVisible();
+    }
   });
 
   test('audit page renders with category filter', async ({ page }) => {
@@ -90,17 +135,15 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await expect(filter).toBeVisible();
   });
 
-  test('nexus console renders operational graph + signal panel', async ({ page }) => {
+  test('retired /nexus console route opens the Nexus cockpit', async ({ page }) => {
     await page.goto(`${BASE_URL}/nexus`);
+    await expect(page).toHaveURL(/\/nexus\/cockpit$/);
     await expect(page.locator('h1, h2').first()).toBeVisible();
-    // The console always renders its section tabs (Overview, Data,
-    // World, Signals, ...). The operational graph itself
-    // (svg[aria-label="Operational graph"]) only renders when the
-    // workspace has nodes — an empty workspace must still show the
-    // console shell, never a blank page.
-    const tabs = page.locator('nav button, aside button, button');
-    for (const tab of ['Overview', 'Data', 'World', 'Signals', 'Decisions']) {
-      await expect(tabs.filter({ hasText: tab }).first()).toBeVisible({ timeout: 10_000 });
+    // Every /nexus/* surface renders inside the canonical Nexus navigation,
+    // signed in or not — never a blank page.
+    const navLinks = page.locator('nav a');
+    for (const item of ['Command Center', 'World State']) {
+      await expect(navLinks.filter({ hasText: item }).first()).toBeVisible({ timeout: 10_000 });
     }
   });
 });
@@ -116,16 +159,6 @@ test.describe('Failure behavior — backend 5xx surfaces error UI', () => {
     });
     await page.goto(`${BASE_URL}/evidence?batch_id=00000000-0000-4000-8000-000000000001`);
     await expect(page.getByText('backend error', { exact: true })).toBeVisible({ timeout: 10000 });
-  });
-
-  test('readiness page shows error state on 500', async ({ page, context }) => {
-    await context.route('**/api/v1/**', (route) => {
-      route.fulfill({ status: 500, body: 'backend error' });
-    });
-    await page.goto(`${BASE_URL}/readiness`);
-    await expect(
-      page.locator('text=/error|failed|unavailable/i').first(),
-    ).toBeVisible({ timeout: 10000 });
   });
 
   test('audit page shows error state on 500', async ({ page, context }) => {
