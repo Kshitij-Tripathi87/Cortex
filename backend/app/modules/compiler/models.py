@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Float, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.enums import ClaimState, ConflictSeverity, ReadinessState
@@ -32,7 +32,9 @@ class EvidenceClaim(Base):
     )
     provenance: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     requires_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
 
 class EvidenceConflict(Base):
@@ -51,7 +53,9 @@ class EvidenceConflict(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
     review_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
 
 class ConflictResolution(Base):
@@ -64,7 +68,9 @@ class ConflictResolution(Base):
     action: Mapped[str] = mapped_column(String(32), nullable=False)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
     reviewer_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
 
 class ReadinessAssessment(Base):
@@ -82,4 +88,6 @@ class ReadinessAssessment(Base):
     pending_claim_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     assumptions: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )

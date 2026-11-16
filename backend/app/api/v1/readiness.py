@@ -65,8 +65,9 @@ async def compute_readiness_endpoint(
 
     result = await compute_readiness(db, batch.workspace_id, batch_id)
 
+    # No explicit id: every assessment gets its own generated primary key. A fixed
+    # id here made the second assessment in a database fail with a duplicate key.
     assessment = ReadinessAssessment(
-        assessment_id="temp",
         workspace_id=batch.workspace_id,
         batch_id=batch_id,
         state=result.state,
