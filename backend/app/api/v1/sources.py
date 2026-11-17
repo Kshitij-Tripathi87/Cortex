@@ -33,6 +33,7 @@ from app.modules.compiler.service import (
     detect_conflicts,
     extract_claims,
     resolve_conflict,
+    row_entity_key,
 )
 from app.modules.graph.entity_keys import ENTITY_PRIMARY_KEYS, FACILITY_ENTITY_TYPES
 from app.modules.sources.models import SourceBatch
@@ -405,6 +406,17 @@ async def review_claim_endpoint(
             },
             "entity_key": payload.entity_key or (claim.provenance or {}).get("entity_key"),
         }
+    # An accepted claim is compared with other accepted claims about the same
+    # record. The record is identified by the primary-key cell of the claim's
+    # own source row unless the reviewer names it explicitly.
+    entity_key_derived = False
+    if payload.decision == ClaimState.ACCEPTED.value and not (claim.provenance or {}).get(
+        "entity_key"
+    ):
+        derived_key = await row_entity_key(db, claim)
+        if derived_key:
+            claim.provenance = {**(claim.provenance or {}), "entity_key": derived_key}
+            entity_key_derived = True
     claim.claim_state = payload.decision
     claim.requires_review = False
     await detect_conflicts(db, workspace_id, batch_id)
@@ -426,6 +438,7 @@ async def review_claim_endpoint(
             "canonical_entity": claim.canonical_entity,
             "canonical_field": claim.canonical_field,
             "entity_key_supplied": payload.entity_key is not None,
+            "entity_key_derived": entity_key_derived,
         },
         message=f"Evidence claim {claim.claim_id} {payload.decision}",
     )

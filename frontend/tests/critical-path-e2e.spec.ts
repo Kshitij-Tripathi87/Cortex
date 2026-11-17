@@ -27,11 +27,14 @@ async function backendReachable(): Promise<boolean> {
   }
 }
 
-async function createLoggedInSession(
-  page: Page,
-  request: APIRequestContext,
-  tag: string,
-): Promise<void> {
+interface Account {
+  email: string;
+  password: string;
+  token: string;
+  workspaceId: string;
+}
+
+async function signUp(request: APIRequestContext, tag: string): Promise<Account> {
   const email = `nexus-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
   const password = 'Nexusdemo1';
   const signup = await request.post(`${BACKEND}/api/v1/auth/signup`, {
@@ -43,15 +46,79 @@ async function createLoggedInSession(
     },
   });
   expect(signup.status()).toBe(201);
+  const body = await signup.json();
+  return { email, password, token: String(body.access_token), workspaceId: String(body.workspace_id) };
+}
+
+async function createLoggedInSession(
+  page: Page,
+  request: APIRequestContext,
+  tag: string,
+): Promise<Account> {
+  const account = await signUp(request, tag);
 
   // Establish the session through the real UI so AuthProvider owns token state.
   await page.goto(`${BASE_URL}/auth/login`);
-  await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Work email').fill(account.email);
+  await page.getByLabel('Password').fill(account.password);
   await page.getByTestId('login-submit').click();
   await expect(page).toHaveURL(/onboarding/);
   await page.getByTestId('onboarding-continue').click();
   await expect(page).toHaveURL(/app$/);
+  return account;
+}
+
+/**
+ * Upload a file and take it through prepare -> review -> publish over the API,
+ * as an integration would. Review accepts every claim, mapped to its own column.
+ */
+async function publishSupplierFile(
+  request: APIRequestContext,
+  account: Account,
+  name: string,
+  csv: string,
+): Promise<void> {
+  const headers = { Authorization: `Bearer ${account.token}` };
+  const params = { workspace_id: account.workspaceId };
+
+  const upload = await request.post(`${BACKEND}/api/v1/sources/upload`, {
+    headers,
+    multipart: {
+      workspace_id: account.workspaceId,
+      source_system_hint: 'erp',
+      file: { name, mimeType: 'text/csv', buffer: Buffer.from(csv) },
+    },
+  });
+  expect(upload.status(), `upload body: ${await upload.text()}`).toBe(200);
+  const batchId = String((await upload.json()).batch_id);
+
+  const prepared = await request.post(`${BACKEND}/api/v1/sources/batches/${batchId}/compile`, { headers, params });
+  expect(prepared.status(), `prepare body: ${await prepared.text()}`).toBe(200);
+
+  const claims = await request.get(`${BACKEND}/api/v1/sources/batches/${batchId}/claims`, {
+    headers,
+    params: { ...params, limit: 500 },
+  });
+  expect(claims.status()).toBe(200);
+  for (const claim of (await claims.json()) as Array<{ claim_id: string; source_column: string }>) {
+    const review = await request.post(
+      `${BACKEND}/api/v1/sources/batches/${batchId}/claims/${claim.claim_id}/review`,
+      {
+        headers,
+        params,
+        data: {
+          decision: 'accepted',
+          rationale: 'Checked against the supplier master.',
+          canonical_entity: 'Supplier',
+          canonical_field: claim.source_column,
+        },
+      },
+    );
+    expect(review.status(), `review body: ${await review.text()}`).toBe(200);
+  }
+
+  const published = await request.post(`${BACKEND}/api/v1/graph/batches/${batchId}/compile`, { headers, params });
+  expect(published.status(), `publish body: ${await published.text()}`).toBe(200);
 }
 
 test.describe('Upload → Evidence → Conflict → Readiness → Audit path', () => {
@@ -115,6 +182,42 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await expect(page.locator('tbody tr')).toHaveCount(6);
 
     expect(serverErrors).toEqual([]);
+  });
+
+  test('the Ask box answers from a file that was uploaded, reviewed and published', async ({ page, request }) => {
+    const account = await createLoggedInSession(page, request, 'ask');
+    await publishSupplierFile(
+      request,
+      account,
+      'suppliers.csv',
+      'supplier_id,supplier_name,country,status\nS-1,Acme Metals,DE,active\nS-2,Borealis Plastics,SE,delayed\n',
+    );
+
+    await page.goto(`${BASE_URL}/nexus/cockpit`);
+    await expect(page.getByRole('heading', { name: 'Ask about this workspace' })).toBeVisible();
+
+    // A typed question is answered with the rows of the uploaded file.
+    await page.getByLabel('Question about this workspace').fill('Which suppliers do I have?');
+    await page.getByRole('button', { name: 'Ask', exact: true }).click();
+    const answers = page.getByTestId('ask-answer');
+    await expect(answers.last()).toContainText('You have 2 suppliers:', { timeout: 15_000 });
+    await expect(answers.last()).toContainText('S-1 Acme Metals: country: DE; status: active');
+    await expect(answers.last()).toContainText('S-2 Borealis Plastics: country: SE; status: delayed');
+    await expect(answers.last()).toContainText('Source: your published data, version 1 (suppliers.csv).');
+    // Plain sentences, not a dump of the tool output.
+    await expect(answers.last()).not.toContainText('{');
+
+    // A one-click suggestion is a complete question too.
+    await page.getByTestId('ask-suggestions').getByRole('button', { name: 'What changed?' }).click();
+    await expect(answers).toHaveCount(2, { timeout: 15_000 });
+    await expect(answers.last()).toContainText('The latest publish is version 1, from suppliers.csv');
+    await expect(answers.last()).toContainText('Added 2 suppliers: S-1 and S-2.');
+
+    // A record that is not in the data is reported as missing, not invented.
+    await page.getByLabel('Question about this workspace').fill('Tell me about PO-9999');
+    await page.getByLabel('Question about this workspace').press('Enter');
+    await expect(answers).toHaveCount(3, { timeout: 15_000 });
+    await expect(answers.last()).toContainText('I could not find PO-9999 in your published data.');
   });
 
   test('retired conflict and readiness routes lead to source intake', async ({ page }) => {

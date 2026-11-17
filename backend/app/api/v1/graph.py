@@ -6,19 +6,22 @@ import contextlib
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure import storage_client
 from app.infrastructure.database import get_db
 from app.infrastructure.security import (
     AuthContext,
     get_current_user,
     require_workspace_access,
 )
+from app.infrastructure.storage_client import ObjectStorageClient
 from app.modules.audit.service import emit as emit_audit
 from app.modules.compiler.service import compute_readiness
-from app.modules.graph.compiler import compile_evidence_to_graph
+from app.modules.graph.compiler import SourceArtifactUnavailableError, compile_evidence_to_graph
 from app.modules.graph.decision_models import (
     DecisionRequest,
     DecisionStatus,
@@ -195,7 +198,18 @@ async def compile_batch_to_graph(
         prior_result = await db.execute(prior_stmt)
         already_published = prior_result.scalar_one_or_none() is not None
 
-        result = await compile_evidence_to_graph(db, workspace_id, batch_id)
+        # Publish the rows of the file that was uploaded, in every environment.
+        # Upload and claim preparation already depend on the object store; without
+        # the client the compiler would rebuild dev/test rows from profile samples
+        # (five values per column, row alignment lost).
+        storage: ObjectStorageClient | None = None
+        if not already_published:
+            try:
+                storage = await run_in_threadpool(storage_client.get_storage)
+            except Exception as exc:
+                raise SourceArtifactUnavailableError("Object storage is not reachable") from exc
+
+        result = await compile_evidence_to_graph(db, workspace_id, batch_id, storage=storage)
         if not result.integrity_passed:
             raise HTTPException(
                 status_code=409,
@@ -226,6 +240,11 @@ async def compile_batch_to_graph(
     except HTTPException:
         await db.rollback()
         raise
+    except SourceArtifactUnavailableError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=503, detail="Source artifact could not be retrieved"
+        ) from exc
     except ValueError as exc:
         await db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc

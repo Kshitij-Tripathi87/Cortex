@@ -15,8 +15,16 @@ Determinism contract: the same approved evidence + the same source bytes
 always produce the same graph (identical nodes, edges, write events, and
 snapshot hash). Compilation order is fixed by sorting files by original_name.
 
-Production path: reads raw bytes from S3-compatible storage via ObjectStorageClient.
-Test path: uses profiler sample_values when storage unavailable.
+Review decisions are honoured cell by cell. Claims prepared from an upload
+identify one cell (row and column) each, and only a cell whose claim is
+accepted is published: a rejected or superseded value never reaches the graph.
+Rows that share a primary key describe one record; the first accepted value of
+each field is kept, so a later row can supply a field an earlier row lacks.
+
+Publishing path: reads the uploaded bytes from S3-compatible storage via
+ObjectStorageClient, in every environment (the publish route passes the client).
+Fixture path: a direct caller in dev/test that passes no storage client gets rows
+rebuilt from profiler sample_values; that is lossy and never used for an upload.
 """
 
 from __future__ import annotations
@@ -27,6 +35,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,6 +60,7 @@ from app.modules.graph.models import (
 )
 from app.modules.graph.versioning import get_next_version
 from app.modules.sources.models import SourceBatch, SourceColumnProfile, SourceFile
+from app.modules.sources.row_parser import SourceRowParseError, parse_source_rows
 
 
 @dataclass(frozen=True)
@@ -63,6 +73,10 @@ class CompilationResult:
     write_event_count: int
     provenance_link_count: int
     integrity_passed: bool
+
+
+class SourceArtifactUnavailableError(RuntimeError):
+    """The uploaded file behind a batch could not be read from object storage."""
 
 
 @dataclass
@@ -214,9 +228,10 @@ async def compile_evidence_to_graph(
         db: Database session
         workspace_id: Workspace identifier
         batch_id: Source batch identifier
-        storage: Optional S3-compatible storage client. If provided, reads
-            raw file bytes from S3 for production parsing. If None, falls
-            back to profiler sample_values (test/dev mode).
+        storage: S3-compatible storage client holding the uploaded files. The
+            publish route always passes it. If None, staging/pilot/prod fetch
+            the client themselves; dev/test fall back to profiler sample_values,
+            which keeps at most five values per column and loses row alignment.
     """
     from app.modules.graph.snapshots import get_latest_snapshot, seal_snapshot
 
@@ -305,6 +320,7 @@ async def compile_evidence_to_graph(
     # 3. Build pending write events from source data
     writes: list[_PendingWrite] = []
     node_keys: set[tuple[str, str]] = set()
+    node_writes: dict[tuple[str, str], _PendingWrite] = {}
     edge_keys: set[tuple[str, str, str, str]] = set()
     node_provenance: dict[tuple[str, str], set[str]] = {}
     edge_provenance: dict[tuple[str, str, str], set[str]] = {}
@@ -373,20 +389,59 @@ async def compile_evidence_to_graph(
         # Read the same immutable bytes that were uploaded. In prod/pilot,
         # storage errors fail closed; sample-value reconstruction is only for
         # unit/integration tests and explicitly local development.
+        # Claims prepared from the uploaded rows name one cell each (row number
+        # and source column). Claims written before row-level preparation carry
+        # row number 0 and cover a whole column.
+        accepted_cells = {
+            (claim.row_number, claim.source_column)
+            for claim in file_claims
+            if claim.row_number >= 1
+        }
+        cell_review = False
+        sample_rows: list[dict[str, Any]]
         if storage is not None:
-            raw_bytes = storage.get_object(file.storage_key)
-            if file.original_name.lower().endswith(".xlsx"):
-                sample_rows = _parse_xlsx_rows(raw_bytes)
+            try:
+                raw_bytes = await run_in_threadpool(storage.get_object, file.storage_key)
+            except Exception as exc:
+                raise SourceArtifactUnavailableError(
+                    f"Source file '{file.original_name}' could not be read from object storage"
+                ) from exc
+            if accepted_cells:
+                # Read the rows exactly as claim preparation did, so that row
+                # numbers and column names line up with the reviewed claims.
+                try:
+                    sample_rows = await run_in_threadpool(
+                        parse_source_rows, raw_bytes, file.original_name
+                    )
+                except SourceRowParseError as exc:
+                    raise ValueError(
+                        f"Source file '{file.original_name}' could not be parsed for publishing: {exc}"
+                    ) from exc
+                cell_review = True
+            elif file.original_name.lower().endswith(".xlsx"):
+                sample_rows = list(_parse_xlsx_rows(raw_bytes))
             else:
-                sample_rows = _parse_csv_rows(raw_bytes, file.encoding)
+                sample_rows = list(_parse_csv_rows(raw_bytes, file.encoding))
         elif get_settings().env.lower() in {"dev", "test"}:
-            sample_rows = _reconstruct_rows_from_profiles(profiles)
+            sample_rows = list(_reconstruct_rows_from_profiles(profiles))
         else:
             raise RuntimeError(
                 "Object storage is required to publish source data in this environment"
             )
 
-        for _row_idx, raw_row in enumerate(sample_rows):
+        for row_idx, raw_row in enumerate(sample_rows):
+            if cell_review:
+                # Publish only the cells a reviewer accepted. A rejected or
+                # superseded value is left out; a row whose key cell was not
+                # accepted cannot be identified and is skipped below.
+                row_number = row_idx + 1
+                raw_row = {
+                    column: value
+                    for column, value in raw_row.items()
+                    if (row_number, column) in accepted_cells
+                }
+                if not raw_row:
+                    continue
             row = _canonicalize_source_row(raw_row, entity_type, field_mappings)
             entity_id = row.get(pk_column, "").strip()
             if not entity_id:
@@ -407,21 +462,31 @@ async def compile_evidence_to_graph(
 
             key = (resolved_type, entity_id)
             node_provenance.setdefault(key, set()).update(file_claim_ids)
-            if key not in node_keys:
+            pending_node = node_writes.get(key)
+            if pending_node is None:
                 node_keys.add(key)
-                writes.append(
-                    _PendingWrite(
-                        operation="upsert_node",
-                        element_type="node",
-                        element_id=uuid7(),
-                        payload={
-                            "entity_type": resolved_type,
-                            "entity_id": entity_id,
-                            "attributes": attributes,
-                        },
-                        provenance_claim_ids=file_claim_ids[:],
-                    )
+                pending_node = _PendingWrite(
+                    operation="upsert_node",
+                    element_type="node",
+                    element_id=uuid7(),
+                    payload={
+                        "entity_type": resolved_type,
+                        "entity_id": entity_id,
+                        "attributes": attributes,
+                    },
+                    provenance_claim_ids=file_claim_ids[:],
                 )
+                writes.append(pending_node)
+                node_writes[key] = pending_node
+            elif cell_review:
+                # Another accepted row for the same record, or the record's own
+                # row after an earlier row only referred to it. The first
+                # accepted value of each field is kept; a conflict between
+                # accepted values is resolved in review before publishing.
+                merged = pending_node.payload["attributes"]
+                for field_name, value in attributes.items():
+                    merged.setdefault(field_name, value)
+                pending_node.payload.pop("_stub", None)
 
             # Emit edges for FK columns
             for col_name, target_type, rel, _fk_field in fk_columns:
@@ -440,20 +505,20 @@ async def compile_evidence_to_graph(
                     stub_attrs: dict[str, Any] = {}
                     if target_type in FACILITY_ENTITY_TYPES:
                         stub_attrs["_facility_type"] = _normalize_facility_type(target_type)
-                    writes.append(
-                        _PendingWrite(
-                            operation="upsert_node",
-                            element_type="node",
-                            element_id=uuid7(),
-                            payload={
-                                "entity_type": target_resolved,
-                                "entity_id": target_id,
-                                "attributes": stub_attrs,
-                                "_stub": True,
-                            },
-                            provenance_claim_ids=file_claim_ids[:],
-                        )
+                    stub_node = _PendingWrite(
+                        operation="upsert_node",
+                        element_type="node",
+                        element_id=uuid7(),
+                        payload={
+                            "entity_type": target_resolved,
+                            "entity_id": target_id,
+                            "attributes": stub_attrs,
+                            "_stub": True,
+                        },
+                        provenance_claim_ids=file_claim_ids[:],
                     )
+                    writes.append(stub_node)
+                    node_writes[target_key] = stub_node
 
                 # Edge key: (source_entity_type, source_entity_id, target_entity_id, rel)
                 source_node_key = f"{resolved_type}:{entity_id}"

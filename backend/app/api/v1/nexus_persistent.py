@@ -1452,7 +1452,7 @@ async def vanessa_ask(
     settings = get_settings()
     try:
         pipeline = VanessaPipeline(llm=get_llm_adapter(settings))
-        register_vanessa_tools(pipeline, session, p, workspace_id)
+        register_vanessa_tools(pipeline, session, p, workspace_id, question=body.query)
         response = await pipeline.handle(p, body.query, workspace_id=workspace_id)
     except LLMProviderError as exc:
         await session.rollback()

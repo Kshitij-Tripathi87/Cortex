@@ -2,6 +2,12 @@
 
 All tools are read-only or produce isolated digital-twin simulations. The
 LLM cannot write canonical world state, approve a decision, or execute work.
+
+The tools that read the workspace's published records (graph, cockpit, risk
+and recommendation context) receive the user's question, so the evidence they
+return is about what was asked: the records it names, what is late, short or
+exposed, what changed, and where each upload stands. That evidence travels
+under ``workspace_data`` next to each tool's existing fields.
 """
 
 from __future__ import annotations
@@ -13,6 +19,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.graph.models import GraphEdge, GraphNode, GraphSnapshot
@@ -34,10 +41,12 @@ from app.modules.nexus_spine.p0_migration.authoritative_truth import (
     get_authoritative_truth_loop,
 )
 from app.modules.nexus_spine.p0_migration.authz import Principal
+from app.modules.nexus_spine.p0_migration.question_focus import TOPIC_EXPOSURE, TOPIC_OVERVIEW
 from app.modules.nexus_spine.p0_migration.vanessa_pipeline import (
     ToolCall,
     VanessaPipeline,
 )
+from app.modules.nexus_spine.p0_migration.workspace_evidence import build_workspace_evidence
 from app.modules.nexus_spine.persistence.models import (
     ForecastRecordDB,
     ObservationRecordDB,
@@ -211,6 +220,9 @@ async def _signal_read(session: AsyncSession, workspace_id: str) -> dict[str, An
     ]
     return {
         "workspace_id": workspace_id,
+        # Every registered signal is derived from graph structure (degree,
+        # reach, betweenness). None reads dates, statuses or quantities.
+        "basis": "graph_structure_only",
         "snapshot_version": snapshot.snapshot_version,
         "snapshot_hash": snapshot.snapshot_hash,
         "signals": signals[:50],
@@ -430,18 +442,35 @@ def register_vanessa_tools(
     session: AsyncSession,
     principal: Principal,
     workspace_id: str,
+    question: str = "",
 ) -> None:
-    """Register only workspace-scoped evidence tools; no real-world execution."""
+    """Register only workspace-scoped evidence tools; no real-world execution.
+
+    ``question`` is the user's message. Tools that read the published records
+    use it to return evidence about what was asked. It selects what is read
+    inside this workspace; it grants no tool and no access.
+    """
 
     registry = get_authoritative_registry_service()
     memory = get_authoritative_decision_memory()
     decision_service = get_authoritative_decision_service()
 
-    async def graph_read(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
-        return await _graph_read(session, workspace_id)
+    async def workspace_data(tc: ToolCall, default_topic: str | None = None) -> dict[str, Any]:
+        return await build_workspace_evidence(
+            session, workspace_id, question, hints=tc.args, default_topic=default_topic
+        )
 
-    async def risk_read(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
-        return await _risk_read(session, principal, workspace_id)
+    async def graph_read(tc: ToolCall, _p: Principal) -> dict[str, Any]:
+        return {
+            "workspace_data": await workspace_data(tc),
+            **(await _graph_read(session, workspace_id)),
+        }
+
+    async def risk_read(tc: ToolCall, _p: Principal) -> dict[str, Any]:
+        return {
+            "workspace_data": await workspace_data(tc, TOPIC_EXPOSURE),
+            **(await _risk_read(session, principal, workspace_id)),
+        }
 
     async def signal_read(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
         return await _signal_read(session, workspace_id)
@@ -465,13 +494,14 @@ def register_vanessa_tools(
         sku = str(tc.args.get("sku")) if tc.args.get("sku") else None
         return await _forecast_read(session, principal, workspace_id, sku)
 
-    async def cockpit_read(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
+    async def cockpit_read(tc: ToolCall, _p: Principal) -> dict[str, Any]:
         graph = await _graph_read(session, workspace_id, include_entities=False)
         risks = await _risk_read(session, principal, workspace_id)
         decisions = await decision_service.list_by_workspace(
             session, tenant_id=principal.tenant_id, workspace_id=workspace_id, limit=25
         )
         return {
+            "workspace_data": await workspace_data(tc, TOPIC_OVERVIEW),
             "summary": (
                 f"{graph['active_node_count']} active graph entities, "
                 f"{graph['active_edge_count']} active relationships, "
@@ -489,17 +519,38 @@ def register_vanessa_tools(
         region = str(tc.args.get("region")) if tc.args.get("region") else None
         return await _run_demand(session, principal, workspace_id, sku, supplier_id, region)
 
-    async def recommendation_context(_tc: ToolCall, _p: Principal) -> dict[str, Any]:
+    async def recommendation_context(tc: ToolCall, _p: Principal) -> dict[str, Any]:
         # One AsyncSession must not be used by concurrent tasks. Keep these
         # evidence reads ordered within the request transaction.
+        data = await workspace_data(tc, TOPIC_EXPOSURE)
         graph = await _graph_read(session, workspace_id)
         risks = await _risk_read(session, principal, workspace_id)
-        signals = await _signal_read(session, workspace_id)
+        # Signals are a structural supplement. When they cannot be computed
+        # (their cache is unreachable, say) the context is still built from
+        # the published records, risks, scenarios and decisions.
+        signals: dict[str, Any]
+        try:
+            signals = await _signal_read(session, workspace_id)
+        except SQLAlchemyError:
+            # The request transaction may no longer be usable.
+            raise
+        except Exception:
+            _LOG.warning("Signals unavailable for the recommendation context", exc_info=True)
+            signals = {
+                "workspace_id": workspace_id,
+                "basis": "graph_structure_only",
+                "unavailable": True,
+                "signals": [],
+                "count": 0,
+            }
         scenarios = await _scenario_read(session, principal, workspace_id)
         decisions = await decision_service.list_by_workspace(
             session, tenant_id=principal.tenant_id, workspace_id=workspace_id, limit=10
         )
         return {
+            # What the published records say about the subject of the request:
+            # late supply, the parts it carries, their stock and other sources.
+            "workspace_data": data,
             "analysis_context": {
                 "graph": graph,
                 "open_risks": risks,

@@ -14,6 +14,14 @@ services:
       CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:?CORTEX_S3_SECRET_KEY is required}
       CORTEX_S3_USE_PATH_STYLE: ${CORTEX_S3_USE_PATH_STYLE:-false}
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?CORTEX_JWT_SECRET is required}
+      # Staging is validated like production: the API refuses to start, naming
+      # the missing variable, unless CORTEX_LLM_API_KEY and CORTEX_LLM_MODEL are
+      # set (the built-in assistant is dev/test only). They were not passed to
+      # the container before, so it could not start at all.
+      CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
       CORTEX_OUTBOX_PUBLISHER_ENABLED: ${CORTEX_OUTBOX_PUBLISHER_ENABLED:-false}
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
@@ -34,6 +42,12 @@ services:
       CORTEX_ENV: staging
       CORTEX_DB_DSN: ${CORTEX_DB_DSN:?CORTEX_DB_DSN is required}
       CORTEX_REDIS_URL: ${CORTEX_REDIS_URL:?CORTEX_REDIS_URL is required}
+      # The relay loads the same settings, which staging validates in full.
+      CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?CORTEX_JWT_SECRET is required}
+      CORTEX_LLM_PROVIDER: ${CORTEX_LLM_PROVIDER:-openai_compatible}
+      CORTEX_LLM_API_KEY: ${CORTEX_LLM_API_KEY:-}
+      CORTEX_LLM_BASE_URL: ${CORTEX_LLM_BASE_URL:-https://api.openai.com/v1}
+      CORTEX_LLM_MODEL: ${CORTEX_LLM_MODEL:-}
       CORTEX_OUTBOX_PUBLISHER_ID: ${CORTEX_OUTBOX_PUBLISHER_ID:-staging-outbox-relay}
       CORTEX_OUTBOX_SWEEP_INTERVAL_S: ${CORTEX_OUTBOX_SWEEP_INTERVAL_S:-1.0}
       CORTEX_OUTBOX_BATCH_SIZE: ${CORTEX_OUTBOX_BATCH_SIZE:-100}

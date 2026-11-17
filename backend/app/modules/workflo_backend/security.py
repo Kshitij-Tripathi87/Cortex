@@ -100,10 +100,11 @@ class AuthContext:
 
 
 def _is_strict_env() -> bool:
-    """True when auth must be enforced (prod / pilot)."""
+    """True when auth must be enforced (staging / pilot / prod)."""
     settings = get_settings()
-    # "production" accepted defensively (see app/infrastructure/security.py).
-    return settings.env in {"prod", "production", "pilot"}
+    # Same rule as app/infrastructure/security.py: staging is strict too, and
+    # "production" is accepted defensively.
+    return settings.env.strip().lower() in {"prod", "production", "pilot", "staging"}
 
 
 def _header(request: Request, name: str) -> str | None:

@@ -109,7 +109,9 @@ config module (`backend/app/config.py`). Missing required or invalid values fail
 fast with a clear error — never silent defaults. The closed set:
 
 ### 4.1 Required everywhere
-- `CORTEX_ENV` — `dev|staging|pilot|prod`.
+- `CORTEX_ENV` — `dev|staging|pilot|prod`. In `staging`, `pilot` and `prod` every API
+  request must carry a verified Bearer token; identity headers and the anonymous
+  development principal are accepted only in `dev` and `test`.
 - `CORTEX_LOG_LEVEL` — `trace|debug|info|warn|error`.
 - `CORTEX_DB_DSN` — asyncpg DSN with TLS enforced in staging+.
 - `CORTEX_REDIS_URL`.

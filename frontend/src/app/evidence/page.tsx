@@ -91,6 +91,24 @@ function readinessStyle(state: string): string {
   }
 }
 
+// The product theme is dark with near-white body text. This page is a light
+// surface, so it sets its own dark base text colour: anything without an
+// explicit colour class would otherwise be near-white on white.
+const PAGE_SURFACE = "min-h-screen bg-slate-50 text-slate-900";
+
+/** Claims of a conflict in file order, for showing the competing values. */
+function conflictClaims(conflict: EvidenceConflict, claims: EvidenceClaim[]): EvidenceClaim[] {
+  return claims
+    .filter((claim) => conflict.claim_ids.includes(claim.claim_id))
+    .sort((left, right) => left.row_number - right.row_number);
+}
+
+function claimStateNote(claim: EvidenceClaim): string {
+  return claim.claim_state === "accepted" || claim.claim_state === "pending_review"
+    ? ""
+    : ` (${String(claim.claim_state).replaceAll("_", " ")})`;
+}
+
 function EvidenceContent() {
   const searchParams = useSearchParams();
   const batchId = searchParams.get("batch_id");
@@ -294,12 +312,12 @@ function EvidenceContent() {
   }
 
   if (status === "UNKNOWN" || status === "CHECKING") {
-    return <div className="p-8 text-sm text-gray-500">Checking your Cortex session…</div>;
+    return <div className={`${PAGE_SURFACE} p-8 text-sm text-slate-600`}>Checking your Cortex session…</div>;
   }
 
   if (status !== "AUTHENTICATED") {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center p-8 text-center">
+      <div className={`${PAGE_SURFACE} flex items-center justify-center p-8 text-center`}>
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Sign in to review source evidence</h1>
           <p className="mt-2 text-sm text-gray-600">Evidence review is scoped to your authenticated workspace.</p>
@@ -313,7 +331,7 @@ function EvidenceContent() {
 
   if (!batchId) {
     return (
-      <main className="p-8">
+      <main className={`${PAGE_SURFACE} p-8`}>
         <h1 className="text-2xl font-semibold text-gray-900">Evidence Review</h1>
         <p className="mt-2 text-sm text-gray-600">Open this page from a source upload so the batch ID is included.</p>
         <Link href="/upload" className="mt-4 inline-flex rounded bg-slate-900 px-4 py-2 text-white">Upload source data</Link>
@@ -322,7 +340,7 @@ function EvidenceContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-5 sm:p-8">
+    <main className={`${PAGE_SURFACE} p-5 sm:p-8`}>
       <div className="mx-auto max-w-7xl">
         <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -433,7 +451,7 @@ function EvidenceContent() {
           <section className="border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-4">
               <h2 className="font-semibold text-slate-950">Extracted claims</h2>
-              <p className="mt-1 text-xs text-slate-500">Each column mapping is a claim. Decisions are recorded with reviewer identity and rationale.</p>
+              <p className="mt-1 text-xs text-slate-500">Each cell of the file (one row, one column) is a claim. Only accepted cells are published. Decisions are recorded with reviewer identity and rationale.</p>
             </div>
             {loading ? (
               <div className="p-8 text-center text-sm text-slate-500">Loading claims…</div>
@@ -460,7 +478,10 @@ function EvidenceContent() {
                     {claims.map((claim) => (
                       <tr key={claim.claim_id} className="align-top">
                         <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900">{claim.source_column}</p>
+                          <p className="font-medium text-slate-900">
+                            {claim.source_column}
+                            {claim.row_number > 0 && <span className="ml-2 text-xs font-normal text-slate-500">row {claim.row_number}</span>}
+                          </p>
                           <p className="mt-1 max-w-xs truncate font-mono text-[11px] text-slate-500">{claim.raw_value || "—"}</p>
                         </td>
                         <td className="px-4 py-3">
@@ -488,7 +509,7 @@ function EvidenceContent() {
                             >
                               Review
                             </button>
-                          ) : <span className="text-xs text-slate-400">—</span>}
+                          ) : <span className="text-xs text-slate-500">—</span>}
                         </td>
                       </tr>
                     ))}
@@ -501,7 +522,7 @@ function EvidenceContent() {
           <section className="border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-4">
               <h2 className="font-semibold text-slate-950">Conflicts</h2>
-              <p className="mt-1 text-xs text-slate-500">Resolve conflicting values before claim approval and graph publication.</p>
+              <p className="mt-1 text-xs text-slate-500">Rows that give different accepted values for the same field of one record. Decide which value is published; until then publishing is blocked.</p>
             </div>
             {openConflicts.length === 0 ? (
               <p className="p-5 text-sm text-slate-500">No open conflicts for this batch.</p>
@@ -516,9 +537,18 @@ function EvidenceContent() {
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-slate-600">{conflict.explanation}</p>
+                    <ul className="mt-2 space-y-1 text-xs text-slate-700" data-testid="conflict-values">
+                      {conflictClaims(conflict, claims).map((claim) => (
+                        <li key={claim.claim_id}>
+                          <span className="text-slate-500">Row {claim.row_number}:</span>{" "}
+                          <span className="font-mono">{claim.raw_value}</span>
+                          {claimStateNote(claim)}
+                        </li>
+                      ))}
+                    </ul>
                     <p className="mt-2 text-[11px] text-slate-500">{conflict.claim_ids.length} claims involved</p>
                     <button
-                      onClick={() => { setSelectedConflict(conflict); setConflictClaimId(conflict.claim_ids[0] ?? ""); setConflictAction("approved"); setConflictRationale(""); }}
+                      onClick={() => { setSelectedConflict(conflict); setConflictClaimId(conflictClaims(conflict, claims).find((claim) => claim.claim_state === "accepted" || claim.claim_state === "pending_review")?.claim_id ?? ""); setConflictAction("approved"); setConflictRationale(""); }}
                       disabled={!canReview}
                       className="mt-3 text-xs font-semibold text-blue-700 hover:underline disabled:opacity-40"
                     >
@@ -605,10 +635,10 @@ function EvidenceContent() {
               <div>
                 <label htmlFor="conflict-action" className="mb-1 block text-xs font-medium text-slate-700">Decision</label>
                 <select id="conflict-action" value={conflictAction} onChange={(event) => setConflictAction(event.target.value)} className="w-full border border-slate-300 p-2 text-sm">
-                  <option value="approved">Approve selected claim and supersede alternatives</option>
-                  <option value="rejected">Reject selected claim / reject all when no claim selected</option>
-                  <option value="suppressed">Suppress detector finding (claims remain pending)</option>
-                  <option value="escalated">Escalate for further review</option>
+                  <option value="approved">Keep the selected value and withdraw the others</option>
+                  <option value="rejected">Reject the selected value, or all values</option>
+                  <option value="suppressed">Not a real conflict: publish the first row&apos;s value</option>
+                  <option value="escalated">Escalate for further review (publishing stays blocked)</option>
                 </select>
               </div>
               {conflictAction === "approved" || conflictAction === "rejected" ? (
@@ -616,9 +646,11 @@ function EvidenceContent() {
                   <label htmlFor="conflict-claim" className="mb-1 block text-xs font-medium text-slate-700">Claim</label>
                   <select id="conflict-claim" value={conflictClaimId} onChange={(event) => setConflictClaimId(event.target.value)} className="w-full border border-slate-300 p-2 text-sm">
                     {conflictAction === "rejected" && <option value="">Reject all claims in this conflict</option>}
-                    {claims.filter((claim) => selectedConflict.claim_ids.includes(claim.claim_id)).map((claim) => (
-                      <option key={claim.claim_id} value={claim.claim_id}>{claim.source_column}: {claim.raw_value}</option>
-                    ))}
+                    {conflictClaims(selectedConflict, claims)
+                      .filter((claim) => claim.claim_state === "accepted" || claim.claim_state === "pending_review")
+                      .map((claim) => (
+                        <option key={claim.claim_id} value={claim.claim_id}>Row {claim.row_number} · {claim.source_column}: {claim.raw_value}</option>
+                      ))}
                   </select>
                 </div>
               ) : null}
@@ -642,7 +674,7 @@ function EvidenceContent() {
 
 export default function EvidencePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading evidence review…</div>}>
+    <Suspense fallback={<div className={`${PAGE_SURFACE} p-8 text-sm text-slate-600`}>Loading evidence review…</div>}>
       <EvidenceContent />
     </Suspense>
   );

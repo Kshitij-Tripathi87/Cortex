@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { askVanessa, VanessaResponse } from "@/lib/api/nexusClient";
 import { useAuth } from "@/lib/auth";
+import { askSuggestions, evidenceSummary, evidenceTool } from "@/lib/nexus/ask";
 import { useNexusWorkspace } from "@/lib/state/WorkspaceContext";
 
 export const AskNexusBar: React.FC = () => {
@@ -18,7 +19,8 @@ export const AskNexusBar: React.FC = () => {
 
   const handleAsk = async (queryText?: string) => {
     const q = queryText || query;
-    if (!q.trim() || !workspaceId) return;
+    if (!q.trim() || !workspaceId || loading) return;
+    if (queryText) setQuery(queryText);
     setLoading(true);
     setError(null);
     try {
@@ -46,7 +48,8 @@ export const AskNexusBar: React.FC = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask Nexus anything about your operational world..."
+            placeholder="Ask about the data published in this workspace..."
+            aria-label="Question about this workspace"
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
             onKeyDown={(e) => e.key === "Enter" && handleAsk()}
           />
@@ -58,6 +61,21 @@ export const AskNexusBar: React.FC = () => {
         >
           {loading ? "Reasoning..." : "Execute Reasoning"}
         </button>
+      </div>
+
+      {/* One-click questions the assistant answers from published data */}
+      <div className="flex flex-wrap gap-2" data-testid="ask-suggestions">
+        {askSuggestions(null).map((suggestion) => (
+          <button
+            key={suggestion}
+            type="button"
+            onClick={() => handleAsk(suggestion)}
+            disabled={loading || !workspaceId}
+            className="px-2.5 py-1 rounded border border-zinc-800 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition disabled:opacity-50"
+          >
+            {suggestion}
+          </button>
+        ))}
       </div>
 
       {/* Failure state — an API failure must never look like success */}
@@ -88,7 +106,10 @@ export const AskNexusBar: React.FC = () => {
           </div>
 
           <div>
-            <p className="text-sm text-zinc-100 leading-relaxed whitespace-pre-wrap">
+            <p
+              className="text-sm text-zinc-100 leading-relaxed whitespace-pre-wrap break-words"
+              data-testid="ask-answer"
+            >
               {answer.response}
             </p>
           </div>
@@ -120,22 +141,9 @@ export const AskNexusBar: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 {answer.evidence.map((item, idx) => {
-                  const tool = typeof item.tool === "string" ? item.tool : `evidence_${idx + 1}`;
-                  const data = item.data;
-                  const summary =
-                    data && typeof data === "object"
-                      ? Object.entries(data as Record<string, unknown>)
-                          .slice(0, 4)
-                          .map(
-                            ([key, value]) =>
-                              `${key}: ${
-                                value && typeof value === "object"
-                                  ? JSON.stringify(value)
-                                  : String(value)
-                              }`,
-                          )
-                          .join(" · ")
-                      : String(data ?? "");
+                  // The server writes one readable line per tool: what it read.
+                  const tool = evidenceTool(item, idx);
+                  const summary = evidenceSummary(item);
                   return (
                     <div
                       key={idx}
