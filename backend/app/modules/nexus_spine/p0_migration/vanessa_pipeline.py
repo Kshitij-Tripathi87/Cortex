@@ -30,6 +30,7 @@ CRITICAL INVARIANTS:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -38,12 +39,30 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
+from app.modules.nexus_spine.p0_migration.answer_rendering import (
+    render_answer,
+    summarize_evidence,
+    world_state_version_of,
+)
 from app.modules.nexus_spine.p0_migration.authz import (
     AuthorizationService,
     PermissionDenied,
     Principal,
     get_authz,
 )
+from app.modules.nexus_spine.p0_migration.question_focus import (
+    TOPIC_EXPOSURE,
+    TOPIC_OVERVIEW,
+    QuestionFocus,
+    parse_question,
+)
+
+_LOG = logging.getLogger(__name__)
+
+# Evidence recorded for a tool that raised. The exception is logged with the
+# trace id; its text can name internal hosts and addresses, so it is not put
+# into the answer, the evidence returned to the client, or a model prompt.
+TOOL_FAILED = "tool failed"
 
 
 class IntentType(StrEnum):
@@ -254,12 +273,60 @@ class DeterministicLLMAdapter(LLMAdapter):
     # Words requiring word-boundary matching (avoid false positives in compound words)
     _BOUNDARY_WORDS = {"hi", "hey", "why", "how"}
 
-    def _count_hits(self, kw: str, text: str) -> int:
-        import re
+    # Intents that describe how a question is phrased, not a capability. A
+    # question phrased this way that names workspace data ("tell me about
+    # S-101", "hi, which orders are late?") is answered from that data.
+    _YIELDS_TO_DATA = frozenset(
+        {IntentType.UNKNOWN, IntentType.EXPLAIN, IntentType.HELP, IntentType.GREETING}
+    )
+    # Trace phrases that are ordinary "why" questions when they name data.
+    _SOFT_TRACE_PHRASES = ("explain why", "why did")
+    _HARD_TRACE_PHRASES = ("trace", "audit", "history of")
+    # "How does publishing work?" and "what does safety stock mean?" ask about
+    # the product, whatever else they name.
+    _ASKS_HOW_IT_WORKS = re.compile(
+        r"\bhow\b.*\b(?:work|works|working)\b"
+        r"|\b(?:how|what) (?:does|do|is|are|can)\b.*"
+        r"\b(?:mean|means|calculated|computed|defined|decided)\b"
+    )
+    # "What are you?" and "tell me about Cortex" ask about the assistant. The
+    # same words are also plain address ("Cortex, which orders are late?",
+    # "can you list my suppliers?"), so they count only when the question
+    # names nothing in the workspace.
+    _ABOUT_THE_ASSISTANT = re.compile(
+        r"\b(?:cortex|nexus|vanessa|architecture|platform|pipeline|assistant|yourself)\b"
+        r"|\b(?:are|can|do) you\b"
+    )
 
+    def _count_hits(self, kw: str, text: str) -> int:
         if kw in self._BOUNDARY_WORDS:
             return 1 if re.search(rf"\b{re.escape(kw)}\b", text) else 0
         return 1 if kw in text else 0
+
+    def _asks_about_product(self, lower: str, focus: QuestionFocus) -> bool:
+        """True for a question about the product or the assistant, not the data."""
+        if self._ASKS_HOW_IT_WORKS.search(lower):
+            return True
+        return not focus.names_data and bool(self._ABOUT_THE_ASSISTANT.search(lower))
+
+    def _answered_from_data(
+        self, keyword_intent: IntentType, lower: str, focus: QuestionFocus
+    ) -> bool:
+        """True when the question should be answered from the published records."""
+        if keyword_intent == IntentType.EXPLAIN:
+            # "Tell me about ...", "what are ...", "why is ..." ask about a
+            # thing. Unless the thing is the product itself, look it up: the
+            # lookup says plainly when the workspace holds nothing by that name.
+            return not self._asks_about_product(lower, focus)
+        if not focus.names_data:
+            return False
+        if keyword_intent in self._YIELDS_TO_DATA:
+            return not self._asks_about_product(lower, focus)
+        if keyword_intent == IntentType.TRACE_QUERY:
+            return any(phrase in lower for phrase in self._SOFT_TRACE_PHRASES) and not any(
+                phrase in lower for phrase in self._HARD_TRACE_PHRASES
+            )
+        return False
 
     async def classify_intent(self, text: str) -> StructuredIntent:
         lower = text.lower()
@@ -270,13 +337,26 @@ class DeterministicLLMAdapter(LLMAdapter):
             hits = sum(self._count_hits(kw, lower) for kw in kws)
             if hits > best_hits:
                 best, best_hits = intent, hits
+        # A question about the workspace's own records, with no keyword that
+        # asks for another capability, is routed to the tool that reads them.
+        # The tool name stays within INTENT_TO_TOOL, so AuthZ is unchanged.
+        focus = parse_question(text)
+        understood = best_hits > 0
+        if self._answered_from_data(best, lower, focus):
+            understood = True
+            if focus.topic == TOPIC_OVERVIEW:
+                best = IntentType.STATE_OVERVIEW
+            elif focus.topic == TOPIC_EXPOSURE:
+                best = IntentType.RISK_QUERY
+            else:
+                best = IntentType.GRAPH_QUERY
         # Extract simple entities (SKU-like tokens)
         entities: dict[str, Any] = {}
         m = re.search(r"\b(SKU-\d+|sku[_-]?\w+)\b", text, re.IGNORECASE)
         if m:
             entities["sku"] = m.group(1)
         return StructuredIntent(
-            intent=best, entities=entities, confidence=0.9 if best_hits > 0 else 0.3, raw_text=text
+            intent=best, entities=entities, confidence=0.9 if understood else 0.3, raw_text=text
         )
 
     async def plan_tools(
@@ -288,30 +368,8 @@ class DeterministicLLMAdapter(LLMAdapter):
         return [ToolCall(tool=tool, args=intent.entities)]
 
     async def synthesize(self, intent: StructuredIntent, evidence: list[Evidence]) -> str:
-        if not evidence:
-            if intent.intent == IntentType.HELP:
-                return (
-                    "I'm Vanessa, Nexus's operating intelligence. I can show you "
-                    "world state, forecasts, risks, decisions, and traces; run "
-                    "demand intelligence, simulations, and what-if analyses; and "
-                    "(for operators) approve and execute decisions. What would you "
-                    "like to explore?"
-                )
-            if intent.intent == IntentType.GREETING:
-                return "Hello. I'm Vanessa. How can I help with Nexus operations today?"
-            if intent.intent == IntentType.UNKNOWN:
-                return "I didn't catch that. Try asking about forecasts, decisions, world state, risks, or type 'help'."
-            return f"I understood your request as '{intent.intent.value}' but found no evidence in the current world state."
-        parts = []
-        for ev in evidence:
-            if isinstance(ev.data, dict):
-                summary = ev.data.get("summary") or json.dumps(ev.data, default=str)[:300]
-            elif isinstance(ev.data, str):
-                summary = ev.data[:300]
-            else:
-                summary = str(ev.data)[:300]
-            parts.append(f"[{ev.source}] {summary}")
-        return "Based on the current Nexus state:\n\n" + "\n\n".join(parts)
+        """Plain-language answer assembled from the tool evidence, with no model."""
+        return render_answer(intent.intent.value, [(item.tool, item.data) for item in evidence])
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -369,22 +427,13 @@ class VanessaPipeline:
         plan = await self.llm.plan_tools(intent, allowed)
 
         denied_reason = None
-        # Operational/write intents require the role to actually have the tool
-        _WRITE_TOOLS = {
-            "nexus.decision.approve",
-            "nexus.decision.execute",
-            "nexus.decision.create",
-            "nexus.outcome.record",
-            "nexus.observation.record",
-            "nexus.policy.approve",
-            "nexus.admin.configure",
-            "nexus.admin.roles",
-        }
+        # The role must actually have the tool the request needs. This holds
+        # for analysis tools as well as operational ones: answering "no
+        # evidence" when the role simply lacks the tool would misstate why.
         if (
             required_tool
             and required_tool not in allowed
             and intent.intent not in {IntentType.HELP, IntentType.GREETING, IntentType.UNKNOWN}
-            and required_tool in _WRITE_TOOLS
         ):
             denied_reason = (
                 f"Role '{principal.role.value}' is not permitted to use "
@@ -436,9 +485,10 @@ class VanessaPipeline:
                     permission_denied=str(e),
                     trace_id=trace_id,
                 )
-            except Exception as e:
+            except Exception:
+                _LOG.exception("Ask tool %s failed (trace %s)", tc.tool, trace_id)
                 evidence.append(
-                    Evidence(source=f"tool:{tc.tool}", data={"error": str(e)}, tool=tc.tool)
+                    Evidence(source=f"tool:{tc.tool}", data={"error": TOOL_FAILED}, tool=tc.tool)
                 )
 
         # Step 5+6: synthesize response
@@ -463,10 +513,25 @@ class VanessaPipeline:
             intent=intent.intent,
             actions_taken=actions,
             evidence=[
-                {"source": e.source, "tool": e.tool, "data_excerpt": _excerpt(e.data)}
+                {
+                    "source": e.source,
+                    "tool": e.tool,
+                    # One readable line saying what the tool read.
+                    "summary": summarize_evidence(e.tool, e.data),
+                    "data_excerpt": _excerpt(e.data),
+                }
                 for e in evidence
             ],
             trace_id=trace_id,
+            # Version of the published data the answer was read from.
+            world_state_version=next(
+                (
+                    version
+                    for version in (world_state_version_of(e.data) for e in evidence)
+                    if version is not None
+                ),
+                None,
+            ),
         )
 
 
