@@ -99,12 +99,22 @@ class AuthContext:
         return workspace_id in self.workspace_ids
 
 
+# Environments that hold shared or customer data. Every request must carry a
+# verified Bearer token there; caller-supplied identity headers and the
+# anonymous development principal are never accepted.
+STRICT_ENVIRONMENTS = frozenset({"prod", "production", "pilot", "staging"})
+
+
 def _is_strict_env() -> bool:
-    """True when auth must be enforced (prod / pilot)."""
+    """True when auth must be enforced (staging / pilot / prod)."""
     settings = get_settings()
     # "production" accepted defensively: k8s manifests historically set
-    # CORTEX_ENV=production (normalized to "prod" in v0.8.5-B).
-    return settings.env in {"prod", "production", "pilot"}
+    # CORTEX_ENV=production (normalized to "prod" in v0.8.5-B). Staging is a
+    # deployed, shared environment and is configured like production
+    # (Settings requires its JWT secret and model gateway), so it is strict
+    # too. Case and surrounding spaces are ignored: "Staging" must not turn
+    # authentication off.
+    return settings.env.strip().lower() in STRICT_ENVIRONMENTS
 
 
 def _header(request: Request, name: str) -> str | None:
