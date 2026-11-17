@@ -23,6 +23,7 @@ export interface VanessaResponse {
   response: string;
   intent: string;
   actions_taken: string[];
+  /** Per tool: `tool`, `source`, a readable `summary`, and the raw `data_excerpt`. */
   evidence: Array<Record<string, unknown>>;
   permission_denied: string | null;
   trace_id: string;

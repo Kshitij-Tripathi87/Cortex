@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
+import { askPlaceholder, askSuggestions } from "@/lib/nexus/ask";
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "WATCH";
 
@@ -69,9 +70,26 @@ function titleCase(value: string): string {
     .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
 }
 
+const NAME_ATTRIBUTES = [
+  "name",
+  "supplier_name",
+  "customer_name",
+  "product_name",
+  "warehouse_name",
+  "facility_name",
+  "plant_name",
+  "carrier_name",
+  "description",
+] as const;
+
 function nodeLabel(node: GraphNode): string {
   const attributes = node.attributes ?? {};
-  const name = attributes.name ?? attributes.description ?? node.entity_id ?? node.node_id;
+  // Uploaded files name records in columns such as supplier_name.
+  const key = NAME_ATTRIBUTES.find((candidate) => {
+    const value = attributes[candidate];
+    return typeof value === "string" && value.trim() !== "";
+  });
+  const name = key ? attributes[key] : node.entity_id ?? node.node_id;
   return String(name ?? "Unnamed entity");
 }
 
@@ -90,6 +108,13 @@ export default function DisruptionCockpit() {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<VanessaMessage[]>([]);
   const [asking, setAsking] = useState(false);
+  const messagesRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest question and answer in view inside the scrolling list.
+  useEffect(() => {
+    const list = messagesRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [messages, asking]);
 
   const loadWorkspace = useCallback(async () => {
     if (!workspace?.id) return;
@@ -136,8 +161,8 @@ export default function DisruptionCockpit() {
     };
   }, [risks]);
 
-  const askCortex = async () => {
-    const trimmed = query.trim();
+  const askCortex = async (question?: string) => {
+    const trimmed = (question ?? query).trim();
     if (!trimmed || !workspace?.id || asking) return;
     setQuery("");
     setMessages((current) => [...current, { role: "operator", content: trimmed }]);
@@ -267,9 +292,71 @@ export default function DisruptionCockpit() {
                 <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4"><Link href="/nexus/scenarios" className="button-primary">Open scenario lab</Link><Link href="/nexus/decision-room" className="button-secondary">Review decisions</Link></div>
               </div>
               <div className="border border-border bg-surface p-5">
-                <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Grounded investigation</p><h2 className="mt-1 text-base font-semibold">Ask about this workspace</h2></div><span className="font-mono text-[10px] text-ink-muted">EVIDENCE-BOUND</span></div>
-                <div className="mt-4 min-h-16 space-y-2 text-xs">{messages.length === 0 ? <p className="text-ink-secondary">Ask what changed, which orders are exposed, or what evidence supports the selected disruption.</p> : messages.slice(-3).map((message, index) => <div key={`${message.role}-${index}`} className={message.role === "operator" ? "text-ink-muted" : "border-l-2 border-accent pl-3 text-ink-secondary"}><span className="mr-2 font-mono text-[9px] uppercase tracking-[0.12em]">{message.role === "operator" ? "You" : "Cortex"}</span>{message.content}</div>)}</div>
-                <div className="mt-4 flex gap-2 border-t border-border pt-4"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void askCortex(); }} placeholder={selectedRisk ? `Why is ${riskLabel(selectedRisk)} affected?` : "Ask about the current workspace"} className="field min-w-0 flex-1" /><button type="button" onClick={() => void askCortex()} disabled={asking || !query.trim()} className="button-secondary disabled:cursor-not-allowed disabled:opacity-50">{asking ? "Asking…" : "Ask"}</button></div>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="eyebrow">Grounded investigation</p>
+                    <h2 className="mt-1 text-base font-semibold">Ask about this workspace</h2>
+                  </div>
+                  <span className="font-mono text-[10px] text-ink-muted">EVIDENCE-BOUND</span>
+                </div>
+                <div
+                  ref={messagesRef}
+                  className="mt-4 max-h-[28rem] min-h-16 space-y-3 overflow-y-auto text-xs"
+                  aria-live="polite"
+                  data-testid="ask-messages"
+                >
+                  {messages.length === 0 ? (
+                    <p className="text-ink-secondary">
+                      Answers come from the data published in this workspace. Pick a question or type your own.
+                    </p>
+                  ) : (
+                    messages.slice(-10).map((message, index) => (
+                      <div
+                        key={`${message.role}-${index}`}
+                        data-testid={message.role === "operator" ? "ask-question" : "ask-answer"}
+                        className={message.role === "operator" ? "text-ink-muted" : "border-l-2 border-accent pl-3 text-ink-secondary"}
+                      >
+                        <span className="mb-1 block font-mono text-[9px] uppercase tracking-[0.12em]">
+                          {message.role === "operator" ? "You" : "Cortex"}
+                        </span>
+                        {/* Answers are plain text with line breaks and "- " lists. */}
+                        <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                      </div>
+                    ))
+                  )}
+                  {asking ? <p className="text-ink-muted">Reading your published data…</p> : null}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2" data-testid="ask-suggestions">
+                  {askSuggestions(selectedRisk).map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => void askCortex(suggestion)}
+                      disabled={asking}
+                      className="border border-border px-2 py-1 text-[11px] text-ink-secondary hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2 border-t border-border pt-4">
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") void askCortex(); }}
+                    placeholder={askPlaceholder(selectedRisk)}
+                    aria-label="Question about this workspace"
+                    className="field min-w-0 flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void askCortex()}
+                    disabled={asking || !query.trim()}
+                    className="button-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {asking ? "Asking…" : "Ask"}
+                  </button>
+                </div>
               </div>
             </section>
           </div>
