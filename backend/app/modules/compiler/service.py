@@ -17,7 +17,15 @@ from app.modules.compiler.models import (
     EvidenceClaim,
     EvidenceConflict,
 )
+from app.modules.graph.entity_keys import (
+    ENTITY_PRIMARY_KEYS,
+    canonical_column_name,
+    infer_entity_type,
+)
 from app.modules.sources.models import SourceColumnProfile
+
+# Claim states whose value can still reach the published graph.
+LIVE_CLAIM_STATES = frozenset({ClaimState.PENDING_REVIEW.value, ClaimState.ACCEPTED.value})
 
 
 @dataclass(frozen=True)
@@ -135,6 +143,51 @@ async def extract_claims(
     )
 
 
+async def row_entity_key(db: AsyncSession, claim: EvidenceClaim) -> str | None:
+    """Identifier of the record that the claim's source row describes.
+
+    It is the value of the row's primary-key cell: ``supplier_id`` for a
+    supplier file, ``po_number`` for a purchase-order file. Two rows with the
+    same key describe the same record, so different accepted values for one of
+    its fields are a conflict. Returns None when the file's kind of record or
+    its key column cannot be determined; such claims are not compared.
+    """
+    if claim.row_number < 1:
+        return None
+    header_result = await db.execute(
+        select(SourceColumnProfile.column_name)
+        .where(SourceColumnProfile.file_id == claim.source_file_id)
+        .where(SourceColumnProfile.workspace_id == claim.workspace_id)
+        .order_by(SourceColumnProfile.column_index)
+    )
+    headers = [str(name) for name in header_result.scalars().all()]
+    entity = infer_entity_type(headers) if headers else None
+    if entity is None and claim.canonical_entity in ENTITY_PRIMARY_KEYS:
+        entity = claim.canonical_entity
+    key_field = ENTITY_PRIMARY_KEYS.get(entity) if entity else None
+    if not entity or not key_field:
+        return None
+
+    row_result = await db.execute(
+        select(EvidenceClaim)
+        .where(EvidenceClaim.workspace_id == claim.workspace_id)
+        .where(EvidenceClaim.batch_id == claim.batch_id)
+        .where(EvidenceClaim.source_file_id == claim.source_file_id)
+        .where(EvidenceClaim.row_number == claim.row_number)
+    )
+    for cell in row_result.scalars().all():
+        # An accepted mapping decides what a column means; otherwise the
+        # column name does, exactly as when the batch is published.
+        reviewed = cell.claim_state == ClaimState.ACCEPTED.value and cell.canonical_field
+        field_name = (
+            cell.canonical_field if reviewed else canonical_column_name(cell.source_column, entity)
+        )
+        if field_name == key_field:
+            value = (cell.normalized_value or cell.raw_value or "").strip()
+            return value or None
+    return None
+
+
 async def detect_conflicts(
     db: AsyncSession,
     workspace_id: str,
@@ -158,13 +211,11 @@ async def detect_conflicts(
     )
     claims = list(result.scalars().all())
     existing_result = await db.execute(
-        select(EvidenceConflict.claim_ids)
+        select(EvidenceConflict)
         .where(EvidenceConflict.workspace_id == workspace_id)
         .where(EvidenceConflict.batch_id == batch_id)
     )
-    existing_signatures = {
-        tuple(sorted(claim_ids)) for claim_ids in existing_result.scalars().all()
-    }
+    existing = list(existing_result.scalars().all())
 
     grouped: dict[tuple[str, str, str], list[EvidenceClaim]] = defaultdict(list)
     for claim in claims:
@@ -178,25 +229,61 @@ async def detect_conflicts(
     for (entity, field_name, _entity_key), claim_list in grouped.items():
         if len(claim_list) < 2:
             continue
-        values = {claim.normalized_value or claim.raw_value for claim in claim_list}
-        signature = tuple(sorted(claim.claim_id for claim in claim_list))
-        if len(values) <= 1 or signature in existing_signatures:
+        value_of = {
+            claim.claim_id: claim.normalized_value or claim.raw_value for claim in claim_list
+        }
+        if len(set(value_of.values())) <= 1:
             continue
-        db.add(
-            EvidenceConflict(
-                conflict_id=uuid7(),
-                workspace_id=workspace_id,
-                batch_id=batch_id,
-                claim_ids=[claim.claim_id for claim in claim_list],
-                canonical_entity=entity,
-                canonical_field=field_name,
-                severity=ConflictSeverity.MAJOR.value,
-                blocking=True,
-                status="open",
-                review_required=True,
-                explanation=f"Conflicting values for resolved {entity}.{field_name} entity.",
-            )
+        claim_list.sort(key=lambda claim: (claim.row_number, claim.claim_id))
+        claim_ids = [claim.claim_id for claim in claim_list]
+        id_set = set(claim_ids)
+        related = [
+            conflict
+            for conflict in existing
+            if conflict.canonical_entity == entity
+            and conflict.canonical_field == field_name
+            and id_set.intersection(conflict.claim_ids)
+        ]
+
+        # One finding per field of a record: a claim that joins a disagreement
+        # still under review is added to that conflict, not reported again.
+        under_review = next(
+            (conflict for conflict in related if conflict.status in {"open", "escalated"}), None
         )
+        if under_review is not None:
+            known = list(under_review.claim_ids)
+            additions = [claim_id for claim_id in claim_ids if claim_id not in known]
+            if additions:
+                under_review.claim_ids = [*known, *additions]
+            continue
+        # The same claims were already decided or suppressed.
+        if any(set(conflict.claim_ids) == id_set for conflict in related):
+            continue
+        # A suppressed disagreement is not raised again when further claims
+        # merely repeat the values it already covered.
+        if any(
+            conflict.status == "suppressed"
+            and set(conflict.claim_ids) <= id_set
+            and {value_of[claim_id] for claim_id in conflict.claim_ids} == set(value_of.values())
+            for conflict in related
+        ):
+            continue
+
+        conflict = EvidenceConflict(
+            conflict_id=uuid7(),
+            workspace_id=workspace_id,
+            batch_id=batch_id,
+            claim_ids=claim_ids,
+            canonical_entity=entity,
+            canonical_field=field_name,
+            severity=ConflictSeverity.MAJOR.value,
+            blocking=True,
+            status="open",
+            review_required=True,
+            explanation=f"Conflicting values for resolved {entity}.{field_name} entity.",
+        )
+        db.add(conflict)
+        existing.append(conflict)
         created += 1
         blocking += 1
 
@@ -288,7 +375,19 @@ async def resolve_conflict(
     rationale: str,
     reviewer_id: str,
 ) -> ConflictResolution:
-    """Record a human conflict decision without silently accepting alternatives."""
+    """Record a human conflict decision without silently accepting alternatives.
+
+    One value per field of a record reaches the published graph:
+
+    * ``approved`` keeps the selected claim (accepting it if it was pending)
+      and supersedes every other claim of the conflict, pending or accepted;
+    * ``rejected`` with a claim rejects that claim; the conflict closes once the
+      remaining claims agree and none is pending;
+    * ``rejected`` without a claim rejects every claim of the conflict;
+    * ``suppressed`` records that the finding is not a real conflict and leaves
+      the claims as they are; publishing then keeps the value of the first row;
+    * ``escalated`` keeps the conflict open and blocking.
+    """
     conflict_stmt = (
         select(EvidenceConflict)
         .where(EvidenceConflict.conflict_id == conflict_id)
@@ -339,15 +438,17 @@ async def resolve_conflict(
     if action == "approved":
         assert selected_claim_id is not None
         selected = claims_by_id[selected_claim_id]
-        if selected.claim_state != ClaimState.PENDING_REVIEW.value:
-            raise ValueError("Only a pending claim can be approved")
+        if selected.claim_state not in LIVE_CLAIM_STATES:
+            raise ValueError(
+                f"The selected claim is {selected.claim_state}; "
+                "only a pending or accepted claim can be kept"
+            )
         selected.claim_state = ClaimState.ACCEPTED.value
         selected.requires_review = False
         for other_id, other_claim in claims_by_id.items():
-            if (
-                other_id != selected_claim_id
-                and other_claim.claim_state == ClaimState.PENDING_REVIEW.value
-            ):
+            if other_id != selected_claim_id and other_claim.claim_state in LIVE_CLAIM_STATES:
+                # Accepted alternatives are withdrawn too: only the kept value
+                # may reach the published record.
                 other_claim.claim_state = ClaimState.SUPERSEDED.value
                 other_claim.requires_review = False
         conflict.status = "resolved"
@@ -357,24 +458,34 @@ async def resolve_conflict(
         if selected_claim_id is None:
             # Explicit "Reject all": no value from this conflict is accepted.
             for claim in claims_by_id.values():
-                if claim.claim_state == ClaimState.PENDING_REVIEW.value:
+                if claim.claim_state in LIVE_CLAIM_STATES:
                     claim.claim_state = ClaimState.REJECTED.value
                     claim.requires_review = False
             conflict.status = "resolved"
             conflict.review_required = False
         else:
             selected = claims_by_id[selected_claim_id]
-            if selected.claim_state != ClaimState.PENDING_REVIEW.value:
-                raise ValueError("Only a pending claim can be rejected")
+            if selected.claim_state not in LIVE_CLAIM_STATES:
+                raise ValueError(
+                    f"The selected claim is {selected.claim_state}; "
+                    "only a pending or accepted claim can be rejected"
+                )
             selected.claim_state = ClaimState.REJECTED.value
             selected.requires_review = False
-            remaining_pending = any(
-                claim.claim_state == ClaimState.PENDING_REVIEW.value
+            remaining = [
+                claim
                 for claim_id, claim in claims_by_id.items()
-                if claim_id != selected_claim_id
+                if claim_id != selected_claim_id and claim.claim_state in LIVE_CLAIM_STATES
+            ]
+            remaining_pending = any(
+                claim.claim_state == ClaimState.PENDING_REVIEW.value for claim in remaining
             )
-            conflict.status = "open" if remaining_pending else "resolved"
-            conflict.review_required = remaining_pending
+            # Still a conflict while a claim awaits review or the accepted
+            # claims that are left disagree.
+            remaining_values = {claim.normalized_value or claim.raw_value for claim in remaining}
+            still_open = remaining_pending or len(remaining_values) > 1
+            conflict.status = "open" if still_open else "resolved"
+            conflict.review_required = still_open
 
     elif action == "suppressed":
         # Suppressing a detector finding does not approve any source claim.
