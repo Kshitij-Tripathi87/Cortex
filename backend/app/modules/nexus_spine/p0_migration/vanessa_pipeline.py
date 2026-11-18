@@ -214,6 +214,13 @@ class DeterministicLLMAdapter(LLMAdapter):
             "list proposal",
             "list approval",
             "what decisions",
+            # "Show me decisions", "any decisions?": the plural asks for the list.
+            "decisions",
+            "awaiting approval",
+            "waiting for approval",
+            "pending approval",
+            "needs approval",
+            "need approval",
         ],
         IntentType.TRACE_QUERY: ["trace", "explain why", "why did", "audit", "history of"],
         IntentType.EXPLAIN: ["explain", "why is", "how does", "tell me about", "what are"],
@@ -270,8 +277,14 @@ class DeterministicLLMAdapter(LLMAdapter):
         IntentType.GREETING,
     ]
 
-    # Words requiring word-boundary matching (avoid false positives in compound words)
-    _BOUNDARY_WORDS = {"hi", "hey", "why", "how"}
+    # Words requiring word-boundary matching (avoid false positives in compound words).
+    # "scenario" is one of them so that "show scenarios" lists the saved
+    # scenarios instead of starting a what-if that has nothing to simulate.
+    _BOUNDARY_WORDS = {"hi", "hey", "why", "how", "scenario"}
+    # Comparing these is analysis, not a reading of two published records.
+    _COMPARES_PLANS = re.compile(
+        r"\b(?:scenario|scenarios|option|options|plan|plans|alternative|alternatives)\b"
+    )
 
     # Intents that describe how a question is phrased, not a capability. A
     # question phrased this way that names workspace data ("tell me about
@@ -322,6 +335,12 @@ class DeterministicLLMAdapter(LLMAdapter):
             return False
         if keyword_intent in self._YIELDS_TO_DATA:
             return not self._asks_about_product(lower, focus)
+        if keyword_intent == IntentType.COMPARE:
+            # "Compare S-100 and S-101" puts two published records side by
+            # side. That is a reading of the data, open to every role; it
+            # used to go to the recommendation tool, which answered with one
+            # of the two records and was refused to viewers.
+            return not self._COMPARES_PLANS.search(lower)
         if keyword_intent == IntentType.TRACE_QUERY:
             return any(phrase in lower for phrase in self._SOFT_TRACE_PHRASES) and not any(
                 phrase in lower for phrase in self._HARD_TRACE_PHRASES

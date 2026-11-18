@@ -179,6 +179,129 @@ _TYPE_PHRASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("dc", ("Facility",)),
 )
 
+# Ways of asking for a kind of record by what it does: "who supplies ball
+# bearings?" asks for suppliers without the word "supplier". Each entry is
+# (how the question says it, the kinds it asks for, the words to set aside so
+# they are not looked up as data).
+_RELATION_PATTERNS: tuple[tuple[re.Pattern[str], tuple[str, ...], re.Pattern[str]], ...] = (
+    (
+        re.compile(r"\bsuppl(?:ies|ied|ying)\b"),
+        ("Supplier",),
+        re.compile(r"\bsuppl(?:ies|ied|ying)\b(?: by\b)?"),
+    ),
+    (
+        re.compile(r"\b(?:sourced|provided|sold|made|manufactured) by\b"),
+        ("Supplier",),
+        re.compile(r"\b(?:sourced|provided|sold|made|manufactured) by\b"),
+    ),
+    (
+        re.compile(r"\bwho (?:sells|provides|makes|manufactures|delivers)\b"),
+        ("Supplier",),
+        re.compile(r"\b(?:sells|provides|makes|manufactures|delivers)\b"),
+    ),
+    (
+        # "Who do we buy C-2000 from?", "where do we get the housings from?"
+        re.compile(r"\b(?:who|whom|where)\b[^?.!]*\b(?:buy|get|purchase|procure)\b[^?.!]*\bfrom\b"),
+        ("Supplier",),
+        re.compile(r"\b(?:buy|get|purchase|procure|from)\b"),
+    ),
+    (
+        re.compile(r"\bwho (?:buys|purchases)\b"),
+        ("Customer",),
+        re.compile(r"\b(?:buys|purchases)\b"),
+    ),
+)
+
+# A request for one figure over the listed records, checked in this order at
+# the place each first appears in the question.
+_AGGREGATE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "sum",
+        re.compile(
+            r"\b(?:total|totals|sum|combined|altogether|in total|in all|add(?:ed)? up)\b"
+            r"|\bhow many (?:units|pieces|pcs)\b|\bhow much\b"
+        ),
+    ),
+    ("average", re.compile(r"\b(?:average|avg|on average)\b|\bmean (?:of|for)\b|\bthe mean\b")),
+    (
+        "max",
+        re.compile(
+            r"\b(?:highest|largest|biggest|greatest|maximum|max|longest|most expensive|costliest)\b"
+        ),
+    ),
+    ("min", re.compile(r"\b(?:lowest|smallest|least|minimum|min|shortest|cheapest)\b")),
+)
+AGGREGATE_SUM = "sum"
+AGGREGATE_AVERAGE = "average"
+AGGREGATE_MAX = "max"
+AGGREGATE_MIN = "min"
+
+_COMPARE = re.compile(
+    r"\bcompar(?:e|es|ed|ing|ison)\b|\bversus\b|\bvs\b|\bdifferences? between\b"
+    r"|\bside by side\b|\bhow do(?:es)? [^?.!]* differ\b"
+)
+# Orders that have not arrived: "on order", "open", "outstanding".
+_OPEN_ONLY = re.compile(
+    r"\bon order\b|\bopen\b|\boutstanding\b|\bundelivered\b"
+    r"|\bnot (?:yet )?(?:delivered|received|arrived)\b|\bstill (?:due|to come|to arrive)\b"
+)
+
+# Words that carry no subject of their own. What is left of a question after
+# its topic words, record kinds, names and values is compared with this list
+# before anything is looked up by a single word.
+STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "a", "about", "above", "across", "after", "again", "against", "all", "also", "am", "an",
+        "and", "any", "anything", "are", "around", "as", "at", "be", "because", "been", "before",
+        "being", "below", "between", "both", "but", "by", "can", "could", "did", "do", "does",
+        "doing", "done", "down", "during", "each", "either", "else", "every", "everything", "few",
+        "for", "from", "further", "get", "gets", "give", "given", "gives", "go", "going", "got",
+        "had", "has", "have", "having", "he", "her", "here", "hers", "him", "his", "how",
+        "however", "i", "if", "in", "into", "is", "it", "its", "itself", "just", "know", "let",
+        "like", "list", "look", "made", "make", "makes", "many", "may", "me", "might", "more",
+        "most", "much", "must", "my", "need", "needs", "no", "nor", "not", "now", "of", "off",
+        "ok", "okay", "on", "once", "one", "only", "or", "other", "our", "ours", "out", "over",
+        "own", "per", "please", "quick", "really", "right", "s", "same", "say", "see", "seen",
+        "shall", "she", "should", "show", "shows", "so", "some", "something", "such", "sure", "t",
+        "take", "tell", "than", "thank", "thanks", "that", "the", "their", "theirs", "them",
+        "then", "there", "these", "they", "thing", "things", "this", "those", "through", "to",
+        "too", "under", "until", "up", "upon", "us", "use", "used", "using", "very", "via", "want",
+        "wants", "was", "we", "were", "what", "whats", "when", "where", "whether", "which",
+        "while", "who", "whom", "whose", "why", "will", "with", "within", "without", "would",
+        "yes", "yet", "you", "your", "yours", "currently", "today", "tomorrow", "yesterday",
+        "week", "month", "year", "date", "time", "times", "data", "record", "records",
+        "information", "info", "details", "detail", "workspace", "published", "file", "files",
+        "question", "answer", "cortex", "nexus", "vanessa", "hi", "hello", "hey",
+    }
+)  # fmt: skip
+
+
+def fold_word(word: str) -> str:
+    """Form of a word used to compare a question with a name: "bearings" -> "bearing".
+
+    Only regular plurals are folded, and the same folding is applied to both
+    sides of a comparison, so it never has to be good English.
+    """
+    if len(word) > 4 and word.endswith("ies"):
+        return f"{word[:-3]}y"
+    if len(word) > 4 and word.endswith(("ches", "shes", "sses", "xes", "zes")):
+        return word[:-2]
+    if len(word) > 3 and word.endswith("s") and not word.endswith(("ss", "us", "is")):
+        return word[:-1]
+    return word
+
+
+def content_words(text: str) -> list[str]:
+    """Words of a normalised text that could name something: no stop words, no numbers."""
+    words: list[str] = []
+    for word in text.split():
+        if len(word) < 3 or word in STOP_WORDS or not word.isalpha():
+            continue
+        if word not in words:
+            words.append(word)
+    return words
+
+
 # Everyday phrases that contain a record-kind word without naming a record.
 _IDIOMS = re.compile(
     r"\b(?:a lot(?: of)?|lots of|part of|in part|for the most part|in order (?:to|for)|"
@@ -251,6 +374,16 @@ class QuestionFocus:
     wants_count: bool = False
     asks_why: bool = False
     is_question: bool = False
+    # One figure over the listed records: "sum", "average", "max" or "min"
+    # ("total quantity on order", "average lead time", "longest lead time").
+    aggregate: str | None = None
+    # The words that asked for it ("most expensive"): they can also say which
+    # field is meant.
+    aggregate_words: tuple[str, ...] = ()
+    # "Compare A and B", "A vs B".
+    wants_comparison: bool = False
+    # Only orders that have not arrived ("on order", "open", "outstanding").
+    open_only: bool = False
     # Lower-cased question with punctuation removed, used to find names.
     normalized: str = ""
     # The same text with topic and record-kind words blanked out, used to find
@@ -274,6 +407,8 @@ class QuestionFocus:
             or identifiers
             or self.proper_nouns
             or self.quoted_phrases
+            # "Highest unit price" names a figure in the data, not a record.
+            or self.aggregate
         )
 
 
@@ -288,6 +423,12 @@ def _plural(phrase: str) -> str:
         return rf"{re.escape(phrase[:-1])}(?:y|ies)"
     return rf"{re.escape(phrase)}(?:s|es)?"
 
+
+# Every word used to name a kind of record ("distribution", "centre", "order").
+# A name is not recognised by these words alone.
+TYPE_WORDS: frozenset[str] = frozenset(
+    fold_word(word) for phrase, _types in _TYPE_PHRASES for word in phrase.split()
+)
 
 # Longest phrase first, so a phrase is consumed before the words inside it.
 _TYPE_PATTERNS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = tuple(
@@ -398,6 +539,11 @@ def parse_question(text: str) -> QuestionFocus:
         for pattern in patterns:
             residual = pattern.sub(" ", residual)
 
+    # "On order" is set aside before the word "order" is read as a kind of
+    # record, or its "on" would be left behind as if it meant something.
+    open_only = bool(_OPEN_ONLY.search(spaced))
+    residual = _OPEN_ONLY.sub(" ", residual)
+
     # An identifier such as "PO-5001" or "SKU-42" is not a mention of a record kind.
     shaped, capitals, codes = _identifier_candidates(raw)
     type_text = _IDIOMS.sub(" ", spaced)
@@ -413,6 +559,29 @@ def parse_question(text: str) -> QuestionFocus:
         for entity_type in types:
             if entity_type not in entity_types:
                 entity_types.append(entity_type)
+    # "Who supplies ...", "made by ...": a kind of record named by what it does.
+    for pattern, types, relation_words in _RELATION_PATTERNS:
+        if not pattern.search(type_text):
+            continue
+        type_text = relation_words.sub(" ", type_text)
+        residual = relation_words.sub(" ", residual)
+        for entity_type in types:
+            if entity_type not in entity_types:
+                entity_types.append(entity_type)
+
+    aggregate: str | None = None
+    aggregate_words: tuple[str, ...] = ()
+    first_position: int | None = None
+    for name, pattern in _AGGREGATE_PATTERNS:
+        found = pattern.search(spaced)
+        if found is None:
+            continue
+        if first_position is None or found.start() < first_position:
+            aggregate, first_position = name, found.start()
+            aggregate_words = tuple(found.group(0).split())
+        residual = pattern.sub(" ", residual)
+    wants_comparison = bool(_COMPARE.search(spaced))
+    residual = _COMPARE.sub(" ", residual)
 
     # "How many suppliers are in my workspace?" asks about suppliers, not for an overview.
     if topic == TOPIC_OVERVIEW and entity_types:
@@ -433,6 +602,10 @@ def parse_question(text: str) -> QuestionFocus:
         wants_count=bool(_COUNT.search(spaced)),
         asks_why=bool(_WHY.search(spaced)),
         is_question=bool(raw.endswith("?") or _QUESTION_OPENERS.search(spaced)),
+        aggregate=aggregate,
+        aggregate_words=aggregate_words,
+        wants_comparison=wants_comparison,
+        open_only=open_only,
         normalized=normalize_text(raw),
         residual=normalize_text(residual),
         topic_phrases=tuple(topic_phrases),

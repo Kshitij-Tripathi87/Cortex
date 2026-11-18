@@ -21,6 +21,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.enums import ClaimState
 from app.modules.compiler.models import EvidenceClaim, EvidenceConflict
 from app.modules.graph.models import GraphEdge, GraphNode, GraphSnapshot, GraphWriteEvent
+from app.modules.nexus_spine.p0_migration.country_names import (
+    countries_mentioned,
+    country_code,
+    country_name,
+    is_country_field,
+)
 from app.modules.nexus_spine.p0_migration.question_focus import (
     TOPIC_CHANGES,
     TOPIC_DELAYS,
@@ -30,6 +36,8 @@ from app.modules.nexus_spine.p0_migration.question_focus import (
     TOPIC_OVERVIEW,
     TOPIC_SHORTAGES,
     QuestionFocus,
+    content_words,
+    fold_word,
     normalize_text,
     parse_question,
 )
@@ -38,15 +46,21 @@ from app.modules.nexus_spine.p0_migration.workspace_facts import (
     INVENTORY_TYPES,
     NodeRecord,
     WorkspaceIndex,
+    aggregate_records,
     apply_value_filters,
     attention_summary,
     build_exposure,
     counterparties,
     diff_attributes,
+    flagged_status,
     late_flows,
     link_names,
+    link_single_words,
     match_value_filters,
-    points_at,
+    numeric_fields,
+    open_flows,
+    related_records,
+    resolve_numeric_field,
     stock_positions,
     supplier_rollup,
 )
@@ -58,6 +72,16 @@ MAX_NODES_PER_TYPE = 2000
 MAX_NODES_TOTAL = 12000
 MAX_LISTED_RECORDS = 50
 MAX_DETAILED_ENTITIES = 3
+MAX_COMPARED_ENTITIES = 4
+# The record that says where an order or a stock position is: a purchase order
+# has no country of its own, the supplier it names has one.
+_PARTNER_OF: dict[str, str] = {
+    "PurchaseOrder": "Supplier",
+    "Shipment": "Supplier",
+    "SalesOrder": "Customer",
+    "InventoryItem": "Facility",
+    "InventoryLot": "Facility",
+}
 MAX_ALSO_MATCHED = 20
 # Lists inside one answer. The matching "*_count" always carries the full number.
 MAX_LISTED_FLOWS = 15
@@ -800,6 +824,178 @@ def _source_of(record: NodeRecord, files: Mapping[int, list[str]]) -> dict[str, 
     }
 
 
+def _explained_words(
+    filters: Sequence[Mapping[str, Any]], records: Sequence[NodeRecord]
+) -> set[str]:
+    """Words of a question that a value filter or a field name already accounts for."""
+    words: set[str] = set()
+    for item in filters:
+        for text in (item.get("value"), item.get("asked_as"), item.get("field")):
+            words.update(fold_word(word) for word in normalize_text(str(text or "")).split())
+    for record in records:
+        for key, _text in record.items():
+            words.update(fold_word(word) for word in normalize_text(key).split())
+    return words
+
+
+# Words a question may put in front of "of <record>" that every record answers.
+_ALWAYS_ANSWERABLE: frozenset[str] = frozenset(
+    {
+        "name", "identifier", "kind", "type", "field", "attribute", "value", "everything",
+        "anything", "rest", "picture", "state", "situation", "story", "background", "profile",
+        "case", "matter", "subject", "topic", "update", "risk", "history", "version",
+        "relationship", "link", "connection", "dependency", "performance", "reliability",
+        "track", "origin", "source", "meaning", "definition",
+    }
+)  # fmt: skip
+# Not "from": "orders from S-101" and "what comes from S-101" ask for linked
+# records, not for an attribute of the supplier.
+_BEFORE_A_RECORD = ("in", "of", "for", "at", "on", "about", "regarding")
+_SKIPPED_BEFORE_A_RECORD = ("the", "my", "our", "this", "that")
+
+
+def _unanswered_attributes(
+    focus: QuestionFocus, matches: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Things a question asks about a named record that the record has no field for.
+
+    "Weather in Pune" names the Pune warehouse, and nothing published says
+    anything about weather. Answering with the warehouse record alone would
+    look like an answer. The words in front of "in/of/for/at <record>" and
+    after "<record>'s" are taken as what is asked for; a word counts as
+    unanswered when it is none of the record's field names and not a word the
+    question reader already understood (topics and record kinds are removed
+    from the residual before this runs).
+    """
+    padded = f" {focus.normalized} "
+    understood = set(content_words(focus.residual))
+    found: list[dict[str, Any]] = []
+    for match in matches:
+        record: NodeRecord = match["record"]
+        needle = normalize_text(str(match["text"]))
+        position = padded.find(f" {needle} ") if needle else -1
+        if position < 0:
+            continue
+        before = padded[:position].split()
+        after = padded[position + len(needle) + 2 :].split()
+        asked: list[str] = []
+        while before and before[-1] in _SKIPPED_BEFORE_A_RECORD:
+            before.pop()
+        if before and before[-1] in _BEFORE_A_RECORD:
+            for word in reversed(before[:-1][-3:]):
+                if word not in understood:
+                    break
+                asked.insert(0, word)
+        if after[:1] == ["s"]:
+            for word in after[1:3]:
+                if word not in understood:
+                    break
+                asked.append(word)
+        if not asked:
+            continue
+        own_words = {
+            fold_word(word) for key, _text in record.items() for word in normalize_text(key).split()
+        }
+        name_words = {fold_word(word) for word in normalize_text(record.name or "").split()}
+        unknown = [
+            word
+            for word in asked
+            if fold_word(word) not in own_words
+            and fold_word(word) not in name_words
+            and fold_word(word) not in _ALWAYS_ANSWERABLE
+        ]
+        if unknown:
+            found.append(
+                {
+                    "words": unknown,
+                    "about": record.ref(),
+                    "fields": [key for key, _text in record.items()][:MAX_LISTED_ATTRIBUTES],
+                }
+            )
+    return found
+
+
+def _comparison_entry(index: WorkspaceIndex, as_of: date, record: NodeRecord) -> dict[str, Any]:
+    """One record of a comparison: its fields, and what the orders and stock linked to it show."""
+    late = late_flows(index, as_of, focus=[record])
+    stock = stock_positions(index, focus=[record])
+    return {
+        "record": record.summary(max_attributes=MAX_LISTED_ATTRIBUTES),
+        "flag": flagged_status(record),
+        "orders": {
+            "assessed": late["assessed"],
+            "late_count": late["late_count"],
+            "late": [flow["entity_id"] for flow in late["late"]][:MAX_NESTED_ITEMS],
+        },
+        "counterparties": {
+            role: [
+                {key: row[key] for key in ("entity_type", "entity_id", "name")}
+                for row in rows[:MAX_NESTED_ITEMS]
+            ]
+            for role, rows in counterparties(index, as_of, record).items()
+        },
+        "stock": {
+            "assessed": stock["assessed"],
+            "short_count": stock["short_count"],
+        },
+    }
+
+
+def _aggregate_view(
+    index: WorkspaceIndex,
+    records: Sequence[NodeRecord],
+    entity_type: str,
+    counts: Mapping[str, int],
+    focus: QuestionFocus,
+    explained: set[str],
+) -> dict[str, Any]:
+    """The figure a question asks for over records of one kind, or why it cannot be given.
+
+    ``explained`` holds the words of the question that a name, an identifier
+    or a value filter already accounts for. A word that is left over and is
+    not part of a field name asks for something the records may not have
+    ("total value"): the usual quantity is then not offered in its place.
+    """
+    words = [*focus.residual.split(), *focus.aggregate_words]
+    field_words = {
+        fold_word(word)
+        for record in records
+        for key, _text in record.items()
+        for word in normalize_text(key).split()
+    }
+    unexplained = [
+        word
+        for word in content_words(focus.residual)
+        if fold_word(word) not in explained and fold_word(word) not in field_words
+    ]
+    field_name = resolve_numeric_field(words, records, allow_usual=not unexplained)
+    view: dict[str, Any] = {
+        "entity_type": entity_type,
+        "published_total": int(counts.get(entity_type, 0)),
+        "considered": len(records),
+        "operation": focus.aggregate,
+        "field": field_name,
+        "numeric_fields": numeric_fields(records)[:MAX_LISTED_ATTRIBUTES],
+        # Words the question used that no field of these records is named by.
+        "not_a_field": unexplained[:5],
+    }
+    if field_name is not None and focus.aggregate is not None:
+        view.update(aggregate_records(index, records, field_name, focus.aggregate))
+    return view
+
+
+def _asked_figures(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The figures a question asks for, when it lists more than one kind of record.
+
+    "Total quantity on order from tier 1 suppliers" lists orders and
+    suppliers, and the quantity is a field of the orders: the suppliers are
+    there to say which orders. A kind whose records have no field the
+    question names is left out, unless that is true of every kind.
+    """
+    resolved = [view for view in views if view.get("field")]
+    return resolved or views
+
+
 async def build_workspace_evidence(
     session: AsyncSession,
     workspace_id: str,
@@ -836,6 +1032,20 @@ async def build_workspace_evidence(
     by_node_id = {record.node_id: record for record in index.records}
     matches = _link(focus, index, identifier_hits)
     matched = [match["record"] for match in matches]
+    if not matched and focus.entity_types and focus.topic == TOPIC_ENTITIES:
+        # The question lists a kind of record and names nothing by any other
+        # rule. A word nothing else explains may be one word of a name:
+        # "who supplies bearings?" -> "Ball Bearing 6205".
+        asked_of = index.of_types([t for t in focus.entity_types if t in counts]) or index.records
+        provisional = match_value_filters(
+            focus.residual, asked_of, short_codes=focus.short_codes, question=question
+        )
+        explained = _explained_words(provisional, asked_of)
+        leftover = [
+            word for word in content_words(focus.residual) if fold_word(word) not in explained
+        ]
+        matches = link_single_words(leftover, index, avoid_types=focus.entity_types)
+        matched = [match["record"] for match in matches]
     matched_types = {record.entity_type for record in matched}
     found_ids = {record.entity_id.lower() for record in matched}
 
@@ -857,16 +1067,141 @@ async def build_workspace_evidence(
     filter_scope = index.of_types(listed_types) if listed_types else []
     if not filter_scope and not matched and topic == TOPIC_ENTITIES:
         filter_scope = index.records
+    already_named = [
+        *(str(match["text"]) for match in matches),
+        *(r.entity_id for r in matched),
+        *(r.name for r in matched if r.name),
+    ]
     filters = (
         match_value_filters(
             focus.residual,
             filter_scope,
-            exclude=[*(match["text"] for match in matches), *(r.entity_id for r in matched)],
+            exclude=already_named,
             short_codes=focus.short_codes,
+            question=question,
         )
         if filter_scope
         else []
     )
+    unanswered = _unanswered_attributes(focus, matches) if topic == TOPIC_ENTITIES else []
+    # Countries the question names, other than as part of a matched name. A
+    # two-letter code in capitals ("DE") counts when the workspace stores that
+    # country somewhere; "QA" and "IT" are otherwise not countries.
+    matched_names = [f" {normalize_text(r.name or '')} " for r in matched]
+    countries_in_question = {
+        code: words
+        for code, words in countries_mentioned(question).items()
+        if not any(f" {normalize_text(words)} " in name for name in matched_names)
+    }
+    if focus.short_codes:
+        stored_countries = {
+            country_code(text)
+            for record in index.records
+            for key, text in record.items()
+            if is_country_field(key)
+        }
+        for code in focus.short_codes:
+            if code in stored_countries:
+                countries_in_question.setdefault(code, code)
+    countries_applied: set[str] = set()
+
+    def narrowed(
+        entity_type: str, candidates: Sequence[NodeRecord]
+    ) -> tuple[list[NodeRecord], list[dict[str, Any]], dict[str, Any] | None]:
+        """Records of one listed kind after the filters that apply to it.
+
+        Returns (records, the filters on its own fields, a filter on the
+        record it names). A filter applies to a kind of record only when that
+        kind has the field: "orders from Indian suppliers" must not drop every
+        order because orders have no country. A country the kind has no field
+        for is looked for on the record it names: the supplier of a purchase
+        order, the customer of a sales order, the facility of a stock position.
+        """
+        own_fields = {
+            key.lower()
+            for record in index.by_type.get(entity_type, [])
+            for key, _text in record.items()
+        }
+        own = [item for item in filters if str(item["field"]).lower() in own_fields]
+        kept = apply_value_filters(candidates, own)
+        if focus.open_only:
+            kept = open_flows(index, as_of, kept)
+        own_countries = {
+            country_code(str(item["value"])) for item in own if is_country_field(str(item["field"]))
+        }
+        countries_applied.update(code for code in own_countries if code)
+        wanted = {code for code in countries_in_question if code not in own_countries}
+        partner_type = _PARTNER_OF.get(entity_type)
+        partners = index.by_type.get(partner_type, []) if partner_type else []
+        if not partner_type or not partners:
+            return kept, own, None
+        partner_filters: list[dict[str, Any]] = []
+        if wanted:
+            partner_filters = [
+                item
+                for item in match_value_filters(
+                    focus.residual,
+                    partners,
+                    exclude=already_named,
+                    short_codes=focus.short_codes,
+                    question=question,
+                )
+                if is_country_field(str(item["field"]))
+                and country_code(str(item["value"])) in wanted
+            ]
+        if partner_type in listed_types:
+            # "Orders from tier 1 suppliers": the question lists the suppliers
+            # too, and a filter on a field only they have narrows the orders
+            # that name them.
+            partner_fields = {key.lower() for record in partners for key, _text in record.items()}
+            partner_filters += [
+                item
+                for item in filters
+                if str(item["field"]).lower() in partner_fields
+                and str(item["field"]).lower() not in own_fields
+                and item not in partner_filters
+            ]
+        if not partner_filters:
+            return kept, own, None
+        allowed = {id(record) for record in apply_value_filters(partners, partner_filters)}
+        kept = [
+            record
+            for record in kept
+            if (named_partner := index.reference(record, partner_type)) is not None
+            and id(named_partner) in allowed
+        ]
+        countries_applied.update(
+            code for item in partner_filters if (code := country_code(str(item["value"])))
+        )
+        return kept, own, {"through": partner_type, "filters": partner_filters}
+
+    # Words of the question that a name, an identifier or a filter accounts for.
+    explained_words = _explained_words(filters, [])
+    for words in countries_in_question.values():
+        explained_words.update(fold_word(word) for word in normalize_text(words).split())
+    for match in matches:
+        explained_words.update(
+            fold_word(word) for word in normalize_text(str(match["text"])).split()
+        )
+    for record in matched:
+        explained_words.update(
+            fold_word(word) for word in normalize_text(record.name or "").split()
+        )
+    if focus.wants_comparison and len(matched) >= 2:
+        # Side by side in the order the question names them.
+        padded_question = f" {focus.normalized} "
+
+        def asked_at(record: NodeRecord) -> int:
+            positions = [
+                padded_question.find(f" {normalize_text(str(match['text']))} ")
+                for match in matches
+                if match["record"] is record
+            ]
+            found_at = [position for position in positions if position >= 0]
+            return min(found_at) if found_at else len(padded_question)
+
+        matched = sorted(matched, key=asked_at)
+        matches = sorted(matches, key=lambda match: asked_at(match["record"]))
     used_values = {normalize_text(str(item["value"])) for item in filters}
     unmatched = [
         candidate
@@ -926,18 +1261,50 @@ async def build_workspace_evidence(
             )
     elif topic == TOPIC_OVERVIEW:
         result = {"kind": "overview", "intake": await _intake(session, workspace_id)}
-    elif matched and listed_types:
-        related = [
-            record
-            for record in index.of_types(listed_types)
-            if any(points_at(index, record, target) for target in matched)
-        ]
-        related = apply_value_filters(related, filters)
+    elif focus.wants_comparison and len(matched) >= 2:
         result = {
-            "kind": "entity_list",
-            "related_to": [record.ref() for record in matched[:MAX_ALSO_MATCHED]],
-            "groups": _groups(related, listed_types, counts),
+            "kind": "comparison",
+            "as_of": as_of.isoformat(),
+            "entities": [
+                _comparison_entry(index, as_of, record)
+                for record in matched[:MAX_COMPARED_ENTITIES]
+            ],
+            "matched_count": len(matched),
+            "also_matched": [
+                record.ref()
+                for record in matched[
+                    MAX_COMPARED_ENTITIES : MAX_COMPARED_ENTITIES + MAX_ALSO_MATCHED
+                ]
+            ],
         }
+    elif matched and listed_types:
+        # Records of the listed kinds that are linked to the named records:
+        # directly, the other way round, or through orders that name both.
+        groups: list[dict[str, Any]] = []
+        aggregates: list[dict[str, Any]] = []
+        for entity_type in listed_types:
+            link = related_records(index, as_of, entity_type, matched)
+            related, own_filters, partner = narrowed(entity_type, link["records"])
+            group = _groups(related, [entity_type], counts)[0]
+            group["via"] = link["via"]
+            group["filters"] = own_filters
+            group["partner_filter"] = partner
+            if link["via"] == "orders":
+                for item in group["records"]:
+                    item["orders"] = link["orders"].get(str(item["entity_id"]))
+            groups.append(group)
+            if focus.aggregate:
+                aggregates.append(
+                    _aggregate_view(index, related, entity_type, counts, focus, explained_words)
+                )
+        result = {
+            "kind": "aggregate" if focus.aggregate else "entity_list",
+            "related_to": [record.ref() for record in matched[:MAX_ALSO_MATCHED]],
+            "groups": groups,
+            "open_only": focus.open_only,
+        }
+        if focus.aggregate:
+            result["aggregates"] = _asked_figures(aggregates)
     elif matched:
         detailed: list[dict[str, Any]] = []
         for record in matched[:MAX_DETAILED_ENTITIES]:
@@ -977,18 +1344,59 @@ async def build_workspace_evidence(
             "matched_count": len(matched),
         }
     elif listed_types:
-        selected = apply_value_filters(index.of_types(listed_types), filters)
+        groups = []
+        aggregates = []
+        for entity_type in listed_types:
+            selected, own_filters, partner = narrowed(entity_type, index.of_types([entity_type]))
+            group = _groups(selected, [entity_type], counts)[0]
+            group["filters"] = own_filters
+            group["partner_filter"] = partner
+            groups.append(group)
+            if focus.aggregate:
+                aggregates.append(
+                    _aggregate_view(index, selected, entity_type, counts, focus, explained_words)
+                )
         result = {
-            "kind": "entity_list",
+            "kind": "aggregate" if focus.aggregate else "entity_list",
             "related_to": None,
-            "groups": _groups(selected, listed_types, counts),
+            "groups": groups,
+            "open_only": focus.open_only,
         }
+        if focus.aggregate:
+            result["aggregates"] = _asked_figures(aggregates)
     elif filters:
         selected = apply_value_filters(index.records, filters)
         result = {
             "kind": "entity_list",
             "related_to": None,
             "groups": _groups(selected, sorted({r.entity_type for r in selected}), counts),
+        }
+    elif focus.aggregate and (
+        named_field := resolve_numeric_field(
+            [*focus.residual.split(), *focus.aggregate_words], index.records, allow_usual=False
+        )
+    ):
+        # "Highest unit price": no kind of record is named, but the field is.
+        # The figure is given for each kind of record that has the field.
+        holders = sorted(
+            {record.entity_type for record in index.records if record.value(named_field.lower())}
+        )
+        result = {
+            "kind": "aggregate",
+            "related_to": None,
+            "groups": [],
+            "open_only": False,
+            "aggregates": [
+                _aggregate_view(
+                    index,
+                    index.of_types([entity_type]),
+                    entity_type,
+                    counts,
+                    focus,
+                    explained_words,
+                )
+                for entity_type in holders
+            ],
         }
     else:
         missing_types = [t for t in focus.entity_types if t not in counts]
@@ -1004,6 +1412,18 @@ async def build_workspace_evidence(
                 "unmatched_identifiers": unmatched,
                 "wants_count": focus.wants_count,
                 "asks_why": focus.asks_why,
+                # What the question asks about a named record that the record
+                # has no field for ("weather in Pune").
+                "unanswered": unanswered,
+                # Countries the question names that narrowed nothing: neither
+                # the records listed nor the ones they name have a country.
+                "countries_not_applied": [
+                    country_name(code) or words
+                    for code, words in countries_in_question.items()
+                    if code not in countries_applied
+                ]
+                if result.get("kind") in {"entity_list", "aggregate"} and result.get("groups")
+                else [],
             },
             "workspace": {
                 "world_state_version": snapshots[0]["version"] if snapshots else 0,

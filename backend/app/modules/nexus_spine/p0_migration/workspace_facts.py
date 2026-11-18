@@ -16,6 +16,22 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from app.modules.nexus_spine.p0_migration.country_names import (
+    countries_mentioned,
+    country_code,
+    country_name,
+    is_country_field,
+)
+from app.modules.nexus_spine.p0_migration.question_focus import (
+    AGGREGATE_AVERAGE,
+    AGGREGATE_MAX,
+    AGGREGATE_MIN,
+    AGGREGATE_SUM,
+    STOP_WORDS,
+    TYPE_WORDS,
+    fold_word,
+)
+
 FLOW_TYPES: tuple[str, ...] = ("PurchaseOrder", "SalesOrder", "Shipment")
 INVENTORY_TYPES: tuple[str, ...] = ("InventoryItem", "InventoryLot")
 SUPPLY_TYPES: tuple[str, ...] = ("PurchaseOrder", "Shipment")
@@ -1005,13 +1021,17 @@ def diff_attributes(
 
 # ── Matching a question against the published records ────────────────────────
 
-# Company-form and filler words that do not identify a named record.
+# Company forms, kinds of place and filler words that do not identify a named
+# record. Compared after folding plurals, so the entries are singular.
 _GENERIC_NAME_WORDS: frozenset[str] = frozenset(
     {
-        "ab", "ag", "and", "as", "bv", "central", "co", "company", "corp", "east", "first",
-        "for", "general", "global", "gmbh", "group", "inc", "international", "kk", "lda",
-        "limited", "llc", "ltd", "main", "national", "new", "north", "nv", "of", "oy", "plant",
-        "plc", "pvt", "sa", "south", "spa", "srl", "the", "united", "warehouse", "west",
+        "ab", "ag", "and", "as", "branch", "bv", "central", "co", "company", "corp", "division",
+        "east", "enterprise", "first", "for", "general", "global", "gmbh", "group", "holding",
+        "hub", "inc", "industry", "international", "kk", "lda", "limited", "llc", "logistic",
+        "ltd", "main", "manufacturing", "national", "new", "north", "nv", "of", "office", "oy",
+        "plant", "plc", "pvt", "sa", "service", "shop", "solution", "south", "spa", "srl",
+        "storage", "store", "system", "the", "trading", "united", "warehouse", "west", "work",
+        "yard",
     }
 )  # fmt: skip
 _STOP_VALUES: frozenset[str] = frozenset(
@@ -1043,18 +1063,71 @@ _NEGATIONS: tuple[str, ...] = (
     "aren t",
     "isnt",
     "arent",
+    "outside",
+)
+# Words that may stand between a negation and the value it negates: "not in
+# DE", "not from the US", "outside of Germany".
+_BETWEEN_NEGATION_AND_VALUE: frozenset[str] = frozenset(
+    {"in", "from", "at", "of", "to", "the", "a", "an", "with", "by", "on", "based", "located"}
 )
 MAX_FILTER_VALUE_LENGTH = 40
+MAX_SINGLE_WORD_MATCHES = 3
+MAX_BREAKDOWN_ROWS = 10
+MAX_EXTREME_RECORDS = 5
+
+
+def _negated(before: str) -> bool:
+    """True when the text in front of a value negates it ("not", "not in", "outside of")."""
+    words = before.split()
+    skipped = 0
+    while words and words[-1] in _BETWEEN_NEGATION_AND_VALUE and skipped < 3:
+        words.pop()
+        skipped += 1
+    if not words:
+        return False
+    tail = " ".join(words[-2:])
+    return any(tail == word or tail.endswith(f" {word}") for word in _NEGATIONS)
+
+
+def _specific(words: Sequence[str]) -> bool:
+    """True when at least one of the words could identify a record.
+
+    Company forms ("GmbH"), record kinds ("warehouse", "distribution centre")
+    and everyday words do not: "which distribution centre is short?" must not
+    be read as naming "Hamburg Distribution Centre".
+    """
+    for word in words:
+        folded = fold_word(word)
+        if (
+            len(folded) >= 3
+            and folded not in _GENERIC_NAME_WORDS
+            and folded not in TYPE_WORDS
+            and folded not in STOP_WORDS
+        ):
+            return True
+    return False
 
 
 def link_names(normalized_question: str, index: WorkspaceIndex) -> list[dict[str, Any]]:
     """Records whose own name appears in the question.
 
-    A record matches on its full name, on the first two or more words of it, or
-    on its first word alone when that word is distinctive and no other record's
-    name starts with it. Each match reports the text it matched on.
+    A record matches on its full name, on the first two or more words of it,
+    on two or more consecutive words from inside it, or on its first word
+    alone when that word is distinctive and no other record's name starts
+    with it. Regular plurals are ignored on both sides, so "ball bearings"
+    names "Ball Bearing 6205". Part of a name counts only when it holds a
+    word that could identify a record (not just "distribution centre"). Each
+    match reports the text it matched on.
     """
     padded = f" {normalized_question} "
+    folded_question = f" {' '.join(fold_word(word) for word in normalized_question.split())} "
+
+    def present(tokens: Sequence[str]) -> bool:
+        return (
+            f" {' '.join(tokens)} " in padded
+            or f" {' '.join(fold_word(token) for token in tokens)} " in folded_question
+        )
+
     named: list[tuple[NodeRecord, list[str]]] = []
     first_words: dict[str, int] = {}
     for record in index.records:
@@ -1072,27 +1145,81 @@ def link_names(normalized_question: str, index: WorkspaceIndex) -> list[dict[str
         full = " ".join(tokens)
         matched_on: str | None = None
         text = ""
-        if len(full) >= 3 and f" {full} " in padded:
+        if len(full) >= 3 and present(tokens):
             matched_on, text = "name", full
         else:
             for size in range(len(tokens) - 1, 1, -1):
-                prefix = " ".join(tokens[:size])
-                if f" {prefix} " in padded:
-                    matched_on, text = "start_of_name", prefix
+                if _specific(tokens[:size]) and present(tokens[:size]):
+                    matched_on, text = "start_of_name", " ".join(tokens[:size])
+                    break
+        if matched_on is None:
+            # Two or more consecutive words from inside the name: "iron housing".
+            for size in range(len(tokens) - 1, 1, -1):
+                for start in range(1, len(tokens) - size + 1):
+                    part = tokens[start : start + size]
+                    if _specific(part) and present(part):
+                        matched_on, text = "part_of_name", " ".join(part)
+                        break
+                if matched_on is not None:
                     break
         if matched_on is None:
             first = tokens[0]
             if (
                 len(first) >= 4
                 and first.isalpha()
-                and first not in _GENERIC_NAME_WORDS
+                and fold_word(first) not in _GENERIC_NAME_WORDS
                 and first_words.get(first) == 1
-                and f" {first} " in padded
+                and present([first])
             ):
                 matched_on, text = "first_word_of_name", first
         if matched_on is not None:
             matches.append({"record": record, "matched_on": matched_on, "text": text})
     matches.sort(key=lambda item: (-len(str(item["text"])), item["record"].entity_id))
+    return matches
+
+
+def link_single_words(
+    words: Sequence[str],
+    index: WorkspaceIndex,
+    *,
+    avoid_types: Iterable[str] = (),
+    max_matches: int = MAX_SINGLE_WORD_MATCHES,
+) -> list[dict[str, Any]]:
+    """Records named by one word from inside their name, as a last resort.
+
+    For words of a question that nothing else explained: "who supplies
+    bearings?" names no record by any other rule, but one product is called
+    "Ball Bearing 6205". A word counts when it could identify a record (see
+    ``_specific``) and at most ``max_matches`` records carry it. When the
+    question lists a kind of record (``avoid_types``), a record of another
+    kind is preferred: the question asks about the bearings, not about the
+    supplier called "Kyoto Bearings".
+    """
+    avoided = frozenset(avoid_types)
+    by_word: dict[str, list[NodeRecord]] = {}
+    for record in index.records:
+        name = record.name
+        if not name:
+            continue
+        for token in {fold_word(token) for token in normalize_name(name).split()}:
+            by_word.setdefault(token, []).append(record)
+
+    matches: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for word in words:
+        folded = fold_word(word)
+        if len(folded) < 4 or not folded.isalpha() or not _specific([folded]):
+            continue
+        candidates = by_word.get(folded, [])
+        preferred = [record for record in candidates if record.entity_type not in avoided]
+        chosen = preferred or candidates
+        if not chosen or len(chosen) > max_matches:
+            continue
+        for record in sorted(chosen, key=lambda item: (item.entity_type, item.entity_id)):
+            key = (record.entity_type, record.entity_id)
+            if key not in seen:
+                seen.add(key)
+                matches.append({"record": record, "matched_on": "word_in_name", "text": word})
     return matches
 
 
@@ -1102,15 +1229,21 @@ def match_value_filters(
     *,
     exclude: Iterable[str] = (),
     short_codes: Iterable[str] = (),
+    question: str = "",
 ) -> list[dict[str, Any]]:
     """Stored field values that the question spells out ("in transit", "tier 1").
 
     ``residual`` is the question without its topic and record-kind words. Values
     in ``exclude`` (already matched names and identifiers) are not used again. A
-    value preceded by a negation ("not active") becomes an excluding filter.
-    Values shorter than three characters are too easily ordinary words ("in",
-    "us"); one is used only when the question wrote exactly that value in
-    capitals (``short_codes``, e.g. the country code "DE").
+    value preceded by a negation ("not active", "not in DE") becomes an
+    excluding filter. Values shorter than three characters are too easily
+    ordinary words ("in", "us"); one is used only when the question wrote
+    exactly that value in capitals (``short_codes``, e.g. the country code "DE").
+
+    A country can be asked for by name while the file stores its code, or the
+    other way round: with ``question`` (the text as typed), "Germany" and
+    "German" select the stored value "DE" in a country column. Such a filter
+    carries ``asked_as``, the words that named the country.
     """
     padded = f" {residual} "
     excluded = {normalize_name(value) for value in exclude}
@@ -1137,9 +1270,70 @@ def match_value_filters(
             position = padded.find(f" {value} ")
             if position < 0:
                 continue
-            before = padded[: position + 1].rstrip()
-            negated = any(before.endswith(f" {word}") or before == word for word in _NEGATIONS)
-            checked[identity] = {"field": key, "value": text, "negated": negated}
+            checked[identity] = {
+                "field": key,
+                "value": text,
+                "negated": _negated(padded[: position + 1]),
+            }
+
+    # Countries: the question names one, a country column stores it another way.
+    mentioned = dict(countries_mentioned(question)) if question else {}
+    for code in codes:
+        if country_name(code) and code not in mentioned:
+            mentioned[code] = code
+    if mentioned:
+        inside_a_name = {
+            code
+            for code, words in mentioned.items()
+            if any(f" {normalize_name(words)} " in f" {name} " for name in excluded)
+        }
+        country_fields: list[str] = []
+        stored_codes: set[str] = set()
+        for record in records:
+            for key, text in record.items():
+                if not is_country_field(key):
+                    continue
+                if key not in country_fields:
+                    country_fields.append(key)
+                stored = country_code(text)
+                if stored is None:
+                    continue
+                stored_codes.add(stored)
+                identity = (key, normalize_name(text))
+                if checked.get(identity) is not None:
+                    continue
+                if stored not in mentioned or stored in inside_a_name:
+                    continue
+                words = mentioned[stored]
+                position = padded.find(f" {normalize_name(words)} ")
+                checked[identity] = {
+                    "field": key,
+                    "value": text,
+                    "negated": position >= 0 and _negated(padded[: position + 1]),
+                    "asked_as": words,
+                    "means": country_name(stored),
+                }
+        # A country named in words that none of these records is in. The list
+        # is then empty; leaving the filter out would answer "which suppliers
+        # are in France?" with every supplier. Bare two-letter codes are not
+        # used for this: "QA" and "IT" are too often something else.
+        named = countries_mentioned(question) if question else {}
+        for code, words in named.items():
+            if code in stored_codes or code in inside_a_name or not country_fields:
+                continue
+            key = next(
+                (name for name in country_fields if name.lower() == "country"), country_fields[0]
+            )
+            label = country_name(code) or words
+            position = padded.find(f" {normalize_name(words)} ")
+            checked[(key, normalize_name(label))] = {
+                "field": key,
+                "value": label,
+                "negated": position >= 0 and _negated(padded[: position + 1]),
+                "asked_as": words,
+                "means": None,
+                "absent": True,
+            }
     return sorted(
         (item for item in checked.values() if item is not None),
         key=lambda item: (str(item["field"]), str(item["value"])),
@@ -1187,3 +1381,271 @@ def points_at(index: WorkspaceIndex, record: NodeRecord, target: NodeRecord) -> 
         ):
             return True
     return False
+
+
+def _pointed_at(index: WorkspaceIndex, record: NodeRecord, target_type: str) -> list[NodeRecord]:
+    """Every record of ``target_type`` that a pointer field of ``record`` names."""
+    hints = REFERENCE_HINTS.get(target_type, ())
+    found: list[NodeRecord] = []
+    if not hints or not index.by_type.get(target_type):
+        return found
+    for key, text in record.items():
+        lowered = key.lower()
+        if not any(hint in lowered for hint in hints):
+            continue
+        target = index.lookup(target_type, text)
+        if target is not None and target is not record and target not in found:
+            found.append(target)
+    return found
+
+
+_FLOW_ROLES: tuple[str, ...] = ("supplier", "customer", "product", "facility")
+
+
+def related_records(
+    index: WorkspaceIndex,
+    today: date,
+    entity_type: str,
+    targets: Sequence[NodeRecord],
+) -> dict[str, Any]:
+    """Records of one kind that are linked to the records a question names.
+
+    Three kinds of link are tried, and the first that finds anything is used:
+
+    * ``refers_to``: the record itself names a target ("purchase orders from
+      S-101": the order has a supplier field);
+    * ``referred_by``: a target names the record ("which warehouse is PO-5001
+      for?": the order has a warehouse field);
+    * ``orders``: an order or shipment names both ("who supplies C-2004?": a
+      supplier record never mentions a product, but purchase orders name the
+      supplier and the product). Each record then carries how many such
+      orders there are and how many of them are late.
+    """
+    candidates = index.by_type.get(entity_type, [])
+    direct = [
+        record
+        for record in candidates
+        if any(points_at(index, record, target) for target in targets)
+    ]
+    if direct:
+        return {"via": "refers_to", "records": direct, "orders": {}}
+
+    reverse: list[NodeRecord] = []
+    for target in targets:
+        for record in _pointed_at(index, target, entity_type):
+            if record not in reverse:
+                reverse.append(record)
+    if reverse:
+        reverse.sort(key=lambda item: item.entity_id)
+        return {"via": "referred_by", "records": reverse, "orders": {}}
+
+    keys = _focus_keys(targets)
+    counts: dict[str, dict[str, int]] = {}
+    for flow_record in index.of_types(FLOW_TYPES):
+        if flow_record.entity_type == entity_type:
+            continue
+        flow = assess_flow(flow_record, index, today)
+        if not _involves(flow, keys):
+            continue
+        for role in _FLOW_ROLES:
+            ref = flow[role]
+            if not ref or ref["entity_type"] != entity_type:
+                continue
+            if (str(ref["entity_type"]), str(ref["entity_id"])) in keys:
+                continue
+            row = counts.setdefault(
+                str(ref["entity_id"]), {"order_count": 0, "late_order_count": 0}
+            )
+            row["order_count"] += 1
+            if flow["late"]:
+                row["late_order_count"] += 1
+    through = [record for record in candidates if record.entity_id in counts]
+    through.sort(key=lambda item: (-counts[item.entity_id]["order_count"], item.entity_id))
+    return {"via": "orders" if through else "refers_to", "records": through, "orders": counts}
+
+
+def open_flows(
+    index: WorkspaceIndex, today: date, records: Sequence[NodeRecord]
+) -> list[NodeRecord]:
+    """The orders and shipments among ``records`` that have not arrived or been closed."""
+    return [
+        record
+        for record in records
+        if record.entity_type not in FLOW_TYPES or assess_flow(record, index, today)["open"]
+    ]
+
+
+# ── One figure over a list of records ───────────────────────────────────────
+
+_NOT_A_MEASURE = re.compile(
+    r"(?:^|_)(?:id|ids|no|number|num|code|sku|ref|key|zip|postcode|postal|phone|fax|year)$"
+    r"|date|(?:^|_)(?:lat|lng|lon|latitude|longitude)(?:_|$)"
+)
+# Everyday words for a measure that a column name may not contain. They are
+# tried in addition to the word itself, never instead of it.
+_FIELD_SYNONYMS: dict[str, str] = {
+    "qty": "quantity",
+    "piece": "quantity",
+    "pc": "quantity",
+    "volume": "quantity",
+    "cost": "price",
+    "expensive": "price",
+    "cheapest": "price",
+    "costliest": "price",
+}
+
+
+def numeric_fields(records: Sequence[NodeRecord]) -> list[str]:
+    """Stored names of the fields of these records that hold numbers.
+
+    A field counts when at least four in five of its filled values read as
+    numbers. Identifiers, codes and dates are not measures and are left out.
+    """
+    filled: dict[str, int] = {}
+    numeric: dict[str, int] = {}
+    for record in records:
+        for key, text in record.items():
+            if text == record.entity_id or _NOT_A_MEASURE.search(key.lower()):
+                continue
+            filled[key] = filled.get(key, 0) + 1
+            if parse_number(text) is not None:
+                numeric[key] = numeric.get(key, 0) + 1
+    return [key for key, count in filled.items() if numeric.get(key, 0) * 5 >= count * 4]
+
+
+def _field_words(field_name: str) -> list[str]:
+    return [fold_word(word) for word in re.split(r"[^a-z0-9]+", field_name.lower()) if word]
+
+
+def resolve_numeric_field(
+    question_words: Sequence[str], records: Sequence[NodeRecord], *, allow_usual: bool = True
+) -> str | None:
+    """The numeric field a question asks about, or None when it names none clearly.
+
+    A field is named by the words of its own name ("lead time" names
+    ``lead_time_days``). The field that shares the most words wins; between
+    two that share as many, the one whose whole name the question uses; a tie
+    names neither. When the question uses no word of any field, the usual quantity
+    of the records is used: the ordered quantity of orders and shipments, the
+    quantity on hand of inventory records. ``allow_usual`` switches that off:
+    a question that asks for something else by name ("total value") must not
+    be answered with the quantity.
+    """
+    available = numeric_fields(records)
+    if not available:
+        return None
+    asked = {fold_word(word) for word in question_words}
+    asked |= {_FIELD_SYNONYMS[word] for word in asked if word in _FIELD_SYNONYMS}
+    scored: list[tuple[int, int, int, str]] = []
+    for key in available:
+        words = _field_words(key)
+        shared = {word for word in words if word in asked}
+        # "on" and "time" are in half of all questions: a field is named by
+        # a word that means something ("rate" for on_time_rate), and the
+        # small words only decide between fields that share one. A name the
+        # question spells out in full wins over one it only touches
+        # ("quantity" over "quantity_on_hand").
+        meaningful = {word for word in shared if len(word) >= 3 and word not in STOP_WORDS}
+        if meaningful:
+            in_full = int(len(shared) == len(set(words)))
+            scored.append((len(meaningful), len(shared), in_full, key))
+    if scored:
+        scored.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]))
+        if len(scored) > 1 and scored[0][:3] == scored[1][:3]:
+            return None
+        return scored[0][3]
+
+    if not allow_usual:
+        return None
+    kinds = {record.entity_type for record in records}
+    lowered = {key.lower(): key for key in available}
+    usual: tuple[str, ...] = ()
+    if kinds and kinds <= set(FLOW_TYPES):
+        usual = QUANTITY_FIELDS
+    elif kinds and kinds <= set(INVENTORY_TYPES):
+        usual = ON_HAND_FIELDS
+    for name in usual:
+        if name in lowered:
+            return lowered[name]
+    return None
+
+
+def aggregate_records(
+    index: WorkspaceIndex,
+    records: Sequence[NodeRecord],
+    field_name: str,
+    operation: str,
+) -> dict[str, Any]:
+    """Sum, average, highest or lowest value of one numeric field over the records.
+
+    Records whose value is missing or does not read as a number are counted
+    and left out; nothing is assumed for them. A total over orders or stock
+    is also broken down by product, because units of different parts add up
+    to a number that means little on its own.
+    """
+    valued: list[tuple[NodeRecord, float]] = []
+    for record in records:
+        found = record.value(field_name.lower())
+        number = parse_number(found[1]) if found else None
+        if number is not None:
+            valued.append((record, number))
+    result: dict[str, Any] = {
+        "operation": operation,
+        "field": field_name,
+        "considered": len(records),
+        "with_value": len(valued),
+        "without_value": len(records) - len(valued),
+        "value": None,
+        "lowest": None,
+        "highest": None,
+        "breakdown": None,
+    }
+    if not valued:
+        return result
+    numbers = [number for _record, number in valued]
+    low, high = min(numbers), max(numbers)
+
+    def holders(wanted: float) -> dict[str, Any]:
+        records_with = [record.ref() for record, number in valued if number == wanted]
+        return {
+            "value": wanted,
+            "records": records_with[:MAX_EXTREME_RECORDS],
+            "record_count": len(records_with),
+        }
+
+    result["lowest"] = holders(low)
+    result["highest"] = holders(high)
+    if operation == AGGREGATE_SUM:
+        result["value"] = math.fsum(numbers)
+    elif operation == AGGREGATE_AVERAGE:
+        result["value"] = math.fsum(numbers) / len(numbers)
+    elif operation == AGGREGATE_MAX:
+        result["value"] = high
+    elif operation == AGGREGATE_MIN:
+        result["value"] = low
+
+    if operation == AGGREGATE_SUM:
+        groups: dict[str, dict[str, Any]] = {}
+        unassigned = 0
+        for record, number in valued:
+            product = (
+                None if record.entity_type == "Product" else index.reference(record, "Product")
+            )
+            if product is None:
+                unassigned += 1
+                continue
+            row = groups.setdefault(
+                product.entity_id, {**product.ref(), "value": 0.0, "record_count": 0}
+            )
+            row["value"] += number
+            row["record_count"] += 1
+        if len(groups) > 1 and unassigned == 0:
+            rows = sorted(
+                groups.values(), key=lambda row: (-float(row["value"]), str(row["entity_id"]))
+            )
+            result["breakdown"] = {
+                "by": "Product",
+                "rows": rows[:MAX_BREAKDOWN_ROWS],
+                "row_count": len(rows),
+            }
+    return result

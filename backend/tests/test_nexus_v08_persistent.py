@@ -525,53 +525,56 @@ class TestV082APIIntegration:
 
     @pytest.mark.asyncio
     async def test_vanessa_ask_uses_authz(self, api_client):
-        """Viewer cannot see decisions; operator can."""
+        """A viewer is refused the tools its role lacks; an operator is not."""
+        from app.api.v1 import nexus_persistent
         from app.infrastructure import security
 
-        # Force viewer role — 'nexus.decision.list' is not in viewer tools,
-        # so asking about decisions yields a permission denial.
-        async def _viewer(request):
-            return security.AuthContext(
-                user_id="viewer1", roles=["viewer"], workspace_ids=[], is_anonymous=False
+        # The route captured its dependency when the module was imported, so
+        # the signed-in user is replaced through FastAPI's overrides. (This
+        # test used to assign security.get_current_user, which the route never
+        # looks at: every request ran as the default test user, and the
+        # "viewer" half passed only because its question, "show me
+        # decisions", was not understood at all.)
+        app = api_client._transport.app
+
+        def sign_in(role: str) -> None:
+            async def user() -> security.AuthContext:
+                return security.AuthContext(
+                    user_id=f"{role}-1", roles=[role], workspace_ids=[], is_anonymous=False
+                )
+
+            app.dependency_overrides[nexus_persistent.get_current_user] = user
+
+        async def ask(question: str) -> dict:
+            r = await api_client.post(
+                "/nexus/vanessa/ask", params={"workspace_id": "WS1"}, json={"query": question}
             )
+            assert r.status_code == 200
+            return r.json()["data"]
 
-        security.get_current_user = _viewer
-        r = await api_client.post(
-            "/nexus/vanessa/ask",
-            params={"workspace_id": "WS1"},
-            json={"query": "show me decisions"},
-        )
-        assert r.status_code == 200
-        resp = r.json()["data"]
-        # Either a denied error, or no tool was executed (plan empty due to
-        # missing permission). The synthesis text should NOT contain
-        # operational data — permission gate is enforced upstream by AuthZ
-        # on every tool call.
-        # Verify that no 'nexus.decision.list' evidence came back:
-        ev_tools = [
-            e.get("tool") if isinstance(e, dict) else getattr(e, "tool", None)
-            for e in resp.get("evidence", [])
-        ]
-        assert "nexus.decision.list" not in ev_tools
-        assert "nexus.cockpit.read" not in ev_tools
+        def tools(resp: dict) -> list:
+            return [e.get("tool") for e in resp.get("evidence", [])]
 
-        # Operator is allowed
-        async def _op(request):
-            return security.AuthContext(
-                user_id="op1", roles=["operator"], workspace_ids=[], is_anonymous=False
-            )
+        # 'nexus.recommend' is not a viewer tool: the request is denied and
+        # nothing is read on the way.
+        sign_in("viewer")
+        resp = await ask("what should I do about the delay?")
+        assert resp["permission_denied"] is not None
+        assert "nexus.recommend" in resp["permission_denied"]
+        assert tools(resp) == []
+        assert resp.get("actions_taken", []) == []
 
-        security.get_current_user = _op
-        r = await api_client.post(
-            "/nexus/vanessa/ask",
-            params={"workspace_id": "WS1"},
-            json={"query": "what is the state of the world?"},
-        )
-        assert r.status_code == 200
-        resp = r.json()["data"]
+        # Listing decisions is a read every role has (TOOL_PERMISSIONS; the
+        # Decision Room shows decisions to a viewer too).
+        resp = await ask("show me decisions")
         assert resp["permission_denied"] is None
-        ev_tools = [
-            e.get("tool") if isinstance(e, dict) else getattr(e, "tool", None)
-            for e in resp.get("evidence", [])
-        ]
-        assert "nexus.cockpit.read" in ev_tools
+        assert tools(resp) == ["nexus.decision.list"]
+
+        # An operator may ask for the recommendation the viewer was refused.
+        sign_in("operator")
+        resp = await ask("what should I do about the delay?")
+        assert resp["permission_denied"] is None
+        assert tools(resp) == ["nexus.recommend"]
+        resp = await ask("what is the state of the world?")
+        assert resp["permission_denied"] is None
+        assert "nexus.cockpit.read" in tools(resp)
