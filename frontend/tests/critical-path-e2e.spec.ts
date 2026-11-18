@@ -110,6 +110,10 @@ async function createLoggedInSession(
 // comes from one address. Tests that only need a signed-in user whose
 // workspace holds nothing share this account instead of creating one each.
 // No test may write to it.
+//
+// The five specs the E2E job runs together make 26 signups (8 here, 16 in
+// auth-e2e, 2 in realtime-e2e). A new test that needs its own workspace costs
+// one more; past 30 the API answers 429 and unrelated tests fail.
 let emptyWorkspaceAccount: Account | null = null;
 
 async function openEmptyWorkspace(page: Page, request: APIRequestContext): Promise<Account> {
@@ -174,6 +178,38 @@ async function publishSupplierFile(
   const published = await request.post(`${BACKEND}/api/v1/graph/batches/${batchId}/compile`, { headers, params });
   expect(published.status(), `publish body: ${await published.text()}`).toBe(200);
   return batchId;
+}
+
+/**
+ * Record a decision over the API, as an integration would, and take it to the
+ * point where a person has to approve it. Returns its identifier.
+ */
+async function recordDecisionAwaitingApproval(request: APIRequestContext, account: Account): Promise<string> {
+  const headers = { Authorization: `Bearer ${account.token}` };
+  const created = await request.post(`${BACKEND}/api/v1/nexus/decisions`, {
+    headers,
+    data: {
+      workspace_id: account.workspaceId,
+      situation: 'Cast iron housings from S-101 are three weeks late.',
+      options: [
+        { option_id: 'opt-a', label: 'Expedite PO-5001 by air', expected_cost: 18400 },
+        { option_id: 'opt-b', label: 'Move 250 units to Acme Metals', expected_cost: 9200, lead_time_days: 12 },
+      ],
+      recommended_option_id: 'opt-b',
+      world_state_version: 0,
+    },
+  });
+  expect(created.status(), `decision body: ${await created.text()}`).toBe(201);
+  const decisionId = String((await created.json()).data.decision.decision_id);
+  for (const phase of ['simulated', 'policy_checked', 'awaiting_approval']) {
+    const advanced = await request.post(`${BACKEND}/api/v1/nexus/decisions/${decisionId}/advance`, {
+      headers,
+      params: { workspace_id: account.workspaceId },
+      data: { target_phase: phase, reason: 'Recorded by the browser test.' },
+    });
+    expect(advanced.status(), `advance to ${phase}: ${await advanced.text()}`).toBe(200);
+  }
+  return decisionId;
 }
 
 test.describe('Upload → Evidence → Conflict → Readiness → Audit path', () => {
@@ -515,6 +551,44 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
   });
 });
 
+test.describe('Decision Room', () => {
+  test('a decision is described in words before it is approved, and after', async ({ page, request }) => {
+    const account = await createLoggedInSession(page, request, 'decision');
+    const decisionId = await recordDecisionAwaitingApproval(request, account);
+
+    await page.goto(`${BASE_URL}/nexus/decision-room`);
+    // The list says what the decision is about; its identifier is the small print.
+    await expect(page.getByTestId('decision-list-title')).toHaveText(
+      'Cast iron housings from S-101 are three weeks late.',
+    );
+    // The recommended action is named, not shown as "opt-b".
+    const recommended = page.getByTestId('decision-recommended');
+    await expect(recommended).toHaveText('Move 250 units to Acme Metals');
+    await expect(page.getByText('Option opt-b', { exact: true })).toBeVisible();
+    await expect(page.getByText(decisionId).first()).toBeVisible();
+
+    const options = page.getByTestId('decision-option');
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toContainText('Expedite PO-5001 by air');
+    await expect(options.nth(0)).toContainText('expected cost: 18,400');
+    await expect(options.nth(0)).not.toContainText('RECOMMENDED');
+    await expect(options.nth(1)).toContainText('Move 250 units to Acme Metals');
+    await expect(options.nth(1)).toContainText('RECOMMENDED');
+    await expect(options.nth(1)).toContainText('expected cost: 9,200 · lead time days: 12');
+    // Nothing is printed as a raw record.
+    const listed = page.getByTestId('decision-options');
+    await expect(listed).not.toContainText('{');
+    await expect(listed).not.toContainText('option_id');
+
+    // Approving keeps the same description on screen.
+    await page.getByRole('button', { name: 'Approve proposal' }).click();
+    await expect(page.getByRole('status')).toContainText('Decision approved.');
+    await expect(recommended).toHaveText('Move 250 units to Acme Metals');
+    await expect(options).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Execute approved action' })).toBeVisible();
+  });
+});
+
 test.describe('Phone layout', () => {
   test.use({ viewport: PHONE });
 
@@ -576,6 +650,7 @@ test.describe('Phone layout', () => {
       'supplier_id,supplier_name,country\nS-200,Castor Bearings,JP\n',
       { publish: false },
     );
+    await recordDecisionAwaitingApproval(request, account);
 
     const pages: Array<[string, (page: Page) => Promise<void>]> = [
       ['/nexus/cockpit', async (p) => { await expect(p.getByTestId('cockpit-tiles')).toBeVisible(); }],
@@ -589,6 +664,7 @@ test.describe('Phone layout', () => {
       }],
       ['/evidence', async (p) => { await expect(p.getByTestId('upload-row')).toHaveCount(2); }],
       [`/evidence?batch_id=${waiting}`, async (p) => { await expect(p.getByText('Castor Bearings').first()).toBeVisible(); }],
+      ['/nexus/decision-room', async (p) => { await expect(p.getByTestId('decision-option')).toHaveCount(2); }],
       ['/app', async (p) => { await expect(p.getByTestId('app-user-email')).toHaveText(account.email); }],
     ];
     for (const [path, loaded] of pages) {
