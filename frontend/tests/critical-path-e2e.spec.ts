@@ -3,8 +3,9 @@
  *
  * Phase 2 completion: covers the main business routes with the
  * happy path + every state in the route/state matrix:
- *   /upload, /evidence, /audit, /nexus/cockpit
- * plus the retired routes that now redirect: /conflicts, /readiness, /nexus
+ *   /upload, /evidence, /nexus/cockpit, /nexus/operations
+ * plus the retired routes that now redirect: /conflicts, /readiness, /nexus,
+ * /audit
  *
  * Designed to run against a backend that is reachable at
  * `NEXUS_BACKEND_URL` (default http://localhost:8000) and a frontend at
@@ -72,6 +73,26 @@ async function expectNoSidewaysScroll(page: Page, what: string): Promise<void> {
   expect(widths.page, `${what} is ${widths.page}px wide on a ${widths.screen}px screen`).toBeLessThanOrEqual(
     widths.screen,
   );
+}
+
+/**
+ * Make every letter take more room, as a wider font would.
+ *
+ * Fonts differ between machines. /nexus/operations fitted a 390px screen
+ * exactly on one machine and was 416px wide on another, because one long
+ * word that could not wrap was a little wider there. A layout that only fits
+ * with one font is not a layout that fits, so the phone tests measure each
+ * page twice: as rendered, and with the text made wider than any font here.
+ */
+async function widenText(page: Page): Promise<void> {
+  await page.addStyleTag({ content: '* { letter-spacing: 0.1em !important; }' });
+}
+
+/** The page fits the screen as rendered and with wider text. */
+async function expectFitsTheScreen(page: Page, what: string): Promise<void> {
+  await expectNoSidewaysScroll(page, what);
+  await widenText(page);
+  await expectNoSidewaysScroll(page, `${what} with wider text`);
 }
 
 /** A new organization with its own workspace, signed in. For tests that write data. */
@@ -223,10 +244,10 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await page.setViewportSize(PHONE);
     await page.goto(`${BASE_URL}/evidence?batch_id=${waitingId}`);
     await expect(page.locator('tbody tr')).toHaveCount(3);
-    await expectNoSidewaysScroll(page, 'the review page');
+    await expectFitsTheScreen(page, 'the review page');
     await page.goto(`${BASE_URL}/evidence`);
     await expect(page.getByTestId('upload-row')).toHaveCount(2);
-    await expectNoSidewaysScroll(page, 'the list of uploads');
+    await expectFitsTheScreen(page, 'the list of uploads');
   });
 
   test('a list of uploads that cannot be loaded says so', async ({ page, context, request }) => {
@@ -444,11 +465,41 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     }
   });
 
-  test('audit page renders with category filter', async ({ page }) => {
+  test('the retired /audit address opens the audit log on the Operations page', async ({ page, request }) => {
+    // /audit was a second audit page that sent no sign-in and offered
+    // category and date filters the API never had.
+    await openEmptyWorkspace(page, request);
     await page.goto(`${BASE_URL}/audit`);
-    await expect(page.locator('h1, h2').first()).toBeVisible();
-    const filter = page.locator('select, [role="combobox"]').first();
-    await expect(filter).toBeVisible();
+    await expect(page).toHaveURL(/\/nexus\/operations#audit$/);
+    await expect(page.getByTestId('operations-audit-count')).toBeVisible();
+  });
+
+  test('the audit log can be read beyond its first hundred events', async ({ page, request }) => {
+    // Each accepted value is one audit event: 40 rows of 3 columns give more
+    // than a hundred. The panel used to stop at the newest hundred.
+    const account = await createLoggedInSession(page, request, 'audit');
+    const rows = Array.from({ length: 40 }, (_, n) => `S-${300 + n},Supplier ${300 + n},IN`).join('\n');
+    await publishSupplierFile(request, account, 'many_suppliers.csv', `supplier_id,supplier_name,country\n${rows}\n`);
+    const all = await request.get(`${BACKEND}/api/v1/audit`, {
+      headers: { Authorization: `Bearer ${account.token}` },
+      params: { workspace_id: account.workspaceId, limit: 200 },
+    });
+    expect(all.status()).toBe(200);
+    const total = ((await all.json()) as unknown[]).length;
+    expect(total).toBeGreaterThan(100);
+    expect(total).toBeLessThan(200);
+
+    await page.goto(`${BASE_URL}/nexus/operations`);
+    const count = page.getByTestId('operations-audit-count');
+    // Not the total yet, and the page says so.
+    await expect(count).toHaveText('Latest 100 events');
+    await expect(page.locator('#audit tbody tr')).toHaveCount(100);
+
+    await page.getByTestId('operations-audit-older').click();
+    await expect(count).toHaveText(`${total} events`);
+    await expect(page.locator('#audit tbody tr')).toHaveCount(total);
+    // Everything is shown: there is nothing older to ask for.
+    await expect(page.getByTestId('operations-audit-older')).toHaveCount(0);
   });
 
   test('retired /nexus console route opens the Nexus cockpit', async ({ page }) => {
@@ -503,7 +554,47 @@ test.describe('Phone layout', () => {
       expect(pageBox!.x, `${path}: page starts at the left edge`).toBe(0);
       expect(pageBox!.width, `${path}: page spans the screen`).toBe(PHONE.width);
 
-      await expectNoSidewaysScroll(page, path);
+      await expectFitsTheScreen(page, path);
+    }
+  });
+
+  test('pages that show data fit the screen too', async ({ page, request }) => {
+    // Tables, long identifiers and status keys only appear once there is data.
+    const account = await createLoggedInSession(page, request, 'phone');
+    await publishSupplierFile(
+      request,
+      account,
+      'suppliers.csv',
+      'supplier_id,supplier_name,country,status\n' +
+        'S-100,Acme Metals GmbH,DE,active\n' +
+        'S-101,Bharat Castings Private Limited,IN,delayed\n',
+    );
+    const waiting = await publishSupplierFile(
+      request,
+      account,
+      'more_suppliers.csv',
+      'supplier_id,supplier_name,country\nS-200,Castor Bearings,JP\n',
+      { publish: false },
+    );
+
+    const pages: Array<[string, (page: Page) => Promise<void>]> = [
+      ['/nexus/cockpit', async (p) => { await expect(p.getByTestId('cockpit-tiles')).toBeVisible(); }],
+      ['/nexus/world', async (p) => { await expect(p.getByText('Acme Metals GmbH').first()).toBeVisible(); }],
+      ['/nexus/world?view=quality', async (p) => { await expect(p.getByText('Per-type completeness')).toBeVisible(); }],
+      ['/nexus/world?view=provenance', async (p) => { await expect(p.getByText('Acme Metals GmbH').first()).toBeVisible(); }],
+      ['/nexus/operations', async (p) => {
+        // The audit table and both health panels have loaded.
+        await expect(p.getByTestId('operations-audit-count')).not.toHaveText('0 events');
+        await expect(p.getByTestId('operations-models')).toBeVisible();
+      }],
+      ['/evidence', async (p) => { await expect(p.getByTestId('upload-row')).toHaveCount(2); }],
+      [`/evidence?batch_id=${waiting}`, async (p) => { await expect(p.getByText('Castor Bearings').first()).toBeVisible(); }],
+      ['/app', async (p) => { await expect(p.getByTestId('app-user-email')).toHaveText(account.email); }],
+    ];
+    for (const [path, loaded] of pages) {
+      await page.goto(`${BASE_URL}${path}`);
+      await loaded(page);
+      await expectFitsTheScreen(page, path);
     }
   });
 
@@ -517,7 +608,7 @@ test.describe('Phone layout', () => {
     const pageBox = await page.getByTestId('nexus-page').boundingBox();
     // Sidebar on the left, page beside it.
     expect(pageBox!.x).toBeGreaterThanOrEqual(navBox!.x + navBox!.width - 1);
-    await expectNoSidewaysScroll(page, '/nexus/cockpit');
+    await expectFitsTheScreen(page, '/nexus/cockpit');
   });
 });
 
@@ -534,14 +625,28 @@ test.describe('Failure behavior — backend 5xx surfaces error UI', () => {
     await expect(page.getByText('backend error', { exact: true })).toBeVisible({ timeout: 10000 });
   });
 
-  test('audit page shows error state on 500', async ({ page, context }) => {
+  test('the Operations page says which feeds failed on a 500', async ({ page, context, request }) => {
+    await openEmptyWorkspace(page, request);
     await context.route('**/api/v1/**', (route) => {
-      route.fulfill({ status: 500, body: 'backend error' });
+      if (route.request().url().includes('/auth/me')) {
+        return route.continue();
+      }
+      return route.fulfill({ status: 500, body: JSON.stringify({ detail: 'backend error' }) });
     });
-    await page.goto(`${BASE_URL}/audit`);
-    await expect(
-      page.locator('text=/error|failed|unavailable/i').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await page.goto(`${BASE_URL}/nexus/operations`);
+    await expect(page.getByRole('status').filter({ hasText: '3 of 3 operational feeds unavailable' })).toBeVisible({
+      timeout: 10000,
+    });
+    // A feed that did not answer is reported as not loaded. "No audit events
+    // recorded yet" would be a statement about the log, and nobody read it.
+    await expect(page.getByTestId('operations-audit-failed')).toHaveText(
+      'The audit log could not be loaded. Use Refresh to try again.',
+    );
+    await expect(page.getByTestId('operations-audit-count')).toHaveText('Not loaded');
+    await expect(page.getByText('No audit events recorded yet.')).toHaveCount(0);
+    await expect(page.getByText('Model health could not be loaded. Use Refresh to try again.')).toBeVisible();
+    await expect(page.getByText('Relay health could not be loaded. Use Refresh to try again.')).toBeVisible();
+    await expect(page.getByText('No trained model is deployed in this workspace.')).toHaveCount(0);
   });
 });
 

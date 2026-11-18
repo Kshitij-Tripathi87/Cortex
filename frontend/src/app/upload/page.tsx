@@ -212,7 +212,7 @@ export default function UploadPage() {
                 separate downstream steps; the World State is not claimed to be updated yet.
               </p>
             </div>
-            <dl className="grid gap-3 px-5 py-4 sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2">
               <div>
                 <dt className="eyebrow">Batch ID</dt>
                 <dd className="mt-1 break-all font-mono text-xs text-ink">{result.batch_id}</dd>

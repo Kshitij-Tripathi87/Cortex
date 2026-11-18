@@ -11,9 +11,15 @@ import { apiClient } from "@/lib/auth/client";
  * System health reads the canonical model and relay health endpoints; audit
  * events read the append-only audit store. Everything shown is reported by
  * the services themselves — the UI never synthesizes a status.
+ *
+ * Layout: the two health panels sit in a grid with an explicit single column
+ * below `lg`, and their rows wrap. A health key such as
+ * `worker.heartbeat.last_sweep_published` has no space to break at; as one
+ * unbreakable word in an implicit grid column it made the whole page wider
+ * than a phone screen, by an amount that depended on the fonts installed.
  */
 
-/** How many audit events the page asks for (the newest ones). */
+/** How many audit events the page asks for at a time, newest first. */
 const AUDIT_PAGE_SIZE = 100;
 
 interface AuditEvent {
@@ -53,8 +59,16 @@ export default function OperationsPage() {
   const [modelHealth, setModelHealth] = useState<Record<string, unknown> | null>(null);
   const [relayHealth, setRelayHealth] = useState<Record<string, unknown> | null>(null);
   const [events, setEvents] = useState<AuditEvent[]>([]);
+  // A full page means the log may hold older events than the ones shown.
+  const [olderExist, setOlderExist] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which feeds did not answer. A panel whose feed failed says so; it must
+  // not read "no events recorded" or "not reported yet", which are claims
+  // about the data.
+  const [failed, setFailed] = useState({ models: false, relay: false, audit: false });
 
   const load = useCallback(async () => {
     if (!workspace?.id) return;
@@ -67,9 +81,17 @@ export default function OperationsPage() {
       apiClient.get<{ data?: Record<string, unknown> }>("/nexus/realtime/health"),
       apiClient.get<AuditEvent[]>("/audit", { workspace_id: workspace.id, limit: AUDIT_PAGE_SIZE }),
     ]);
-    if (modelResult.status === "fulfilled") setModelHealth(modelResult.value.data?.health ?? null);
-    if (relayResult.status === "fulfilled") setRelayHealth(relayResult.value.data ?? null);
-    if (auditResult.status === "fulfilled") setEvents(auditResult.value);
+    setModelHealth(modelResult.status === "fulfilled" ? (modelResult.value.data?.health ?? null) : null);
+    setRelayHealth(relayResult.status === "fulfilled" ? (relayResult.value.data ?? null) : null);
+    const loadedEvents = auditResult.status === "fulfilled" ? auditResult.value : [];
+    setEvents(loadedEvents);
+    setOlderExist(loadedEvents.length >= AUDIT_PAGE_SIZE);
+    setOlderError(null);
+    setFailed({
+      models: modelResult.status === "rejected",
+      relay: relayResult.status === "rejected",
+      audit: auditResult.status === "rejected",
+    });
     const failures = [modelResult, relayResult, auditResult].filter((result) => result.status === "rejected");
     setError(
       failures.length === 0
@@ -82,6 +104,31 @@ export default function OperationsPage() {
   useEffect(() => {
     if (status === "AUTHENTICATED") void load();
   }, [load, status]);
+
+  /** Append the next page of older events. The whole log can be read this way. */
+  const loadOlder = useCallback(async () => {
+    if (!workspace?.id || loadingOlder) return;
+    setLoadingOlder(true);
+    setOlderError(null);
+    try {
+      const older = await apiClient.get<AuditEvent[]>("/audit", {
+        workspace_id: workspace.id,
+        limit: AUDIT_PAGE_SIZE,
+        offset: events.length,
+      });
+      // Events recorded since the first page push the older ones down, so a
+      // page can start with rows that are already shown: keep each event once.
+      setEvents((shown) => {
+        const seen = new Set(shown.map((event) => event.event_id));
+        return [...shown, ...older.filter((event) => !seen.has(event.event_id))];
+      });
+      setOlderExist(older.length >= AUDIT_PAGE_SIZE);
+    } catch {
+      setOlderError("Older events could not be loaded. Try again.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [workspace?.id, events.length, loadingOlder]);
 
   useEffect(() => {
     if (window.location.hash === "#audit" || window.location.hash === "#health") {
@@ -124,35 +171,41 @@ export default function OperationsPage() {
       <div className="space-y-5 px-5 py-6 sm:px-8">
         {error && <div className="border border-border bg-surface px-4 py-3 text-xs text-warning" role="status">{error}</div>}
 
-        <section id="health" className="grid gap-5 lg:grid-cols-2">
+        <section id="health" className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="border border-border bg-surface">
             <div className="border-b border-border px-4 py-3">
               <span className="eyebrow">Model registry health</span>
-              <p className="mt-1 text-[11px] text-ink-secondary">GET /nexus/models/health</p>
+              <p className="mt-1 text-[11px] text-ink-secondary">Which trained model serves each kind of prediction</p>
             </div>
-            <HealthRows record={modelHealth} emptyNote="Model health has not been reported for this workspace yet." />
+            {failed.models ? <FeedFailed what="Model health" /> : <ModelRows record={modelHealth} />}
           </div>
           <div className="border border-border bg-surface">
             <div className="border-b border-border px-4 py-3">
               <span className="eyebrow">Event relay health</span>
-              <p className="mt-1 text-[11px] text-ink-secondary">GET /nexus/realtime/health — API / DB / Redis / Outbox / Worker</p>
+              <p className="mt-1 text-[11px] text-ink-secondary">API, database, cache, event queue and the worker that sends events</p>
             </div>
-            <HealthRows record={relayHealth} emptyNote="Relay health is unavailable." />
+            {failed.relay ? (
+              <FeedFailed what="Relay health" />
+            ) : (
+              <HealthRows record={relayHealth} emptyNote="The relay reported nothing." />
+            )}
           </div>
         </section>
 
         <section id="audit" className="border border-border bg-surface">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-3">
             <div>
               <span className="eyebrow">Audit events</span>
               <p className="mt-1 text-[11px] text-ink-secondary">Append-only audit store, newest first</p>
             </div>
             <span className="font-mono text-[10px] text-ink-muted" data-testid="operations-audit-count">
-              {/* A full page means there may be more: do not present it as the total. */}
-              {events.length >= AUDIT_PAGE_SIZE ? `Latest ${AUDIT_PAGE_SIZE} events` : `${events.length} events`}
+              {/* While older events exist, this is not the total: say "latest". */}
+              {failed.audit ? "Not loaded" : olderExist ? `Latest ${events.length} events` : `${events.length} events`}
             </span>
           </div>
-          {events.length === 0 ? (
+          {failed.audit ? (
+            <FeedFailed what="The audit log" testId="operations-audit-failed" />
+          ) : events.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-ink-secondary">No audit events recorded yet.</p>
           ) : (
             <div className="max-h-[520px] overflow-y-auto">
@@ -186,6 +239,20 @@ export default function OperationsPage() {
               </table>
             </div>
           )}
+          {olderExist && (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => void loadOlder()}
+                disabled={loadingOlder}
+                data-testid="operations-audit-older"
+              >
+                {loadingOlder ? "Loading…" : "Show older events"}
+              </button>
+              {olderError && <span className="text-xs text-warning" role="status">{olderError}</span>}
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -200,18 +267,100 @@ function HealthRows({ record, emptyNote }: { record: Record<string, unknown> | n
   return (
     <dl className="max-h-[320px] space-y-2 overflow-y-auto px-4 py-3 text-xs">
       {rows.map(({ key, value }) => (
-        <div key={key} className="flex items-center justify-between gap-3">
-          <dt className="text-ink-secondary">{key}</dt>
-          <dd className="flex items-center gap-2">
+        <div key={key} className="flex items-start justify-between gap-3">
+          <dt className="min-w-0 text-ink-secondary [overflow-wrap:anywhere]">{key}</dt>
+          <dd className="flex min-w-0 max-w-[60%] items-center gap-2">
             {typeof value === "string" && /HEALTH|OK|TRUE|DEGRADED|FAIL|BACKLOG|UNKNOWN/i.test(value) ? (
               <span className={statusBadge(value)}>{String(value).toUpperCase()}</span>
+            ) : value === null || value === undefined || value === "" ? (
+              // The service reported no value: say so, do not print "null".
+              <span className="text-ink-muted" title="No value reported">—</span>
             ) : (
-              <span className="font-mono text-[11px] text-ink">{String(value)}</span>
+              <span className="font-mono text-[11px] text-ink [overflow-wrap:anywhere]">{String(value)}</span>
             )}
           </dd>
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Shown in place of a panel's content when its request failed. */
+function FeedFailed({ what, testId }: { what: string; testId?: string }) {
+  return (
+    <p className="px-4 py-6 text-xs text-warning" role="status" data-testid={testId}>
+      {what} could not be loaded. Use Refresh to try again.
+    </p>
+  );
+}
+
+interface ModelSlot {
+  model_id?: string | null;
+  name?: string | null;
+  version?: string | null;
+  accuracy?: number | null;
+  deployed_at?: string | null;
+  status?: string | null;
+}
+
+/** "91%" for 0.91; nothing when the registry holds no measured figure. */
+function accuracyText(slot: ModelSlot): string | null {
+  if (typeof slot.accuracy !== "number" || !Number.isFinite(slot.accuracy)) return null;
+  return `${Math.round(slot.accuracy * 100)}% measured accuracy`;
+}
+
+/**
+ * One line per kind of prediction: the model that serves it, or "No model
+ * assigned". The registry answers with a slot for every kind whether or not
+ * a model exists; printed field by field, an empty workspace showed thirty
+ * rows of "null" and "accuracy 0".
+ */
+function ModelRows({ record }: { record: Record<string, unknown> | null }) {
+  const slots = Object.entries(record ?? {}).filter(
+    (entry): entry is [string, ModelSlot] => entry[1] !== null && typeof entry[1] === "object",
+  );
+  if (slots.length === 0) {
+    return (
+      <p className="px-4 py-6 text-xs text-ink-secondary">
+        Model health has not been reported for this workspace yet.
+      </p>
+    );
+  }
+  const assigned = slots.filter(([, slot]) => Boolean(slot.model_id));
+  return (
+    <div data-testid="operations-models">
+      {assigned.length === 0 && (
+        <p className="px-4 pt-3 text-xs text-ink-secondary" data-testid="operations-models-none">
+          No trained model is deployed in this workspace.
+        </p>
+      )}
+      <dl className="max-h-[320px] space-y-2 overflow-y-auto px-4 py-3 text-xs">
+        {slots.map(([label, slot]) => {
+          const accuracy = accuracyText(slot);
+          return (
+            <div key={label} className="flex items-start justify-between gap-3">
+              <dt className="min-w-0 text-ink-secondary">{label}</dt>
+              <dd className="min-w-0 max-w-[60%] text-right">
+                {slot.model_id ? (
+                  <>
+                    <span className="font-mono text-[11px] text-ink [overflow-wrap:anywhere]">
+                      {slot.name ?? slot.model_id}
+                      {slot.version ? ` ${slot.version}` : ""}
+                    </span>
+                    <span className="block text-[11px] text-ink-muted">
+                      {accuracy ?? "No accuracy recorded"}
+                      {slot.deployed_at ? `, deployed ${new Date(slot.deployed_at).toLocaleDateString()}` : ""}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-ink-muted">No model assigned</span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
   );
 }
 

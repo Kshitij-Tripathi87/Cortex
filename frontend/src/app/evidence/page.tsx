@@ -416,7 +416,7 @@ function EvidenceContent() {
               </span>
             )}
           </div>
-          <div className="grid gap-4 p-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
             <div>
               <p className="text-xs text-slate-500">Blocking conflicts</p>
               <p className="mt-1 text-lg font-semibold text-slate-950">{readiness?.blocking_conflict_count ?? "—"}</p>
@@ -447,7 +447,7 @@ function EvidenceContent() {
         {publishResult && (
           <section className="mb-6 border border-emerald-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Published snapshot</p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div><p className="text-xs text-slate-500">Version</p><p className="font-semibold">{publishResult.version}</p></div>
               <div><p className="text-xs text-slate-500">Nodes</p><p className="font-semibold">{publishResult.node_count}</p></div>
               <div><p className="text-xs text-slate-500">Edges</p><p className="font-semibold">{publishResult.edge_count}</p></div>
@@ -593,7 +593,7 @@ function EvidenceContent() {
                 <div><p className="text-xs text-slate-500">Suggested mapping</p><p>{selectedClaim.canonical_entity ?? "—"} · {selectedClaim.canonical_field ?? "—"}</p></div>
                 <div className="col-span-2"><p className="text-xs text-slate-500">Observed value</p><p className="mt-1 break-words rounded bg-slate-50 p-3 font-mono text-xs">{selectedClaim.raw_value || "—"}</p></div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="claim-canonical-entity" className="mb-1 block text-xs font-medium text-slate-700">Canonical entity</label>
                   <input

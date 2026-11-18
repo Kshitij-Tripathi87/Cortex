@@ -29,6 +29,10 @@ const nextConfig = {
         destination: "/nexus/decision-room/task",
         permanent: false,
       },
+      // /audit was a second audit page that could not work: it sent no
+      // sign-in and offered category and date filters the API never had. The
+      // log is on the Operations page, which can read all of it.
+      { source: "/audit", destination: "/nexus/operations#audit", permanent: false },
       { source: "/workspace", destination: "/nexus/cockpit", permanent: false },
       { source: "/workspace/:path*", destination: "/nexus/cockpit", permanent: false },
     ];

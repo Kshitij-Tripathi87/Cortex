@@ -11,6 +11,8 @@
  * Pure functions only: no I/O, deterministic outputs (spec invariant 5).
  */
 
+import { recordName } from "./recordName";
+
 export interface GraphNode {
   node_id?: string;
   entity_id?: string;
@@ -174,7 +176,7 @@ export function buildTwinSnapshot(
       workspace_id: ids.workspaceId,
       kind,
       natural_key: entityId,
-      name: String(attributes.name ?? attributes.description ?? entityId),
+      name: recordName(attributes, entityId),
       source: String(attributes.source ?? "workspace-graph"),
       state: coerceState(attributes),
     });

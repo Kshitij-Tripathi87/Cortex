@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
+import { recordName } from "@/lib/nexus/recordName";
 import {
   createScenario,
   fetchScenarios,
@@ -209,7 +210,7 @@ export default function ScenarioStudioPage() {
     try {
       const { scenario } = await createScenario({
         workspace_id: workspace.id,
-        name: `${LEVER_LABELS[lever]} — ${selectedEntity ? String(selectedEntity.attributes?.name ?? selectedEntity.entity_id) : selectedEntityId} (${leverNote})`,
+        name: `${LEVER_LABELS[lever]} — ${selectedEntity ? recordName(selectedEntity.attributes, String(selectedEntity.entity_id ?? selectedEntityId)) : selectedEntityId} (${leverNote})`,
         description: `Recovery alternative targeting ${selectedEntityId} at world state v${worldVersion}.`,
         world_state_version: worldVersion,
         mutations: [
@@ -301,7 +302,7 @@ export default function ScenarioStudioPage() {
           </div>
         )}
 
-        <section id="options" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section id="options" className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="border border-border bg-surface p-5">
             <p className="eyebrow">Recovery options</p>
             <h2 className="mt-1 text-base font-semibold">Model a recovery lever</h2>
@@ -320,7 +321,7 @@ export default function ScenarioStudioPage() {
                   <option value="">Select an entity…</option>
                   {candidateEntities.map((node) => (
                     <option key={node.entity_id} value={node.entity_id ?? ""}>
-                      {titleCase(String(node.entity_type ?? "entity"))} — {String(node.attributes?.name ?? node.entity_id)}
+                      {titleCase(String(node.entity_type ?? "entity"))} — {recordName(node.attributes, String(node.entity_id ?? ""))}
                     </option>
                   ))}
                 </select>
@@ -529,7 +530,7 @@ export default function ScenarioStudioPage() {
                           {result.execution_time_ms}ms · v{result.world_state_version}
                         </span>
                       </div>
-                      <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-4">
+                      <dl className="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-4">
                         <div><dt className="text-ink-secondary">NEV</dt><dd className="font-mono text-[11px]">{formatINR(result.kpis.net_expected_value)}</dd></div>
                         <div><dt className="text-ink-secondary">Revenue at risk</dt><dd className="font-mono text-[11px]">{formatINR(result.kpis.revenue_at_risk)}</dd></div>
                         <div><dt className="text-ink-secondary">Service level</dt><dd className="font-mono text-[11px]">{pct(result.kpis.service_level)}</dd></div>

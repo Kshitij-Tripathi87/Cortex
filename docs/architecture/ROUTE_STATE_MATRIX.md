@@ -32,7 +32,7 @@ for the data states.
 | Route | Auth | Loading | Empty | Error | Stale | Unauthorized |
 |---|---|---|---|---|---|---|
 | `/` | public | ✅ | ✅ | ⚠️ | ❌ | N/A |
-| `/audit` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
+| `/audit` | redirects to `/nexus/operations#audit` (finding 9) | N/A | N/A | N/A | N/A | N/A |
 | `/conflicts` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
 | `/decisions` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
 | `/evidence` | required | ✅ | ✅ | ✅ | ❌ | ⚠️ |
@@ -101,6 +101,28 @@ for the data states.
    available yet". Where data is hosted, disk encryption and backups are
    properties of a deployment that the repository cannot show: the page
    says so and must be completed by whoever runs the deployment.
+
+8. **A page must fit a phone with any font (2026-11-18).** `/nexus/operations`
+   was exactly 390px wide on one machine and 416px in CI: a health key such
+   as `worker.heartbeat.last_sweep_published` cannot wrap, and it sat in a
+   grid that named its columns only from `lg` up. Below that breakpoint such
+   a grid has one implicit column, which cannot be narrower than its content,
+   so the widest unbreakable word decides the width of the page. All thirty
+   grids of that kind now carry `grid-cols-1` (a column that can shrink);
+   long keys wrap; the data-quality table scrolls inside its card; the
+   `/app` header wraps. The phone tests measure every page twice, as rendered
+   and with the text made wider than any installed font, on an empty
+   workspace and on one with data. With the old Operations page that second
+   measurement fails on any machine.
+9. **`/audit` was removed; the log is on Operations (2026-11-18).** The page
+   sent no sign-in, so it could not load anything once sign-in is enforced;
+   it read the workspace from the address or used `default-workspace`; and
+   its category and date filters were sent to an API that has neither. No
+   page linked to it. The Operations page shows the log, now beyond the
+   first hundred events ("Show older events"), and a feed that failed is
+   reported as not loaded instead of as "no events recorded". Model health
+   lists one line per kind of prediction instead of thirty rows of `null`,
+   and the API no longer reports an accuracy nobody measured.
 
 ## Required follow-ups (Phase 2 → Phase 15)
 

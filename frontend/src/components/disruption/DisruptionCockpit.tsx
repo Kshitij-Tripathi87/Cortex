@@ -264,7 +264,7 @@ export default function DisruptionCockpit() {
           <div className="space-y-6 px-5 py-6 sm:px-8">
             {error && <div className="notice-error" role="alert">{error} <button type="button" onClick={() => void loadWorkspace()} className="ml-2 underline">Retry</button></div>}
 
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
               <div>
                 <p className="eyebrow">Operational decision workspace</p>
                 <h1 className="mt-2 max-w-3xl text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">Turn a supplier delay into a recovery decision.</h1>
@@ -294,7 +294,7 @@ export default function DisruptionCockpit() {
               ) : null}
             </div>
 
-            <section className="grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <section className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
               <div className="border border-border bg-surface">
                 <div className="flex items-start justify-between border-b border-border px-4 py-4">
                   <div><p className="eyebrow">Attention queue</p><h2 className="mt-1 text-base font-semibold">Needs attention</h2></div>
@@ -360,10 +360,10 @@ export default function DisruptionCockpit() {
               </div>
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <div className="border border-border bg-surface p-5">
                 <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Recovery workflow</p><h2 className="mt-1 text-base font-semibold">Compare before you commit</h2></div><span className="badge badge-neutral">HUMAN APPROVAL</span></div>
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <WorkflowStep number="01" title="Assess" detail="Trace affected material and orders." active />
                   <WorkflowStep number="02" title="Simulate" detail="Compare feasible recovery options." />
                   <WorkflowStep number="03" title="Approve" detail="Record the decision and outcome." />
@@ -460,7 +460,7 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
 }
 
 function RiskSummary({ risk }: { risk: Risk }) {
-  return <div className="grid gap-4 border-t border-border px-5 py-4 sm:grid-cols-4"><div><div className="eyebrow">Selected signal</div><div className="mt-1 text-sm font-medium">{risk.title}</div></div><div><div className="eyebrow">Risk score</div><div className="mt-1 font-mono text-sm">{Math.round(risk.risk_score * 100)}%</div></div><div><div className="eyebrow">SLA risk</div><div className="mt-1 font-mono text-sm">{risk.sla_risk_pct === undefined ? "—" : `${Math.round(risk.sla_risk_pct * 100)}%`}</div></div><div><div className="eyebrow">Entity type</div><div className="mt-1 text-sm">{titleCase(risk.entity_kind)}</div></div></div>;
+  return <div className="grid grid-cols-1 gap-4 border-t border-border px-5 py-4 sm:grid-cols-4"><div><div className="eyebrow">Selected signal</div><div className="mt-1 text-sm font-medium">{risk.title}</div></div><div><div className="eyebrow">Risk score</div><div className="mt-1 font-mono text-sm">{Math.round(risk.risk_score * 100)}%</div></div><div><div className="eyebrow">SLA risk</div><div className="mt-1 font-mono text-sm">{risk.sla_risk_pct === undefined ? "—" : `${Math.round(risk.sla_risk_pct * 100)}%`}</div></div><div><div className="eyebrow">Entity type</div><div className="mt-1 text-sm">{titleCase(risk.entity_kind)}</div></div></div>;
 }
 
 function WorkflowStep({ number, title, detail, active = false }: { number: string; title: string; detail: string; active?: boolean }) {

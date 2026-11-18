@@ -308,7 +308,7 @@ export default function DecisionRoomPage() {
           )}
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
           <div className="border border-border bg-surface">
             <div className="border-b border-border px-4 py-3">
               <span className="eyebrow">Decisions ({filteredDecisions.length})</span>
@@ -444,7 +444,7 @@ export default function DecisionRoomPage() {
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="border border-border bg-surface">
                   <div className="border-b border-border px-4 py-3">
                     <span className="eyebrow">Supporting evidence ({evidence?.node_count ?? evidence?.nodes?.length ?? 0})</span>
@@ -516,7 +516,7 @@ export default function DecisionRoomPage() {
                     Reconstructed from authoritative decision, evidence, approval, transition, and scenario records.
                   </p>
                 </div>
-                <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 px-4 py-3 md:grid-cols-2">
                   <div>
                     <span className="eyebrow">Transition history</span>
                     <ul className="mt-2 space-y-1 font-mono text-[10px] text-ink-secondary">

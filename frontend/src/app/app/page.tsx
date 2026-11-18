@@ -191,15 +191,15 @@ export default function AppHomePage(): React.JSX.Element {
   return (
     <div data-testid="app-page" className="min-h-screen bg-bg text-ink">
       <header className="border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div>
             <p className="font-mono text-xs text-accent tracking-widest">NEXUS</p>
             <h1 className="text-lg font-semibold" data-testid="app-workspace-name">
               {workspace?.name ?? "Workspace"}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <span data-testid="app-user-email" className="font-mono text-xs text-ink-secondary">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <span data-testid="app-user-email" className="min-w-0 break-all font-mono text-xs text-ink-secondary">
               {user?.email}
             </span>
             <button
