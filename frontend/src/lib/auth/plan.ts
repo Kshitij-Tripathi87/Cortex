@@ -13,7 +13,11 @@ import type { AuthOrganization } from "./types";
 /** Where a user asks for more time or a paid plan. Cortex has no self-serve billing. */
 export const PLAN_CONTACT_HREF = "/contact?topic=sales#write";
 
-/** What an ended plan pauses. Mirrors PAUSED_ACTIONS in backend/app/modules/billing/plans.py. */
+/**
+ * What an ended plan pauses, in the site's words. The server states the same
+ * facts in its own sentence (PAUSED_ACTIONS in
+ * backend/app/modules/billing/plans.py): change both when the gate changes.
+ */
 export const PAUSED_ACTIONS =
   "You can still sign in and see your data. Creating, running and approving tasks is paused.";
 

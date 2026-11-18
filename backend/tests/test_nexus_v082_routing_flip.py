@@ -72,6 +72,9 @@ CANONICAL_NEXUS_PATHS = {
     ("POST", "/api/v1/nexus/inference/demand"),
     ("POST", "/api/v1/nexus/inference/risk"),
     ("POST", "/api/v1/nexus/vanessa/ask"),
+    # Command Center figures, derived from the published records by the
+    # code that answers the Ask box (read-only)
+    ("GET", "/api/v1/nexus/workspace/overview"),
     # v0.8.5-B3 — golden-path registries (risks/signals/scenarios/evidence/approvals)
     ("POST", "/api/v1/nexus/risks"),
     ("GET", "/api/v1/nexus/risks"),
