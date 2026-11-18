@@ -5,10 +5,13 @@ All operational configuration lives here. Nothing hardcoded in business logic.
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
+from typing import Annotated
+from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, model_validator
-from pydantic_settings import BaseSettings
+from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode
 
 # The two kinds of environment. This is the single place that decides whether
 # sign-in is enforced; everything else asks ``Settings.is_local`` /
@@ -39,6 +42,34 @@ def is_local_environment(name: object) -> bool:
     so sign-in stays enforced. Case and surrounding spaces are ignored.
     """
     return str(name or "").strip().lower() in LOCAL_ENVIRONMENTS
+
+
+_LOCAL_HOSTS: frozenset[str] = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def list_from_text(value: object) -> object:
+    """Read a list setting written as ``a, b`` or as a JSON list.
+
+    An environment variable is text. ``https://app.example.com`` and
+    ``https://a.example,https://b.example`` are what an operator writes; a
+    JSON list (``["https://a.example"]``) keeps working.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if text.startswith("["):
+        return json.loads(text)
+    return [part.strip() for part in text.split(",") if part.strip()]
+
+
+def cors_allows_only_local_sites(origins: list[str]) -> bool:
+    """True when no site other than one on a developer machine may call the API.
+
+    A browser lets a page call an API on another origin only if the API names
+    that origin. With only ``localhost`` origins listed (the default), a site
+    served from a real address cannot sign anyone in.
+    """
+    return all(urlsplit(origin).hostname in _LOCAL_HOSTS for origin in origins)
 
 
 class Settings(BaseSettings):
@@ -194,18 +225,66 @@ class Settings(BaseSettings):
     llm_timeout_s: float = Field(default=30.0, ge=1.0, le=180.0)
     llm_max_output_tokens: int = Field(default=2048, ge=256, le=8192)
 
-    # CORS
-    cors_allowed_origins: list[str] = Field(
+    # CORS: which sites may call this API from a browser.
+    #
+    # CORTEX_CORS_ALLOWED_ORIGINS is the address (scheme and host, no path) the
+    # site is served from, e.g. ``https://app.example.com``; several are
+    # separated by commas. The default suits a developer machine only: a
+    # deployment whose site lives on another origin than the API must set it,
+    # or every call from the site is refused by the browser.
+    cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
-        description="Allowed CORS origins (comma-separated)",
+        description="Origins of the site(s) allowed to call the API, comma-separated",
     )
-    cors_allowed_methods: list[str] = Field(
-        default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    cors_allowed_methods: Annotated[list[str], NoDecode] = Field(
+        # Every method the API serves. PATCH was missing, so the one PATCH
+        # route (risk triage) could not be called from a browser.
+        default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
-    cors_allowed_headers: list[str] = Field(
+    cors_allowed_headers: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["*"],
     )
     cors_allow_credentials: bool = Field(default=True)
+
+    @field_validator(
+        "cors_allowed_origins", "cors_allowed_methods", "cors_allowed_headers", mode="before"
+    )
+    @classmethod
+    def _cors_list_from_text(cls, value: object) -> object:
+        return list_from_text(value)
+
+    @field_validator("cors_allowed_origins")
+    @classmethod
+    def _cors_origins_are_origins(cls, origins: list[str]) -> list[str]:
+        """Keep scheme and host only; refuse anything a browser would never send.
+
+        A browser sends ``https://app.example.com``: lower case, no path, no
+        trailing slash. An entry written differently would silently never
+        match, so a trailing slash and upper case are corrected and anything
+        else (a path, a missing scheme) stops start-up with the reason.
+        """
+        cleaned: list[str] = []
+        for origin in origins:
+            text = origin.strip()
+            if text == "*":
+                cleaned.append(text)
+                continue
+            parts = urlsplit(text.rstrip("/"))
+            if (
+                parts.scheme.lower() not in {"http", "https"}
+                or not parts.hostname
+                or parts.path
+                or parts.query
+                or parts.fragment
+            ):
+                raise ValueError(
+                    f"CORTEX_CORS_ALLOWED_ORIGINS: {origin!r} is not a site address. Write the "
+                    "scheme and host only, for example https://app.example.com"
+                )
+            normalised = f"{parts.scheme}://{parts.netloc}".lower()
+            if normalised not in cleaned:
+                cleaned.append(normalised)
+        return cleaned
 
     # Nexus v0.8.2 routing flip: the persistent PG-backed router owns
     # /nexus/* (canonical). The v0.7 in-memory Nexus routers are demoted to
@@ -312,6 +391,12 @@ class Settings(BaseSettings):
                 raise ValueError("CORTEX_LLM_API_KEY must be set for the production model gateway")
             if not self.llm_base_url.lower().startswith("https://"):
                 raise ValueError("CORTEX_LLM_BASE_URL must use HTTPS in staging/pilot/prod")
+            if "*" in self.cors_allowed_origins:
+                raise ValueError(
+                    "CORTEX_CORS_ALLOWED_ORIGINS must name the site's own address in "
+                    "staging/pilot/prod (for example https://app.example.com); '*' would let "
+                    "any website call this API from a visitor's browser"
+                )
         if self.llm_provider.strip().lower() not in {"deterministic", "openai_compatible"}:
             raise ValueError("CORTEX_LLM_PROVIDER must be deterministic or openai_compatible")
         if self.llm_provider.strip().lower() == "openai_compatible" and not self.llm_model.strip():

@@ -31,13 +31,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.enums import MvpDatasetType
 from app.common.workspace_scope import reset_workspace_scope, set_workspace_scope
 from app.config import get_settings
+from app.infrastructure import storage_client
 from app.infrastructure.database import get_db
 from app.infrastructure.security import (
     AuthContext,
     get_current_user,
     require_workspace_access,
 )
-from app.infrastructure.storage_client import ObjectStorageClient, get_storage
+from app.infrastructure.storage_client import ObjectStorageClient
 from app.modules.ingestion.repository import IngestionLogRepository
 from app.modules.ingestion.service import CsvStructureError, ingest_csv_streaming
 
@@ -71,6 +72,21 @@ class IngestionStatusResponse(BaseModel):
     errors: list = Field(default_factory=list, description="Truncated for response")
 
 
+def object_storage() -> ObjectStorageClient:
+    """The file store, as a request dependency.
+
+    ``get_storage`` must not be handed to ``Depends`` itself. FastAPI reads
+    every argument of a dependency as part of the request, so its optional
+    ``settings`` argument turned the server's whole settings object (file
+    store address and keys, database address, signing secret) into a field
+    of this upload form. A text field can never be read as that object, so
+    nothing could be injected, but the first caller after a restart decides
+    which file store the process uses for everyone: that must never be
+    something a request can express.
+    """
+    return storage_client.get_storage()
+
+
 def _user_uuid(auth: AuthContext) -> UUID | None:
     """The caller's user id as a UUID, or ``None`` when it is not one.
 
@@ -99,7 +115,7 @@ async def post_ingest(
     workspace_id: str = Form(..., description="Target workspace UUID"),
     auth: AuthContext = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-    storage: ObjectStorageClient = Depends(get_storage),
+    storage: ObjectStorageClient = Depends(object_storage),
 ) -> IngestionAccepted:
     """Receive a CSV upload, stream to S3, parse, validate, and insert rows.
 

@@ -14,6 +14,12 @@ services:
       CORTEX_S3_SECRET_KEY: ${CORTEX_S3_SECRET_KEY:?CORTEX_S3_SECRET_KEY is required}
       CORTEX_S3_USE_PATH_STYLE: ${CORTEX_S3_USE_PATH_STYLE:-false}
       CORTEX_JWT_SECRET: ${CORTEX_JWT_SECRET:?CORTEX_JWT_SECRET is required}
+      # The address the staging site is served from (scheme and host, no
+      # path). Browsers let the site call this API only if it is listed here.
+      CORTEX_CORS_ALLOWED_ORIGINS: ${CORTEX_CORS_ALLOWED_ORIGINS:?CORTEX_CORS_ALLOWED_ORIGINS is required}
+      # Address(es) of the load balancer in front of the API, if any: limits
+      # are counted per visitor address.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
       # Staging is validated like production: the API refuses to start, naming
       # the missing variable, unless CORTEX_LLM_API_KEY and CORTEX_LLM_MODEL are
       # set (the built-in assistant is dev/test only). They were not passed to
@@ -63,7 +69,9 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
-    command: npm run start
+    # No `command`: the image starts its own server (`node server.js`). The
+    # image holds Next's standalone output, which has no `next` binary, so
+    # the `npm run start` that used to be here could not start.
     restart: unless-stopped
 
 # Staging intentionally contains no PostgreSQL, Redis, Kafka, or MinIO services.

@@ -8,8 +8,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     testTimeout: 10000,
-    reporters: ["basic"],
+    reporters: [["default", { summary: false }]],
   },
 });

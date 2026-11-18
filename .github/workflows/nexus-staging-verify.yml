@@ -37,6 +37,7 @@ jobs:
           CORTEX_S3_ACCESS_KEY: contract-test
           CORTEX_S3_SECRET_KEY: contract-test
           CORTEX_JWT_SECRET: contract-test-only
+          CORTEX_CORS_ALLOWED_ORIGINS: https://app.staging.example.com
           NEXT_PUBLIC_API_URL: https://api.staging.example.com
           NEXT_PUBLIC_API_BASE_URL: https://api.staging.example.com/api/v1
         run: docker compose config --quiet
@@ -51,6 +52,7 @@ jobs:
           CORTEX_S3_ACCESS_KEY: contract-test
           CORTEX_S3_SECRET_KEY: contract-test
           CORTEX_JWT_SECRET: contract-test-only
+          CORTEX_CORS_ALLOWED_ORIGINS: https://app.staging.example.com
           NEXT_PUBLIC_API_URL: https://api.staging.example.com
           NEXT_PUBLIC_API_BASE_URL: https://api.staging.example.com/api/v1
         run: |

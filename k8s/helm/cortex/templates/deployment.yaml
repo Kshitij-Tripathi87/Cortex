@@ -95,9 +95,11 @@ spec:
             - name: http
               containerPort: 3000
               protocol: TCP
-          env:
-            - name: NEXT_PUBLIC_API_URL
-              value: "http://{{ include "cortex.fullname" . }}-backend:{{ .Values.backend.service.port }}"
+          {{- /* The address of the API is fixed when the frontend image is built
+                 (docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com frontend/).
+                 It must be an address a visitor's browser can reach. A NEXT_PUBLIC_*
+                 variable set on the container has no effect, and the in-cluster
+                 name that used to be set here cannot be reached from a browser. */}}
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
 ---

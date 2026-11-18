@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
@@ -12,7 +13,7 @@ from opentelemetry import trace
 
 from app.api.v1.router import api_router
 from app.common.ids import uuid7
-from app.config import get_settings
+from app.config import cors_allows_only_local_sites, get_settings, is_local_environment
 from app.infrastructure.database import close_db, get_session_factory, init_db
 from app.infrastructure.logging import setup_logging
 from app.infrastructure.metrics import MetricsMiddleware, start_metrics_server
@@ -22,6 +23,29 @@ from app.infrastructure.security import (
     SecurityHeadersMiddleware,
 )
 from app.infrastructure.tracing import setup_tracing
+
+
+def warn_if_no_site_may_call(settings: object) -> bool:
+    """Log a warning when a deployed API names no site that may call it.
+
+    A browser lets a page call an API on another origin only if the API lists
+    that origin. With the default list (a developer machine) a deployed site
+    cannot sign anyone in, and the only symptom is a browser error. Returns
+    whether the warning was logged.
+    """
+    origins = list(getattr(settings, "cors_allowed_origins", []) or [])
+    if is_local_environment(getattr(settings, "env", "")) or not cors_allows_only_local_sites(
+        origins
+    ):
+        return False
+    logging.getLogger("cortex.startup").warning(
+        "CORTEX_CORS_ALLOWED_ORIGINS names no site address (it holds %s). A browser will "
+        "refuse every call to this API from a site on another origin. Set it to the "
+        "address the site is served from, for example https://app.example.com. "
+        "Ignore this only if the site and the API share one origin behind a proxy.",
+        ", ".join(origins) or "nothing",
+    )
+    return True
 
 
 @asynccontextmanager
@@ -42,6 +66,8 @@ async def lifespan(app: FastAPI):
 
     # Startup
     setup_logging(settings.log_level)
+
+    warn_if_no_site_may_call(settings)
     setup_tracing(endpoint="http://localhost:4317")
     start_metrics_server()
     await init_db(settings.db_dsn)
@@ -64,9 +90,7 @@ async def lifespan(app: FastAPI):
             # The API must boot even if the relay cannot start (mutations
             # still commit durably; the backlog drains when a publisher
             # appears). The realtime health endpoint exposes the outage.
-            import logging as _logging
-
-            _logging.getLogger("nexus.outbox_publisher").exception(
+            logging.getLogger("nexus.outbox_publisher").exception(
                 "OutboxPublisher failed to start; continuing without relay"
             )
             outbox_publisher = None

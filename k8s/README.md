@@ -51,6 +51,29 @@ kubectl run cortex-migrate \
   -- alembic upgrade head
 ```
 
+### Before step 4: the two public addresses
+
+The site runs in the visitor's browser and calls the API from there, so both
+must know each other's public address.
+
+- **Site address, told to the API.** Set `CORTEX_CORS_ALLOWED_ORIGINS` in the
+  `cortex-config` ConfigMap of `k8s/base.yaml` (Helm:
+  `config.CORTEX_CORS_ALLOWED_ORIGINS`, required) to the address the site is
+  served from, for example `https://app.example.com`: scheme and host, no
+  path; several addresses are separated by commas. A browser lets the site
+  call the API only if the site is listed. Left empty, the API starts, logs
+  a warning, and nobody can sign in from the site.
+- **API address, built into the site.** The frontend image carries the API
+  address from its build:
+  `docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com -t cortex-frontend:0.2.0 frontend/`.
+  It must be an address a visitor's browser can reach. Setting
+  `NEXT_PUBLIC_API_URL` on the running container has no effect.
+- **Ingress address, told to the API.** `FORWARDED_ALLOW_IPS` in the same
+  ConfigMap is the address (or range) the ingress controller reaches the API
+  from. Sign-in and sign-up limits are counted per visitor address; without
+  it every visitor appears to come from the ingress and they share one
+  budget.
+
 ### 4. Apply base deployment
 
 ```bash

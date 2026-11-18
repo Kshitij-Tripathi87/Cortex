@@ -6,6 +6,8 @@ metadata:
     {{- include "cortex.labels" . | nindent 4 }}
 data:
   CORTEX_ENV: {{ .Values.config.CORTEX_ENV | quote }}
+  CORTEX_CORS_ALLOWED_ORIGINS: {{ required "config.CORTEX_CORS_ALLOWED_ORIGINS must be the address the site is served from, for example https://app.example.com" .Values.config.CORTEX_CORS_ALLOWED_ORIGINS | quote }}
+  FORWARDED_ALLOW_IPS: {{ .Values.config.FORWARDED_ALLOW_IPS | quote }}
   CORTEX_HOST: {{ .Values.config.CORTEX_HOST | quote }}
   CORTEX_PORT: {{ .Values.config.CORTEX_PORT | quote }}
   CORTEX_DB_DSN: "postgresql+asyncpg://$(DB_USER):$(DB_PASSWORD)@{{ .Release.Name }}-postgresql:5432/cortex"

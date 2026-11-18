@@ -57,6 +57,31 @@ Every PR head commit is an ancestor of the integration head. Merging the integra
 
 The consolidation branch carried PR #11's audit gate, which accepts no high or critical production advisories, together with `main`'s Next 14.2.35 manifest. That combination failed the gate. `frontend/package.json` and `frontend/package-lock.json` are taken from PR #11: Next 15.5.28, `eslint-config-next` 15.5.28, PostCSS 8.5.32 with overrides for `postcss` and `source-map-js`.
 
+- Update 2026-11-18: the gate failed on `main` (10 entries), all from one
+  advisory against `picomatch` (GHSA-fc5q-39xc-vjpf) for which no fixed
+  release exists. It was reached only through Tailwind, which was listed
+  under `dependencies` together with PostCSS and Autoprefixer although all
+  three only compile the style sheet during `next build`. The image
+  (`.next/standalone`, 17 packages, checked) holds neither Tailwind nor
+  Autoprefixer; it does hold PostCSS, but as a dependency of Next itself, at
+  the patched 8.5.32 the existing override pins. They are now
+  `devDependencies`, and the production gate reports nothing. Because the
+  `docker` job of `ci.yml` needs the `security` job, no image could be built
+  on `main` while the gate failed.
+  - Vitest went from 2.1.9 to 4.1.12, which removes two critical advisories
+    (Vitest, Tinypool) and those against Vite 5 and esbuild. Vite is held at
+    7.x by an override: with Vite 8 in the tree, npm 10 fails on its optional
+    developer-tools peer with `Cannot read properties of null (reading
+    'edgesOut')`. `npm audit fix` and one in-range update cleared the rest.
+    Before: 2 critical, 18 high, 9 moderate. After: the `picomatch` advisory
+    alone, in build, lint and test tools.
+  - `node scripts/audit-gate.mjs` checks production dependencies and fails on
+    high or critical; `--tools` checks every dependency and fails on
+    critical. An audit the registry does not answer fails after three
+    attempts instead of passing. `scripts/audit-gate.test.ts` covers these
+    decisions. The `dependencies` job of `security.yml`, whose two audits
+    ended in `|| true`, now runs the same gates, weekly as well.
+
 ### CI workflows
 
 - `workflo-cli.yml` now triggers only on changes under `workflo-cli/`. Its push filter also matched `backend/app/api/v1/workflo.py`, which this integration restores, so the merge would have started that gate on `main` for the first time. The gate builds a CLI package in `workflo-cli/`, which is not in the tree, and every step runs from that directory, so it would have failed before testing anything.

@@ -146,8 +146,20 @@ fast with a clear error — never silent defaults. The closed set:
 - `NEXT_PUBLIC_API_VERSION` (`v1`).
 - `NEXT_PUBLIC_ENV` (for showing the environment badge).
 
-### 4.5 Running behind a proxy, and stopping
+### 4.5 Site address, running behind a proxy, and stopping
 
+- `CORTEX_CORS_ALLOWED_ORIGINS` — the address the site is served from, for
+  example `https://app.example.com` (scheme and host, no path; several are
+  separated by commas, a JSON list is accepted too). The site runs in the
+  visitor's browser, and a browser lets a page call an API on another address
+  only if the API lists that page's address. The default lists a developer
+  machine only, so a deployment that does not set it cannot sign anyone in;
+  the API logs a warning at start-up in that case. `docker-compose.prod.yml`
+  and `deploy/staging/docker-compose.yml` refuse to start without it, the Helm
+  chart refuses to render without it. `*` is refused in staging, pilot and
+  prod. The counterpart is `NEXT_PUBLIC_API_URL`, the API address that is
+  built into the site image (a build argument; setting it on the running
+  container has no effect).
 - `FORWARDED_ALLOW_IPS` (read by uvicorn) — the address(es) of the load balancer
   or ingress in front of the API. Sign-in, sign-up and password-reset limits are
   counted per client address; without this setting every user appears to come
