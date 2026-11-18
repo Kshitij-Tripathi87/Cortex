@@ -256,6 +256,48 @@
         }
       }
     },
+    "/api/v1/public/contact-requests": {
+      "post": {
+        "tags": [
+          "public site"
+        ],
+        "summary": "Save a demo request or contact message from the public site.",
+        "description": "Store the request and return the reference of the stored row.",
+        "operationId": "create_contact_request_api_v1_public_contact_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRequestReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources/upload": {
       "post": {
         "tags": [
@@ -11081,6 +11123,96 @@
         ],
         "title": "ConflictResponse"
       },
+      "ContactRequestBody": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "general",
+              "sales",
+              "engineering",
+              "security",
+              "privacy",
+              "legal"
+            ],
+            "title": "Topic"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DemoDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "topic",
+          "full_name",
+          "email",
+          "message",
+          "consent"
+        ],
+        "title": "ContactRequestBody"
+      },
+      "ContactRequestReceipt": {
+        "properties": {
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference",
+          "received_at"
+        ],
+        "title": "ContactRequestReceipt"
+      },
       "CreatePlanRequest": {
         "properties": {
           "workspace_id": {
@@ -12321,6 +12453,106 @@
           "sku"
         ],
         "title": "DemandInferenceRequest"
+      },
+      "DemoDetails": {
+        "properties": {
+          "job_title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Title"
+          },
+          "primary_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Role"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "company_size": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Size"
+          },
+          "challenges": {
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Challenges"
+          },
+          "current_systems": {
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Current Systems"
+          },
+          "desired_outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Outcome"
+          },
+          "timeline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeline"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DemoDetails",
+        "description": "The extra answers of the demo request form. All optional."
       },
       "DeployReplicasRequest": {
         "properties": {

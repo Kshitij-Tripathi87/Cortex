@@ -53,8 +53,8 @@ from app.common.ids import uuid7_uuid
 from app.config import get_settings, is_local_environment
 from app.infrastructure.database import get_db
 from app.infrastructure.security import (
+    AttemptThrottle,
     AuthContext,
-    KeyedRateLimiter,
     client_address,
     get_current_user,
     rate_limit,
@@ -217,45 +217,6 @@ def _user_key(*args: object, **kwargs: object) -> str:
     auth = kwargs.get("auth")
     user_id = getattr(auth, "user_id", None)
     return f"user:{user_id}" if user_id else "_anonymous"
-
-
-class AttemptThrottle:
-    """Several rate limits that must all have room for an attempt to proceed.
-
-    ``limits`` maps a name to ``(attempts, per_seconds)``. ``acquire`` takes
-    one attempt from every named limit, or raises 429 and takes none.
-    ``release`` gives the attempt back (used when a sign-in succeeds, so only
-    failures count).
-    """
-
-    def __init__(self, **limits: tuple[int, float]) -> None:
-        self._limiters = {
-            name: KeyedRateLimiter(attempts, attempts / per_seconds)
-            for name, (attempts, per_seconds) in limits.items()
-        }
-
-    def acquire(self, keys: dict[str, str]) -> None:
-        taken: list[tuple[KeyedRateLimiter, str]] = []
-        for name, key in keys.items():
-            limiter = self._limiters[name]
-            if limiter.try_consume(key):
-                taken.append((limiter, key))
-                continue
-            for held, held_key in taken:
-                held.refund(held_key)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded",
-                headers={"Retry-After": str(limiter.retry_after(key))},
-            )
-
-    def release(self, keys: dict[str, str]) -> None:
-        for name, key in keys.items():
-            self._limiters[name].refund(key)
-
-    def reset(self) -> None:
-        for limiter in self._limiters.values():
-            limiter.reset()
 
 
 # Wrong passwords. Counted per (account, client address): a stranger guessing

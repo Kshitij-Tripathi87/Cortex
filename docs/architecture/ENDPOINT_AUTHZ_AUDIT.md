@@ -165,3 +165,32 @@ All 29 legacy debt routes have been gated with AST-verifiable authorization help
   reset tokens (hash-only storage), and no token disclosure outside
   dev/test. `/me`, `/logout`, and `/change-password` in the same file are
   GATED via `get_current_user`.
+- **D3i, update 2026-11-18 — the auth limits are keyed by who is asking.**
+  The limits above used to be keyed per email (login, reset request) or held
+  one bucket for the whole server (signup, change-password, reset confirm).
+  That let a stranger lock a user out with 20 wrong passwords, or stop all
+  sign-ups with 30 calls. They are now: failed sign-ins per (account, client
+  address) with per-address and per-account ceilings, successful sign-ins not
+  counted; signup and reset per client address; change-password per user.
+  Verified in `tests/test_auth_attempt_limits.py`.
+- **D3j — `/contact-requests` (contact.py) classified PUBLIC**: the public
+  site's demo request and contact form
+  (`POST /api/v1/public/contact-requests`). Classification: **PUBLIC by
+  design** — the sender has no account. Compensating controls (verified in
+  `tests/test_contact_requests.py`): the route is write-only (no API route
+  reads the table; the team reads it with `scripts/contact_requests.py`),
+  every field is length-limited and unknown fields are rejected, consent is
+  required, the client address is used for the limit only and is not stored,
+  and the route is rate-limited per client address (10 per hour) and for the
+  server as a whole (300 per hour).
+- **Agent runtime and AI gateway, update 2026-11-18.** `agent_runtime.py`
+  and `intelligence_gateway.py` counted as GATED because their handlers name
+  `get_current_user`, but they took the workspace from an `X-Workspace-Id`
+  header without checking it: authenticated, not authorized. They now
+  resolve the workspace from the verified token (`resolve_request_workspace`)
+  and read conversations only within it; model promote/rollback need
+  `system_admin`. Verified in `tests/test_agent_routes_tenant_isolation.py`.
+  The audit in `tests/test_endpoint_authz_audit.py` only checks that a
+  handler references an authorization helper; it cannot tell whether the
+  workspace a handler acts on is the caller's. Treat a GATED verdict as
+  necessary, not sufficient.

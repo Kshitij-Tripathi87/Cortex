@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
+import { contactRequestErrorMessage, submitContactRequest } from '@/lib/api/contactRequests';
+
 type Step = 1 | 2;
 
 export default function DemoPage() {
@@ -10,6 +12,7 @@ export default function DemoPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [refId, setRefId] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
@@ -56,13 +59,14 @@ export default function DemoPage() {
 
   const validateStep1 = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.fullName) newErrors.fullName = 'Required';
-    if (!formData.workEmail) newErrors.workEmail = 'Required';
-    else if (!/^\S+@\S+\.\S+$/.test(formData.workEmail)) newErrors.workEmail = 'Invalid email format';
-    if (!formData.company) newErrors.company = 'Required';
-    if (!formData.jobTitle) newErrors.jobTitle = 'Required';
+    // Spaces alone are not an answer (the server rejects them too).
+    if (!formData.fullName.trim()) newErrors.fullName = 'Required';
+    if (!formData.workEmail.trim()) newErrors.workEmail = 'Required';
+    else if (!/^\S+@\S+\.\S+$/.test(formData.workEmail.trim())) newErrors.workEmail = 'Invalid email format';
+    if (!formData.company.trim()) newErrors.company = 'Required';
+    if (!formData.jobTitle.trim()) newErrors.jobTitle = 'Required';
     if (!formData.primaryRole) newErrors.primaryRole = 'Required';
-    if (!formData.country) newErrors.country = 'Required';
+    if (!formData.country.trim()) newErrors.country = 'Required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -70,7 +74,7 @@ export default function DemoPage() {
 
   const validateStep2 = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.decisionDescription) newErrors.decisionDescription = 'Required';
+    if (!formData.decisionDescription.trim()) newErrors.decisionDescription = 'Required';
     if (!formData.consent) newErrors.consent = 'You must agree to proceed';
     
     setErrors(newErrors);
@@ -87,21 +91,45 @@ export default function DemoPage() {
     e.preventDefault();
     if (!validateStep2()) return;
     
+    if (isSubmitting) return;
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setRefId(`REQ-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`);
+    setSubmitError(null);
+    try {
+      // The request is saved by the API; the reference shown afterwards is
+      // the one the server stored, never one made up in the browser.
+      const receipt = await submitContactRequest({
+        topic: 'demo',
+        full_name: formData.fullName,
+        email: formData.workEmail,
+        company: formData.company,
+        message: formData.decisionDescription,
+        consent: formData.consent,
+        details: {
+          job_title: formData.jobTitle,
+          primary_role: formData.primaryRole,
+          country: formData.country,
+          company_size: formData.companySize,
+          challenges: formData.challenges,
+          current_systems: formData.currentSystems,
+          desired_outcome: formData.desiredOutcome,
+          timeline: formData.timeline,
+        },
+      });
+      setRefId(receipt.reference);
       setIsSubmitted(true);
-    }, 1500);
+    } catch (error) {
+      // Nothing was saved: say so and keep everything the visitor typed.
+      setSubmitError(contactRequestErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white py-24 md:py-32">
         <main className="max-w-2xl mx-auto px-6">
-          <div className="bg-[#111111] border border-[#262626] p-12 text-center">
+          <div className="bg-[#111111] border border-[#262626] p-12 text-center" role="status" data-testid="demo-receipt">
             <div className="w-16 h-16 bg-[#141414] border border-[#10B981] text-[#10B981] rounded-none flex items-center justify-center mx-auto mb-6">
               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -109,11 +137,11 @@ export default function DemoPage() {
             </div>
             <h1 className="text-3xl font-medium mb-4">Your request was received</h1>
             <p className="text-[#999999] mb-8">
-              We have securely logged your briefing request. Our evaluation team will review the submitted criteria and contact you regarding qualification status.
+              Your request is saved. We will review it and reply to the email address you gave. Keep the reference below if you need to follow up.
             </p>
             <div className="bg-[#0A0A0A] border border-[#262626] p-4 font-mono text-sm text-[#E5E5E5] inline-block">
               <span className="text-[#666666] mr-2">REFERENCE ID:</span>
-              {refId}
+              <span data-testid="demo-reference">{refId}</span>
             </div>
             <div className="mt-12">
               <Link href="/" className="text-[#10B981] hover:text-[#059669] text-sm tracking-wider uppercase font-mono">
@@ -140,7 +168,7 @@ export default function DemoPage() {
             </h1>
             <p className="text-[#999999]">
               To ensure alignment between your operational needs and our current capabilities, please provide context on your environment.
-              Information is handled per our <Link href="#" className="underline hover:text-white">Privacy Policy</Link>.
+              Information is handled per our <Link href="/legal/privacy" className="underline hover:text-white">Privacy Policy</Link>.
             </p>
           </div>
 
@@ -154,7 +182,7 @@ export default function DemoPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="bg-[#111111] border border-[#262626] p-8 md:p-12">
+          <form onSubmit={handleSubmit} className="bg-[#111111] border border-[#262626] p-8 md:p-12" data-testid="demo-form">
             
             {step === 1 && (
               <div className="space-y-6 animate-in fade-in duration-300">
@@ -341,6 +369,16 @@ export default function DemoPage() {
                   </label>
                   {errors.consent && <div className="text-[#EF4444] text-xs mt-2 ml-8">{errors.consent}</div>}
                 </div>
+
+                {submitError && (
+                  <p
+                    role="alert"
+                    className="border border-[#EF4444]/40 bg-[#EF4444]/5 text-[#FCA5A5] text-sm p-4"
+                    data-testid="demo-error"
+                  >
+                    {submitError}
+                  </p>
+                )}
 
                 <div className="pt-4 flex justify-between items-center">
                   <button 

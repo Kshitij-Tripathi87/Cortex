@@ -32,10 +32,9 @@ from sqlalchemy.schema import CreateSchema
 import app.modules.access.models as _access_models  # noqa: F401
 import app.modules.audit.models as _audit_models  # noqa: F401
 from app.api.v1 import auth as auth_module
-from app.api.v1.auth import AttemptThrottle
 from app.config import get_settings
 from app.infrastructure.database import Base, get_db
-from app.infrastructure.security import KeyedRateLimiter, client_address
+from app.infrastructure.security import AttemptThrottle, KeyedRateLimiter, client_address
 
 JWT_SECRET = "attempt-limit-secret-0123456789abcdef0123456789"
 PASSWORD = "Correct-horse-9"

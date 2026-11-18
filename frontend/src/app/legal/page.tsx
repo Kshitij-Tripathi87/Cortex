@@ -81,7 +81,7 @@ export default function LegalPage() {
           <p className="text-[#999999] mb-6 leading-relaxed">
             Security is critical to our operations. If you believe you have discovered a vulnerability in a Cortex product or service, please report it to our security team. We ask that you do not publicly disclose the issue until we have had an opportunity to address it.
           </p>
-          <Link href="mailto:security@cortex.test" className="inline-flex items-center text-[#10B981] hover:text-[#10B981]/80 font-medium transition-colors">
+          <Link href="/contact?topic=security#write" className="inline-flex items-center text-[#10B981] hover:text-[#10B981]/80 font-medium transition-colors">
             Report a Vulnerability →
           </Link>
         </section>

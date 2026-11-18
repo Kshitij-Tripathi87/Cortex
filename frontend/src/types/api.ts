@@ -141,6 +141,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/contact-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a demo request or contact message from the public site.
+         * @description Store the request and return the reference of the stored row.
+         */
+        post: operations["create_contact_request_api_v1_public_contact_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources/upload": {
         parameters: {
             query?: never;
@@ -4269,6 +4289,35 @@ export interface components {
             /** Explanation */
             explanation: string;
         };
+        /** ContactRequestBody */
+        ContactRequestBody: {
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "demo" | "general" | "sales" | "engineering" | "security" | "privacy" | "legal";
+            /** Full Name */
+            full_name: string;
+            /** Email */
+            email: string;
+            /** Company */
+            company?: string | null;
+            /** Message */
+            message: string;
+            /** Consent */
+            consent: boolean;
+            details?: components["schemas"]["DemoDetails"] | null;
+        };
+        /** ContactRequestReceipt */
+        ContactRequestReceipt: {
+            /** Reference */
+            reference: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+        };
         /** CreatePlanRequest */
         CreatePlanRequest: {
             /** Workspace Id */
@@ -4773,6 +4822,28 @@ export interface components {
             region?: string | null;
             /** Product Family */
             product_family?: string | null;
+        };
+        /**
+         * DemoDetails
+         * @description The extra answers of the demo request form. All optional.
+         */
+        DemoDetails: {
+            /** Job Title */
+            job_title?: string | null;
+            /** Primary Role */
+            primary_role?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Company Size */
+            company_size?: string | null;
+            /** Challenges */
+            challenges?: string[];
+            /** Current Systems */
+            current_systems?: string[];
+            /** Desired Outcome */
+            desired_outcome?: string | null;
+            /** Timeline */
+            timeline?: string | null;
         };
         /** DeployReplicasRequest */
         DeployReplicasRequest: {
@@ -8488,6 +8559,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_contact_request_api_v1_public_contact_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactRequestBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactRequestReceipt"];
                 };
             };
             /** @description Validation Error */
