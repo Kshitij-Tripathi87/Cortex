@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.ids import uuid7
-from app.infrastructure.tenant import TenantContext, set_tenant_context
 from app.modules.audit.models import AuditEvent
 
 
@@ -28,15 +27,13 @@ def _workspace_db_id(workspace_id: str) -> UUID | None:
         return None
 
 
-def _rls_enforced(db: AsyncSession) -> bool:
-    """Report whether this session's database carries the migration-002 RLS gate.
+def _has_access_tables(db: AsyncSession) -> bool:
+    """Whether this database holds the ``core`` tables that say who owns a workspace.
 
-    Row-level security, the ``set_config`` GUC writer and the schema-qualified
-    ``core`` access tables exist only on PostgreSQL. The SQLite engines used
-    for local development and by the unit-test fixtures hold schema-less
-    tables only, so there is no organization to resolve and no policy to
-    satisfy there. Same dialect guard as ``acquire_world_write_lock`` and the
-    outbox publisher's advisory locks.
+    They exist only on PostgreSQL. The SQLite engines used for local
+    development and by the unit-test fixtures hold schema-less tables only,
+    so there is no organization to look up there. Same dialect guard as
+    ``acquire_world_write_lock`` and the outbox publisher's advisory locks.
     """
     return db.get_bind().dialect.name == "postgresql"
 
@@ -72,24 +69,20 @@ async def emit(
 ) -> AuditEvent:
     """Emit a single immutable audit event. INSERT-only — never returns an UPDATE path.
 
-    RLS gate (migration 002): the tenant_isolation/audit_workspace_isolation
-    policies require the session GUCs (app.tenant_id / app.workspace_id) to
-    name the tenant/workspace the row declares, and NULL-tenant rows are
-    unwritable under FORCEd RLS. The tenant defaults to the workspace's
-    organization (the tenant root, resolved in the same transaction) or
-    "system" for workspace-less events; the GUCs are then set from the
-    row's own server-validated values via SET LOCAL — scoped to this
-    transaction and auto-unset at commit/rollback.
+    Every event records the organization it belongs to in ``tenant_id``: the
+    caller's value, else the organization that owns the workspace (looked up
+    in the same transaction, on PostgreSQL), else "system" for events without
+    a workspace.
 
-    The gate applies on PostgreSQL only (see ``_rls_enforced``). On other
-    dialects the row is still written with an explicit tenant — the caller's
-    ``tenant_id`` or "system" — but nothing is looked up and no GUC is set.
+    The row-level security policies that used to sit on this table were
+    removed by migration 026; nothing reads a session setting any more, so
+    none is written. What keeps one customer's log from another is the
+    workspace check on the request and the workspace filter in ``list_events``
+    (``docs/architecture/TENANT_ISOLATION.md``).
     """
 
-    rls_enforced = _rls_enforced(db)
-
     effective_tenant = tenant_id
-    if effective_tenant is None and workspace_id is not None and rls_enforced:
+    if effective_tenant is None and workspace_id is not None and _has_access_tables(db):
         effective_tenant = await _workspace_tenant(db, workspace_id)
     if effective_tenant is None:
         effective_tenant = "system"
@@ -110,10 +103,6 @@ async def emit(
         message=message,
         occurred_at=datetime.now(UTC),
     )
-    if rls_enforced:
-        await set_tenant_context(
-            db, TenantContext(tenant_id=effective_tenant, workspace_id=workspace_id or "")
-        )
     db.add(event)
     await db.flush()
     return event
@@ -130,15 +119,10 @@ async def list_events(
 ) -> list[AuditEvent]:
     """Read audit events scoped by workspace. Newest first.
 
-    RLS: the workspace's organization is set as the session tenant so the
-    tenant_isolation policy returns exactly that org's rows (and no other
-    tenant's — the default-deny applies when unset). PostgreSQL only; the
-    explicit workspace filter below scopes the read on every dialect.
+    The workspace filter below is what scopes the read. The caller must have
+    checked that the signed-in user may read this workspace.
     """
 
-    if _rls_enforced(db):
-        tenant = await _workspace_tenant(db, workspace_id) or "system"
-        await set_tenant_context(db, TenantContext(tenant_id=tenant, workspace_id=workspace_id))
     stmt = (
         select(AuditEvent)
         .where(AuditEvent.workspace_id == workspace_id)

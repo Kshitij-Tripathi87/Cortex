@@ -99,6 +99,15 @@ Cross-cutting invariants:
   has a FK to `iam.tenants`.
 
 ### 5.2 Enforcement
+
+> **Implementation status, 2026-11-18.** Not built. Policies of this kind were
+> created on fourteen tables by migrations 002 and 003, but the application
+> never supplied the settings and columns they compared against, so they
+> either did nothing (superuser connection) or blocked every upload (any
+> other role). Migration 026 removed them. Isolation is enforced by the
+> application; see `docs/architecture/TENANT_ISOLATION.md`, which also lists
+> what a database-level barrier would need.
+
 - PostgreSQL Row-Level Security (RLS) policies:
   - Every table that carries `tenant_id` enforces
     `tenant_id = current_setting('app.tenant_id')::uuid`.

@@ -11,6 +11,18 @@
 
 ---
 
+> **Implementation status, 2026-11-18.** This document is the Phase 1 design
+> target, not a description of the running system. In particular, the
+> database does **not** enforce tenant or workspace isolation: the row-level
+> security described in §2.2 and §3 was never in force (the application did
+> not supply what the policies compared against) and its policies were
+> removed by migration 026. Separation between customers is enforced by the
+> application on every request. Single sign-on, a second factor, step-up
+> authentication, per-tenant partitions and per-tenant keys are not built
+> either. For what the code does today see
+> `docs/architecture/TENANT_ISOLATION.md` and the public Security page
+> (`frontend/src/app/security/page.tsx`).
+
 ## 1. Posture
 
 Cortex holds enterprise supply-chain evidence. The baseline is **enterprise-

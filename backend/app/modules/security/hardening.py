@@ -1,4 +1,9 @@
-"""Security hardening — RLS policies and secrets detection."""
+"""Security hardening — secrets detection.
+
+This module used to carry a block of row-level security SQL as well. It was
+never run from here (migrations 002 and 003 created the policies) and no
+longer matched them; the policies themselves were removed by migration 026.
+"""
 
 from __future__ import annotations
 
@@ -87,89 +92,3 @@ def _should_skip(path: Path) -> bool:
     ):
         return True
     return path.name in {"golden_dataset.py"}  # contains sample data, not real secrets
-
-
-# RLS Policy SQL (run as migration)
-RLS_POLICIES_SQL = """
--- Enable RLS on all tenant-scoped tables
-ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE source_batches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE source_files ENABLE ROW LEVEL SECURITY;
-ALTER TABLE source_column_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE evidence_claims ENABLE ROW LEVEL SECURITY;
-ALTER TABLE evidence_conflicts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conflict_resolutions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE readiness_assessments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE integration_outbox ENABLE ROW LEVEL SECURITY;
-
--- Tenant isolation policy
-CREATE POLICY tenant_isolation ON audit_events
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON source_batches
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON source_files
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON source_column_profiles
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON evidence_claims
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON evidence_conflicts
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON conflict_resolutions
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON readiness_assessments
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY tenant_isolation ON integration_outbox
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
--- Workspace isolation policy (scoped within tenant)
-CREATE POLICY workspace_isolation ON source_batches
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON source_files
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON source_column_profiles
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON evidence_claims
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON evidence_conflicts
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON conflict_resolutions
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON readiness_assessments
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
-CREATE POLICY workspace_isolation ON integration_outbox
-    USING (workspace_id = current_setting('app.workspace_id')::uuid);
-
--- Audit events: tenant + workspace isolation
-CREATE POLICY tenant_workspace_isolation ON audit_events
-    USING (
-        tenant_id = current_setting('app.tenant_id')::uuid
-        AND (workspace_id IS NULL OR workspace_id = current_setting('app.workspace_id')::uuid)
-    );
-
--- Admin role bypasses RLS
-ALTER TABLE audit_events FORCE ROW LEVEL SECURITY;
-ALTER TABLE source_batches FORCE ROW LEVEL SECURITY;
-ALTER TABLE source_files FORCE ROW LEVEL SECURITY;
-ALTER TABLE source_column_profiles FORCE ROW LEVEL SECURITY;
-ALTER TABLE evidence_claims FORCE ROW LEVEL SECURITY;
-ALTER TABLE evidence_conflicts FORCE ROW LEVEL SECURITY;
-ALTER TABLE conflict_resolutions FORCE ROW LEVEL SECURITY;
-ALTER TABLE readiness_assessments FORCE ROW LEVEL SECURITY;
-ALTER TABLE integration_outbox FORCE ROW LEVEL SECURITY;
-"""

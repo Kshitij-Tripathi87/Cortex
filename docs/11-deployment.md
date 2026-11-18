@@ -179,6 +179,21 @@ fast with a clear error — never silent defaults. The closed set:
 - No `CORTEX_ENV=dev` or `test` on anything reachable from outside a developer
   machine or a CI job.
 
+### 4.7 The database role
+
+- The role in `CORTEX_DB_DSN` runs the migrations (`alembic upgrade head`) and
+  serves the API. It must own the database, or at least be able to create
+  schemas and tables in it: the API creates any table that is still missing
+  when it starts.
+- It does **not** need to be a superuser, and should not be one where you
+  have the choice. Until migration 026 the API only worked as a superuser:
+  under any other role the first upload failed on row-level security
+  policies the application never satisfied. Those policies are gone; an
+  ordinary role is tested (`backend/tests/test_ordinary_database_role.py`).
+- The database does not separate customers; the application does. See
+  `docs/architecture/TENANT_ISOLATION.md` before describing the isolation to
+  a customer.
+
 ---
 
 ## 5. CI/CD (high level; full shape at `10-testing-and-ci-cd.md` §12)
