@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.devices import require_own_device
 from app.infrastructure.database import get_db
 from app.infrastructure.security import AuthContext, get_current_user
 from app.modules.devices.models import MobileSessionDB
@@ -174,11 +175,16 @@ async def create_mobile_session(
     if body.session_type not in {"user", "voice", "task"}:
         raise HTTPException(status_code=422, detail="invalid session_type")
     user_id = str(auth.user_id or "anonymous")
+    # The device is named by a header the caller controls: when one is named
+    # it must be the caller's own. No header keeps the "unknown" placeholder.
+    device_id = (request.headers.get("X-Device-Id") or "").strip()[:64]
+    if device_id:
+        await require_own_device(session, device_id, auth)
     rec = MobileSessionDB(
         session_id=f"sess-{uuid.uuid4().hex[:20]}",
         tenant_id=user_id,
         user_id=user_id,
-        device_id=request.headers.get("X-Device-Id") or "unknown",
+        device_id=device_id or "unknown",
         session_type=body.session_type,
         ref_id=body.ref_id,
         expires_at=datetime.now(UTC) + timedelta(seconds=body.ttl_s),
@@ -240,9 +246,14 @@ async def register_push(
     session: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Enroll a push token: one device, one provider, one token."""
+    """Enroll a push token: one device, one provider, one token.
+
+    The device must be registered to the caller, so a push token can never be
+    attached to somebody else's device.
+    """
     from app.modules.devices.models import PushRegistrationDB
 
+    await require_own_device(session, body.device_id, auth)
     user_id = str(auth.user_id or "anonymous")
     rec = PushRegistrationDB(
         registration_id=f"push-{uuid.uuid4().hex[:20]}",

@@ -71,6 +71,21 @@ class IngestionStatusResponse(BaseModel):
     errors: list = Field(default_factory=list, description="Truncated for response")
 
 
+def _user_uuid(auth: AuthContext) -> UUID | None:
+    """The caller's user id as a UUID, or ``None`` when it is not one.
+
+    A sign-in token always carries a UUID. The local development identity
+    (``anonymous`` or an ``X-User-Id`` header such as ``local-dev``) does not;
+    the upload is then recorded without a user instead of failing.
+    """
+    if not auth.user_id:
+        return None
+    try:
+        return UUID(auth.user_id)
+    except ValueError:
+        return None
+
+
 @router.post(
     "/ingest",
     response_model=IngestionAccepted,
@@ -104,10 +119,10 @@ async def post_ingest(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="workspace_id must be a UUID") from exc
 
-    require_workspace_access(workspace_uuid, auth)
+    require_workspace_access(str(workspace_uuid), auth)
 
     file_name = file.filename or "upload.csv"
-    user_uuid = UUID(auth.user_id) if auth.user_id and auth.user_id != "anonymous" else None
+    user_uuid = _user_uuid(auth)
 
     token = set_workspace_scope(workspace_uuid)
     try:
@@ -165,7 +180,7 @@ async def get_ingest(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="workspace_id must be a UUID") from exc
 
-    require_workspace_access(workspace_uuid, auth)
+    require_workspace_access(str(workspace_uuid), auth)
 
     token = set_workspace_scope(workspace_uuid)
     try:

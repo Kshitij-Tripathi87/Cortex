@@ -1,7 +1,13 @@
 import json
+import os
 from pathlib import Path
 
-from app.main import app
+# This script only reads the route table, so it names its own environment:
+# CORTEX_ENV has no default, and the generated contract must not depend on
+# whatever happens to be set in the caller's shell.
+os.environ.setdefault("CORTEX_ENV", "test")
+
+from app.main import app  # noqa: E402
 
 
 def main() -> None:

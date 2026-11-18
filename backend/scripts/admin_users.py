@@ -1,6 +1,8 @@
 """Admin user operations — account rescue until Day-15 email exists.
 
-Usage (from backend/, with CORTEX_DB_DSN set):
+Usage (from backend/, with the same environment as the API: at least
+CORTEX_ENV and CORTEX_DB_DSN; simplest is to run it inside a running API
+container, e.g. `docker compose exec <api service> python scripts/admin_users.py ...`):
     python scripts/admin_users.py issue-reset --email user@example.com
     python scripts/admin_users.py set-password --email user@example.com
     python scripts/admin_users.py deactivate --email user@example.com

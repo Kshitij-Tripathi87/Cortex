@@ -17,6 +17,10 @@ from fastapi import FastAPI
 BACKEND_DIR = Path(__file__).resolve().parents[2] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
+# A local smoke server (see the docstring): it names its own environment,
+# because CORTEX_ENV has no default. "dev" means sign-in is not enforced.
+os.environ.setdefault("CORTEX_ENV", "dev")
+
 from app.api.v1.workflo import router as workflo_router  # noqa: E402
 
 

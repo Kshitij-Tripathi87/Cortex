@@ -43,20 +43,24 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any, cast
+from uuid import UUID
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from app.config import get_settings
+from app.config import DEPLOYED_ENVIRONMENTS, get_settings, is_local_environment
 
 __all__ = [
     "AuthContext",
     "get_current_user",
     "require_workspace_access",
+    "resolve_request_workspace",
     "require_role",
     "SecurityHeadersMiddleware",
     "RateLimitHeadersMiddleware",
     "CircuitBreakerMiddleware",
+    "KeyedRateLimiter",
+    "client_address",
     "rate_limit",
     "circuit_breaker",
 ]
@@ -102,19 +106,23 @@ class AuthContext:
 # Environments that hold shared or customer data. Every request must carry a
 # verified Bearer token there; caller-supplied identity headers and the
 # anonymous development principal are never accepted.
-STRICT_ENVIRONMENTS = frozenset({"prod", "production", "pilot", "staging"})
+#
+# Kept as a name for readers and tests; the rule itself lives in
+# ``app.config`` and is "everything except dev and test".
+STRICT_ENVIRONMENTS = DEPLOYED_ENVIRONMENTS
 
 
 def _is_strict_env() -> bool:
-    """True when auth must be enforced (staging / pilot / prod)."""
-    settings = get_settings()
-    # "production" accepted defensively: k8s manifests historically set
-    # CORTEX_ENV=production (normalized to "prod" in v0.8.5-B). Staging is a
-    # deployed, shared environment and is configured like production
-    # (Settings requires its JWT secret and model gateway), so it is strict
-    # too. Case and surrounding spaces are ignored: "Staging" must not turn
-    # authentication off.
-    return settings.env.strip().lower() in STRICT_ENVIRONMENTS
+    """True when sign-in must be enforced: every environment except dev/test.
+
+    The check is "not explicitly local" rather than "in a list of production
+    names". With the old list, any name that was not on it (``uat``, a typo
+    such as ``prd``, or no value at all) silently ran with sign-in OFF.
+    ``Settings`` now refuses to start with a missing or unknown name, and this
+    function fails closed as a second line of defence: a value it does not
+    recognise as local is strict. Case and surrounding spaces are ignored.
+    """
+    return not is_local_environment(getattr(get_settings(), "env", None))
 
 
 def _header(request: Request, name: str) -> str | None:
@@ -213,22 +221,28 @@ async def get_current_user(request: Request) -> AuthContext:
     )
 
 
-def require_workspace_access(workspace_id: str, auth: AuthContext) -> None:
+def require_workspace_access(workspace_id: str | UUID | None, auth: AuthContext) -> None:
     """Enforce that ``auth`` may access ``workspace_id``.
 
+    ``workspace_id`` is compared as text. A ``UUID`` object is accepted and
+    converted: the principal's workspaces are strings, so a ``UUID`` passed
+    as-is never matched, every such call was refused, and the refusal itself
+    could not be written as JSON (the caller saw a 500).
+
     Raises:
-        HTTPException(404): an absent or empty workspace id â€” surface the
+        HTTPException(404): an absent or empty workspace id - surface the
             resource as not-found rather than leaking its existence.
         HTTPException(403): the principal is authenticated but not
             authorized for this workspace, with a structured error envelope.
     """
-    if not workspace_id:
+    workspace = "" if workspace_id is None else str(workspace_id)
+    if not workspace:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workspace not found",
         )
 
-    if auth.can_access(workspace_id):
+    if auth.can_access(workspace):
         return
 
     raise HTTPException(
@@ -236,10 +250,39 @@ def require_workspace_access(workspace_id: str, auth: AuthContext) -> None:
         detail={
             "error": "forbidden",
             "message": "You do not have access to this workspace",
-            "workspace_id": workspace_id,
+            "workspace_id": workspace,
             "user_id": auth.user_id,
         },
     )
+
+
+# Workspace label used only by the anonymous development principal, which has
+# no workspace of its own (local environments, no sign-in).
+DEV_FALLBACK_WORKSPACE = "default_workspace"
+
+
+def resolve_request_workspace(auth: AuthContext, requested: str | None = None) -> str:
+    """Return the workspace this request acts on, decided by the caller's identity.
+
+    Routes that take the workspace from an ``X-Workspace-Id`` header must not
+    use the header as given: it is chosen by the caller, so anyone could name
+    another customer's workspace. This function is the one place that turns
+    such a header into a trusted value.
+
+    * A workspace is named: the caller must be allowed to use it, otherwise
+      403 (same answer as every ``?workspace_id=`` route).
+    * No workspace is named: a signed-in caller acts on the workspace their
+      token was issued for.
+    * Only the anonymous development principal (no workspace list; local
+      environments) falls back to a shared ``default_workspace`` label.
+    """
+    named = (requested or "").strip()
+    if named:
+        require_workspace_access(named, auth)
+        return named
+    if auth.workspace_ids:
+        return auth.workspace_ids[0]
+    return DEV_FALLBACK_WORKSPACE
 
 
 def require_role(role: str, auth: AuthContext) -> None:
@@ -561,6 +604,90 @@ class CircuitBreakerMiddleware:
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
+class KeyedRateLimiter:
+    """In-memory token buckets, one per key, bounded in size.
+
+    Each key (an email, a client address, a user id …) gets its own bucket of
+    ``capacity`` tokens refilled at ``refill_per_s``. The table of buckets is
+    bounded: once it holds ``max_keys`` entries, buckets that have refilled
+    completely are dropped (a full bucket and a missing bucket behave the
+    same), then the least recently used ones. Without the bound, a caller
+    sending a new key on every request could grow the server's memory.
+
+    State is per process and lost on restart; see the note in
+    ``app/api/v1/auth.py`` about multi-instance deployments.
+    """
+
+    def __init__(self, capacity: float, refill_per_s: float, max_keys: int = 20_000) -> None:
+        self.capacity = float(capacity)
+        self.refill_per_s = float(refill_per_s)
+        self._max_keys = max(1, max_keys)
+        self._buckets: dict[str, _TokenBucket] = {}
+
+    def __len__(self) -> int:
+        return len(self._buckets)
+
+    def _bucket(self, key: str, now: float) -> _TokenBucket:
+        bucket = self._buckets.pop(key, None)
+        if bucket is None:
+            if len(self._buckets) >= self._max_keys:
+                self._prune(now)
+            bucket = _TokenBucket(self.capacity, self.refill_per_s, now)
+        # (Re-)insert last: the dict then orders keys by most recent use.
+        self._buckets[key] = bucket
+        return bucket
+
+    def _prune(self, now: float) -> None:
+        for key, bucket in list(self._buckets.items()):
+            bucket._refill(now)
+            if bucket.tokens >= bucket.capacity:
+                del self._buckets[key]
+        while len(self._buckets) >= self._max_keys:
+            del self._buckets[next(iter(self._buckets))]
+
+    def try_consume(self, key: str, now: float | None = None) -> bool:
+        """Take one token for ``key``. False when the bucket is empty."""
+        moment = time.monotonic() if now is None else now
+        return self._bucket(key, moment).try_consume(moment, cost=1.0)
+
+    def refund(self, key: str, now: float | None = None) -> None:
+        """Give one token back (never above capacity)."""
+        moment = time.monotonic() if now is None else now
+        bucket = self._bucket(key, moment)
+        bucket._refill(moment)
+        bucket.tokens = min(bucket.capacity, bucket.tokens + 1.0)
+
+    def retry_after(self, key: str, now: float | None = None) -> int:
+        """Whole seconds until ``key`` has a token again (at least 1)."""
+        moment = time.monotonic() if now is None else now
+        bucket = self._buckets.get(key)
+        if bucket is None:
+            return 1
+        bucket._refill(moment)
+        if bucket.tokens >= 1.0 or self.refill_per_s <= 0:
+            return 1
+        return max(1, int((1.0 - bucket.tokens) / self.refill_per_s) + 1)
+
+    def reset(self) -> None:
+        """Forget every bucket (tests, operator tooling)."""
+        self._buckets.clear()
+
+
+def client_address(request: Request | None) -> str:
+    """The network address a request came from, for per-client limits.
+
+    This is the peer address as the server sees it. Behind a load balancer
+    or ingress that is the proxy unless the server is told to trust the
+    proxy's ``X-Forwarded-For`` header: set uvicorn's ``FORWARDED_ALLOW_IPS``
+    to the proxy address(es) in the deployment. The header is deliberately not
+    parsed here: a client can put anything in it, and only the server
+    configuration knows which hop is trustworthy.
+    """
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None)
+    return str(host) if host else "unknown"
+
+
 def rate_limit(
     *,
     capacity: int | None = None,
@@ -578,26 +705,22 @@ def rate_limit(
     settings = get_settings()
     cap = float(capacity if capacity is not None else settings.rate_limit_default_burst)
     rate = refill_per_s if refill_per_s is not None else settings.rate_limit_default_rps
-    buckets: dict[str, _TokenBucket] = {}
+    limiter = KeyedRateLimiter(cap, rate)
 
     def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             k = key(*args, **kwargs) if key else "_global"
-            now = time.monotonic()
-            bucket = buckets.get(k)
-            if bucket is None:
-                bucket = _TokenBucket(cap, rate, now)
-                buckets[k] = bucket
-            if not bucket.try_consume(now, cost=1.0):
-                _, _, reset = bucket.snapshots()
+            if not limiter.try_consume(k):
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Rate limit exceeded",
-                    headers={"Retry-After": str(max(1, reset))},
+                    headers={"Retry-After": str(limiter.retry_after(k))},
                 )
             return await func(*args, **kwargs)
 
+        # Exposed so tests and tooling can inspect or reset the buckets.
+        wrapper.limiter = limiter  # type: ignore[attr-defined]
         return wrapper
 
     return decorator

@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from app.config import Settings
+from app.config import Settings, is_local_environment
 from app.modules.nexus_spine.p0_migration.vanessa_pipeline import (
     INTENT_TO_TOOL,
     DeterministicLLMAdapter,
@@ -263,7 +263,7 @@ def build_llm_adapter(settings: Settings) -> LLMAdapter:
     """Build the configured adapter; deterministic fallback is dev/test only."""
     provider = settings.llm_provider.strip().lower()
     if provider == "deterministic":
-        if settings.env.lower() in {"staging", "pilot", "prod", "production"}:
+        if not is_local_environment(settings.env):
             raise LLMProviderError("Deterministic intelligence is disabled in production")
         return DeterministicLLMAdapter()
     if provider == "openai_compatible":

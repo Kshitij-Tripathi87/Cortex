@@ -5682,8 +5682,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           },
@@ -5799,8 +5805,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           },
@@ -5858,7 +5870,7 @@
           "Agent Runtime"
         ],
         "summary": "List Conversations",
-        "description": "List past multi-agent deliberations in the current workspace.",
+        "description": "List past multi-agent deliberations in the caller's workspace.",
         "operationId": "list_conversations_api_v1_agents_conversations_get",
         "parameters": [
           {
@@ -5866,8 +5878,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           }
@@ -5905,7 +5923,7 @@
           "Agent Runtime"
         ],
         "summary": "Get Conversation",
-        "description": "Retrieve full details of a specific deliberation conversation.",
+        "description": "Retrieve full details of a deliberation held in the caller's workspace.\n\nA conversation that belongs to another workspace answers 404, the same as\nan id that does not exist.",
         "operationId": "get_conversation_api_v1_agents_conversations__conversation_id__get",
         "parameters": [
           {
@@ -5915,6 +5933,22 @@
             "schema": {
               "type": "string",
               "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
             }
           }
         ],
@@ -5962,6 +5996,22 @@
               "type": "string",
               "title": "Conversation Id"
             }
+          },
+          {
+            "name": "x-workspace-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
           }
         ],
         "responses": {
@@ -6005,8 +6055,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           },
@@ -6095,7 +6151,7 @@
           "Intelligence Gateway"
         ],
         "summary": "Promote Model",
-        "description": "Promote a validated shadow model to active production serving.",
+        "description": "Promote a validated shadow model to active production serving.\n\nThe model registry is shared by the whole server, so changing what it\nserves is a platform-administrator action. It needs the ``system_admin``\nrole, which no customer account carries: sign-up makes every new user\nthe ``admin`` of their own organization, so gating on ``admin`` would\nstill let any customer change what every other customer is served.",
         "operationId": "promote_model_api_v1_ai_models__model_id__promote_post",
         "parameters": [
           {
@@ -6141,7 +6197,7 @@
           "Intelligence Gateway"
         ],
         "summary": "Rollback Model",
-        "description": "Rollback an active deployment to the previous stable release.",
+        "description": "Rollback an active deployment to the previous stable release.\n\nPlatform-administrator action, for the same reason as ``promote_model``.",
         "operationId": "rollback_model_api_v1_ai_models__model_id__rollback_post",
         "parameters": [
           {
@@ -9672,7 +9728,7 @@
           "Mobile"
         ],
         "summary": "Register Push",
-        "description": "Enroll a push token: one device, one provider, one token.",
+        "description": "Enroll a push token: one device, one provider, one token.\n\nThe device must be registered to the caller, so a push token can never be\nattached to somebody else's device.",
         "operationId": "register_push_api_v1_mobile_push_register_post",
         "requestBody": {
           "content": {
@@ -9764,7 +9820,7 @@
           "Voice"
         ],
         "summary": "Voice Token",
-        "description": "Short-lived, scoped voice token \u2014 identity validated server-side.",
+        "description": "Short-lived, scoped voice token \u2014 identity validated server-side.\n\nThe token carries the device id as a signed claim, so the device must be\nregistered to the caller: otherwise anyone could obtain a token that says\nit speaks for another user's device.",
         "operationId": "voice_token_api_v1_voice_token_post",
         "requestBody": {
           "content": {
@@ -18295,8 +18351,8 @@
           "env": {
             "type": "string",
             "title": "Env",
-            "description": "dev|test|staging|pilot|prod",
-            "default": "dev"
+            "description": "REQUIRED. dev|test (local: sign-in not enforced) or staging|pilot|prod (deployed: sign-in enforced)",
+            "default": ""
           },
           "log_level": {
             "type": "string",

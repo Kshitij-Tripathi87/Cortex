@@ -18,6 +18,10 @@ import os
 # ignored and the three /workspace suites would 404.
 # ─────────────────────────────────────────────────────────────────────────────
 os.environ.setdefault("CORTEX_WORKSPACE_DEMO_ROUTES", "true")
+# CORTEX_ENV has no default (a server must never run without sign-in by
+# accident), so the test session names its environment itself. CI sets it
+# explicitly; this covers a plain local `pytest`. Same ordering rule as above.
+os.environ.setdefault("CORTEX_ENV", "test")
 from collections.abc import AsyncGenerator, Generator
 from typing import Any, cast
 

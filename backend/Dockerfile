@@ -16,6 +16,16 @@ COPY . .
 # Install Python dependencies
 RUN pip install --no-cache-dir -e ".[dev]"
 
+# Stopping. On SIGTERM (docker stop, a Kubernetes rollout) uvicorn stops
+# accepting connections and lets the requests in flight finish. Live streams
+# (the realtime feed every signed-in page keeps open) never finish on their
+# own, so the wait is bounded: after this many seconds whatever is still open
+# is closed and the application shuts down cleanly. Keep it below the
+# orchestrator's kill timeout (Docker: 10 s by default; Kubernetes: 30 s).
+# uvicorn reads its command-line options from UVICORN_* variables, so this
+# also applies where the command is overridden (compose, Kubernetes).
+ENV UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN=8
+
 # Expose port
 EXPOSE 8000
 

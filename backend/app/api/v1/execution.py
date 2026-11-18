@@ -16,7 +16,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.ids import uuid7
@@ -24,6 +24,7 @@ from app.infrastructure.database import get_db
 from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.execution.execution_models import (
     ActionPlan,
+    ExecutionSystem,
     OperatorDecision,
     PlanStatus,
 )
@@ -84,6 +85,113 @@ class CloseLoopRequest(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# The plan a caller sends back
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# These routes are stateless: the caller receives a plan from POST /plan and
+# sends it back on each later step. The body is therefore untrusted input and
+# is validated here, in one place, before any of it is used. A malformed plan
+# used to raise KeyError/ValueError inside the handler and surface as a 500.
+#
+# The request field stays ``plan: dict`` so the published API contract does
+# not change; unknown keys (``violations``, ``created_at`` ...) are ignored.
+#
+# Known limitation, deliberately not hidden: because the plan lives with the
+# caller, its ``status`` is whatever the caller sends. The adapters behind
+# ``/dispatch`` are simulations (nothing leaves this server). Before a real
+# enterprise adapter is connected, plans must be stored server-side and
+# ``/dispatch`` must take a plan id, not a plan body.
+
+
+class _ActionBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    action_type: ActionType
+    entity_id: str = Field(min_length=1, max_length=255)
+    quantity: float = 0.0
+    target_entity_id: str | None = Field(default=None, max_length=255)
+    cost_usd: float = 0.0
+
+
+class _PlanBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    plan_id: str = Field(min_length=1, max_length=255)
+    workspace_id: str = Field(min_length=1, max_length=255)
+    world_id: str = Field(min_length=1, max_length=255)
+    objective: str = Field(max_length=4000)
+    action: _ActionBody
+    target_system: ExecutionSystem
+    expected_cost_usd: float
+    expected_benefit_usd: float
+    expected_risk_score: float
+    affected_entities: list[str] = Field(max_length=1000)
+    prerequisites: list[str] = Field(max_length=1000)
+    policy_version: str = Field(max_length=255)
+    simulation_id: str | None = Field(default=None, max_length=255)
+    status: PlanStatus
+
+
+def _plan_from_body(
+    body: dict[str, Any], *, workspace_id: str, world_id: str | None = None
+) -> ActionPlan:
+    """Validate the plan a caller sent and rebuild the ``ActionPlan``.
+
+    Raises:
+        HTTPException(422): the plan is malformed, or names a workspace or
+            world other than the one this request is for.
+    """
+    try:
+        parsed = _PlanBody.model_validate(body)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=[
+                {
+                    "loc": ["body", "plan", *error["loc"]],
+                    "msg": error["msg"],
+                    "type": error["type"],
+                }
+                for error in exc.errors(include_url=False, include_input=False)
+            ],
+        ) from None
+    # The caller was authorised for ``workspace_id``. A plan that names a
+    # different workspace must not be run or recorded under this one.
+    if parsed.workspace_id != workspace_id:
+        raise HTTPException(
+            status_code=422,
+            detail="The plan belongs to a different workspace than this request",
+        )
+    if world_id is not None and parsed.world_id != world_id:
+        raise HTTPException(
+            status_code=422,
+            detail="The plan belongs to a different world than this request",
+        )
+    return ActionPlan(
+        plan_id=parsed.plan_id,
+        workspace_id=parsed.workspace_id,
+        world_id=parsed.world_id,
+        objective=parsed.objective,
+        action=MitigationAction(
+            action_type=parsed.action.action_type,
+            entity_id=parsed.action.entity_id,
+            quantity=parsed.action.quantity,
+            target_entity_id=parsed.action.target_entity_id,
+            cost_usd=parsed.action.cost_usd,
+        ),
+        target_system=parsed.target_system,
+        expected_cost_usd=parsed.expected_cost_usd,
+        expected_benefit_usd=parsed.expected_benefit_usd,
+        expected_risk_score=parsed.expected_risk_score,
+        affected_entities=list(parsed.affected_entities),
+        prerequisites=list(parsed.prerequisites),
+        policy_version=parsed.policy_version,
+        simulation_id=parsed.simulation_id,
+        status=parsed.status,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -135,32 +243,7 @@ async def simulate_gate(
     if not world_state or world_state.workspace_id != req.workspace_id:
         raise HTTPException(status_code=404, detail="World state not found")
 
-    # Reconstruct ActionPlan
-    p_dict = req.plan
-    action_dict = p_dict["action"]
-    action = MitigationAction(
-        action_type=ActionType(action_dict["action_type"]),
-        entity_id=action_dict["entity_id"],
-        quantity=action_dict["quantity"],
-        target_entity_id=action_dict.get("target_entity_id"),
-        cost_usd=action_dict["cost_usd"],
-    )
-    plan = ActionPlan(
-        plan_id=p_dict["plan_id"],
-        workspace_id=p_dict["workspace_id"],
-        world_id=p_dict["world_id"],
-        objective=p_dict["objective"],
-        action=action,
-        target_system=p_dict["target_system"],
-        expected_cost_usd=p_dict["expected_cost_usd"],
-        expected_benefit_usd=p_dict["expected_benefit_usd"],
-        expected_risk_score=p_dict["expected_risk_score"],
-        affected_entities=p_dict["affected_entities"],
-        prerequisites=p_dict["prerequisites"],
-        policy_version=p_dict["policy_version"],
-        simulation_id=p_dict.get("simulation_id"),
-        status=PlanStatus(p_dict["status"]),
-    )
+    plan = _plan_from_body(req.plan, workspace_id=req.workspace_id, world_id=req.world_id)
 
     updated_plan, gate_res = _execution_service.run_simulation_gate(plan, world_state)
     return {"plan": updated_plan.to_dict(), "simulation_result": gate_res.to_dict()}
@@ -180,31 +263,7 @@ async def get_decision_card(
     if not world_state or world_state.workspace_id != req.workspace_id:
         raise HTTPException(status_code=404, detail="World state not found")
 
-    p_dict = req.plan
-    action_dict = p_dict["action"]
-    action = MitigationAction(
-        action_type=ActionType(action_dict["action_type"]),
-        entity_id=action_dict["entity_id"],
-        quantity=action_dict["quantity"],
-        target_entity_id=action_dict.get("target_entity_id"),
-        cost_usd=action_dict["cost_usd"],
-    )
-    plan = ActionPlan(
-        plan_id=p_dict["plan_id"],
-        workspace_id=p_dict["workspace_id"],
-        world_id=p_dict["world_id"],
-        objective=p_dict["objective"],
-        action=action,
-        target_system=p_dict["target_system"],
-        expected_cost_usd=p_dict["expected_cost_usd"],
-        expected_benefit_usd=p_dict["expected_benefit_usd"],
-        expected_risk_score=p_dict["expected_risk_score"],
-        affected_entities=p_dict["affected_entities"],
-        prerequisites=p_dict["prerequisites"],
-        policy_version=p_dict["policy_version"],
-        simulation_id=p_dict.get("simulation_id"),
-        status=PlanStatus(p_dict["status"]),
-    )
+    plan = _plan_from_body(req.plan, workspace_id=req.workspace_id, world_id=req.world_id)
 
     card = _execution_service.get_decision_card(plan, world_state)
     return card.to_dict()
@@ -218,31 +277,7 @@ async def submit_operator_decision(
     """Record human review decision on the plan."""
     require_workspace_access(req.workspace_id, auth)
 
-    p_dict = req.plan
-    action_dict = p_dict["action"]
-    action = MitigationAction(
-        action_type=ActionType(action_dict["action_type"]),
-        entity_id=action_dict["entity_id"],
-        quantity=action_dict["quantity"],
-        target_entity_id=action_dict.get("target_entity_id"),
-        cost_usd=action_dict["cost_usd"],
-    )
-    plan = ActionPlan(
-        plan_id=p_dict["plan_id"],
-        workspace_id=p_dict["workspace_id"],
-        world_id=p_dict["world_id"],
-        objective=p_dict["objective"],
-        action=action,
-        target_system=p_dict["target_system"],
-        expected_cost_usd=p_dict["expected_cost_usd"],
-        expected_benefit_usd=p_dict["expected_benefit_usd"],
-        expected_risk_score=p_dict["expected_risk_score"],
-        affected_entities=p_dict["affected_entities"],
-        prerequisites=p_dict["prerequisites"],
-        policy_version=p_dict["policy_version"],
-        simulation_id=p_dict.get("simulation_id"),
-        status=PlanStatus(p_dict["status"]),
-    )
+    plan = _plan_from_body(req.plan, workspace_id=req.workspace_id, world_id=req.world_id)
 
     updated = _execution_service.record_operator_decision(
         plan=plan,
@@ -261,31 +296,7 @@ async def dispatch_plan(
     """Dispatch an approved ActionPlan to the external enterprise adapter."""
     require_workspace_access(req.workspace_id, auth)
 
-    p_dict = req.plan
-    action_dict = p_dict["action"]
-    action = MitigationAction(
-        action_type=ActionType(action_dict["action_type"]),
-        entity_id=action_dict["entity_id"],
-        quantity=action_dict["quantity"],
-        target_entity_id=action_dict.get("target_entity_id"),
-        cost_usd=action_dict["cost_usd"],
-    )
-    plan = ActionPlan(
-        plan_id=p_dict["plan_id"],
-        workspace_id=p_dict["workspace_id"],
-        world_id=p_dict["world_id"],
-        objective=p_dict["objective"],
-        action=action,
-        target_system=p_dict["target_system"],
-        expected_cost_usd=p_dict["expected_cost_usd"],
-        expected_benefit_usd=p_dict["expected_benefit_usd"],
-        expected_risk_score=p_dict["expected_risk_score"],
-        affected_entities=p_dict["affected_entities"],
-        prerequisites=p_dict["prerequisites"],
-        policy_version=p_dict["policy_version"],
-        simulation_id=p_dict.get("simulation_id"),
-        status=PlanStatus(p_dict["status"]),
-    )
+    plan = _plan_from_body(req.plan, workspace_id=req.workspace_id)
 
     idem_key = req.idempotency_key or f"idem_{uuid7()}"
     exec_res = _execution_service.execute_plan(plan, idempotency_key=idem_key)
@@ -300,31 +311,7 @@ async def close_loop(
     """Record executed decision and actual outcome in Decision Memory."""
     require_workspace_access(req.workspace_id, auth)
 
-    p_dict = req.plan
-    action_dict = p_dict["action"]
-    action = MitigationAction(
-        action_type=ActionType(action_dict["action_type"]),
-        entity_id=action_dict["entity_id"],
-        quantity=action_dict["quantity"],
-        target_entity_id=action_dict.get("target_entity_id"),
-        cost_usd=action_dict["cost_usd"],
-    )
-    plan = ActionPlan(
-        plan_id=p_dict["plan_id"],
-        workspace_id=p_dict["workspace_id"],
-        world_id=p_dict["world_id"],
-        objective=p_dict["objective"],
-        action=action,
-        target_system=p_dict["target_system"],
-        expected_cost_usd=p_dict["expected_cost_usd"],
-        expected_benefit_usd=p_dict["expected_benefit_usd"],
-        expected_risk_score=p_dict["expected_risk_score"],
-        affected_entities=p_dict["affected_entities"],
-        prerequisites=p_dict["prerequisites"],
-        policy_version=p_dict["policy_version"],
-        simulation_id=p_dict.get("simulation_id"),
-        status=PlanStatus(p_dict["status"]),
-    )
+    plan = _plan_from_body(req.plan, workspace_id=req.workspace_id, world_id=req.world_id)
 
     memory_record = _execution_service.close_decision_loop(
         workspace_id=req.workspace_id,

@@ -88,18 +88,50 @@ class ConversationRecord:
 
 
 class ConversationStore:
-    """In-memory and durable repository for agent conversations."""
+    """In-memory repository for agent conversations.
 
-    def __init__(self) -> None:
+    The store is one dictionary shared by every customer served by this
+    process, so it never decides who may read a record: callers must go
+    through :meth:`get_in_workspace` / :meth:`list_by_workspace` with a
+    workspace taken from the verified identity. Records live in memory only
+    (they are lost on restart) and the store is bounded, oldest first, so a
+    caller cannot grow it without limit.
+    """
+
+    DEFAULT_MAX_RECORDS = 2000
+
+    def __init__(self, max_records: int = DEFAULT_MAX_RECORDS) -> None:
         self._conversations: dict[str, ConversationRecord] = {}
+        self._max_records = max(1, max_records)
 
     def save(self, record: ConversationRecord) -> None:
         """Save or update a conversation record."""
+        # Re-insert so an updated record counts as the newest.
+        self._conversations.pop(record.conversation_id, None)
         self._conversations[record.conversation_id] = record
+        while len(self._conversations) > self._max_records:
+            # dicts keep insertion order: the first key is the oldest record.
+            del self._conversations[next(iter(self._conversations))]
 
     def get(self, conversation_id: str) -> ConversationRecord | None:
-        """Retrieve conversation by ID."""
+        """Retrieve a conversation by ID, WITHOUT any ownership check.
+
+        Internal use only. A request handler must use :meth:`get_in_workspace`.
+        """
         return self._conversations.get(conversation_id)
+
+    def get_in_workspace(
+        self, conversation_id: str, workspace_id: str
+    ) -> ConversationRecord | None:
+        """Retrieve a conversation only if it belongs to ``workspace_id``.
+
+        A record owned by another workspace is reported as absent, exactly
+        like an id that does not exist, so its existence is not revealed.
+        """
+        record = self._conversations.get(conversation_id)
+        if record is None or record.workspace_id != workspace_id:
+            return None
+        return record
 
     def list_by_workspace(self, workspace_id: str, limit: int = 50) -> list[ConversationRecord]:
         """List conversations for a given workspace ordered by start time descending."""

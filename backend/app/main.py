@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
-import signal
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
@@ -25,13 +23,21 @@ from app.infrastructure.security import (
 )
 from app.infrastructure.tracing import setup_tracing
 
-_shutdown_event = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager — startup and shutdown."""
-    global _shutdown_event
+    """Application lifespan manager — startup and shutdown.
+
+    Stopping the server is the web server's job, not this function's. On
+    SIGTERM (``docker stop``, a Kubernetes rollout) or SIGINT (Ctrl-C) uvicorn
+    stops accepting connections, lets requests in flight finish, and then
+    runs the shutdown half of this function.
+
+    This function used to install its own SIGTERM/SIGINT handlers. They
+    replaced uvicorn's and only set a flag nobody waited for, so the process
+    ignored both signals and had to be killed, dropping whatever it was
+    doing. Do not install signal handlers here.
+    """
     settings = get_settings()
 
     # Startup
@@ -65,33 +71,15 @@ async def lifespan(app: FastAPI):
             )
             outbox_publisher = None
 
-    # Setup signal handlers for graceful shutdown
-    _shutdown_event = asyncio.Event()
-
-    def _signal_handler(signum: int, frame):
-        _shutdown_event.set()
-
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        # Windows lacks add_signal_handler (NotImplementedError), and a
-        # non-main thread cannot install signal handlers (ValueError) — e.g.
-        # the SSE contract test runs uvicorn in a worker thread. Installing
-        # handlers is best-effort in both cases.
-        with contextlib.suppress(NotImplementedError, ValueError):
-            loop.add_signal_handler(sig, _signal_handler, sig, None)
-
     try:
         yield
     finally:
-        # Shutdown - stop the relay first (lets an in-flight sweep finish
-        # its commit; the task cancel is bounded by stop()), then drain.
+        # Requests have already drained (see the docstring). Stop the relay
+        # first (lets an in-flight sweep finish its commit; the task cancel
+        # is bounded by stop()), then close the database pool.
         if outbox_publisher is not None:
             with contextlib.suppress(Exception):
                 await outbox_publisher.stop()
-        # Shutdown - wait for signal or explicit close
-        if _shutdown_event and not _shutdown_event.is_set():
-            # Give in-flight requests time to complete
-            await asyncio.sleep(2)
         await close_db()
 
 

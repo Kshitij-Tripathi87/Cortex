@@ -18,6 +18,18 @@ Security notes (honest limitations, see Day-11 pass):
   * Rate limits below are per-process in-memory buckets. They blunt online
     brute force on a single instance; a Redis-backed limiter is required
     before multi-instance prod if abuse is observed (Day 11).
+  * The limits are keyed so that one stranger cannot deny service to someone
+    else: wrong passwords are counted per (account, client address), signup
+    and reset per client address, password change per user. The old keys
+    (one bucket per email, or one bucket for the whole server) let anyone
+    lock a user out, or stop all sign-ups, with a handful of requests. A
+    per-account ceiling remains, far above what one client can reach, to
+    bound guessing spread over many addresses; an attacker with many
+    addresses can still hit it (inherent to any per-account limit).
+  * Per-client limits need the real client address. Behind a load balancer
+    set uvicorn's FORWARDED_ALLOW_IPS to the proxy address(es); otherwise
+    every user appears to come from the proxy and shares one budget.
+  * There is no email verification at signup (no email provider is wired).
   * ``reset/request`` never discloses whether an email exists (uniform 200)
     and returns the raw token ONLY in dev/test. In pilot/prod the token is
     delivered out-of-band (admin CLI until Day-15 email exists).
@@ -38,9 +50,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import UserRole
 from app.common.ids import uuid7_uuid
-from app.config import get_settings
+from app.config import get_settings, is_local_environment
 from app.infrastructure.database import get_db
-from app.infrastructure.security import AuthContext, get_current_user, rate_limit
+from app.infrastructure.security import (
+    AuthContext,
+    KeyedRateLimiter,
+    client_address,
+    get_current_user,
+    rate_limit,
+)
 from app.modules.access.models import Organization, PasswordResetToken, User, Workspace
 from app.modules.audit.service import emit as emit_audit
 from app.modules.identity.jwt_auth import hash_password, issue_token, verify_password
@@ -188,11 +206,87 @@ class ResetConfirmRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────
 
 
-def _email_key(*args: object, **kwargs: object) -> str:
-    """Rate-limit key: the request body's email, else a global bucket."""
-    body = kwargs.get("body", args[0] if args else None)
-    email = getattr(body, "email", None)
-    return f"email:{email}" if isinstance(email, str) and email else "_global"
+def _address_key(*args: object, **kwargs: object) -> str:
+    """Rate-limit key: the client address of the request."""
+    request = kwargs.get("request")
+    return f"address:{client_address(request if isinstance(request, Request) else None)}"
+
+
+def _user_key(*args: object, **kwargs: object) -> str:
+    """Rate-limit key: the signed-in user."""
+    auth = kwargs.get("auth")
+    user_id = getattr(auth, "user_id", None)
+    return f"user:{user_id}" if user_id else "_anonymous"
+
+
+class AttemptThrottle:
+    """Several rate limits that must all have room for an attempt to proceed.
+
+    ``limits`` maps a name to ``(attempts, per_seconds)``. ``acquire`` takes
+    one attempt from every named limit, or raises 429 and takes none.
+    ``release`` gives the attempt back (used when a sign-in succeeds, so only
+    failures count).
+    """
+
+    def __init__(self, **limits: tuple[int, float]) -> None:
+        self._limiters = {
+            name: KeyedRateLimiter(attempts, attempts / per_seconds)
+            for name, (attempts, per_seconds) in limits.items()
+        }
+
+    def acquire(self, keys: dict[str, str]) -> None:
+        taken: list[tuple[KeyedRateLimiter, str]] = []
+        for name, key in keys.items():
+            limiter = self._limiters[name]
+            if limiter.try_consume(key):
+                taken.append((limiter, key))
+                continue
+            for held, held_key in taken:
+                held.refund(held_key)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded",
+                headers={"Retry-After": str(limiter.retry_after(key))},
+            )
+
+    def release(self, keys: dict[str, str]) -> None:
+        for name, key in keys.items():
+            self._limiters[name].refund(key)
+
+    def reset(self) -> None:
+        for limiter in self._limiters.values():
+            limiter.reset()
+
+
+# Wrong passwords. Counted per (account, client address): a stranger guessing
+# at someone's account uses up only the stranger's own budget for that
+# account, so the real user (on another address) is not locked out. The two
+# ceilings bound one client spraying many accounts, and guessing at one
+# account from many addresses.
+_LOGIN_FAILURES = AttemptThrottle(
+    pair=(10, 900.0),  # one client, one account: 10 per 15 minutes
+    address=(100, 900.0),  # one client, all accounts
+    email=(100, 900.0),  # one account, all clients together
+)
+
+# New organizations. Per client address, so one caller cannot use up the
+# sign-ups of everybody else; the server-wide ceiling bounds mass creation.
+_SIGNUPS = AttemptThrottle(
+    address=(30, 3600.0),
+    everyone=(300, 3600.0),
+)
+
+# Reset requests. Same shape as wrong passwords.
+_RESET_REQUESTS = AttemptThrottle(
+    pair=(5, 3600.0),
+    address=(30, 3600.0),
+    email=(30, 3600.0),
+)
+
+
+def _account_keys(email: str, request: Request | None) -> dict[str, str]:
+    address = client_address(request)
+    return {"pair": f"{email}|{address}", "address": address, "email": email}
 
 
 def _slugify(name: str) -> str:
@@ -238,7 +332,6 @@ def _request_id(request: Request | None) -> str | None:
 
 
 @router.post("/signup", response_model=LoginResponse, status_code=201)
-@rate_limit(capacity=30, refill_per_s=30 / 3600)  # 30 signups/hour/instance
 async def signup(
     body: SignupRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
@@ -248,6 +341,8 @@ async def signup(
     Email is globally unique across workspaces so login can stay
     unambiguous for future multi-workspace users.
     """
+    # 30 per hour per client address, 300 per hour for the whole server.
+    _SIGNUPS.acquire({"address": client_address(request), "everyone": "_all"})
     existing = (
         await db.execute(select(User.id).where(User.email == body.email))
     ).scalar_one_or_none()
@@ -324,16 +419,21 @@ async def signup(
 
 
 @router.post("/login", response_model=LoginResponse)
-@rate_limit(capacity=20, refill_per_s=20 / 900, key=_email_key)  # 20/15min/email
 async def login(
     body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
+    # The attempt is taken up front (so parallel guesses cannot exceed the
+    # budget) and given back below if the password is right: only failures
+    # count. See _LOGIN_FAILURES for who shares which budget.
+    attempt = _account_keys(body.email, request)
+    _LOGIN_FAILURES.acquire(attempt)
     stmt = select(User).where(User.email == body.email)
     if body.workspace_id is not None:
         stmt = stmt.where(User.workspace_id == body.workspace_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(body.password, user.password_hash):
         raise _invalid_credentials()
+    _LOGIN_FAILURES.release(attempt)
     token, expires_at = issue_token(
         user_id=user.id, workspace_id=user.workspace_id, role=str(user.role), email=user.email
     )
@@ -452,7 +552,7 @@ async def logout(
 
 
 @router.post("/change-password", response_model=MessageResponse)
-@rate_limit(capacity=10, refill_per_s=10 / 3600)  # 10/hour/instance
+@rate_limit(capacity=10, refill_per_s=10 / 3600, key=_user_key)  # 10/hour/user
 async def change_password(
     body: ChangePasswordRequest,
     auth: AuthContext = Depends(get_current_user),
@@ -487,12 +587,13 @@ async def change_password(
 
 
 @router.post("/reset/request", response_model=ResetRequestResponse)
-@rate_limit(capacity=5, refill_per_s=5 / 3600, key=_email_key)  # 5/hour/email
 async def request_password_reset(
-    body: ResetRequest, db: AsyncSession = Depends(get_db)
+    body: ResetRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> ResetRequestResponse:
     """Request a single-use reset token. Uniform response — never reveals
     whether the email exists."""
+    # 5 per hour per (account, client address); see _RESET_REQUESTS.
+    _RESET_REQUESTS.acquire(_account_keys(body.email, request))
     settings = get_settings()
     user = (await db.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
     raw_token: str | None = None
@@ -525,15 +626,15 @@ async def request_password_reset(
             message="Password reset requested",
         )
         await db.commit()
-    if settings.env in {"dev", "test"}:
+    if is_local_environment(settings.env):
         return ResetRequestResponse(requested=True, reset_token=raw_token)
     return ResetRequestResponse(requested=True)
 
 
 @router.post("/reset/confirm", response_model=MessageResponse)
-@rate_limit(capacity=10, refill_per_s=10 / 3600)  # 10/hour/instance
+@rate_limit(capacity=10, refill_per_s=10 / 3600, key=_address_key)  # 10/hour/client address
 async def confirm_password_reset(
-    body: ResetConfirmRequest, db: AsyncSession = Depends(get_db)
+    body: ResetConfirmRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> MessageResponse:
     token_hash = hashlib.sha256(body.token.encode()).hexdigest()
     record = (

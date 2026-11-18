@@ -109,9 +109,14 @@ config module (`backend/app/config.py`). Missing required or invalid values fail
 fast with a clear error — never silent defaults. The closed set:
 
 ### 4.1 Required everywhere
-- `CORTEX_ENV` — `dev|staging|pilot|prod`. In `staging`, `pilot` and `prod` every API
-  request must carry a verified Bearer token; identity headers and the anonymous
-  development principal are accepted only in `dev` and `test`.
+- `CORTEX_ENV` — `dev|test|staging|pilot|prod`. **Required, no default.** Sign-in is
+  enforced everywhere except in the two local values: only `dev` and `test` accept
+  identity headers and the anonymous development principal, so never expose a
+  server running with either. In `staging`, `pilot` and `prod` every API request
+  must carry a verified Bearer token. The API (and every worker and operator
+  script that loads the settings) refuses to start, naming the problem, when the
+  variable is missing or holds any other value (`uat`, `prd`, ...): an unknown
+  name can no longer switch sign-in off by accident.
 - `CORTEX_LOG_LEVEL` — `trace|debug|info|warn|error`.
 - `CORTEX_DB_DSN` — asyncpg DSN with TLS enforced in staging+.
 - `CORTEX_REDIS_URL`.
@@ -141,10 +146,26 @@ fast with a clear error — never silent defaults. The closed set:
 - `NEXT_PUBLIC_API_VERSION` (`v1`).
 - `NEXT_PUBLIC_ENV` (for showing the environment badge).
 
-### 4.5 Forbidden configurations
+### 4.5 Running behind a proxy, and stopping
+
+- `FORWARDED_ALLOW_IPS` (read by uvicorn) — the address(es) of the load balancer
+  or ingress in front of the API. Sign-in, sign-up and password-reset limits are
+  counted per client address; without this setting every user appears to come
+  from the proxy and they all share one budget. Do not set it to `*` unless the
+  API is reachable only through the proxy: the header it trusts can be forged by
+  anyone who can reach the API directly.
+- `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN` (seconds, set to `8` in the backend image)
+  — on SIGTERM the API stops accepting connections, finishes the requests in
+  flight, and closes whatever is still open (live streams) after this long.
+  Keep it below the orchestrator's kill timeout (Docker 10 s, Kubernetes 30 s by
+  default); raise both together if long requests must be allowed to finish.
+
+### 4.6 Forbidden configurations
 - No DB DSN in the frontend.
 - No service account credentials in env files committed to the repo.
 - No `CORTEX_ENV=prod` in any non-prod environment config file.
+- No `CORTEX_ENV=dev` or `test` on anything reachable from outside a developer
+  machine or a CI job.
 
 ---
 

@@ -10,6 +10,36 @@ from functools import lru_cache
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings
 
+# The two kinds of environment. This is the single place that decides whether
+# sign-in is enforced; everything else asks ``Settings.is_local`` /
+# ``Settings.is_deployed``.
+#
+# * LOCAL — a developer machine or a test run. Sign-in is NOT enforced: a
+#   request without a token is served as an anonymous development user and
+#   identity headers are trusted. Never expose such a server.
+# * DEPLOYED — anything that holds shared or customer data. Every request must
+#   carry a verified sign-in token.
+#
+# The open mode is opt-in: ``CORTEX_ENV`` has no default and must name one of
+# these values. A missing variable or an unrecognised name ("uat", "prd", …)
+# stops the server at start-up instead of quietly running without sign-in,
+# which is what used to happen.
+LOCAL_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "test"})
+DEPLOYED_ENVIRONMENTS: frozenset[str] = frozenset({"staging", "pilot", "prod", "production"})
+KNOWN_ENVIRONMENTS: frozenset[str] = LOCAL_ENVIRONMENTS | DEPLOYED_ENVIRONMENTS
+
+
+def is_local_environment(name: object) -> bool:
+    """True only when ``name`` is explicitly a local environment (dev/test).
+
+    The one definition of the rule. It takes the name rather than a
+    ``Settings`` object so that it also gives the safe answer for anything
+    else that carries an environment name, and for values it does not
+    recognise (``None``, an empty string, ``"uat"``): those are NOT local,
+    so sign-in stays enforced. Case and surrounding spaces are ignored.
+    """
+    return str(name or "").strip().lower() in LOCAL_ENVIRONMENTS
+
 
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment. No silent defaults."""
@@ -20,7 +50,14 @@ class Settings(BaseSettings):
     # `CORTEX_CORTEX_ENV`, silently ignoring the documented `CORTEX_ENV`
     # variable — which kept every deployment in dev identity mode
     # (v0.8.5-B fix; per-field prefix opt-out is not supported).
-    env: str = Field(default="dev", description="dev|test|staging|pilot|prod")
+    #
+    # Required, no default: see LOCAL_ENVIRONMENTS above. The value is
+    # normalised (trimmed, lower-cased) by the validator below.
+    env: str = Field(
+        default="",
+        description="REQUIRED. dev|test (local: sign-in not enforced) or "
+        "staging|pilot|prod (deployed: sign-in enforced)",
+    )
     log_level: str = Field(default="info", description="trace|debug|info|warn|error")
     app_name: str = "cortex-backend"
 
@@ -223,10 +260,41 @@ class Settings(BaseSettings):
         description="Feature flag toggles. Each flag is a boolean.",
     )
 
+    @property
+    def is_local(self) -> bool:
+        """True only for ``dev`` and ``test``: sign-in is not enforced."""
+        return is_local_environment(self.env)
+
+    @property
+    def is_deployed(self) -> bool:
+        """True for every environment that is not explicitly local.
+
+        Written as "not local" on purpose: if a new environment name is ever
+        added to the vocabulary, it is treated as deployed (sign-in enforced)
+        unless someone deliberately lists it as local.
+        """
+        return not self.is_local
+
     @model_validator(mode="after")
     def validate_production_requirements(self) -> Settings:
         """Fail fast on missing required secrets in production-like environments."""
-        if self.env in {"pilot", "prod", "production", "staging"}:
+        env = self.env.strip().lower()
+        if not env:
+            raise ValueError(
+                "CORTEX_ENV must be set. Use 'dev' or 'test' on a developer machine "
+                "(sign-in is not enforced there), or 'staging', 'pilot' or 'prod' for a "
+                "deployment (sign-in is enforced). There is no default, so that a "
+                "deployment can never run without sign-in by accident."
+            )
+        if env not in KNOWN_ENVIRONMENTS:
+            raise ValueError(
+                f"CORTEX_ENV={self.env!r} is not a known environment. Use one of: "
+                "dev, test, staging, pilot, prod."
+            )
+        # Keep the normalised form so every comparison elsewhere sees the same
+        # value ("Staging" and " STAGING " are staging).
+        self.env = env
+        if self.is_deployed:
             if not self.jwt_secret:
                 raise ValueError(
                     "CORTEX_JWT_SECRET must be set when CORTEX_ENV is pilot, prod, or staging"

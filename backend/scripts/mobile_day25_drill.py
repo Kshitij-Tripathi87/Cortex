@@ -40,6 +40,8 @@ import asyncio
 import os  # noqa: E402
 
 os.environ.setdefault("CORTEX_JWT_SECRET", "drill_jwt_secret_2026_local_only")
+# A local drill: CORTEX_ENV has no default, so name the environment here.
+os.environ.setdefault("CORTEX_ENV", "test")
 
 import sys  # noqa: E402
 import uuid

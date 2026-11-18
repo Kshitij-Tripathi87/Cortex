@@ -106,6 +106,17 @@ class DeviceMeshService:
         rec = await self.session.get(MobileDeviceDB, device_id)
         return self._to_dict(rec) if rec is not None else None
 
+    async def get_owned_device(self, device_id: str, *, owner_id: str) -> dict[str, Any] | None:
+        """The device, only if it is registered to ``owner_id``.
+
+        ``None`` both when the device does not exist and when it belongs to
+        somebody else, so a caller cannot tell the two apart.
+        """
+        rec = await self.session.get(MobileDeviceDB, device_id)
+        if rec is None or rec.owner_id != owner_id:
+            return None
+        return self._to_dict(rec)
+
     async def heartbeat(
         self, device_id: str, *, owner_id: str, status: str | None = None
     ) -> dict[str, Any]:

@@ -2374,7 +2374,7 @@ export interface paths {
         };
         /**
          * List Conversations
-         * @description List past multi-agent deliberations in the current workspace.
+         * @description List past multi-agent deliberations in the caller's workspace.
          */
         get: operations["list_conversations_api_v1_agents_conversations_get"];
         put?: never;
@@ -2394,7 +2394,10 @@ export interface paths {
         };
         /**
          * Get Conversation
-         * @description Retrieve full details of a specific deliberation conversation.
+         * @description Retrieve full details of a deliberation held in the caller's workspace.
+         *
+         *     A conversation that belongs to another workspace answers 404, the same as
+         *     an id that does not exist.
          */
         get: operations["get_conversation_api_v1_agents_conversations__conversation_id__get"];
         put?: never;
@@ -2477,6 +2480,12 @@ export interface paths {
         /**
          * Promote Model
          * @description Promote a validated shadow model to active production serving.
+         *
+         *     The model registry is shared by the whole server, so changing what it
+         *     serves is a platform-administrator action. It needs the ``system_admin``
+         *     role, which no customer account carries: sign-up makes every new user
+         *     the ``admin`` of their own organization, so gating on ``admin`` would
+         *     still let any customer change what every other customer is served.
          */
         post: operations["promote_model_api_v1_ai_models__model_id__promote_post"];
         delete?: never;
@@ -2497,6 +2506,8 @@ export interface paths {
         /**
          * Rollback Model
          * @description Rollback an active deployment to the previous stable release.
+         *
+         *     Platform-administrator action, for the same reason as ``promote_model``.
          */
         post: operations["rollback_model_api_v1_ai_models__model_id__rollback_post"];
         delete?: never;
@@ -3688,6 +3699,9 @@ export interface paths {
         /**
          * Register Push
          * @description Enroll a push token: one device, one provider, one token.
+         *
+         *     The device must be registered to the caller, so a push token can never be
+         *     attached to somebody else's device.
          */
         post: operations["register_push_api_v1_mobile_push_register_post"];
         delete?: never;
@@ -3728,6 +3742,10 @@ export interface paths {
         /**
          * Voice Token
          * @description Short-lived, scoped voice token — identity validated server-side.
+         *
+         *     The token carries the device id as a signed claim, so the device must be
+         *     registered to the caller: otherwise anyone could obtain a token that says
+         *     it speaks for another user's device.
          */
         post: operations["voice_token_api_v1_voice_token_post"];
         delete?: never;
@@ -7186,8 +7204,8 @@ export interface components {
         Settings: {
             /**
              * Env
-             * @description dev|test|staging|pilot|prod
-             * @default dev
+             * @description REQUIRED. dev|test (local: sign-in not enforced) or staging|pilot|prod (deployed: sign-in enforced)
+             * @default
              */
             env: string;
             /**
@@ -12047,7 +12065,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
                 "x-organization-id"?: string;
             };
             path?: never;
@@ -12129,7 +12147,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
                 "x-organization-id"?: string;
             };
             path?: never;
@@ -12167,7 +12185,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -12199,7 +12217,9 @@ export interface operations {
     get_conversation_api_v1_agents_conversations__conversation_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-workspace-id"?: string | null;
+            };
             path: {
                 conversation_id: string;
             };
@@ -12232,7 +12252,9 @@ export interface operations {
     get_decision_room_timeline_api_v1_agents_decision_room__conversation_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-workspace-id"?: string | null;
+            };
             path: {
                 conversation_id: string;
             };
@@ -12266,7 +12288,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
                 "x-correlation-id"?: string | null;
             };
             path?: never;

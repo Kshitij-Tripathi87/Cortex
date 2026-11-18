@@ -24,8 +24,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.devices import require_own_device
 from app.infrastructure.database import get_db
-from app.infrastructure.security import AuthContext, get_current_user
+from app.infrastructure.security import AuthContext, get_current_user, require_workspace_access
 from app.modules.devices.models import VoiceSessionDB
 
 router = APIRouter()
@@ -105,6 +106,15 @@ def _voice_provider() -> Any:
     return StubVoiceProvider()
 
 
+async def _check_voice_request(
+    session: AsyncSession, device_id: str, workspace_id: str | None, auth: AuthContext
+) -> None:
+    """The device must be the caller's, and so must a workspace when named."""
+    if workspace_id:
+        require_workspace_access(workspace_id, auth)
+    await require_own_device(session, device_id, auth)
+
+
 @router.post("/voice/token")
 async def voice_token(
     body: VoiceTokenRequest,
@@ -112,7 +122,13 @@ async def voice_token(
     session: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Short-lived, scoped voice token — identity validated server-side."""
+    """Short-lived, scoped voice token — identity validated server-side.
+
+    The token carries the device id as a signed claim, so the device must be
+    registered to the caller: otherwise anyone could obtain a token that says
+    it speaks for another user's device.
+    """
+    await _check_voice_request(session, body.device_id, body.workspace_id, auth)
     user_id = str(auth.user_id or "anonymous")
     provider = _voice_provider()
     claims = {
@@ -137,6 +153,7 @@ async def create_voice_session(
     session: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
+    await _check_voice_request(session, body.device_id, body.workspace_id, auth)
     user_id = str(auth.user_id or "anonymous")
     rec = VoiceSessionDB(
         voice_session_id=f"voice-{uuid.uuid4().hex[:20]}",
