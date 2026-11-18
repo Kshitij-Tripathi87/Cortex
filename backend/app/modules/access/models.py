@@ -21,7 +21,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -95,6 +104,12 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("workspace_id", "email", name="uq_users_workspace_email"),
         Index("ix_users_workspace_id", "workspace_id"),
+        # Only the rows waiting for an operator (migration 025).
+        Index(
+            "ix_users_reset_requested_at",
+            "reset_requested_at",
+            postgresql_where=text("reset_requested_at IS NOT NULL"),
+        ),
         {"schema": "core"},
     )
 
@@ -114,6 +129,13 @@ class User(Base):
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Set when a reset is asked for on the sign-in page and nobody has dealt
+    # with it yet. Cortex sends no email: an operator reads these with
+    # `scripts/admin_users.py reset-requests` and sends the link by hand.
+    # Cleared when a link is issued, the password changes, or it is dismissed.
+    reset_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict)

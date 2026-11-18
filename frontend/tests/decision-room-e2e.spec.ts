@@ -285,6 +285,74 @@ test.describe('Decision Room — read-only projection', () => {
     await expect(page.getByTestId('decision-room-approvals')).toContainText('u-operator-1');
   });
 
+  test('an approval refused because the trial ended says so and decides nothing', async ({
+    page,
+  }) => {
+    // The trial ends while the page is open: the account looks active until
+    // the server refuses the decision, then /auth/me reports the ended trial.
+    let refused = false;
+    await page.addInitScript(() => {
+      window.localStorage.setItem('cortex:access_token', 'e2e-session-token');
+    });
+    await page.context().route('**/api/v1/auth/me', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...meResponse('operator'),
+          organization: {
+            id: 'org-golden-001',
+            name: 'Golden Org',
+            slug: 'golden-org',
+            plan: 'trial',
+            trial_ends_at: '2026-11-10T12:00:00Z',
+            subscription_active: !refused,
+          },
+        }),
+      })
+    );
+    await page.context().route(`**/api/v1/nexus/tasks/${TASK_ID}/decision-room**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(envelope({ decision_room: awaitingView() })),
+      })
+    );
+    await page.context().route(`**/api/v1/nexus/tasks/${TASK_ID}/approvals`, (route) => {
+      refused = true;
+      return route.fulfill({
+        status: 402,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          detail:
+            "The trial of 'Golden Org' ended on 10 Nov 2026. Creating, running and approving " +
+            'tasks is paused; existing data stays available. Contact the Cortex team to continue.',
+        }),
+      });
+    });
+
+    await page.goto(`${BASE_URL}${TASK_REVIEW}?task_id=${TASK_ID}`);
+    await expect(page.getByTestId('decision-approve')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('nexus-plan-paused')).toHaveCount(0);
+    await page.getByTestId('decision-approve').click();
+
+    // What happened, in words: nothing was decided, and why.
+    const notice = page.getByTestId('decision-plan-paused');
+    await expect(notice).toContainText('Nothing was decided.');
+    await expect(notice).toContainText('Creating, running and approving tasks is paused.');
+    await expect(page.getByTestId('decision-plan-paused-contact')).toHaveAttribute(
+      'href',
+      '/contact?topic=sales#write'
+    );
+    // The page re-reads the account, so the shell now carries the notice too.
+    await expect(page.getByTestId('nexus-plan-paused')).toContainText('Your trial ended on');
+    await expect(notice).toContainText('Your trial ended on');
+    // The decision is still pending and nothing pretends otherwise.
+    await expect(page.getByTestId('decision-approve')).toBeEnabled();
+    await expect(page.getByTestId('decision-room-outcome')).toHaveCount(0);
+    await expect(page.getByTestId('task-status-badge')).toHaveText('AWAITING_APPROVAL');
+  });
+
   test('backend 5xx surfaces an error state, never a blank page', async ({ page }) => {
     await seedSession(page, 'operator');
     await page.context().route(`**/api/v1/nexus/tasks/${TASK_ID}/decision-room**`, (route) =>

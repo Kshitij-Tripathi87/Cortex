@@ -110,8 +110,8 @@ async def _run(args: argparse.Namespace) -> int:
                 records = await list_requests(
                     session, status=args.status, topic=args.topic, limit=args.limit
                 )
-                for record in records:
-                    print(format_row(record))
+                for listed in records:
+                    print(format_row(listed))
                 kind = "" if args.status == "all" else f"{args.status} "
                 noun = "request" if len(records) == 1 else "requests"
                 print(f"{len(records)} {kind}{noun} shown")

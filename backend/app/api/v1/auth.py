@@ -61,6 +61,7 @@ from app.infrastructure.security import (
 )
 from app.modules.access.models import Organization, PasswordResetToken, User, Workspace
 from app.modules.audit.service import emit as emit_audit
+from app.modules.billing.plans import subscription_is_active
 from app.modules.identity.jwt_auth import hash_password, issue_token, verify_password
 
 router = APIRouter()
@@ -148,6 +149,9 @@ class MeOrganization(BaseModel):
     slug: str
     plan: str
     trial_ends_at: datetime | None
+    # The server's verdict, by the same rule as the billing gate, so the
+    # site can explain a paused workspace without guessing from its own clock.
+    subscription_active: bool
 
 
 class MeResponse(BaseModel):
@@ -184,8 +188,9 @@ class ResetRequest(BaseModel):
 
 class ResetRequestResponse(BaseModel):
     requested: bool
-    # Populated ONLY in dev/test. In pilot/prod the token is delivered
-    # out-of-band (admin CLI until Day-15 email) and this is always None.
+    # Populated ONLY in dev/test. Everywhere else no token is created here:
+    # an operator issues the link (scripts/admin_users.py issue-reset) and
+    # this is always None.
     reset_token: str | None = None
 
 
@@ -479,6 +484,7 @@ async def me(
             slug=org.slug,
             plan=org.plan,
             trial_ends_at=org.trial_ends_at,
+            subscription_active=subscription_is_active(org.plan, org.trial_ends_at),
         )
         if org is not None
         else None,
@@ -533,6 +539,8 @@ async def change_password(
     now = datetime.now(UTC)
     user.password_hash = hash_password(body.new_password)
     user.password_changed_at = now
+    # The user has a password they know: a reset is no longer waiting.
+    user.reset_requested_at = None
     await emit_audit(
         db,
         event_type="auth.password_changed",
@@ -551,32 +559,50 @@ async def change_password(
 async def request_password_reset(
     body: ResetRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> ResetRequestResponse:
-    """Request a single-use reset token. Uniform response — never reveals
-    whether the email exists."""
+    """Record a request for a password reset. Uniform response: never reveals
+    whether the email exists.
+
+    Cortex sends no email, so nothing is delivered from here. The request is
+    recorded on the user row; an operator lists the waiting requests with
+    ``scripts/admin_users.py reset-requests`` and sends the user a single-use
+    link by hand (``issue-reset``).
+
+    Outside dev/test no token is created here. Nobody would receive it, and
+    because a user has one live token at a time, creating one would cancel a
+    link an operator has already sent: anyone who knows an address could keep
+    cancelling that user's reset.
+    """
     # 5 per hour per (account, client address); see _RESET_REQUESTS.
     _RESET_REQUESTS.acquire(_account_keys(body.email, request))
     settings = get_settings()
+    local = is_local_environment(settings.env)
     user = (await db.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
     raw_token: str | None = None
     if user is not None and user.is_active:
-        # One live token per user: drop superseded unused tokens.
-        await db.execute(
-            delete(PasswordResetToken).where(
-                PasswordResetToken.user_id == user.id,
-                PasswordResetToken.used_at.is_(None),
-            )
-        )
-        raw_token = secrets.token_urlsafe(32)
         now = datetime.now(UTC)
-        db.add(
-            PasswordResetToken(
-                id=uuid7_uuid(),
-                user_id=user.id,
-                token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
-                expires_at=now + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
-                created_at=now,
+        # Waiting since the first request that nobody has answered yet.
+        if user.reset_requested_at is None:
+            user.reset_requested_at = now
+        if local:
+            # dev/test: the token goes back in the response, so a developer
+            # (and the browser tests) can finish the reset without an operator.
+            # One live token per user: drop superseded unused tokens.
+            await db.execute(
+                delete(PasswordResetToken).where(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.used_at.is_(None),
+                )
             )
-        )
+            raw_token = secrets.token_urlsafe(32)
+            db.add(
+                PasswordResetToken(
+                    id=uuid7_uuid(),
+                    user_id=user.id,
+                    token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+                    expires_at=now + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
+                    created_at=now,
+                )
+            )
         await emit_audit(
             db,
             event_type="auth.reset_requested",
@@ -587,7 +613,7 @@ async def request_password_reset(
             message="Password reset requested",
         )
         await db.commit()
-    if is_local_environment(settings.env):
+    if local:
         return ResetRequestResponse(requested=True, reset_token=raw_token)
     return ResetRequestResponse(requested=True)
 
@@ -619,6 +645,7 @@ async def confirm_password_reset(
     record.used_at = now
     user.password_hash = hash_password(body.new_password)
     user.password_changed_at = now
+    user.reset_requested_at = None
     await emit_audit(
         db,
         event_type="auth.reset_confirmed",

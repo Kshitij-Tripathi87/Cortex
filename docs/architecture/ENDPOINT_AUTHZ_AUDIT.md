@@ -173,6 +173,16 @@ All 29 legacy debt routes have been gated with AST-verifiable authorization help
   address) with per-address and per-account ceilings, successful sign-ins not
   counted; signup and reset per client address; change-password per user.
   Verified in `tests/test_auth_attempt_limits.py`.
+- **D3i, update 2026-11-18 — `/reset/request` records a request; it no
+  longer creates a token outside dev/test.** Cortex sends no email, so a
+  token created there reached nobody, and because a user has one live token
+  at a time, each call deleted a link an operator had already sent: anyone
+  who knew an address could keep cancelling that user's reset. The route now
+  only sets `core.users.reset_requested_at`; operators list the waiting
+  requests and issue the link (`scripts/admin_users.py reset-requests`,
+  `issue-reset`; see `docs/OPERATOR_TASKS.md`). The answer is still the same
+  for a known and an unknown address. Verified in
+  `tests/test_password_reset_requests.py`.
 - **D3j — `/contact-requests` (contact.py) classified PUBLIC**: the public
   site's demo request and contact form
   (`POST /api/v1/public/contact-requests`). Classification: **PUBLIC by

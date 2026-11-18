@@ -114,8 +114,18 @@ export interface paths {
         put?: never;
         /**
          * Request Password Reset
-         * @description Request a single-use reset token. Uniform response — never reveals
+         * @description Record a request for a password reset. Uniform response: never reveals
          *     whether the email exists.
+         *
+         *     Cortex sends no email, so nothing is delivered from here. The request is
+         *     recorded on the user row; an operator lists the waiting requests with
+         *     ``scripts/admin_users.py reset-requests`` and sends the user a single-use
+         *     link by hand (``issue-reset``).
+         *
+         *     Outside dev/test no token is created here. Nobody would receive it, and
+         *     because a user has one live token at a time, creating one would cancel a
+         *     link an operator has already sent: anyone who knows an address could keep
+         *     cancelling that user's reset.
          */
         post: operations["request_password_reset_api_v1_auth_reset_request_post"];
         delete?: never;
@@ -5641,6 +5651,8 @@ export interface components {
             plan: string;
             /** Trial Ends At */
             trial_ends_at: string | null;
+            /** Subscription Active */
+            subscription_active: boolean;
         };
         /** MeResponse */
         MeResponse: {

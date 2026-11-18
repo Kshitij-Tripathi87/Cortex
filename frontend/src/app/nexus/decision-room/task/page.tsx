@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ApiClientError } from "@/lib/auth/errors";
 import { decideTaskApproval, fetchDecisionRoom } from "@/lib/api/decisionRoom";
+import { PlanPausedMessage } from "@/components/auth/PlanPausedNotice";
+import { planStatus } from "@/lib/auth/plan";
 import {
   canApproveDecision,
   invocationStatusBadgeClass,
@@ -33,7 +35,7 @@ const TASK_REVIEW_PATH = "/nexus/decision-room/task";
  * fresh read of the projection.
  */
 function DecisionRoomProjection() {
-  const { status, user, workspace } = useAuth();
+  const { status, user, workspace, organization, refresh } = useAuth();
   const searchParams = useSearchParams();
   const taskId = searchParams.get("task_id");
 
@@ -42,6 +44,8 @@ function DecisionRoomProjection() {
   const [error, setError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // The server refused the decision because the plan is not active (HTTP 402).
+  const [planRefused, setPlanRefused] = useState(false);
 
   const workspaceId = workspace?.id ?? null;
   const mayApprove = canApproveDecision(user?.role);
@@ -76,6 +80,7 @@ function DecisionRoomProjection() {
       if (!taskId || !workspaceId) return;
       setDeciding(true);
       setActionError(null);
+      setPlanRefused(false);
       try {
         await decideTaskApproval({ taskId, workspaceId, approved });
         // State is always re-derived from the durable projection — never
@@ -85,6 +90,11 @@ function DecisionRoomProjection() {
       } catch (err) {
         if (err instanceof ApiClientError && err.status === 403) {
           setActionError("Your role cannot approve or reject this decision.");
+        } else if (err instanceof ApiClientError && err.status === 402) {
+          // The plan ended (possibly while this page was open): nothing was
+          // decided. Say so, and re-read the account so the shell shows it too.
+          setPlanRefused(true);
+          void refresh();
         } else {
           setActionError(err instanceof Error ? err.message : "Decision failed.");
         }
@@ -92,7 +102,7 @@ function DecisionRoomProjection() {
         setDeciding(false);
       }
     },
-    [taskId, workspaceId]
+    [taskId, workspaceId, refresh]
   );
 
   if (status === "CHECKING" || status === "UNKNOWN") {
@@ -180,7 +190,20 @@ function DecisionRoomProjection() {
         </div>
       )}
 
-      {view !== null && <Projection view={view} mayApprove={mayApprove} deciding={deciding} onDecide={decide} actionError={actionError} />}
+      {view !== null && (
+        <Projection
+          view={view}
+          mayApprove={mayApprove}
+          deciding={deciding}
+          onDecide={decide}
+          actionError={actionError}
+          planRefusedReason={
+            planRefused
+              ? (planStatus(organization)?.pausedReason ?? "The plan of this organization is not active.")
+              : null
+          }
+        />
+      )}
     </div>
   );
 }
@@ -191,12 +214,15 @@ function Projection({
   deciding,
   onDecide,
   actionError,
+  planRefusedReason,
 }: {
   view: DecisionRoomView;
   mayApprove: boolean;
   deciding: boolean;
   onDecide: (approved: boolean) => void;
   actionError: string | null;
+  /** Set when the server refused the decision because the plan is not active. */
+  planRefusedReason: string | null;
 }) {
   const { task, pending_decision: pending } = view;
   return (
@@ -266,6 +292,13 @@ function Projection({
             <p className="text-[10px] text-red-400 mt-2" data-testid="decision-action-error">
               {actionError}
             </p>
+          )}
+          {planRefusedReason !== null && (
+            <PlanPausedMessage
+              reason={`Nothing was decided. ${planRefusedReason}`}
+              testId="decision-plan-paused"
+              className="mt-3 font-sans"
+            />
           )}
         </section>
       )}

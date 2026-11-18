@@ -25,6 +25,11 @@ export interface AuthOrganization {
   slug: string;
   plan: string;
   trial_ends_at: string | null;
+  /**
+   * The server's verdict on the plan, by the same rule as the billing gate.
+   * False: creating, running and approving tasks is refused (HTTP 402).
+   */
+  subscription_active?: boolean;
 }
 
 export interface MeResponse {

@@ -99,13 +99,21 @@ test.describe('B2 auth gate', () => {
     await expect(page.getByTestId('onboarding-org')).toHaveText(org);
     await expect(page.getByTestId('onboarding-workspace')).toHaveText(org);
     await expect(page.getByTestId('onboarding-email')).toHaveText(email);
-    await expect(page.getByTestId('onboarding-trial')).toContainText(/day(s)? left \(trial\)/);
+    await expect(page.getByTestId('onboarding-trial')).toHaveText(
+      /^Trial · 7 days left, ends \d{1,2} [A-Z][a-z]{2} \d{4}$/,
+    );
+    await expect(page.getByTestId('onboarding-plan-paused')).toHaveCount(0);
     await page.getByTestId('onboarding-continue').click();
 
     // Protected app with a live canonical Nexus call.
     await expect(page).toHaveURL(/\/app$/);
     await expect(page.getByTestId('app-user-email')).toHaveText(email);
     await expect(page.getByTestId('nexus-status-ok')).toBeVisible({ timeout: 10_000 });
+    // A whole sentence about the real workspace (it used to print
+    // "Connected. decisions in this workspace." with the number missing).
+    await expect(page.getByTestId('nexus-status-ok')).toHaveText(
+      'Connected. No decisions recorded in this workspace yet.',
+    );
 
     // Reload persistence: still authenticated.
     await page.reload();
@@ -261,11 +269,76 @@ test.describe('B2 auth gate', () => {
 
   test('forgot-password is uniform for known and unknown emails', async ({ page, request }) => {
     const { email } = await signupViaApi(request, 'forgot');
+    const outcomes: string[] = [];
     for (const candidate of [email, uniqueEmail('ghost')]) {
       await page.goto('/auth/forgot-password');
       await page.getByLabel('Work email').fill(candidate);
+      const [answer] = await Promise.all([
+        page.waitForResponse('**/api/v1/auth/reset/request'),
+        page.getByTestId('forgot-submit').click(),
+      ]);
+      const done = page.getByTestId('forgot-done');
+      await expect(done).toContainText('If an account exists');
+      outcomes.push((await done.innerText()).trim());
+      // The test backend hands the token back in the response; the page must
+      // never show it (whoever reads the screen could reset the password).
+      const token = ((await answer.json()) as { reset_token: string | null }).reset_token;
+      if (token) expect(await page.content()).not.toContain(token);
+    }
+    expect(outcomes[0]).toBe(outcomes[1]);
+  });
+
+  test('forgot-password promises no email: a person sends the link', async ({ page, request }) => {
+    const { email } = await signupViaApi(request, 'honest');
+    await page.goto('/auth/forgot-password');
+    // Before asking: how it works, in so many words.
+    await expect(page.getByTestId('forgot-page')).toContainText(
+      'A member of the Cortex team sends the reset link.',
+    );
+    await expect(page.getByTestId('forgot-how')).toContainText(
+      'Cortex does not send automatic emails yet',
+    );
+    await expect(page.getByTestId('forgot-how')).toContainText('It is not instant.');
+
+    await page.getByLabel('Work email').fill(email);
+    await page.getByTestId('forgot-submit').click();
+
+    const done = page.getByTestId('forgot-done');
+    await expect(done).toContainText('Your request is recorded.');
+    await expect(done).toContainText('a member of the Cortex team will send a single-use reset link');
+    await expect(done).toContainText('Nothing was emailed automatically');
+    // The old page said a link was "on its way" and that it "expires in 30 minutes".
+    await expect(done).not.toContainText('on its way');
+    await expect(done).not.toContainText('30 minutes');
+    // A way out for someone who hears nothing.
+    await done.getByRole('link', { name: 'Heard nothing? Write to us' }).click();
+    await expect(page).toHaveURL(/\/contact\?topic=general#write$/);
+  });
+
+  test('forgot-password says so when the request was not recorded', async ({ page }) => {
+    const cases: Array<[number, string]> = [
+      [500, 'Your request could not be recorded. Nothing was sent.'],
+      [429, 'Too many reset requests from your network for now, so this one was not recorded.'],
+    ];
+    for (const [status, message] of cases) {
+      await page.route('**/api/v1/auth/reset/request', (route) =>
+        route.fulfill({
+          status,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'refused' }),
+        }),
+      );
+      await page.goto('/auth/forgot-password');
+      await page.getByLabel('Work email').fill('someone@example.com');
       await page.getByTestId('forgot-submit').click();
-      await expect(page.getByTestId('forgot-done')).toContainText('If an account exists');
+
+      await expect(page.getByTestId('forgot-error')).toContainText(message);
+      // Nobody on the team will see this request: the page must not say "recorded".
+      await expect(page.getByTestId('forgot-done')).toHaveCount(0);
+      // The form is still there, with what was typed, to try again.
+      await expect(page.getByLabel('Work email')).toHaveValue('someone@example.com');
+      await expect(page.getByTestId('forgot-submit')).toBeEnabled();
+      await page.unroute('**/api/v1/auth/reset/request');
     }
   });
 
@@ -290,6 +363,34 @@ test.describe('B2 auth gate', () => {
     await expect(page.getByTestId('login-reset-notice')).toBeVisible();
 
     await loginViaApi(request, email, 'R3setbyplaywright');
+
+    // The link worked once. Opened again it says so, changes nothing, and
+    // points to where a new one is requested.
+    await page.goto(`/auth/reset-password?token=${token}`);
+    await page.getByLabel('New password', { exact: true }).fill('An0therpassword');
+    await page.getByLabel('Confirm new password').fill('An0therpassword');
+    await page.getByTestId('reset-submit').click();
+    const refused = page.getByTestId('reset-error');
+    await expect(refused).toContainText('This reset link is no longer valid');
+    await expect(refused).toContainText('Your password was not changed.');
+    await loginViaApi(request, email, 'R3setbyplaywright');
+    await page.getByTestId('reset-request-new').click();
+    await expect(page).toHaveURL(/\/auth\/forgot-password$/);
+  });
+
+  test('a reset link that was never valid is refused the same way', async ({ page }) => {
+    await page.goto(`/auth/reset-password?token=${'n0t-a-real-token'.repeat(3)}`);
+    await expect(page.getByTestId('reset-page')).toContainText(
+      'A reset link works once and for a limited time.',
+    );
+    await page.getByLabel('New password', { exact: true }).fill('R3setbyplaywright');
+    await page.getByLabel('Confirm new password').fill('R3setbyplaywright');
+    await page.getByTestId('reset-submit').click();
+    await expect(page.getByTestId('reset-error')).toContainText('This reset link is no longer valid');
+    await expect(page.getByTestId('reset-request-new')).toHaveAttribute(
+      'href',
+      '/auth/forgot-password',
+    );
   });
 
   test('change-password rotates the credential from /app', async ({ page, request }) => {
@@ -309,5 +410,85 @@ test.describe('B2 auth gate', () => {
     });
     expect(oldLogin.status()).toBe(401);
     await loginViaApi(request, email, 'R0tatedbypwtest');
+  });
+});
+
+test.describe('Plan and trial', () => {
+  // Days are printed in the visitor's time zone; pin one for the expected text.
+  test.use({ timezoneId: 'UTC' });
+
+  async function realMe(request: APIRequestContext, accessToken: string) {
+    const resp = await request.get(`${BACKEND}/api/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    expect(resp.status()).toBe(200);
+    return (await resp.json()) as {
+      organization: { plan: string; trial_ends_at: string | null; subscription_active: boolean };
+    };
+  }
+
+  test('a new account sees its running trial and no pause notice', async ({ page, request }) => {
+    const user = await signupViaApi(request, 'trial');
+    // The real API states the verdict the site relies on.
+    const me = await realMe(request, user.accessToken);
+    expect(me.organization.plan).toBe('trial');
+    expect(me.organization.subscription_active).toBe(true);
+
+    await setSession(page, user.accessToken, user.userId);
+    await page.goto('/app');
+    await expect(page.getByTestId('app-plan')).toHaveText(
+      /· Trial · 7 days left, ends \d{1,2} [A-Z][a-z]{2} \d{4}$/,
+    );
+    await expect(page.getByTestId('app-plan-paused')).toHaveCount(0);
+
+    await page.goto('/nexus/cockpit');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByTestId('nexus-plan-paused')).toHaveCount(0);
+  });
+
+  test('after the trial the site says what ended, what is paused and where to write', async ({
+    page,
+    request,
+  }) => {
+    const user = await signupViaApi(request, 'ended');
+    // A browser cannot end a trial. The account's real answer is served with
+    // the two fields the server changes when the end date passes.
+    const me = await realMe(request, user.accessToken);
+    me.organization.trial_ends_at = '2026-11-10T12:00:00Z';
+    me.organization.subscription_active = false;
+    await page.route('**/api/v1/auth/me', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(me) }),
+    );
+
+    await setSession(page, user.accessToken, user.userId);
+    await page.goto('/app');
+    // No more "trial · ends <a day in the past>".
+    await expect(page.getByTestId('app-plan')).toHaveText('· Trial ended · on 10 Nov 2026');
+    const notice = page.getByTestId('app-plan-paused');
+    await expect(notice).toContainText('Your trial ended on 10 Nov 2026.');
+    await expect(notice).toContainText('You can still sign in and see your data.');
+    await expect(notice).toContainText('Creating, running and approving tasks is paused.');
+
+    // A returning user on a new device passes the setup page again (the
+    // "seen it" mark is kept per browser): it must not say "0 days left".
+    await page.evaluate(
+      (user) => window.localStorage.removeItem(`cortex:onboarding_ack:${user}`),
+      user.userId,
+    );
+    await page.goto('/onboarding');
+    await expect(page.getByTestId('onboarding-trial')).toHaveText('Trial ended · on 10 Nov 2026');
+    await expect(page.getByTestId('onboarding-plan-paused')).toContainText(
+      'Your trial ended on 10 Nov 2026.',
+    );
+
+    // The same notice heads every page of the workspace ...
+    await page.goto('/nexus/cockpit');
+    await expect(page.getByTestId('nexus-plan-paused')).toContainText(
+      'Your trial ended on 10 Nov 2026.',
+    );
+    // ... and leads to the form, with the right topic chosen.
+    await page.getByTestId('nexus-plan-paused-contact').click();
+    await expect(page).toHaveURL(/\/contact\?topic=sales#write$/);
+    await expect(page.getByLabel('Topic')).toHaveValue('sales');
   });
 });
