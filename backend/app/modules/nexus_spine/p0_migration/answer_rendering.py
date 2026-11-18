@@ -155,19 +155,36 @@ def _list(value: Any) -> list[Any]:
 # ── Records, orders and stock ────────────────────────────────────────────────
 
 
-def _assessed_phrase(count: int, assessed: Mapping[str, Any]) -> str:
-    """'4 of 7 purchase orders' / '4 of 19 orders and shipments'."""
+def _assessed_noun(assessed: Mapping[str, Any]) -> tuple[int, str]:
+    """(how many were assessed, what to call them): (7, 'purchase orders')."""
     kinds = [str(kind) for kind, number in assessed.items() if number]
     total = sum(int(number) for number in assessed.values())
     if len(kinds) == 1:
         noun = _noun(kinds[0], total)
     elif kinds and all(kind.endswith("Order") for kind in kinds):
-        noun = "orders"
+        noun = "order" if total == 1 else "orders"
     else:
-        noun = "orders and shipments"
-    if count == 0:
-        return f"None of the {format_number(total)} {noun}" if total != 1 else f"The 1 {noun}"
+        noun = "order or shipment" if total == 1 else "orders and shipments"
+    return total, noun
+
+
+def _assessed_phrase(count: int, assessed: Mapping[str, Any]) -> str:
+    """'4 of 7 purchase orders' / '4 of 19 orders and shipments'."""
+    total, noun = _assessed_noun(assessed)
     return f"{format_number(count)} of {format_number(total)} {noun}"
+
+
+def _none_late(assessed: Mapping[str, Any], about: str = "") -> str:
+    """'None of the 7 purchase orders is late or flagged', without the full stop.
+
+    With a single order the sentence is 'The 1 purchase order is not late or
+    flagged'. It used to be built as "The 1 purchase order" followed by the
+    caller's "is late or flagged", which said the opposite of the finding.
+    """
+    total, noun = _assessed_noun(assessed)
+    if total == 1:
+        return f"The 1 {noun}{about} is not late or flagged"
+    return f"None of the {format_number(total)} {noun}{about} is late or flagged"
 
 
 def _flow_subject(flow: Mapping[str, Any]) -> str:
@@ -283,12 +300,24 @@ def _record_line(record: Mapping[str, Any]) -> str:
 
 
 def _filter_phrase(filters: Sequence[Mapping[str, Any]]) -> str:
-    parts = [
-        f"{item['field']} other than {item['value']}"
-        if item.get("negated")
-        else f"{item['field']} = {item['value']}"
-        for item in filters
-    ]
+    """'country = DE (Germany) or IN (India) and status other than active'.
+
+    Several values of one field are alternatives ("or"); different fields
+    must all hold ("and"), which is how the filters are applied.
+    """
+    wanted: dict[str, list[str]] = {}
+    unwanted: dict[str, list[str]] = {}
+    for item in filters:
+        value = str(item["value"])
+        means = item.get("means")
+        if means and str(means).lower() != value.lower():
+            # The question said "Germany", the file stores "DE": show both.
+            value = f"{value} ({means})"
+        (unwanted if item.get("negated") else wanted).setdefault(str(item["field"]), []).append(
+            value
+        )
+    parts = [f"{name} = {' or '.join(values)}" for name, values in wanted.items()]
+    parts += [f"{name} other than {' or '.join(values)}" for name, values in unwanted.items()]
     return _join(parts)
 
 
@@ -331,7 +360,7 @@ def _attention_lines(attention: Mapping[str, Any]) -> list[str]:
             f"{_listed(ids, late_count)}."
         )
     else:
-        lines.append(f"{_assessed_phrase(0, assessed)} is late or flagged.")
+        lines.append(f"{_none_late(assessed)}.")
 
     stock_assessed = int(attention.get("stock_assessed") or 0)
     short_count = int(attention.get("stock_short_count") or 0)
@@ -542,7 +571,7 @@ def _render_late(evidence: Mapping[str, Any], *, brief: bool) -> list[str]:
         )
         lines.extend(_bullets([_flow_line(flow) for flow in late], late_count))
     else:
-        lines.append(f"{_assessed_phrase(0, assessed)}{about} is late or flagged {as_of}.")
+        lines.append(f"{_none_late(assessed, about)} {as_of}.")
         lines.append(
             "An order counts as late when its status says so, when its expected date is after "
             "its promised date, or when its promised date has passed and it is not marked delivered."
@@ -939,27 +968,83 @@ def _render_changes(evidence: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _scope_conditions(
+    matched: int,
+    *,
+    related: Sequence[Mapping[str, Any]],
+    via: str | None,
+    filters: Sequence[Mapping[str, Any]],
+    open_only: bool,
+    partner: Mapping[str, Any] | None = None,
+) -> list[str]:
+    """What narrows a list, as verb phrases that agree with how many records matched.
+
+    ['refer to S-101 Bharat Castings Pvt Ltd', 'are open', 'match status = delayed'].
+    """
+    one = matched == 1
+    conditions: list[str] = []
+    if related:
+        targets = _join([_label(item) for item in related[:3]])
+        if via == "orders":
+            # No field links the two; orders that name both do.
+            conditions.append(f"{'appears' if one else 'appear'} on your orders for {targets}")
+        elif via == "referred_by":
+            conditions.append(f"{'is' if one else 'are'} named on {targets}")
+        else:
+            conditions.append(f"{'refers' if one else 'refer'} to {targets}")
+    if open_only:
+        conditions.append(f"{'is' if one else 'are'} open (not delivered or closed)")
+    partner_filters = [_dict(item) for item in _list(_dict(partner).get("filters"))]
+    if partner_filters:
+        # "Orders from Germany": the country is on the supplier the order names.
+        conditions.append(
+            f"{'names' if one else 'name'} a {_noun(str(_dict(partner).get('through')), 1)} "
+            f"with {_filter_phrase(partner_filters)}"
+        )
+    own_filters = list(filters)
+    if own_filters:
+        conditions.append(f"{'matches' if one else 'match'} {_filter_phrase(own_filters)}")
+    return conditions
+
+
+def _orders_note(record: Mapping[str, Any]) -> str:
+    """' (2 orders, 1 late)' for a record found through the orders that name it."""
+    orders = _dict(record.get("orders"))
+    if not orders:
+        return ""
+    return (
+        f" ({_plural(int(orders.get('order_count') or 0), 'order')}, "
+        f"{format_number(int(orders.get('late_order_count') or 0))} late)"
+    )
+
+
 def _render_entity_list(evidence: Mapping[str, Any]) -> list[str]:
     result = _dict(evidence.get("result"))
     focus = _dict(evidence.get("question_focus"))
     filters = [_dict(item) for item in _list(focus.get("filters"))]
     related = [_dict(item) for item in _list(result.get("related_to"))]
+    open_only = bool(result.get("open_only"))
     lines: list[str] = []
     for group in [_dict(item) for item in _list(result.get("groups"))]:
         kind = str(group.get("entity_type"))
         total = int(group.get("published_total") or 0)
         matched = int(group.get("matched") or 0)
         records = [_dict(item) for item in _list(group.get("records"))]
-        # "1 of 7 ... refers to / matches", otherwise "refer to / match".
-        refer, match = ("refers", "matches") if matched == 1 else ("refer", "match")
-        if related:
-            condition = f"{refer} to {_join([_label(item) for item in related[:3]])}"
-            if filters:
-                condition += f" and {match} {_filter_phrase(filters)}"
-        elif filters:
-            condition = f"{match} {_filter_phrase(filters)}"
-        else:
-            condition = ""
+        applies_open = open_only and kind in _FLOW_KINDS
+        # The filters on this kind's own fields, when the evidence says which.
+        own_filters = (
+            [_dict(item) for item in _list(group.get("filters"))] if "filters" in group else filters
+        )
+        condition = " and ".join(
+            _scope_conditions(
+                matched,
+                related=related,
+                via=group.get("via"),
+                filters=own_filters,
+                open_only=applies_open,
+                partner=_dict(group.get("partner_filter")),
+            )
+        )
         if lines:
             lines.append("")
         if condition:
@@ -971,9 +1056,245 @@ def _render_entity_list(evidence: Mapping[str, Any]) -> list[str]:
             lines.append(f"You have {_counted(matched, kind)}:")
         else:
             lines.append(f"There are no {_noun(kind)} in your published data.")
-        lines.extend(_bullets([_record_line(record) for record in records], matched))
+        described = []
+        for record in records:
+            fields = _record_fields(record)
+            label = f"{_label(record)}{_orders_note(record)}"
+            described.append(f"{label}: {fields}" if fields else label)
+        lines.extend(_bullets(described, matched))
     if not lines:
         lines.append("Nothing in your published data matches that.")
+    return lines
+
+
+# ── One figure over a list, and two records side by side ────────────────────
+
+_OPERATION_WORDS: dict[str, tuple[str, str]] = {
+    # operation -> (how the figure is named, what the question asked to do)
+    "sum": ("Total", "total"),
+    "average": ("Average", "average"),
+    "max": ("Highest", "rank"),
+    "min": ("Lowest", "rank"),
+}
+
+
+def _holders(extreme: Mapping[str, Any]) -> str:
+    """'S-102 Shenzhen Microdrive Co' / 'PO-5001, PO-5002 and 3 more'."""
+    records = [_label(_dict(item)) for item in _list(extreme.get("records"))]
+    return _listed(records, int(extreme.get("record_count") or len(records)), 3)
+
+
+def _render_aggregate(evidence: Mapping[str, Any]) -> list[str]:
+    result = _dict(evidence.get("result"))
+    focus = _dict(evidence.get("question_focus"))
+    filters = [_dict(item) for item in _list(focus.get("filters"))]
+    related = [_dict(item) for item in _list(result.get("related_to"))]
+    via_by_kind = {
+        str(_dict(group).get("entity_type")): _dict(group).get("via")
+        for group in _list(result.get("groups"))
+    }
+    partner_by_kind = {
+        str(_dict(group).get("entity_type")): _dict(_dict(group).get("partner_filter"))
+        for group in _list(result.get("groups"))
+    }
+    filters_by_kind = {
+        str(_dict(group).get("entity_type")): [
+            _dict(item) for item in _list(_dict(group).get("filters"))
+        ]
+        for group in _list(result.get("groups"))
+        if "filters" in _dict(group)
+    }
+    lines: list[str] = []
+    for view in [_dict(item) for item in _list(result.get("aggregates"))]:
+        kind = str(view.get("entity_type"))
+        considered = int(view.get("considered") or 0)
+        published = int(view.get("published_total") or 0)
+        operation = str(view.get("operation") or "sum")
+        named, asked = _OPERATION_WORDS.get(operation, _OPERATION_WORDS["sum"])
+        field_name = view.get("field")
+        if lines:
+            lines.append("")
+
+        kind_filters = filters_by_kind.get(kind, filters)
+        conditions = _scope_conditions(
+            considered,
+            related=related,
+            via=via_by_kind.get(kind),
+            filters=kind_filters,
+            open_only=bool(result.get("open_only")) and kind in _FLOW_KINDS,
+            partner=partner_by_kind.get(kind),
+        )
+        scope = _counted(considered, kind)
+        if conditions:
+            scope = f"the {scope} that {' and '.join(conditions)}"
+        elif considered != published:
+            scope = f"{scope} of {format_number(published)} published"
+
+        if not considered:
+            none_conditions = _scope_conditions(
+                0,
+                related=related,
+                via=via_by_kind.get(kind),
+                filters=kind_filters,
+                open_only=bool(result.get("open_only")) and kind in _FLOW_KINDS,
+                partner=partner_by_kind.get(kind),
+            )
+            lines.append(
+                f"None of the {_counted(published, kind)} "
+                f"{' and '.join(none_conditions) or 'could be read'}, so there is nothing to "
+                f"{asked}."
+            )
+            continue
+        if not field_name:
+            available = [str(item) for item in _list(view.get("numeric_fields"))]
+            unknown = [f'"{item}"' for item in _list(view.get("not_a_field"))]
+            lead = (
+                f"No field of {scope} is called {_join(unknown[:3])}, so I cannot {asked} it."
+                if unknown
+                else f"I could not tell which number to {asked} for {scope}."
+            )
+            lines.append(
+                f"{lead} "
+                + (
+                    f"Their numeric fields are: {_listed(available, limit=8)}. "
+                    "Ask again naming one of them."
+                    if available
+                    else "They have no field that holds numbers."
+                )
+            )
+            continue
+        with_value = int(view.get("with_value") or 0)
+        if not with_value:
+            lines.append(f"None of {scope} has a readable {field_name}, so I cannot {asked} it.")
+            continue
+
+        value = _num(view.get("value"))
+        lowest = _dict(view.get("lowest"))
+        highest = _dict(view.get("highest"))
+        if operation in {"max", "min"}:
+            extreme = highest if operation == "max" else lowest
+            lines.append(f"{named} {field_name} among {scope}: {value} ({_holders(extreme)}).")
+        else:
+            lines.append(f"{named} {field_name} across {scope}: {value}.")
+        notes: list[str] = []
+        without = int(view.get("without_value") or 0)
+        if without:
+            notes.append(
+                f"{_plural(without, 'record')} {'has' if without == 1 else 'have'} no readable "
+                f"{field_name} and {'is' if without == 1 else 'are'} left out."
+            )
+        if with_value > 1:
+            if operation in {"sum", "average"}:
+                notes.append(
+                    f"Lowest {_num(lowest.get('value'))} ({_holders(lowest)}), highest "
+                    f"{_num(highest.get('value'))} ({_holders(highest)})."
+                )
+            elif operation == "max":
+                notes.append(f"Lowest: {_num(lowest.get('value'))} ({_holders(lowest)}).")
+            else:
+                notes.append(f"Highest: {_num(highest.get('value'))} ({_holders(highest)}).")
+        breakdown = _dict(view.get("breakdown"))
+        rows = [_dict(item) for item in _list(breakdown.get("rows"))]
+        if rows:
+            described = [f"{_label(row)} {_num(row.get('value'))}" for row in rows]
+            notes.append(
+                f"By product: {_listed(described, int(breakdown.get('row_count') or len(rows)), 10)}. "
+                "These are different parts, so the total adds units of different things."
+            )
+        lines.extend(_bullets(notes))
+    if not lines:
+        lines.append("Nothing in your published data matches that.")
+    return lines
+
+
+def _compared_orders(entry: Mapping[str, Any]) -> str:
+    orders = _dict(entry.get("orders"))
+    assessed = _dict(orders.get("assessed"))
+    if not assessed:
+        return "none"
+    total, noun = _assessed_noun(assessed)
+    late_count = int(orders.get("late_count") or 0)
+    late = [str(item) for item in _list(orders.get("late"))]
+    text = f"{format_number(total)} {noun}, {format_number(late_count)} late"
+    return f"{text} ({_listed(late, late_count, 4)})" if late else text
+
+
+def _render_comparison(evidence: Mapping[str, Any]) -> list[str]:
+    result = _dict(evidence.get("result"))
+    entries = [_dict(item) for item in _list(result.get("entities"))]
+    records = [_dict(entry.get("record")) for entry in entries]
+    kinds = {str(record.get("entity_type")) for record in records}
+    labels = [_label(record) for record in records]
+    lead = f"{_join(labels)}, side by side"
+    if len(kinds) == 1:
+        lead += f" (both {_noun(next(iter(kinds)))})" if len(records) == 2 else ""
+    lines = [f"{lead}. Values are in that order."]
+
+    def values(read: Any) -> str:
+        return " / ".join(str(read(index) or "not given") for index in range(len(entries)))
+
+    bullets: list[str] = []
+    fields: list[str] = []
+    for record in records:
+        entity_id = str(record.get("entity_id") or "")
+        name = record.get("name")
+        for key, value in _dict(record.get("attributes")).items():
+            if str(value) == entity_id or (name and str(value) == str(name)):
+                continue
+            if key not in fields:
+                fields.append(str(key))
+    for key in fields[:14]:
+        row = [_dict(record.get("attributes")).get(key) for record in records]
+        same = len({str(value) for value in row}) == 1 and row[0] is not None
+        text = " / ".join("not given" if value is None else str(value) for value in row)
+        bullets.append(f"{key}: {text}{' (same)' if same else ''}")
+    if len(fields) > 14:
+        bullets.append(f"and {_plural(len(fields) - 14, 'more field')}.")
+
+    if any(_dict(_dict(entry.get("orders")).get("assessed")) for entry in entries):
+        bullets.append(f"Orders linked to it: {values(lambda i: _compared_orders(entries[i]))}")
+    for role, lead_in in (
+        ("products", "Its orders are for"),
+        ("suppliers", "Ordered from"),
+        ("customers", "Ordered by"),
+    ):
+        if any(_list(_dict(entry.get("counterparties")).get(role)) for entry in entries):
+            bullets.append(
+                f"{lead_in}: "
+                + values(
+                    lambda i, role=role: (
+                        _listed(
+                            [
+                                _label(_dict(item))
+                                for item in _list(_dict(entries[i].get("counterparties")).get(role))
+                            ],
+                            limit=3,
+                        )
+                        or "nothing"
+                    )
+                )
+            )
+    if any(int(_dict(entry.get("stock")).get("assessed") or 0) for entry in entries):
+        bullets.append(
+            "Stock positions linked to it: "
+            + values(
+                lambda i: (
+                    f"{_plural(int(_dict(entries[i].get('stock')).get('assessed') or 0), 'position')}, "
+                    f"{format_number(int(_dict(entries[i].get('stock')).get('short_count') or 0))} below threshold"
+                    if int(_dict(entries[i].get("stock")).get("assessed") or 0)
+                    else "none"
+                )
+            )
+        )
+    lines.extend(_bullets(bullets, limit=24))
+    lines.append("")
+    lines.append(
+        f"Lateness is judged {_as_of(result.get('as_of'))}. These are the values in your "
+        "published data; I do not rank the records or choose between them."
+    )
+    also = [_label(_dict(item)) for item in _list(result.get("also_matched"))]
+    if also:
+        lines.append(f"Your question also matched: {_listed(also)}.")
     return lines
 
 
@@ -1062,8 +1383,7 @@ def _render_entity_detail(evidence: Mapping[str, Any], *, brief: bool) -> list[s
                 )
             else:
                 bullets.append(
-                    f"Orders: {_assessed_phrase(0, assessed)} linked to it is late or flagged "
-                    f"{_as_of(late.get('as_of'))}."
+                    f"Orders: {_none_late(assessed, ' linked to it')} {_as_of(late.get('as_of'))}."
                 )
 
         stock = _dict(entity.get("stock"))
@@ -1194,15 +1514,56 @@ def render_workspace_answer(
         lines = _render_intake(result)
     elif kind == "entity_list":
         lines = _render_entity_list(evidence)
+    elif kind == "aggregate":
+        lines = _render_aggregate(evidence)
+    elif kind == "comparison":
+        lines = _render_comparison(evidence)
     elif kind == "entity_detail":
         lines = _render_entity_detail(evidence, brief=brief)
     else:
         lines = _render_no_match(evidence)
 
+    # Something asked about a named record that the record has no field for
+    # ("weather in Pune"): say so first, then show what the record does hold.
+    unanswered = [_dict(item) for item in _list(focus.get("unanswered"))]
+    if unanswered and kind not in {"no_match", "aggregate"}:
+        first = unanswered[0]
+        words = _join([f'"{word}"' for word in _list(first.get("words"))])
+        fields = [str(item) for item in _list(first.get("fields"))]
+        lead = f"Your published data holds nothing about {words} for {_label(_dict(first.get('about')))}."
+        if fields:
+            lead += f" Its fields are: {_listed(fields, limit=10)}."
+        lines = [lead, "", "What it does hold:", *lines]
+
     notes: list[str] = []
+    # A record recognised by one word of its name is a guess the reader must
+    # be able to see: "who supplies bearings?" -> "Ball Bearing 6205".
+    guessed = [
+        _dict(item)
+        for item in _list(focus.get("matched"))
+        if _dict(item).get("matched_on") == "word_in_name"
+    ]
+    if guessed and kind != "no_match":
+        readings = [f'"{item.get("text")}" as {_label(item)}' for item in guessed[:3]]
+        notes.append(f"I read {_join(readings)}.")
     unmatched = [str(item) for item in _list(focus.get("unmatched_identifiers"))]
     if unmatched and kind != "no_match":
         notes.append(f"I could not find {_join(unmatched[:5])} in your published data.")
+    not_applied = [str(item) for item in _list(focus.get("countries_not_applied"))]
+    if not_applied and kind in {"entity_list", "aggregate"}:
+        # Said first: what follows is not limited to that country.
+        listed = [
+            _noun(str(_dict(group).get("entity_type")))
+            for group in _list(result.get("groups"))
+            if _dict(group).get("entity_type")
+        ]
+        lines = [
+            f"I could not narrow this to {_join(not_applied[:3])}: "
+            f"{_join(listed[:3]) or 'these records'} have no country field, and neither do "
+            "the records they name.",
+            "",
+            *lines,
+        ]
     coverage = _dict(workspace.get("coverage"))
     if coverage and not coverage.get("complete"):
         limited = [
@@ -1464,9 +1825,11 @@ def no_evidence_answer(intent: str) -> str:
             "orders, shipments, inventory and facilities, plus what is late, what is short, what "
             "is exposed, what changed and where each upload stands.\n\n"
             f"For example: {examples}\n\n"
-            "You can also name a record by its ID or name (a supplier, an order, a SKU), or "
-            "ask about forecasts, decisions, scenarios and signals. I only read: approving or "
-            "executing a decision goes through its own workflow."
+            "You can also name a record by its ID or name (a supplier, an order, a SKU); ask "
+            "for a total, an average, or the highest or lowest value of a field; ask who "
+            "supplies a part or which records are in a country; put two records side by side "
+            'with "compare"; or ask about forecasts, decisions, scenarios and signals. I only '
+            "read: approving or executing a decision goes through its own workflow."
         )
     if intent == "greeting":
         return f"Hello. Ask me about the data published in this workspace, for example: {examples}"
@@ -1529,6 +1892,64 @@ def summarize_evidence(tool: str | None, data: Any) -> str:
     if isinstance(mapping.get("status"), str):
         return f"Status: {mapping['status']}."
     return "Read workspace data."
+
+
+# ── Wording shared with the Command Center ──────────────────────────────────
+#
+# The cockpit lists what stands out in the published records. It uses these
+# functions, so a line there reads the same as the matching line of an answer.
+
+
+def kind_noun(entity_type: str, count: int = 2) -> str:
+    """Everyday name of a record kind: 'purchase order', 'purchase orders'."""
+    return _noun(entity_type, count)
+
+
+def late_flow_parts(flow: Mapping[str, Any]) -> tuple[str, str]:
+    """What a late order or shipment carries, and why it counts as late.
+
+    ('400 x C-2000 Cast Iron Housing from S-101 Bharat Castings Pvt Ltd',
+    'promised for 2026-11-10 and not marked as delivered 8 days later'). The
+    first part is empty when the record names no product, quantity or partner.
+    """
+    reasons = "; ".join(str(reason) for reason in _list(flow.get("reasons")))
+    return _flow_subject(flow), reasons
+
+
+def late_flow_sentence(flow: Mapping[str, Any]) -> str:
+    """One late order or shipment as the answer to "which orders are late?" lists it."""
+    return _flow_line(flow)
+
+
+def stock_sentence(position: Mapping[str, Any]) -> str:
+    """'C-2000 Cast Iron Housing at WH-PUNE: 120 on hand against a safety stock of 300 (180 short)'."""
+    return _stock_phrase(position)
+
+
+def stock_parts(position: Mapping[str, Any]) -> tuple[str, str]:
+    """``stock_sentence`` as (which stock, the figures it is judged on).
+
+    ('C-2000 Cast Iron Housing at WH-PUNE', '120 on hand against a safety
+    stock of 300 (180 short)').
+    """
+    product = _label(_dict(position.get("product")))
+    facility = _label(_dict(position.get("facility")))
+    where = f"{product} at {facility}" if product and facility else product or facility
+    head = str(where or position.get("entity_id"))
+    sentence = _stock_phrase(position)
+    prefix = f"{head}: "
+    return (head, sentence[len(prefix) :]) if sentence.startswith(prefix) else (head, sentence)
+
+
+def flagged_sentence(flag: Mapping[str, Any]) -> str:
+    """'S-102 Borealis Plastics: status is delayed.'"""
+    field_name = _field(flag.get("status_field") or "status")
+    return f"{_label(flag)}: {field_name} is {flag.get('status')}."
+
+
+def attention_sentences(attention: Mapping[str, Any]) -> list[str]:
+    """The sentences an overview answer gives about late orders, stock and flagged partners."""
+    return _attention_lines(attention)
 
 
 def world_state_version_of(data: Any) -> int | None:

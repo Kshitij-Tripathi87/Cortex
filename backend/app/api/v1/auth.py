@@ -18,6 +18,18 @@ Security notes (honest limitations, see Day-11 pass):
   * Rate limits below are per-process in-memory buckets. They blunt online
     brute force on a single instance; a Redis-backed limiter is required
     before multi-instance prod if abuse is observed (Day 11).
+  * The limits are keyed so that one stranger cannot deny service to someone
+    else: wrong passwords are counted per (account, client address), signup
+    and reset per client address, password change per user. The old keys
+    (one bucket per email, or one bucket for the whole server) let anyone
+    lock a user out, or stop all sign-ups, with a handful of requests. A
+    per-account ceiling remains, far above what one client can reach, to
+    bound guessing spread over many addresses; an attacker with many
+    addresses can still hit it (inherent to any per-account limit).
+  * Per-client limits need the real client address. Behind a load balancer
+    set uvicorn's FORWARDED_ALLOW_IPS to the proxy address(es); otherwise
+    every user appears to come from the proxy and shares one budget.
+  * There is no email verification at signup (no email provider is wired).
   * ``reset/request`` never discloses whether an email exists (uniform 200)
     and returns the raw token ONLY in dev/test. In pilot/prod the token is
     delivered out-of-band (admin CLI until Day-15 email exists).
@@ -38,11 +50,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import UserRole
 from app.common.ids import uuid7_uuid
-from app.config import get_settings
+from app.config import get_settings, is_local_environment
 from app.infrastructure.database import get_db
-from app.infrastructure.security import AuthContext, get_current_user, rate_limit
+from app.infrastructure.security import (
+    AttemptThrottle,
+    AuthContext,
+    client_address,
+    get_current_user,
+    rate_limit,
+)
 from app.modules.access.models import Organization, PasswordResetToken, User, Workspace
 from app.modules.audit.service import emit as emit_audit
+from app.modules.billing.plans import subscription_is_active
 from app.modules.identity.jwt_auth import hash_password, issue_token, verify_password
 
 router = APIRouter()
@@ -130,6 +149,9 @@ class MeOrganization(BaseModel):
     slug: str
     plan: str
     trial_ends_at: datetime | None
+    # The server's verdict, by the same rule as the billing gate, so the
+    # site can explain a paused workspace without guessing from its own clock.
+    subscription_active: bool
 
 
 class MeResponse(BaseModel):
@@ -166,8 +188,9 @@ class ResetRequest(BaseModel):
 
 class ResetRequestResponse(BaseModel):
     requested: bool
-    # Populated ONLY in dev/test. In pilot/prod the token is delivered
-    # out-of-band (admin CLI until Day-15 email) and this is always None.
+    # Populated ONLY in dev/test. Everywhere else no token is created here:
+    # an operator issues the link (scripts/admin_users.py issue-reset) and
+    # this is always None.
     reset_token: str | None = None
 
 
@@ -188,11 +211,48 @@ class ResetConfirmRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────
 
 
-def _email_key(*args: object, **kwargs: object) -> str:
-    """Rate-limit key: the request body's email, else a global bucket."""
-    body = kwargs.get("body", args[0] if args else None)
-    email = getattr(body, "email", None)
-    return f"email:{email}" if isinstance(email, str) and email else "_global"
+def _address_key(*args: object, **kwargs: object) -> str:
+    """Rate-limit key: the client address of the request."""
+    request = kwargs.get("request")
+    return f"address:{client_address(request if isinstance(request, Request) else None)}"
+
+
+def _user_key(*args: object, **kwargs: object) -> str:
+    """Rate-limit key: the signed-in user."""
+    auth = kwargs.get("auth")
+    user_id = getattr(auth, "user_id", None)
+    return f"user:{user_id}" if user_id else "_anonymous"
+
+
+# Wrong passwords. Counted per (account, client address): a stranger guessing
+# at someone's account uses up only the stranger's own budget for that
+# account, so the real user (on another address) is not locked out. The two
+# ceilings bound one client spraying many accounts, and guessing at one
+# account from many addresses.
+_LOGIN_FAILURES = AttemptThrottle(
+    pair=(10, 900.0),  # one client, one account: 10 per 15 minutes
+    address=(100, 900.0),  # one client, all accounts
+    email=(100, 900.0),  # one account, all clients together
+)
+
+# New organizations. Per client address, so one caller cannot use up the
+# sign-ups of everybody else; the server-wide ceiling bounds mass creation.
+_SIGNUPS = AttemptThrottle(
+    address=(30, 3600.0),
+    everyone=(300, 3600.0),
+)
+
+# Reset requests. Same shape as wrong passwords.
+_RESET_REQUESTS = AttemptThrottle(
+    pair=(5, 3600.0),
+    address=(30, 3600.0),
+    email=(30, 3600.0),
+)
+
+
+def _account_keys(email: str, request: Request | None) -> dict[str, str]:
+    address = client_address(request)
+    return {"pair": f"{email}|{address}", "address": address, "email": email}
 
 
 def _slugify(name: str) -> str:
@@ -238,7 +298,6 @@ def _request_id(request: Request | None) -> str | None:
 
 
 @router.post("/signup", response_model=LoginResponse, status_code=201)
-@rate_limit(capacity=30, refill_per_s=30 / 3600)  # 30 signups/hour/instance
 async def signup(
     body: SignupRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
@@ -248,6 +307,8 @@ async def signup(
     Email is globally unique across workspaces so login can stay
     unambiguous for future multi-workspace users.
     """
+    # 30 per hour per client address, 300 per hour for the whole server.
+    _SIGNUPS.acquire({"address": client_address(request), "everyone": "_all"})
     existing = (
         await db.execute(select(User.id).where(User.email == body.email))
     ).scalar_one_or_none()
@@ -324,16 +385,21 @@ async def signup(
 
 
 @router.post("/login", response_model=LoginResponse)
-@rate_limit(capacity=20, refill_per_s=20 / 900, key=_email_key)  # 20/15min/email
 async def login(
     body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
+    # The attempt is taken up front (so parallel guesses cannot exceed the
+    # budget) and given back below if the password is right: only failures
+    # count. See _LOGIN_FAILURES for who shares which budget.
+    attempt = _account_keys(body.email, request)
+    _LOGIN_FAILURES.acquire(attempt)
     stmt = select(User).where(User.email == body.email)
     if body.workspace_id is not None:
         stmt = stmt.where(User.workspace_id == body.workspace_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(body.password, user.password_hash):
         raise _invalid_credentials()
+    _LOGIN_FAILURES.release(attempt)
     token, expires_at = issue_token(
         user_id=user.id, workspace_id=user.workspace_id, role=str(user.role), email=user.email
     )
@@ -418,6 +484,7 @@ async def me(
             slug=org.slug,
             plan=org.plan,
             trial_ends_at=org.trial_ends_at,
+            subscription_active=subscription_is_active(org.plan, org.trial_ends_at),
         )
         if org is not None
         else None,
@@ -452,7 +519,7 @@ async def logout(
 
 
 @router.post("/change-password", response_model=MessageResponse)
-@rate_limit(capacity=10, refill_per_s=10 / 3600)  # 10/hour/instance
+@rate_limit(capacity=10, refill_per_s=10 / 3600, key=_user_key)  # 10/hour/user
 async def change_password(
     body: ChangePasswordRequest,
     auth: AuthContext = Depends(get_current_user),
@@ -472,6 +539,8 @@ async def change_password(
     now = datetime.now(UTC)
     user.password_hash = hash_password(body.new_password)
     user.password_changed_at = now
+    # The user has a password they know: a reset is no longer waiting.
+    user.reset_requested_at = None
     await emit_audit(
         db,
         event_type="auth.password_changed",
@@ -487,34 +556,53 @@ async def change_password(
 
 
 @router.post("/reset/request", response_model=ResetRequestResponse)
-@rate_limit(capacity=5, refill_per_s=5 / 3600, key=_email_key)  # 5/hour/email
 async def request_password_reset(
-    body: ResetRequest, db: AsyncSession = Depends(get_db)
+    body: ResetRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> ResetRequestResponse:
-    """Request a single-use reset token. Uniform response — never reveals
-    whether the email exists."""
+    """Record a request for a password reset. Uniform response: never reveals
+    whether the email exists.
+
+    Cortex sends no email, so nothing is delivered from here. The request is
+    recorded on the user row; an operator lists the waiting requests with
+    ``scripts/admin_users.py reset-requests`` and sends the user a single-use
+    link by hand (``issue-reset``).
+
+    Outside dev/test no token is created here. Nobody would receive it, and
+    because a user has one live token at a time, creating one would cancel a
+    link an operator has already sent: anyone who knows an address could keep
+    cancelling that user's reset.
+    """
+    # 5 per hour per (account, client address); see _RESET_REQUESTS.
+    _RESET_REQUESTS.acquire(_account_keys(body.email, request))
     settings = get_settings()
+    local = is_local_environment(settings.env)
     user = (await db.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
     raw_token: str | None = None
     if user is not None and user.is_active:
-        # One live token per user: drop superseded unused tokens.
-        await db.execute(
-            delete(PasswordResetToken).where(
-                PasswordResetToken.user_id == user.id,
-                PasswordResetToken.used_at.is_(None),
-            )
-        )
-        raw_token = secrets.token_urlsafe(32)
         now = datetime.now(UTC)
-        db.add(
-            PasswordResetToken(
-                id=uuid7_uuid(),
-                user_id=user.id,
-                token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
-                expires_at=now + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
-                created_at=now,
+        # Waiting since the first request that nobody has answered yet.
+        if user.reset_requested_at is None:
+            user.reset_requested_at = now
+        if local:
+            # dev/test: the token goes back in the response, so a developer
+            # (and the browser tests) can finish the reset without an operator.
+            # One live token per user: drop superseded unused tokens.
+            await db.execute(
+                delete(PasswordResetToken).where(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.used_at.is_(None),
+                )
             )
-        )
+            raw_token = secrets.token_urlsafe(32)
+            db.add(
+                PasswordResetToken(
+                    id=uuid7_uuid(),
+                    user_id=user.id,
+                    token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+                    expires_at=now + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
+                    created_at=now,
+                )
+            )
         await emit_audit(
             db,
             event_type="auth.reset_requested",
@@ -525,15 +613,15 @@ async def request_password_reset(
             message="Password reset requested",
         )
         await db.commit()
-    if settings.env in {"dev", "test"}:
+    if local:
         return ResetRequestResponse(requested=True, reset_token=raw_token)
     return ResetRequestResponse(requested=True)
 
 
 @router.post("/reset/confirm", response_model=MessageResponse)
-@rate_limit(capacity=10, refill_per_s=10 / 3600)  # 10/hour/instance
+@rate_limit(capacity=10, refill_per_s=10 / 3600, key=_address_key)  # 10/hour/client address
 async def confirm_password_reset(
-    body: ResetConfirmRequest, db: AsyncSession = Depends(get_db)
+    body: ResetConfirmRequest, request: Request, db: AsyncSession = Depends(get_db)
 ) -> MessageResponse:
     token_hash = hashlib.sha256(body.token.encode()).hexdigest()
     record = (
@@ -557,6 +645,7 @@ async def confirm_password_reset(
     record.used_at = now
     user.password_hash = hash_password(body.new_password)
     user.password_changed_at = now
+    user.reset_requested_at = None
     await emit_audit(
         db,
         event_type="auth.reset_confirmed",

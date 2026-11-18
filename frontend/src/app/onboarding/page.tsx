@@ -2,6 +2,10 @@
  * Onboarding boundary (B2 §9). Verifies the SERVER-created organization,
  * workspace, and trial from /auth/me, then acknowledges (per-user UI flag)
  * and continues. The ingestion wizard is B3's scope — not built here.
+ *
+ * The acknowledgement is kept per browser, so a returning user on a new
+ * device sees this page again: nothing here may assume the account is new
+ * or that its trial is still running.
  */
 
 "use client";
@@ -9,12 +13,8 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RequireAuth, useAuth, sanitizeNext, getOnboardingAck, setOnboardingAck } from "@/lib/auth";
-
-function trialDaysLeft(trialEndsAt: string | null): number | null {
-  if (!trialEndsAt) return null;
-  const ms = new Date(trialEndsAt).getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / 86_400_000));
-}
+import { planStatus } from "@/lib/auth/plan";
+import { PlanPausedNotice } from "@/components/auth/PlanPausedNotice";
 
 function OnboardingBody(): React.JSX.Element {
   const router = useRouter();
@@ -27,7 +27,7 @@ function OnboardingBody(): React.JSX.Element {
     router.replace(next);
   }
 
-  const daysLeft = trialDaysLeft(organization?.trial_ends_at ?? null);
+  const plan = planStatus(organization);
 
   return (
     <div data-testid="onboarding-page" className="min-h-screen bg-bg text-ink flex items-center justify-center p-4">
@@ -35,7 +35,7 @@ function OnboardingBody(): React.JSX.Element {
         <p className="font-mono text-xs text-accent tracking-widest mb-2">NEXUS · SETUP</p>
         <h1 className="text-xl font-semibold">Your workspace is ready</h1>
         <p className="text-sm text-ink-secondary mt-1">
-          Created just now from your signup — nothing left to configure here.
+          Created from your signup — nothing left to configure here.
         </p>
 
         <dl className="mt-6 space-y-3 text-sm">
@@ -58,12 +58,13 @@ function OnboardingBody(): React.JSX.Element {
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-ink-secondary">Trial</dt>
-            <dd data-testid="onboarding-trial" className="font-medium">
-              {daysLeft === null ? (organization?.plan ?? "—") : `${daysLeft} days left (${organization?.plan})`}
+            <dt className="text-ink-secondary">Plan</dt>
+            <dd data-testid="onboarding-trial" className="font-medium text-right">
+              {plan ? `${plan.label}${plan.detail ? ` · ${plan.detail}` : ""}` : "—"}
             </dd>
           </div>
         </dl>
+        <PlanPausedNotice testId="onboarding-plan-paused" className="mt-4" />
 
         <button
           onClick={cont}
@@ -73,7 +74,7 @@ function OnboardingBody(): React.JSX.Element {
           Continue to Nexus
         </button>
         <p className="mt-3 text-xs text-ink-muted text-center">
-          Data import and your first decision walkthrough come next.
+          Next: open the Nexus workspace and upload your operational data.
         </p>
       </div>
     </div>

@@ -114,8 +114,18 @@ export interface paths {
         put?: never;
         /**
          * Request Password Reset
-         * @description Request a single-use reset token. Uniform response — never reveals
+         * @description Record a request for a password reset. Uniform response: never reveals
          *     whether the email exists.
+         *
+         *     Cortex sends no email, so nothing is delivered from here. The request is
+         *     recorded on the user row; an operator lists the waiting requests with
+         *     ``scripts/admin_users.py reset-requests`` and sends the user a single-use
+         *     link by hand (``issue-reset``).
+         *
+         *     Outside dev/test no token is created here. Nobody would receive it, and
+         *     because a user has one live token at a time, creating one would cancel a
+         *     link an operator has already sent: anyone who knows an address could keep
+         *     cancelling that user's reset.
          */
         post: operations["request_password_reset_api_v1_auth_reset_request_post"];
         delete?: never;
@@ -141,6 +151,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/contact-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a demo request or contact message from the public site.
+         * @description Store the request and return the reference of the stored row.
+         */
+        post: operations["create_contact_request_api_v1_public_contact_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources/upload": {
         parameters: {
             query?: never;
@@ -155,6 +185,29 @@ export interface paths {
          * @description Upload a source file (CSV/XLSX). Validates, stores immutably, profiles, and creates batch/file records.
          */
         post: operations["upload_source_file_api_v1_sources_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Batches
+         * @description Uploads of the workspace, newest first, each with its files and state.
+         *
+         *     Without this list an upload could only be reopened by someone who had kept
+         *     its address: the review page needs the batch ID and nothing showed it.
+         */
+        get: operations["list_batches_api_v1_sources_batches_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2374,7 +2427,7 @@ export interface paths {
         };
         /**
          * List Conversations
-         * @description List past multi-agent deliberations in the current workspace.
+         * @description List past multi-agent deliberations in the caller's workspace.
          */
         get: operations["list_conversations_api_v1_agents_conversations_get"];
         put?: never;
@@ -2394,7 +2447,10 @@ export interface paths {
         };
         /**
          * Get Conversation
-         * @description Retrieve full details of a specific deliberation conversation.
+         * @description Retrieve full details of a deliberation held in the caller's workspace.
+         *
+         *     A conversation that belongs to another workspace answers 404, the same as
+         *     an id that does not exist.
          */
         get: operations["get_conversation_api_v1_agents_conversations__conversation_id__get"];
         put?: never;
@@ -2477,6 +2533,12 @@ export interface paths {
         /**
          * Promote Model
          * @description Promote a validated shadow model to active production serving.
+         *
+         *     The model registry is shared by the whole server, so changing what it
+         *     serves is a platform-administrator action. It needs the ``system_admin``
+         *     role, which no customer account carries: sign-up makes every new user
+         *     the ``admin`` of their own organization, so gating on ``admin`` would
+         *     still let any customer change what every other customer is served.
          */
         post: operations["promote_model_api_v1_ai_models__model_id__promote_post"];
         delete?: never;
@@ -2497,6 +2559,8 @@ export interface paths {
         /**
          * Rollback Model
          * @description Rollback an active deployment to the previous stable release.
+         *
+         *     Platform-administrator action, for the same reason as ``promote_model``.
          */
         post: operations["rollback_model_api_v1_ai_models__model_id__rollback_post"];
         delete?: never;
@@ -3286,6 +3350,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nexus/workspace/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workspace Overview
+         * @description Counts of the published records, and the late orders, low stock and flagged partners in them.
+         */
+        get: operations["workspace_overview_api_v1_nexus_workspace_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nexus/risks": {
         parameters: {
             query?: never;
@@ -3688,6 +3772,9 @@ export interface paths {
         /**
          * Register Push
          * @description Enroll a push token: one device, one provider, one token.
+         *
+         *     The device must be registered to the caller, so a push token can never be
+         *     attached to somebody else's device.
          */
         post: operations["register_push_api_v1_mobile_push_register_post"];
         delete?: never;
@@ -3728,6 +3815,10 @@ export interface paths {
         /**
          * Voice Token
          * @description Short-lived, scoped voice token — identity validated server-side.
+         *
+         *     The token carries the device id as a signed claim, so the device must be
+         *     registered to the caller: otherwise anyone could obtain a token that says
+         *     it speaks for another user's device.
          */
         post: operations["voice_token_api_v1_voice_token_post"];
         delete?: never;
@@ -4000,6 +4091,39 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * BatchListItem
+         * @description One upload and where it stands between upload and publication.
+         */
+        BatchListItem: {
+            /** Batch Id */
+            batch_id: string;
+            /** Files */
+            files: components["schemas"]["UploadedFile"][];
+            /** Uploaded At */
+            uploaded_at: string | null;
+            /** State */
+            state: string;
+            /** Published Version */
+            published_version: number | null;
+            /** Claims Accepted */
+            claims_accepted: number;
+            /** Claims Pending Review */
+            claims_pending_review: number;
+            /** Claims Rejected */
+            claims_rejected: number;
+            /** Open Conflicts */
+            open_conflicts: number;
+            /** Blocking Conflicts */
+            blocking_conflicts: number;
+        };
+        /** BatchListResponse */
+        BatchListResponse: {
+            /** Batch Count */
+            batch_count: number;
+            /** Batches */
+            batches: components["schemas"]["BatchListItem"][];
+        };
         /** BatchSimulationRequest */
         BatchSimulationRequest: {
             /** Workspace Id */
@@ -4053,7 +4177,6 @@ export interface components {
              * @description Target workspace UUID
              */
             workspace_id: string;
-            settings?: components["schemas"]["Settings"] | null;
         };
         /** Body_run_spine_api_v1_spine_run_post */
         Body_run_spine_api_v1_spine_run_post: {
@@ -4250,6 +4373,35 @@ export interface components {
             status: string;
             /** Explanation */
             explanation: string;
+        };
+        /** ContactRequestBody */
+        ContactRequestBody: {
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "demo" | "general" | "sales" | "engineering" | "security" | "privacy" | "legal";
+            /** Full Name */
+            full_name: string;
+            /** Email */
+            email: string;
+            /** Company */
+            company?: string | null;
+            /** Message */
+            message: string;
+            /** Consent */
+            consent: boolean;
+            details?: components["schemas"]["DemoDetails"] | null;
+        };
+        /** ContactRequestReceipt */
+        ContactRequestReceipt: {
+            /** Reference */
+            reference: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
         };
         /** CreatePlanRequest */
         CreatePlanRequest: {
@@ -4755,6 +4907,28 @@ export interface components {
             region?: string | null;
             /** Product Family */
             product_family?: string | null;
+        };
+        /**
+         * DemoDetails
+         * @description The extra answers of the demo request form. All optional.
+         */
+        DemoDetails: {
+            /** Job Title */
+            job_title?: string | null;
+            /** Primary Role */
+            primary_role?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Company Size */
+            company_size?: string | null;
+            /** Challenges */
+            challenges?: string[];
+            /** Current Systems */
+            current_systems?: string[];
+            /** Desired Outcome */
+            desired_outcome?: string | null;
+            /** Timeline */
+            timeline?: string | null;
         };
         /** DeployReplicasRequest */
         DeployReplicasRequest: {
@@ -5552,6 +5726,8 @@ export interface components {
             plan: string;
             /** Trial Ends At */
             trial_ends_at: string | null;
+            /** Subscription Active */
+            subscription_active: boolean;
         };
         /** MeResponse */
         MeResponse: {
@@ -7179,347 +7355,6 @@ export interface components {
          * @enum {string}
          */
         ScenarioType: "supplier_failure" | "supplier_delay" | "inventory_shortage" | "demand_spike" | "route_disruption" | "capacity_reduction" | "port_closure" | "factory_fire" | "labor_strike" | "cyber_attack" | "pandemic" | "weather" | "pricing_shock" | "currency_shock" | "custom";
-        /**
-         * Settings
-         * @description Runtime configuration loaded from environment. No silent defaults.
-         */
-        Settings: {
-            /**
-             * Env
-             * @description dev|test|staging|pilot|prod
-             * @default dev
-             */
-            env: string;
-            /**
-             * Log Level
-             * @description trace|debug|info|warn|error
-             * @default info
-             */
-            log_level: string;
-            /**
-             * App Name
-             * @default cortex-backend
-             */
-            app_name: string;
-            /**
-             * Db Dsn
-             * @description PostgreSQL async DSN
-             * @default sqlite+aiosqlite:///./cortex_dev.db
-             */
-            db_dsn: string;
-            /**
-             * Db Pool Min
-             * @description Minimum DB pool size
-             * @default 4
-             */
-            db_pool_min: number;
-            /**
-             * Db Pool Max
-             * @description Maximum DB pool size
-             * @default 20
-             */
-            db_pool_max: number;
-            /**
-             * Redis Url
-             * @default redis://localhost:6379/0
-             */
-            redis_url: string;
-            /**
-             * S3 Endpoint
-             * @default http://localhost:9000
-             */
-            s3_endpoint: string;
-            /**
-             * S3 Bucket
-             * @default cortex-uploads
-             */
-            s3_bucket: string;
-            /**
-             * S3 Region
-             * @default us-east-1
-             */
-            s3_region: string;
-            /**
-             * S3 Access Key
-             * @default
-             */
-            s3_access_key: string;
-            /**
-             * S3 Secret Key
-             * @default
-             */
-            s3_secret_key: string;
-            /**
-             * S3 Use Path Style
-             * @default true
-             */
-            s3_use_path_style: boolean;
-            /**
-             * Upload Max Bytes
-             * @description 200 MB default
-             * @default 209715200
-             */
-            upload_max_bytes: number;
-            /**
-             * Upload Allowed Mime
-             * @default text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-             */
-            upload_allowed_mime: string;
-            /**
-             * Query Timeout Ms
-             * @default 5000
-             */
-            query_timeout_ms: number;
-            /**
-             * Tx Timeout Ms
-             * @default 10000
-             */
-            tx_timeout_ms: number;
-            /**
-             * Worker Concurrency
-             * @default 8
-             */
-            worker_concurrency: number;
-            /**
-             * Worker Job Timeout S
-             * @default 300
-             */
-            worker_job_timeout_s: number;
-            /**
-             * Otel Exporter Endpoint
-             * @default http://localhost:4317
-             */
-            otel_exporter_endpoint: string;
-            /**
-             * Metrics Port
-             * @default 8001
-             */
-            metrics_port: number;
-            /**
-             * Quality Min Completeness
-             * @default 0.8
-             */
-            quality_min_completeness: number;
-            /**
-             * Quality Min Consistency
-             * @default 0.9
-             */
-            quality_min_consistency: number;
-            /**
-             * Quality Min Validity
-             * @default 0.95
-             */
-            quality_min_validity: number;
-            /**
-             * Conflict Severity Blocking
-             * @description Severity levels that block readiness
-             */
-            conflict_severity_blocking?: string[];
-            /**
-             * Default Page Size
-             * @default 50
-             */
-            default_page_size: number;
-            /**
-             * Max Page Size
-             * @default 200
-             */
-            max_page_size: number;
-            /**
-             * Max Retries
-             * @default 3
-             */
-            max_retries: number;
-            /**
-             * Retry Delay S
-             * @default 1
-             */
-            retry_delay_s: number;
-            /**
-             * Outbox Publisher Enabled
-             * @description Run the OutboxPublisher sweeper in this process
-             * @default true
-             */
-            outbox_publisher_enabled: boolean;
-            /**
-             * Outbox Publisher Id
-             * @description Stable publisher identity (dedicated relay worker); empty = random per-process id
-             * @default
-             */
-            outbox_publisher_id: string;
-            /**
-             * Outbox Sweep Interval S
-             * @description Idle delay between outbox sweep passes
-             * @default 1
-             */
-            outbox_sweep_interval_s: number;
-            /**
-             * Outbox Batch Size
-             * @description Max outbox rows claimed per sweep pass
-             * @default 100
-             */
-            outbox_batch_size: number;
-            /**
-             * Outbox Lease S
-             * @description Claim lease: a claimed-but-unpublished row becomes reclaimable by a peer after this long (worker-crash recovery)
-             * @default 30
-             */
-            outbox_lease_s: number;
-            /**
-             * Outbox Retry Base S
-             * @description Failed-publish backoff base (doubles per attempt)
-             * @default 1
-             */
-            outbox_retry_base_s: number;
-            /**
-             * Outbox Retry Max S
-             * @description Failed-publish backoff cap
-             * @default 60
-             */
-            outbox_retry_max_s: number;
-            /**
-             * Outbox Max Attempts
-             * @description Attempts after which an unpublished row is flagged poison (loudly metriced; still retried with capped backoff, never dropped)
-             * @default 50
-             */
-            outbox_max_attempts: number;
-            /**
-             * Realtime Replay Limit
-             * @description Max events per replay page
-             * @default 500
-             */
-            realtime_replay_limit: number;
-            /**
-             * Realtime Resync Threshold
-             * @description Gap size above which clients must snapshot/resync instead of replaying event-by-event
-             * @default 1000
-             */
-            realtime_resync_threshold: number;
-            /**
-             * Realtime Sse Heartbeat S
-             * @description SSE keepalive comment interval
-             * @default 15
-             */
-            realtime_sse_heartbeat_s: number;
-            /**
-             * Rate Limit Default Rps
-             * @default 10
-             */
-            rate_limit_default_rps: number;
-            /**
-             * Rate Limit Default Burst
-             * @default 100
-             */
-            rate_limit_default_burst: number;
-            /**
-             * Rate Limit Expensive Rps
-             * @default 1
-             */
-            rate_limit_expensive_rps: number;
-            /**
-             * Rate Limit Expensive Burst
-             * @default 10
-             */
-            rate_limit_expensive_burst: number;
-            /**
-             * Circuit Breaker Failure Threshold
-             * @default 5
-             */
-            circuit_breaker_failure_threshold: number;
-            /**
-             * Circuit Breaker Timeout
-             * @default 30
-             */
-            circuit_breaker_timeout: number;
-            /**
-             * Jwt Secret
-             * @description HS256 signing secret; required in pilot/prod
-             * @default
-             */
-            jwt_secret: string;
-            /**
-             * Jwt Algorithm
-             * @default HS256
-             */
-            jwt_algorithm: string;
-            /**
-             * Jwt Audience
-             * @default cortex-api
-             */
-            jwt_audience: string;
-            /**
-             * Jwt Expiry Minutes
-             * @default 60
-             */
-            jwt_expiry_minutes: number;
-            /**
-             * Llm Provider
-             * @description deterministic|openai_compatible
-             * @default deterministic
-             */
-            llm_provider: string;
-            /**
-             * Llm Api Key
-             * Format: password
-             * @description Model gateway API key
-             * @default
-             */
-            llm_api_key: string;
-            /**
-             * Llm Base Url
-             * @default https://api.openai.com/v1
-             */
-            llm_base_url: string;
-            /**
-             * Llm Model
-             * @description Exact model/deployment name
-             * @default
-             */
-            llm_model: string;
-            /**
-             * Llm Timeout S
-             * @default 30
-             */
-            llm_timeout_s: number;
-            /**
-             * Llm Max Output Tokens
-             * @default 2048
-             */
-            llm_max_output_tokens: number;
-            /**
-             * Cors Allowed Origins
-             * @description Allowed CORS origins (comma-separated)
-             */
-            cors_allowed_origins?: string[];
-            /** Cors Allowed Methods */
-            cors_allowed_methods?: string[];
-            /** Cors Allowed Headers */
-            cors_allowed_headers?: string[];
-            /**
-             * Cors Allow Credentials
-             * @default true
-             */
-            cors_allow_credentials: boolean;
-            /**
-             * Nexus V07 Legacy Routes
-             * @description Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* (default False). Never enable in production.
-             * @default false
-             */
-            nexus_v07_legacy_routes: boolean;
-            /**
-             * Workspace Demo Routes
-             * @description Mount the unauthenticated, fixed-tenant /workspace/* demo singleton (default False). Test/dev affordance only — never enable in pilot/prod/staging.
-             * @default false
-             */
-            workspace_demo_routes: boolean;
-            /**
-             * Feature Flags
-             * @description Feature flag toggles. Each flag is a boolean.
-             */
-            feature_flags?: {
-                [key: string]: boolean;
-            };
-        };
         /** ShortestPathRequest */
         ShortestPathRequest: {
             /** Source Id */
@@ -8126,6 +7961,13 @@ export interface components {
             /** Profiling Scheduled */
             profiling_scheduled: boolean;
         };
+        /** UploadedFile */
+        UploadedFile: {
+            /** Name */
+            name: string;
+            /** Rows */
+            rows: number | null;
+        };
         /** ValidateStateRequest */
         ValidateStateRequest: {
             /** Workspace Id */
@@ -8483,6 +8325,39 @@ export interface operations {
             };
         };
     };
+    create_contact_request_api_v1_public_contact_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactRequestBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactRequestReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_source_file_api_v1_sources_upload_post: {
         parameters: {
             query?: never;
@@ -8503,6 +8378,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_batches_api_v1_sources_batches_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -12047,7 +11953,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
                 "x-organization-id"?: string;
             };
             path?: never;
@@ -12129,7 +12035,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
                 "x-organization-id"?: string;
             };
             path?: never;
@@ -12167,7 +12073,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -12199,7 +12105,9 @@ export interface operations {
     get_conversation_api_v1_agents_conversations__conversation_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-workspace-id"?: string | null;
+            };
             path: {
                 conversation_id: string;
             };
@@ -12232,7 +12140,9 @@ export interface operations {
     get_decision_room_timeline_api_v1_agents_decision_room__conversation_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-workspace-id"?: string | null;
+            };
             path: {
                 conversation_id: string;
             };
@@ -12266,7 +12176,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-workspace-id"?: string;
+                "x-workspace-id"?: string | null;
                 "x-correlation-id"?: string | null;
             };
             path?: never;
@@ -13816,6 +13726,39 @@ export interface operations {
                 "application/json": components["schemas"]["VanessaAskRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workspace_overview_api_v1_nexus_workspace_overview_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

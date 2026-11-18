@@ -279,16 +279,14 @@ jobs:
         run: |
           cd frontend
           npm ci
-          # Audit gate with an explicit advisory ratchet: accepted
-          # advisories (Next 14 line, fix = next 16 migration PR) are
-          # documented in scripts/audit-gate.mjs; any NEW high/critical
-          # production vulnerability fails. Also immune to the npm
-          # registry advisory-endpoint flakiness that flipped this gate
-          # red/green across identical commits.
-          node scripts/audit-gate.mjs || {
-            echo "::error title=audit-gate::node exited $?"
-            exit 1
-          }
+          # Thresholds, what counts as production and the reasons are in
+          # scripts/audit-gate.mjs; its decisions are tested in
+          # scripts/audit-gate.test.ts.
+          # Production dependencies: any high or critical advisory fails.
+          node scripts/audit-gate.mjs
+          # Build, lint and test tools: any critical advisory fails, the
+          # rest is reported.
+          node scripts/audit-gate.mjs --tools
 
   docker:
     runs-on: ubuntu-latest

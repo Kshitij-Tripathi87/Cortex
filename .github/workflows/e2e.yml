@@ -55,6 +55,9 @@ jobs:
           CORTEX_LLM_API_KEY: e2e-only-model-key
           CORTEX_LLM_MODEL: e2e-test-model
           NEXT_PUBLIC_API_URL: http://localhost:8000
+          # Compose reads the whole file, so the site address the API
+          # services require must be present although they are not started.
+          CORTEX_CORS_ALLOWED_ORIGINS: http://localhost:3000
           CORTEX_S3_ACCESS_KEY: minioadmin
           CORTEX_S3_SECRET_KEY: minioadmin
           CORTEX_S3_BUCKET: cortex-uploads
@@ -119,7 +122,7 @@ jobs:
         run: |
           cd frontend
           set +e
-          npx playwright test tests/critical-path-e2e.spec.ts tests/auth-e2e.spec.ts tests/realtime-e2e.spec.ts
+          npx playwright test tests/critical-path-e2e.spec.ts tests/auth-e2e.spec.ts tests/realtime-e2e.spec.ts tests/decision-room-e2e.spec.ts tests/public-forms-e2e.spec.ts
           rc=$?
           set -e
           # Surface run summary and each failed test as check-run

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
+import { recordName } from "@/lib/nexus/recordName";
 
 /**
  * World State Explorer (demo spec §2.B).
@@ -68,9 +69,7 @@ function nodeKey(node: GraphNode): string {
 }
 
 function nodeLabel(node: GraphNode): string {
-  const attributes = node.attributes ?? {};
-  const name = attributes.name ?? attributes.description ?? node.entity_id ?? node.node_id;
-  return String(name ?? "Unnamed entity");
+  return recordName(node.attributes, String(node.entity_id ?? node.node_id ?? "Unnamed entity"));
 }
 
 function nodeType(node: GraphNode): string {
@@ -276,7 +275,7 @@ export default function WorldExplorer() {
         )}
 
         {view === "explorer" && (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <NodeTable nodes={filteredNodes} onSelect={setSelectedKey} selectedKey={selectedKey} total={nodes.length} />
             <EntityDetail
               node={selectedNode}
@@ -357,7 +356,7 @@ function NodeTable({
   }
   return (
     <div className="border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3">
         <span className="eyebrow">Entities ({nodes.length}{nodes.length !== total ? ` of ${total}` : ""})</span>
         <span className="font-mono text-[10px] text-ink-muted">click a row for detail</span>
       </div>
@@ -498,7 +497,7 @@ function EntityDetailInline({
     return <p className="text-xs text-ink-secondary">Select a node to inspect its record.</p>;
   }
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div>
         <span className="eyebrow">Selected entity</span>
         <p className="mt-1 text-sm font-medium">{nodeLabel(node)}</p>
@@ -689,6 +688,9 @@ function QualityView({ nodes, edges, worldVersion }: { nodes: GraphNode[]; edges
         <div className="border-b border-border px-4 py-3">
           <span className="eyebrow">Per-type completeness</span>
         </div>
+        {/* A table cannot be narrower than its columns: it scrolls inside its
+            card instead of widening the page. */}
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="bg-surface-2 font-mono text-[9px] uppercase tracking-[0.1em] text-ink-muted">
             <tr>
@@ -719,6 +721,7 @@ function QualityView({ nodes, edges, worldVersion }: { nodes: GraphNode[]; edges
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
@@ -738,7 +741,7 @@ function ProvenanceView({ nodes, total }: { nodes: GraphNode[]; total: number })
   }
   return (
     <div className="border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3">
         <span className="eyebrow">Source provenance ({nodes.length}{nodes.length !== total ? ` of ${total}` : ""})</span>
         <span className="font-mono text-[10px] text-ink-muted">as recorded at ingestion</span>
       </div>

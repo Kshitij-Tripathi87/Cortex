@@ -26,6 +26,13 @@ B7 (login/logout/me) — backend half. Frontend auth UI follows in slice B2.
 | Generated artifacts | `backend/openapi.json` + `frontend/src/types/openapi.json` + `api.ts` regenerated (183 paths; also picks up 10 previously-unrecorded `/nexus/models/*`, `/nexus/inference/*` routes). |
 | Authz audit | `/signup`, `/reset/request`, `/reset/confirm` classified PUBLIC (note D3i) in test + `docs/architecture/ENDPOINT_AUTHZ_AUDIT.md`. |
 
+> **Update 2026-11-18.** Two rows above describe the code as it was then.
+> `POST /auth/reset/request` no longer creates a token outside dev/test: it
+> records a request, and an operator issues the single-use link (valid 24
+> hours by default). `scripts/admin_users.py` gained `reset-requests` and
+> `dismiss-reset`; trials and plans are changed with `scripts/admin_orgs.py`.
+> The current operator commands are in `docs/OPERATOR_TASKS.md`.
+
 ### Incidental fixes (found by testing, required for correctness)
 
 1. **`CORTEX_ENV` was silently ignored (critical).** Field `cortex_env` with

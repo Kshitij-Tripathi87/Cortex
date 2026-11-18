@@ -109,9 +109,14 @@ config module (`backend/app/config.py`). Missing required or invalid values fail
 fast with a clear error — never silent defaults. The closed set:
 
 ### 4.1 Required everywhere
-- `CORTEX_ENV` — `dev|staging|pilot|prod`. In `staging`, `pilot` and `prod` every API
-  request must carry a verified Bearer token; identity headers and the anonymous
-  development principal are accepted only in `dev` and `test`.
+- `CORTEX_ENV` — `dev|test|staging|pilot|prod`. **Required, no default.** Sign-in is
+  enforced everywhere except in the two local values: only `dev` and `test` accept
+  identity headers and the anonymous development principal, so never expose a
+  server running with either. In `staging`, `pilot` and `prod` every API request
+  must carry a verified Bearer token. The API (and every worker and operator
+  script that loads the settings) refuses to start, naming the problem, when the
+  variable is missing or holds any other value (`uat`, `prd`, ...): an unknown
+  name can no longer switch sign-in off by accident.
 - `CORTEX_LOG_LEVEL` — `trace|debug|info|warn|error`.
 - `CORTEX_DB_DSN` — asyncpg DSN with TLS enforced in staging+.
 - `CORTEX_REDIS_URL`.
@@ -141,10 +146,53 @@ fast with a clear error — never silent defaults. The closed set:
 - `NEXT_PUBLIC_API_VERSION` (`v1`).
 - `NEXT_PUBLIC_ENV` (for showing the environment badge).
 
-### 4.5 Forbidden configurations
+### 4.5 Site address, running behind a proxy, and stopping
+
+- `CORTEX_CORS_ALLOWED_ORIGINS` — the address the site is served from, for
+  example `https://app.example.com` (scheme and host, no path; several are
+  separated by commas, a JSON list is accepted too). The site runs in the
+  visitor's browser, and a browser lets a page call an API on another address
+  only if the API lists that page's address. The default lists a developer
+  machine only, so a deployment that does not set it cannot sign anyone in;
+  the API logs a warning at start-up in that case. `docker-compose.prod.yml`
+  and `deploy/staging/docker-compose.yml` refuse to start without it, the Helm
+  chart refuses to render without it. `*` is refused in staging, pilot and
+  prod. The counterpart is `NEXT_PUBLIC_API_URL`, the API address that is
+  built into the site image (a build argument; setting it on the running
+  container has no effect).
+- `FORWARDED_ALLOW_IPS` (read by uvicorn) — the address(es) of the load balancer
+  or ingress in front of the API. Sign-in, sign-up and password-reset limits are
+  counted per client address; without this setting every user appears to come
+  from the proxy and they all share one budget. Do not set it to `*` unless the
+  API is reachable only through the proxy: the header it trusts can be forged by
+  anyone who can reach the API directly.
+- `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN` (seconds, set to `8` in the backend image)
+  — on SIGTERM the API stops accepting connections, finishes the requests in
+  flight, and closes whatever is still open (live streams) after this long.
+  Keep it below the orchestrator's kill timeout (Docker 10 s, Kubernetes 30 s by
+  default); raise both together if long requests must be allowed to finish.
+
+### 4.6 Forbidden configurations
 - No DB DSN in the frontend.
 - No service account credentials in env files committed to the repo.
 - No `CORTEX_ENV=prod` in any non-prod environment config file.
+- No `CORTEX_ENV=dev` or `test` on anything reachable from outside a developer
+  machine or a CI job.
+
+### 4.7 The database role
+
+- The role in `CORTEX_DB_DSN` runs the migrations (`alembic upgrade head`) and
+  serves the API. It must own the database, or at least be able to create
+  schemas and tables in it: the API creates any table that is still missing
+  when it starts.
+- It does **not** need to be a superuser, and should not be one where you
+  have the choice. Until migration 026 the API only worked as a superuser:
+  under any other role the first upload failed on row-level security
+  policies the application never satisfied. Those policies are gone; an
+  ordinary role is tested (`backend/tests/test_ordinary_database_role.py`).
+- The database does not separate customers; the application does. See
+  `docs/architecture/TENANT_ISOLATION.md` before describing the isolation to
+  a customer.
 
 ---
 

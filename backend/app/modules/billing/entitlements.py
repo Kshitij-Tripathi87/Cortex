@@ -24,13 +24,14 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.access.models import Organization, Workspace
+from app.modules.billing.plans import describe_inactive, subscription_is_active
 from app.modules.orchestration.task_lifecycle import TERMINAL_STATUSES
 from app.modules.orchestration.task_runtime_models import TaskDB
 
@@ -45,9 +46,8 @@ class EntitlementDenied(Exception):
         self.http_status = http_status
 
 
-# Plans whose subscription never expires. "trial" is time-boxed by
-# trial_ends_at; unknown plan values fall back to the free tier.
-_PAID_PLANS = frozenset({"free", "pro", "enterprise"})
+# Which plans exist and when one is active: app.modules.billing.plans.
+# For the limits below, an unknown plan value falls back to the free tier.
 
 # Concurrent (non-terminal) task limit per plan. Product policy lives here,
 # not in the runtime or the routes.
@@ -100,20 +100,8 @@ class EntitlementService:
 
     @staticmethod
     def _subscription_active(org: Organization) -> bool:
-        """Paid plans are active; a trial is active until trial_ends_at.
-
-        SQLite reads back naive datetimes even for timezone=True columns;
-        normalize to UTC before comparing (same convention as the relay
-        health check).
-        """
-        if org.plan in _PAID_PLANS:
-            return True
-        if org.plan == "trial":
-            trial_ends = org.trial_ends_at
-            if trial_ends is not None and trial_ends.tzinfo is None:
-                trial_ends = trial_ends.replace(tzinfo=UTC)
-            return trial_ends is None or trial_ends >= datetime.now(UTC)
-        return False
+        """Non-expiring plans are active; a trial is active until trial_ends_at."""
+        return subscription_is_active(org.plan, org.trial_ends_at)
 
     async def snapshot(self, *, workspace_id: UUID) -> EntitlementSnapshot | None:
         """Read-only subscription state for a workspace (billing introspection)."""
@@ -150,8 +138,7 @@ class EntitlementService:
         if not self._subscription_active(org):
             raise EntitlementDenied(
                 "subscription_expired",
-                f"Subscription for organization '{org.name}' (plan '{org.plan}') "
-                f"expired at {org.trial_ends_at.isoformat() if org.trial_ends_at else 'unknown'}.",
+                describe_inactive(org.name, org.plan, org.trial_ends_at),
                 402,
             )
 
@@ -191,8 +178,7 @@ class EntitlementService:
             if not self._subscription_active(org):
                 raise EntitlementDenied(
                     "subscription_expired",
-                    f"Subscription for organization '{org.name}' (plan '{org.plan}') "
-                    f"expired at {org.trial_ends_at.isoformat() if org.trial_ends_at else 'unknown'}.",
+                    describe_inactive(org.name, org.plan, org.trial_ends_at),
                     402,
                 )
 

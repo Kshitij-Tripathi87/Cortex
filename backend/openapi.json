@@ -179,7 +179,7 @@
           "auth"
         ],
         "summary": "Request Password Reset",
-        "description": "Request a single-use reset token. Uniform response \u2014 never reveals\nwhether the email exists.",
+        "description": "Record a request for a password reset. Uniform response: never reveals\nwhether the email exists.\n\nCortex sends no email, so nothing is delivered from here. The request is\nrecorded on the user row; an operator lists the waiting requests with\n``scripts/admin_users.py reset-requests`` and sends the user a single-use\nlink by hand (``issue-reset``).\n\nOutside dev/test no token is created here. Nobody would receive it, and\nbecause a user has one live token at a time, creating one would cancel a\nlink an operator has already sent: anyone who knows an address could keep\ncancelling that user's reset.",
         "operationId": "request_password_reset_api_v1_auth_reset_request_post",
         "requestBody": {
           "content": {
@@ -256,6 +256,48 @@
         }
       }
     },
+    "/api/v1/public/contact-requests": {
+      "post": {
+        "tags": [
+          "public site"
+        ],
+        "summary": "Save a demo request or contact message from the public site.",
+        "description": "Store the request and return the reference of the stored row.",
+        "operationId": "create_contact_request_api_v1_public_contact_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRequestReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources/upload": {
       "post": {
         "tags": [
@@ -281,6 +323,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/batches": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List Batches",
+        "description": "Uploads of the workspace, newest first, each with its files and state.\n\nWithout this list an upload could only be reopened by someone who had kept\nits address: the review page needs the batch ID and nothing showed it.",
+        "operationId": "list_batches_api_v1_sources_batches_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchListResponse"
                 }
               }
             }
@@ -5682,8 +5767,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           },
@@ -5799,8 +5890,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           },
@@ -5858,7 +5955,7 @@
           "Agent Runtime"
         ],
         "summary": "List Conversations",
-        "description": "List past multi-agent deliberations in the current workspace.",
+        "description": "List past multi-agent deliberations in the caller's workspace.",
         "operationId": "list_conversations_api_v1_agents_conversations_get",
         "parameters": [
           {
@@ -5866,8 +5963,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           }
@@ -5905,7 +6008,7 @@
           "Agent Runtime"
         ],
         "summary": "Get Conversation",
-        "description": "Retrieve full details of a specific deliberation conversation.",
+        "description": "Retrieve full details of a deliberation held in the caller's workspace.\n\nA conversation that belongs to another workspace answers 404, the same as\nan id that does not exist.",
         "operationId": "get_conversation_api_v1_agents_conversations__conversation_id__get",
         "parameters": [
           {
@@ -5915,6 +6018,22 @@
             "schema": {
               "type": "string",
               "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
             }
           }
         ],
@@ -5962,6 +6081,22 @@
               "type": "string",
               "title": "Conversation Id"
             }
+          },
+          {
+            "name": "x-workspace-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
           }
         ],
         "responses": {
@@ -6005,8 +6140,14 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "default_workspace",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Workspace-Id"
             }
           },
@@ -6095,7 +6236,7 @@
           "Intelligence Gateway"
         ],
         "summary": "Promote Model",
-        "description": "Promote a validated shadow model to active production serving.",
+        "description": "Promote a validated shadow model to active production serving.\n\nThe model registry is shared by the whole server, so changing what it\nserves is a platform-administrator action. It needs the ``system_admin``\nrole, which no customer account carries: sign-up makes every new user\nthe ``admin`` of their own organization, so gating on ``admin`` would\nstill let any customer change what every other customer is served.",
         "operationId": "promote_model_api_v1_ai_models__model_id__promote_post",
         "parameters": [
           {
@@ -6141,7 +6282,7 @@
           "Intelligence Gateway"
         ],
         "summary": "Rollback Model",
-        "description": "Rollback an active deployment to the previous stable release.",
+        "description": "Rollback an active deployment to the previous stable release.\n\nPlatform-administrator action, for the same reason as ``promote_model``.",
         "operationId": "rollback_model_api_v1_ai_models__model_id__rollback_post",
         "parameters": [
           {
@@ -8412,6 +8553,52 @@
         }
       }
     },
+    "/api/v1/nexus/workspace/overview": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Workspace Overview",
+        "description": "Counts of the published records, and the late orders, low stock and flagged partners in them.",
+        "operationId": "workspace_overview_api_v1_nexus_workspace_overview_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Workspace Overview Api V1 Nexus Workspace Overview Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/nexus/risks": {
       "post": {
         "tags": [
@@ -9672,7 +9859,7 @@
           "Mobile"
         ],
         "summary": "Register Push",
-        "description": "Enroll a push token: one device, one provider, one token.",
+        "description": "Enroll a push token: one device, one provider, one token.\n\nThe device must be registered to the caller, so a push token can never be\nattached to somebody else's device.",
         "operationId": "register_push_api_v1_mobile_push_register_post",
         "requestBody": {
           "content": {
@@ -9764,7 +9951,7 @@
           "Voice"
         ],
         "summary": "Voice Token",
-        "description": "Short-lived, scoped voice token \u2014 identity validated server-side.",
+        "description": "Short-lived, scoped voice token \u2014 identity validated server-side.\n\nThe token carries the device id as a signed claim, so the device must be\nregistered to the caller: otherwise anyone could obtain a token that says\nit speaks for another user's device.",
         "operationId": "voice_token_api_v1_voice_token_post",
         "requestBody": {
           "content": {
@@ -10370,6 +10557,103 @@
         ],
         "title": "AuditEventResponse"
       },
+      "BatchListItem": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedFile"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "claims_accepted": {
+            "type": "integer",
+            "title": "Claims Accepted"
+          },
+          "claims_pending_review": {
+            "type": "integer",
+            "title": "Claims Pending Review"
+          },
+          "claims_rejected": {
+            "type": "integer",
+            "title": "Claims Rejected"
+          },
+          "open_conflicts": {
+            "type": "integer",
+            "title": "Open Conflicts"
+          },
+          "blocking_conflicts": {
+            "type": "integer",
+            "title": "Blocking Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "files",
+          "uploaded_at",
+          "state",
+          "published_version",
+          "claims_accepted",
+          "claims_pending_review",
+          "claims_rejected",
+          "open_conflicts",
+          "blocking_conflicts"
+        ],
+        "title": "BatchListItem",
+        "description": "One upload and where it stands between upload and publication."
+      },
+      "BatchListResponse": {
+        "properties": {
+          "batch_count": {
+            "type": "integer",
+            "title": "Batch Count"
+          },
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/BatchListItem"
+            },
+            "type": "array",
+            "title": "Batches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_count",
+          "batches"
+        ],
+        "title": "BatchListResponse"
+      },
       "BatchSimulationRequest": {
         "properties": {
           "workspace_id": {
@@ -10491,16 +10775,6 @@
             "type": "string",
             "title": "Workspace Id",
             "description": "Target workspace UUID"
-          },
-          "settings": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Settings"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -11024,6 +11298,96 @@
           "explanation"
         ],
         "title": "ConflictResponse"
+      },
+      "ContactRequestBody": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "general",
+              "sales",
+              "engineering",
+              "security",
+              "privacy",
+              "legal"
+            ],
+            "title": "Topic"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "consent": {
+            "type": "boolean",
+            "title": "Consent"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DemoDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "topic",
+          "full_name",
+          "email",
+          "message",
+          "consent"
+        ],
+        "title": "ContactRequestBody"
+      },
+      "ContactRequestReceipt": {
+        "properties": {
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference",
+          "received_at"
+        ],
+        "title": "ContactRequestReceipt"
       },
       "CreatePlanRequest": {
         "properties": {
@@ -12265,6 +12629,106 @@
           "sku"
         ],
         "title": "DemandInferenceRequest"
+      },
+      "DemoDetails": {
+        "properties": {
+          "job_title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Title"
+          },
+          "primary_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Role"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "company_size": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Size"
+          },
+          "challenges": {
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Challenges"
+          },
+          "current_systems": {
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Current Systems"
+          },
+          "desired_outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Outcome"
+          },
+          "timeline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeline"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DemoDetails",
+        "description": "The extra answers of the demo request form. All optional."
       },
       "DeployReplicasRequest": {
         "properties": {
@@ -14108,6 +14572,10 @@
               }
             ],
             "title": "Trial Ends At"
+          },
+          "subscription_active": {
+            "type": "boolean",
+            "title": "Subscription Active"
           }
         },
         "type": "object",
@@ -14116,7 +14584,8 @@
           "name",
           "slug",
           "plan",
-          "trial_ends_at"
+          "trial_ends_at",
+          "subscription_active"
         ],
         "title": "MeOrganization"
       },
@@ -18290,383 +18759,6 @@
         "title": "ScenarioType",
         "description": "Predefined scenario types for common disruptions."
       },
-      "Settings": {
-        "properties": {
-          "env": {
-            "type": "string",
-            "title": "Env",
-            "description": "dev|test|staging|pilot|prod",
-            "default": "dev"
-          },
-          "log_level": {
-            "type": "string",
-            "title": "Log Level",
-            "description": "trace|debug|info|warn|error",
-            "default": "info"
-          },
-          "app_name": {
-            "type": "string",
-            "title": "App Name",
-            "default": "cortex-backend"
-          },
-          "db_dsn": {
-            "type": "string",
-            "title": "Db Dsn",
-            "description": "PostgreSQL async DSN",
-            "default": "sqlite+aiosqlite:///./cortex_dev.db"
-          },
-          "db_pool_min": {
-            "type": "integer",
-            "title": "Db Pool Min",
-            "description": "Minimum DB pool size",
-            "default": 4
-          },
-          "db_pool_max": {
-            "type": "integer",
-            "title": "Db Pool Max",
-            "description": "Maximum DB pool size",
-            "default": 20
-          },
-          "redis_url": {
-            "type": "string",
-            "title": "Redis Url",
-            "default": "redis://localhost:6379/0"
-          },
-          "s3_endpoint": {
-            "type": "string",
-            "title": "S3 Endpoint",
-            "default": "http://localhost:9000"
-          },
-          "s3_bucket": {
-            "type": "string",
-            "title": "S3 Bucket",
-            "default": "cortex-uploads"
-          },
-          "s3_region": {
-            "type": "string",
-            "title": "S3 Region",
-            "default": "us-east-1"
-          },
-          "s3_access_key": {
-            "type": "string",
-            "title": "S3 Access Key",
-            "default": ""
-          },
-          "s3_secret_key": {
-            "type": "string",
-            "title": "S3 Secret Key",
-            "default": ""
-          },
-          "s3_use_path_style": {
-            "type": "boolean",
-            "title": "S3 Use Path Style",
-            "default": true
-          },
-          "upload_max_bytes": {
-            "type": "integer",
-            "title": "Upload Max Bytes",
-            "description": "200 MB default",
-            "default": 209715200
-          },
-          "upload_allowed_mime": {
-            "type": "string",
-            "title": "Upload Allowed Mime",
-            "default": "text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          },
-          "query_timeout_ms": {
-            "type": "integer",
-            "title": "Query Timeout Ms",
-            "default": 5000
-          },
-          "tx_timeout_ms": {
-            "type": "integer",
-            "title": "Tx Timeout Ms",
-            "default": 10000
-          },
-          "worker_concurrency": {
-            "type": "integer",
-            "title": "Worker Concurrency",
-            "default": 8
-          },
-          "worker_job_timeout_s": {
-            "type": "integer",
-            "title": "Worker Job Timeout S",
-            "default": 300
-          },
-          "otel_exporter_endpoint": {
-            "type": "string",
-            "title": "Otel Exporter Endpoint",
-            "default": "http://localhost:4317"
-          },
-          "metrics_port": {
-            "type": "integer",
-            "title": "Metrics Port",
-            "default": 8001
-          },
-          "quality_min_completeness": {
-            "type": "number",
-            "title": "Quality Min Completeness",
-            "default": 0.8
-          },
-          "quality_min_consistency": {
-            "type": "number",
-            "title": "Quality Min Consistency",
-            "default": 0.9
-          },
-          "quality_min_validity": {
-            "type": "number",
-            "title": "Quality Min Validity",
-            "default": 0.95
-          },
-          "conflict_severity_blocking": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Conflict Severity Blocking",
-            "description": "Severity levels that block readiness"
-          },
-          "default_page_size": {
-            "type": "integer",
-            "title": "Default Page Size",
-            "default": 50
-          },
-          "max_page_size": {
-            "type": "integer",
-            "title": "Max Page Size",
-            "default": 200
-          },
-          "max_retries": {
-            "type": "integer",
-            "title": "Max Retries",
-            "default": 3
-          },
-          "retry_delay_s": {
-            "type": "integer",
-            "title": "Retry Delay S",
-            "default": 1
-          },
-          "outbox_publisher_enabled": {
-            "type": "boolean",
-            "title": "Outbox Publisher Enabled",
-            "description": "Run the OutboxPublisher sweeper in this process",
-            "default": true
-          },
-          "outbox_publisher_id": {
-            "type": "string",
-            "title": "Outbox Publisher Id",
-            "description": "Stable publisher identity (dedicated relay worker); empty = random per-process id",
-            "default": ""
-          },
-          "outbox_sweep_interval_s": {
-            "type": "number",
-            "minimum": 0.05,
-            "title": "Outbox Sweep Interval S",
-            "description": "Idle delay between outbox sweep passes",
-            "default": 1.0
-          },
-          "outbox_batch_size": {
-            "type": "integer",
-            "maximum": 5000.0,
-            "minimum": 1.0,
-            "title": "Outbox Batch Size",
-            "description": "Max outbox rows claimed per sweep pass",
-            "default": 100
-          },
-          "outbox_lease_s": {
-            "type": "number",
-            "minimum": 1.0,
-            "title": "Outbox Lease S",
-            "description": "Claim lease: a claimed-but-unpublished row becomes reclaimable by a peer after this long (worker-crash recovery)",
-            "default": 30.0
-          },
-          "outbox_retry_base_s": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Outbox Retry Base S",
-            "description": "Failed-publish backoff base (doubles per attempt)",
-            "default": 1.0
-          },
-          "outbox_retry_max_s": {
-            "type": "number",
-            "minimum": 1.0,
-            "title": "Outbox Retry Max S",
-            "description": "Failed-publish backoff cap",
-            "default": 60.0
-          },
-          "outbox_max_attempts": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Outbox Max Attempts",
-            "description": "Attempts after which an unpublished row is flagged poison (loudly metriced; still retried with capped backoff, never dropped)",
-            "default": 50
-          },
-          "realtime_replay_limit": {
-            "type": "integer",
-            "maximum": 5000.0,
-            "minimum": 1.0,
-            "title": "Realtime Replay Limit",
-            "description": "Max events per replay page",
-            "default": 500
-          },
-          "realtime_resync_threshold": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Realtime Resync Threshold",
-            "description": "Gap size above which clients must snapshot/resync instead of replaying event-by-event",
-            "default": 1000
-          },
-          "realtime_sse_heartbeat_s": {
-            "type": "number",
-            "minimum": 1.0,
-            "title": "Realtime Sse Heartbeat S",
-            "description": "SSE keepalive comment interval",
-            "default": 15.0
-          },
-          "rate_limit_default_rps": {
-            "type": "number",
-            "title": "Rate Limit Default Rps",
-            "default": 10.0
-          },
-          "rate_limit_default_burst": {
-            "type": "integer",
-            "title": "Rate Limit Default Burst",
-            "default": 100
-          },
-          "rate_limit_expensive_rps": {
-            "type": "number",
-            "title": "Rate Limit Expensive Rps",
-            "default": 1.0
-          },
-          "rate_limit_expensive_burst": {
-            "type": "integer",
-            "title": "Rate Limit Expensive Burst",
-            "default": 10
-          },
-          "circuit_breaker_failure_threshold": {
-            "type": "integer",
-            "title": "Circuit Breaker Failure Threshold",
-            "default": 5
-          },
-          "circuit_breaker_timeout": {
-            "type": "number",
-            "title": "Circuit Breaker Timeout",
-            "default": 30.0
-          },
-          "jwt_secret": {
-            "type": "string",
-            "title": "Jwt Secret",
-            "description": "HS256 signing secret; required in pilot/prod",
-            "default": ""
-          },
-          "jwt_algorithm": {
-            "type": "string",
-            "title": "Jwt Algorithm",
-            "default": "HS256"
-          },
-          "jwt_audience": {
-            "type": "string",
-            "title": "Jwt Audience",
-            "default": "cortex-api"
-          },
-          "jwt_expiry_minutes": {
-            "type": "integer",
-            "maximum": 1440.0,
-            "minimum": 5.0,
-            "title": "Jwt Expiry Minutes",
-            "default": 60
-          },
-          "llm_provider": {
-            "type": "string",
-            "title": "Llm Provider",
-            "description": "deterministic|openai_compatible",
-            "default": "deterministic"
-          },
-          "llm_api_key": {
-            "type": "string",
-            "format": "password",
-            "title": "Llm Api Key",
-            "description": "Model gateway API key",
-            "default": "",
-            "writeOnly": true
-          },
-          "llm_base_url": {
-            "type": "string",
-            "title": "Llm Base Url",
-            "default": "https://api.openai.com/v1"
-          },
-          "llm_model": {
-            "type": "string",
-            "title": "Llm Model",
-            "description": "Exact model/deployment name",
-            "default": ""
-          },
-          "llm_timeout_s": {
-            "type": "number",
-            "maximum": 180.0,
-            "minimum": 1.0,
-            "title": "Llm Timeout S",
-            "default": 30.0
-          },
-          "llm_max_output_tokens": {
-            "type": "integer",
-            "maximum": 8192.0,
-            "minimum": 256.0,
-            "title": "Llm Max Output Tokens",
-            "default": 2048
-          },
-          "cors_allowed_origins": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Cors Allowed Origins",
-            "description": "Allowed CORS origins (comma-separated)"
-          },
-          "cors_allowed_methods": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Cors Allowed Methods"
-          },
-          "cors_allowed_headers": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Cors Allowed Headers"
-          },
-          "cors_allow_credentials": {
-            "type": "boolean",
-            "title": "Cors Allow Credentials",
-            "default": true
-          },
-          "nexus_v07_legacy_routes": {
-            "type": "boolean",
-            "title": "Nexus V07 Legacy Routes",
-            "description": "Mount the v0.7 in-memory Nexus routers under /v07-legacy/nexus/* (default False). Never enable in production.",
-            "default": false
-          },
-          "workspace_demo_routes": {
-            "type": "boolean",
-            "title": "Workspace Demo Routes",
-            "description": "Mount the unauthenticated, fixed-tenant /workspace/* demo singleton (default False). Test/dev affordance only \u2014 never enable in pilot/prod/staging.",
-            "default": false
-          },
-          "feature_flags": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Feature Flags",
-            "description": "Feature flag toggles. Each flag is a boolean."
-          }
-        },
-        "type": "object",
-        "title": "Settings",
-        "description": "Runtime configuration loaded from environment. No silent defaults."
-      },
       "ShortestPathRequest": {
         "properties": {
           "source_id": {
@@ -20138,6 +20230,31 @@
           "profiling_scheduled"
         ],
         "title": "UploadResponse"
+      },
+      "UploadedFile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "rows"
+        ],
+        "title": "UploadedFile"
       },
       "ValidateStateRequest": {
         "properties": {

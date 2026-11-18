@@ -389,7 +389,9 @@ async def ingest_csv_streaming(
     settings = get_settings()
     digest = hashlib.sha256()
     file_size = 0
-    with tempfile.NamedTemporaryFile(mode="wb", delete=True) as tmp:
+    # Read and write: the staged copy is read back below. Opened write-only,
+    # every upload ended in a server error at that point.
+    with tempfile.NamedTemporaryFile(mode="w+b", delete=True) as tmp:
         while True:
             chunk = await file.read(1024 * 1024)
             if not chunk:

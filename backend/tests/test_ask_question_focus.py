@@ -151,7 +151,24 @@ def test_residual_drops_topic_and_kind_words_so_values_can_be_matched() -> None:
         ("hello there", IntentType.GREETING),
         ("thanks a lot", IntentType.UNKNOWN),
         ("asdf qwerty zxcv", IntentType.UNKNOWN),
-        ("show me decisions", IntentType.UNKNOWN),
+        # The registers are asked for by their plain names.
+        ("show me decisions", IntentType.DECISION_QUERY),
+        ("decisions", IntentType.DECISION_QUERY),
+        ("what is waiting for approval?", IntentType.DECISION_QUERY),
+        ("show scenarios", IntentType.SCENARIO_QUERY),
+        ("list my saved scenarios", IntentType.SCENARIO_QUERY),
+        ("list risks", IntentType.RISK_QUERY),
+        # A scenario to run is still a what-if.
+        ("run a scenario where S-101 fails", IntentType.WHATIF),
+        # Two named records side by side is a reading of the data.
+        ("Compare S-100 and S-101", IntentType.GRAPH_QUERY),
+        ("Compare Acme Metals and Bharat Castings", IntentType.GRAPH_QUERY),
+        ("S-100 vs S-105", IntentType.GRAPH_QUERY),
+        ("compare the options for PO-5001", IntentType.COMPARE),
+        # A kind of record named by what it does.
+        ("Who supplies ball bearings?", IntentType.GRAPH_QUERY),
+        ("who do we buy the housings from?", IntentType.GRAPH_QUERY),
+        ("total quantity on order", IntentType.GRAPH_QUERY),
     ],
 )
 async def test_built_in_classifier_routes_questions(question: str, intent: IntentType) -> None:

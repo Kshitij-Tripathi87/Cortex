@@ -23,8 +23,11 @@ from app.common.context import ExecutionContext
 from app.common.ids import uuid7
 from app.infrastructure.message_bus import NexusTopic, get_message_bus
 from app.infrastructure.realtime_gateway import RealtimeChannel, get_realtime_gateway
-from app.infrastructure.security import AuthContext, get_current_user
-from app.modules.identity.models import UserPrincipal
+from app.infrastructure.security import (
+    AuthContext,
+    get_current_user,
+    resolve_request_workspace,
+)
 from app.modules.multi_agent.runtime.builtin_tools import create_default_tool_registry
 from app.modules.multi_agent.runtime.conversation_store import (
     ConversationRecord,
@@ -61,19 +64,33 @@ class ToolExecuteRequest(BaseModel):
     input_data: dict[str, Any] = Field(default_factory=dict)
 
 
+def _request_context(
+    auth: AuthContext, x_workspace_id: str | None, x_organization_id: str
+) -> ExecutionContext:
+    """Build the execution context for a request from the VERIFIED identity.
+
+    The workspace is never taken from the ``X-Workspace-Id`` header as given:
+    ``resolve_request_workspace`` refuses a workspace the caller may not use
+    and otherwise falls back to the caller's own. Before this, any signed-in
+    user could name another customer's workspace and read, write and broadcast
+    into it.
+    """
+    return ExecutionContext.from_request(
+        principal=auth,
+        workspace_id=resolve_request_workspace(auth, x_workspace_id),
+        organization_id=x_organization_id,
+    )
+
+
 @router.post("/deliberate")
 async def run_deliberation(
     req: DeliberationRequest,
-    principal: UserPrincipal = Depends(get_current_user),
-    x_workspace_id: str = Header(default="default_workspace"),
+    auth: AuthContext = Depends(get_current_user),
+    x_workspace_id: str | None = Header(default=None),
     x_organization_id: str = Header(default="default_org"),
 ) -> dict[str, Any]:
     """Execute a 3-round multi-agent deliberation across domain specialist agents."""
-    ctx = ExecutionContext.from_request(
-        principal=principal,
-        workspace_id=x_workspace_id,
-        organization_id=x_organization_id,
-    )
+    ctx = _request_context(auth, x_workspace_id, x_organization_id)
 
     priority_enum = TaskPriority.NORMAL
     with contextlib.suppress(ValueError):
@@ -171,7 +188,7 @@ async def list_agents(
 
 @router.get("/tools")
 async def list_tools(
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List all available tools governed by the tool registry."""
     tools = _tool_registry.list_available(frozenset({Capability.EXECUTE.value}))
@@ -181,16 +198,12 @@ async def list_tools(
 @router.post("/tools/execute")
 async def execute_tool(
     req: ToolExecuteRequest,
-    principal: UserPrincipal = Depends(get_current_user),
-    x_workspace_id: str = Header(default="default_workspace"),
+    auth: AuthContext = Depends(get_current_user),
+    x_workspace_id: str | None = Header(default=None),
     x_organization_id: str = Header(default="default_org"),
 ) -> dict[str, Any]:
     """Execute a tool through the capability and audit boundary."""
-    ctx = ExecutionContext.from_request(
-        principal=principal,
-        workspace_id=x_workspace_id,
-        organization_id=x_organization_id,
-    )
+    ctx = _request_context(auth, x_workspace_id, x_organization_id)
     result = await _tool_registry.execute(req.tool_name, req.input_data, ctx)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.error)
@@ -199,21 +212,28 @@ async def execute_tool(
 
 @router.get("/conversations")
 async def list_conversations(
-    principal: UserPrincipal = Depends(get_current_user),
-    x_workspace_id: str = Header(default="default_workspace"),
+    auth: AuthContext = Depends(get_current_user),
+    x_workspace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """List past multi-agent deliberations in the current workspace."""
-    convs = _conv_store.list_by_workspace(x_workspace_id)
+    """List past multi-agent deliberations in the caller's workspace."""
+    workspace_id = resolve_request_workspace(auth, x_workspace_id)
+    convs = _conv_store.list_by_workspace(workspace_id)
     return {"conversations": [c.to_dict() for c in convs]}
 
 
 @router.get("/conversations/{conversation_id}")
 async def get_conversation(
     conversation_id: str,
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
+    x_workspace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """Retrieve full details of a specific deliberation conversation."""
-    conv = _conv_store.get(conversation_id)
+    """Retrieve full details of a deliberation held in the caller's workspace.
+
+    A conversation that belongs to another workspace answers 404, the same as
+    an id that does not exist.
+    """
+    workspace_id = resolve_request_workspace(auth, x_workspace_id)
+    conv = _conv_store.get_in_workspace(conversation_id, workspace_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conv.to_dict()
@@ -222,10 +242,12 @@ async def get_conversation(
 @router.get("/decision-room/{conversation_id}")
 async def get_decision_room_timeline(
     conversation_id: str,
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
+    x_workspace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """Retrieve formatted Decision Room message trace timeline for frontend UI."""
-    conv = _conv_store.get(conversation_id)
+    workspace_id = resolve_request_workspace(auth, x_workspace_id)
+    conv = _conv_store.get_in_workspace(conversation_id, workspace_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {

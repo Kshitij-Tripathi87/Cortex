@@ -16,8 +16,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app.common.ids import uuid7
-from app.infrastructure.security import get_current_user
-from app.modules.identity.models import UserPrincipal
+from app.infrastructure.security import (
+    AuthContext,
+    get_current_user,
+    require_role,
+    resolve_request_workspace,
+)
 from app.modules.intelligence.gateway import (
     IntelligenceGateway,
     IntelligenceRequest,
@@ -26,6 +30,10 @@ from app.modules.intelligence.gateway import (
 from app.modules.intelligence.model_registry import ModelRegistry
 
 router = APIRouter(prefix="/ai", tags=["Intelligence Gateway"])
+
+# Role for actions that affect every customer on the server. Customer roles
+# (admin, operator, analyst, viewer) are per organization and never include it.
+PLATFORM_ADMIN_ROLE = "system_admin"
 
 _gateway = IntelligenceGateway()
 _model_registry = ModelRegistry()
@@ -45,11 +53,14 @@ class InferenceApiRequest(BaseModel):
 @router.post("/infer")
 async def execute_inference(
     req: InferenceApiRequest,
-    principal: UserPrincipal = Depends(get_current_user),
-    x_workspace_id: str = Header(default="default_workspace"),
+    auth: AuthContext = Depends(get_current_user),
+    x_workspace_id: str | None = Header(default=None),
     x_correlation_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """Execute AI model inference via the unified gateway with safety fallback."""
+    # The workspace comes from the verified identity, never from the header
+    # as given (a caller may only name a workspace they belong to).
+    workspace_id = resolve_request_workspace(auth, x_workspace_id)
     try:
         task_enum = IntelligenceTask[req.task.upper()]
     except KeyError:
@@ -62,8 +73,8 @@ async def execute_inference(
     req_obj = IntelligenceRequest(
         request_id=str(uuid7()),
         task=task_enum,
-        tenant_id=getattr(principal, "tenant_id", None) or "default_tenant",
-        workspace_id=x_workspace_id,
+        tenant_id=getattr(auth, "tenant_id", None) or "default_tenant",
+        workspace_id=workspace_id,
         correlation_id=corr_id,
         world_state_version=req.world_state_version,
         input_data=req.input_data,
@@ -91,7 +102,7 @@ async def execute_inference(
 
 @router.get("/models")
 async def list_models(
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List registered AI models, validation scores, and deployment targets."""
     models = _model_registry.list_models(org_id="default_org")
@@ -113,9 +124,17 @@ async def list_models(
 @router.post("/models/{model_id}/promote")
 async def promote_model(
     model_id: str,
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Promote a validated shadow model to active production serving."""
+    """Promote a validated shadow model to active production serving.
+
+    The model registry is shared by the whole server, so changing what it
+    serves is a platform-administrator action. It needs the ``system_admin``
+    role, which no customer account carries: sign-up makes every new user
+    the ``admin`` of their own organization, so gating on ``admin`` would
+    still let any customer change what every other customer is served.
+    """
+    require_role(PLATFORM_ADMIN_ROLE, auth)
     try:
         deployment = _model_registry.promote(model_id)
         return {
@@ -131,9 +150,13 @@ async def promote_model(
 @router.post("/models/{model_id}/rollback")
 async def rollback_model(
     model_id: str,
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Rollback an active deployment to the previous stable release."""
+    """Rollback an active deployment to the previous stable release.
+
+    Platform-administrator action, for the same reason as ``promote_model``.
+    """
+    require_role(PLATFORM_ADMIN_ROLE, auth)
     try:
         deployment = _model_registry.rollback(model_id)
         return {
@@ -147,7 +170,7 @@ async def rollback_model(
 
 @router.get("/baselines")
 async def list_baselines(
-    principal: UserPrincipal = Depends(get_current_user),
+    auth: AuthContext = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List registered deterministic baselines used for high-availability fallbacks."""
     return {

@@ -15,10 +15,12 @@ import { changePassword } from "@/lib/api/auth";
 import { AuthField } from "@/components/auth/AuthField";
 import { AuthAlert } from "@/components/auth/AuthAlert";
 import { changePasswordSchema, toFieldErrors, type FieldErrors } from "@/lib/auth/validation";
+import { planStatus } from "@/lib/auth/plan";
+import { PlanPausedNotice } from "@/components/auth/PlanPausedNotice";
 
 type NexusStatus =
   | { state: "loading" }
-  | { state: "ok"; count: number }
+  | { state: "ok"; hasDecisions: boolean }
   | { state: "forbidden" }
   | { state: "error"; message: string };
 
@@ -29,11 +31,16 @@ function NexusStatusCard({ workspaceId }: { workspaceId: string }): React.JSX.El
     let cancelled = false;
     void (async () => {
       try {
-        const data = await apiClient.get<{ decisions: unknown[]; count: number }>(
+        // The answer is an envelope ({ data: { decisions, count } }) and `count`
+        // is the number of rows returned, here at most one: enough to say
+        // whether the workspace has any decision, not how many.
+        const answer = await apiClient.get<{ data: { decisions: unknown[]; count: number } }>(
           "/nexus/decisions",
           { workspace_id: workspaceId, limit: 1 },
         );
-        if (!cancelled) setStatus({ state: "ok", count: data.count });
+        if (!cancelled) {
+          setStatus({ state: "ok", hasDecisions: (answer.data?.decisions?.length ?? 0) > 0 });
+        }
       } catch (error) {
         if (cancelled) return;
         // 403 here means "authenticated but not permitted" — the session
@@ -64,7 +71,9 @@ function NexusStatusCard({ workspaceId }: { workspaceId: string }): React.JSX.El
         <p data-testid="nexus-status-ok" className="text-sm">
           <span className="text-accent font-medium">Connected.</span>{" "}
           <span className="text-ink-secondary">
-            {status.count} decision{status.count === 1 ? "" : "s"} in this workspace.
+            {status.hasDecisions
+              ? "This workspace has recorded decisions."
+              : "No decisions recorded in this workspace yet."}
           </span>
         </p>
       )}
@@ -170,6 +179,7 @@ function ChangePasswordCard(): React.JSX.Element {
 
 export default function AppHomePage(): React.JSX.Element {
   const { user, workspace, organization, logout } = useAuth();
+  const plan = planStatus(organization);
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function onLogout(): Promise<void> {
@@ -181,15 +191,15 @@ export default function AppHomePage(): React.JSX.Element {
   return (
     <div data-testid="app-page" className="min-h-screen bg-bg text-ink">
       <header className="border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div>
             <p className="font-mono text-xs text-accent tracking-widest">NEXUS</p>
             <h1 className="text-lg font-semibold" data-testid="app-workspace-name">
               {workspace?.name ?? "Workspace"}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <span data-testid="app-user-email" className="font-mono text-xs text-ink-secondary">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <span data-testid="app-user-email" className="min-w-0 break-all font-mono text-xs text-ink-secondary">
               {user?.email}
             </span>
             <button
@@ -209,16 +219,17 @@ export default function AppHomePage(): React.JSX.Element {
           <h2 className="text-sm font-medium mb-2">Organization</h2>
           <p className="text-sm" data-testid="app-org-line">
             <span className="font-medium">{organization?.name}</span>{" "}
-            <span className="text-ink-secondary">
-              · {organization?.plan} trial
-              {organization?.trial_ends_at
-                ? ` · ends ${new Date(organization.trial_ends_at).toLocaleDateString()}`
-                : ""}
-            </span>
+            {plan ? (
+              <span className="text-ink-secondary" data-testid="app-plan">
+                · {plan.label}
+                {plan.detail ? ` · ${plan.detail}` : ""}
+              </span>
+            ) : null}
           </p>
+          <PlanPausedNotice testId="app-plan-paused" className="mt-3" />
           <div className="mt-4">
             <Link
-              href="/workspace/cockpit"
+              href="/nexus/cockpit"
               data-testid="open-workspace-link"
               className="inline-block bg-accent hover:bg-accent-hover text-white text-sm font-medium px-4 py-2"
             >

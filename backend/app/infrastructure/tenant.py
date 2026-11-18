@@ -1,42 +1,34 @@
-"""F4 — Tenant isolation primitives (Phase 15 production gate).
+"""Tenant context primitives. Not in use: read this before relying on them.
 
-PostgreSQL Row-Level Security (RLS) policies enforce tenant isolation
-at the database layer, but they need the tenant/workspace context
-to be visible to the policy. The standard pattern is:
+These helpers write two transaction-local settings, ``app.tenant_id`` and
+``app.workspace_id``, that a row-level security policy could compare rows
+against. No such policy exists any more:
 
-1. Define RLS policies that reference
-   `current_setting('app.current_tenant_id')` and
-   `current_setting('app.current_workspace_id')`.
-2. On every transaction, set these session variables to the
-   caller's tenant/workspace IDs using `SET LOCAL`, which
-   restricts the variable to the current transaction.
+* migrations 002 and 003 created policies on fourteen tables, but the
+  application wrote these settings in one place only (the audit log) and
+  never filled the ``tenant_id`` column most policies compared on;
+* connected as a superuser, PostgreSQL skipped the policies; connected as
+  any other role, the first upload failed. They protected nothing and made
+  the API depend on a superuser connection;
+* migration 026 removed them.
 
-This module provides:
+Nothing in the application calls this module now. Separation between
+customers is enforced by the application on every request, not by the
+database: ``docs/architecture/TENANT_ISOLATION.md`` says how, how it is
+tested, and what a database-level barrier would need (a role that cannot
+bypass policies, the settings written at the start of every transaction and
+not once per request, the workers that read across workspaces, and policies
+on every table that holds customer data, not fourteen of them).
 
-- ``TenantContext`` — a frozen value object carrying the
-  tenant_id and workspace_id. The FastAPI dependency
-  ``get_tenant_context`` extracts these from the authenticated
-  user's workspace membership and returns a ``TenantContext``.
-- ``with_tenant_context(session, ctx)`` — an async context
-  manager that executes a block of DB operations under the
-  tenant context. It issues ``SET LOCAL`` on the session so
-  RLS policies see the correct tenant. The ``LOCAL`` keyword
-  ensures the variable is automatically reset at transaction
-  end (commit or rollback), preventing cross-request leakage.
+What the helpers do, should they be used again:
 
-Hermetic: the module does not require a live DB. The test
-suite pins the contract with an in-memory SQLite DB that
-accepts `SET LOCAL` (no-op on SQLite, but the API contract
-is exercised).
-
-Security properties:
-- If a request has no tenant context, the DB returns NO
-  rows (RLS policies default-deny when the setting is
-  unset or empty). This is the correct fail-closed behavior.
-- ``TenantContext`` is immutable (frozen dataclass) so it
-  cannot be accidentally mutated after auth.
-- The FastAPI dependency validates that the user actually
-  belongs to the workspace; if not, it raises 403/404.
+- ``TenantContext`` is an immutable pair of tenant and workspace ids.
+- ``set_tenant_context(session, ctx)`` writes both settings with
+  ``set_config(..., true)``, the bind-parameter-safe form of ``SET LOCAL``.
+  The settings last until the transaction ends, so a request that commits
+  more than once must write them again after each commit.
+- ``with_tenant_context(session, ctx)`` does the same around a block, and
+  does nothing when ``ctx`` is None.
 """
 
 from __future__ import annotations
@@ -57,9 +49,8 @@ class TenantContext:
     The ``workspace_id`` is the workspace within that org.
     Both are UUID7 strings.
 
-    RLS policies reference these via
-    ``current_setting('app.current_tenant_id')`` and
-    ``current_setting('app.current_workspace_id')``.
+    A policy would read them as ``current_setting('app.tenant_id', true)``
+    and ``current_setting('app.workspace_id', true)``.
     """
 
     tenant_id: str
@@ -72,33 +63,18 @@ async def set_tenant_context(
 ) -> None:
     """Set the tenant context on the session via SET LOCAL.
 
-    ``SET LOCAL`` restricts the variable to the current
-    transaction. When the transaction commits or rolls back,
-    PostgreSQL automatically unsets it — no manual cleanup
-    is needed and cross-request leakage is impossible.
+    The settings last until the current transaction commits or rolls
+    back; PostgreSQL then clears them, so nothing leaks into the next
+    request on the same connection. A request that commits and carries on
+    must call this again.
 
-    The settings are namespaced under ``app.`` to avoid
-    colliding with any PostgreSQL built-in or extension
-    settings. They are created by the migration that adds
-    the RLS policies (``CREATE SETTING app.current_tenant_id``).
-
-    Raises:
-        sqlalchemy.exc.DatabaseError: If the session is
-            not in a transaction or the SET fails. The
-            caller should let this bubble — a failed SET
-            means RLS is not enforced, which is a security
-            incident.
+    The names are namespaced under ``app.``; PostgreSQL accepts any such
+    name without it being declared first.
     """
-    # Note: The session MUST be in a transaction for SET
-    # LOCAL to work. FastAPI's ``get_db`` dependency yields
-    # a session inside a transaction (the ``async with``
-    # block in the dependency). If called outside a
-    # transaction, the SET will error, which is correct
-    # fail-closed behavior.
     # set_config(..., true) is the bind-parameter-safe form of SET LOCAL:
     # utility commands (SET LOCAL) cannot take bind params through the
-    # extended protocol. The GUC names MUST match the RLS policies
-    # (migration 002): app.tenant_id / app.workspace_id.
+    # extended protocol. The names are the ones the removed policies of
+    # migration 002 read: app.tenant_id / app.workspace_id.
     await session.execute(
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": ctx.tenant_id},
@@ -116,24 +92,18 @@ async def with_tenant_context(
 ) -> AsyncGenerator[None]:
     """Execute a block with the tenant context set.
 
-    If ``ctx`` is None, the block runs without a tenant
-    context. RLS policies will see unset/empty settings and
-    default-deny (return zero rows). This is the correct
-    behavior for unauthenticated or cross-tenant requests
-    — the code simply sees no data.
+    If ``ctx`` is None, the block runs without the settings.
 
     Usage::
 
         async with with_tenant_context(session, tenant_ctx):
             result = await session.execute(select(MyModel))
-            # RLS policies see app.current_tenant_id
 
     The context manager yields ``None``; the caller uses
     the session normally.
     """
     if ctx is None:
-        # No tenant context — RLS default-deny will apply.
-        # We yield without setting anything.
+        # No tenant context: nothing is written.
         yield
         return
 

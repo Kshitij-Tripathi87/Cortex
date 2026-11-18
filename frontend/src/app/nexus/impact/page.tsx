@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
+import { recordName } from "@/lib/nexus/recordName";
 
 /**
  * Disruption & Impact Analysis (demo spec §2.C).
@@ -76,9 +77,7 @@ function nodeKey(node: GraphNode): string {
 }
 
 function nodeLabel(node: GraphNode): string {
-  const attributes = node.attributes ?? {};
-  const name = attributes.name ?? attributes.description ?? node.entity_id ?? node.node_id;
-  return String(name ?? "Unnamed entity");
+  return recordName(node.attributes, String(node.entity_id ?? node.node_id ?? "Unnamed entity"));
 }
 
 /** Simple paths from a start entity across persisted graph edges (BFS, depth-limited). */
@@ -262,14 +261,15 @@ export default function ImpactAnalysisPage() {
         {risks.length === 0 ? (
           <div className="border border-border bg-surface px-5 py-12 text-center">
             <div className="text-sm font-medium">No risk records</div>
-            <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-ink-secondary">
-              Risks appear here after operational data has been ingested and analyzed. Cortex does not
-              fabricate disruptions.
+            <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-ink-secondary" data-testid="impact-empty">
+              A risk record is added through the Cortex API by a person or an integration. Uploading
+              data does not create one. The late orders, low stock and flagged partners found in your
+              data are listed on the Command Center.
             </p>
-            <Link href="/upload" className="mt-4 inline-block text-xs text-accent hover:underline">Open data readiness →</Link>
+            <Link href="/nexus/cockpit" className="mt-4 inline-block text-xs text-accent hover:underline">Open the Command Center →</Link>
           </div>
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
             <div className="border border-border bg-surface">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <span className="eyebrow">Disruptions ({risks.length})</span>
@@ -335,7 +335,7 @@ export default function ImpactAnalysisPage() {
                   </dl>
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div className="border border-border bg-surface p-4">
                     <span className="eyebrow">Root causes</span>
                     {(selectedRisk.root_causes ?? []).length === 0 ? (

@@ -20,7 +20,7 @@ export default function IntelligencePage() {
         <div className="space-y-12 mb-24">
           {/* Section 1 */}
           <section className="bg-[#111111] border border-[#262626] p-8 lg:p-12">
-            <div className="grid lg:grid-cols-12 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-4">
                 <div className="font-mono text-[#10B981] text-sm tracking-wider mb-4">01. GRAPH</div>
                 <h2 className="text-3xl text-white font-medium mb-4">Graph Intelligence</h2>
@@ -28,7 +28,7 @@ export default function IntelligencePage() {
                   Designed to map entities, trace dependencies, and calculate propagation paths across the modeled environment.
                 </p>
               </div>
-              <div className="lg:col-span-8 grid md:grid-cols-2 gap-8 text-sm">
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
                 <div>
                   <h3 className="text-white font-mono tracking-wide mb-3 border-b border-[#262626] pb-2">CRITICAL-PATH REASONING</h3>
                   <p className="text-[#999999] leading-relaxed">
@@ -47,7 +47,7 @@ export default function IntelligencePage() {
 
           {/* Section 2 */}
           <section className="bg-[#111111] border border-[#262626] p-8 lg:p-12">
-            <div className="grid lg:grid-cols-12 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-4">
                 <div className="font-mono text-[#10B981] text-sm tracking-wider mb-4">02. RL</div>
                 <h2 className="text-3xl text-white font-medium mb-4">Reinforcement Learning</h2>
@@ -55,7 +55,7 @@ export default function IntelligencePage() {
                   Utilizes controlled simulation environments for policy evaluation and constraint-aware optimization.
                 </p>
               </div>
-              <div className="lg:col-span-8 grid md:grid-cols-2 gap-8 text-sm">
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
                 <div>
                   <h3 className="text-white font-mono tracking-wide mb-3 border-b border-[#262626] pb-2">CONTROLLED EVALUATION</h3>
                   <p className="text-[#999999] leading-relaxed">
@@ -74,7 +74,7 @@ export default function IntelligencePage() {
 
           {/* Section 3 */}
           <section className="bg-[#111111] border border-[#262626] p-8 lg:p-12">
-            <div className="grid lg:grid-cols-12 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-4">
                 <div className="font-mono text-[#10B981] text-sm tracking-wider mb-4">03. DELIBERATION</div>
                 <h2 className="text-3xl text-white font-medium mb-4">Multi-Agent Synthesis</h2>
@@ -82,7 +82,7 @@ export default function IntelligencePage() {
                   Employs specialized agent roles to generate, critique, and refine proposals.
                 </p>
               </div>
-              <div className="lg:col-span-8 grid md:grid-cols-2 gap-8 text-sm">
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
                 <div>
                   <h3 className="text-white font-mono tracking-wide mb-3 border-b border-[#262626] pb-2">PERSPECTIVE SYNTHESIS</h3>
                   <p className="text-[#999999] leading-relaxed">
@@ -101,7 +101,7 @@ export default function IntelligencePage() {
 
           {/* Section 4 */}
           <section className="bg-[#111111] border border-[#262626] p-8 lg:p-12">
-            <div className="grid lg:grid-cols-12 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-4">
                 <div className="font-mono text-[#10B981] text-sm tracking-wider mb-4">04. MEMORY</div>
                 <h2 className="text-3xl text-white font-medium mb-4">Decision Memory</h2>
@@ -109,7 +109,7 @@ export default function IntelligencePage() {
                   The foundational logging structure that preserves the relationship between context, recommendation, and outcome.
                 </p>
               </div>
-              <div className="lg:col-span-8 grid md:grid-cols-2 gap-8 text-sm">
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
                 <div>
                   <h3 className="text-white font-mono tracking-wide mb-3 border-b border-[#262626] pb-2">TRACEABILITY</h3>
                   <p className="text-[#999999] leading-relaxed">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
+import { decisionTitle, describeDecisionOptions } from "@/lib/nexus/decisionOptions";
 
 /**
  * Decision Room (demo spec §2.E).
@@ -251,6 +252,9 @@ export default function DecisionRoomPage() {
     }
   };
 
+  // The options as a person reads them: named, with the recommended one marked.
+  const optionsView = useMemo(() => describeDecisionOptions(selected), [selected]);
+
   const filteredDecisions = useMemo(() => {
     if (phaseFilter === "all") return decisions;
     return decisions.filter((decision) => decision.phase === phaseFilter);
@@ -308,15 +312,15 @@ export default function DecisionRoomPage() {
           )}
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
           <div className="border border-border bg-surface">
             <div className="border-b border-border px-4 py-3">
               <span className="eyebrow">Decisions ({filteredDecisions.length})</span>
             </div>
             {filteredDecisions.length === 0 ? (
-              <p className="px-4 py-8 text-center text-xs text-ink-secondary">
+              <p className="px-4 py-8 text-center text-xs leading-5 text-ink-secondary" data-testid="decisions-empty">
                 {decisions.length === 0
-                  ? "No decisions recorded. Decisions appear after the pipeline proposes a governed action."
+                  ? "No decisions recorded. A decision is added through the Cortex API by an integration or an operator; uploading data does not create one."
                   : "No decisions in this phase."}
               </p>
             ) : (
@@ -330,7 +334,10 @@ export default function DecisionRoomPage() {
                       selected?.decision_id === decision.decision_id ? "border-l-2 border-accent bg-surface-2" : "border-l-2 border-transparent"
                     }`}
                   >
-                    <div className="truncate text-sm font-medium text-ink">{decision.decision_id}</div>
+                    <div className="line-clamp-2 break-words text-sm font-medium text-ink" data-testid="decision-list-title">
+                      {decisionTitle(decision)}
+                    </div>
+                    <div className="mt-1 truncate font-mono text-[9px] text-ink-muted">{decision.decision_id}</div>
                     <div className="mt-1 flex items-center gap-2">
                       <span className={phaseBadge(decision.phase)}>{(decision.phase ?? "UNKNOWN").toUpperCase()}</span>
                       {decision.outcome_status && (
@@ -349,12 +356,17 @@ export default function DecisionRoomPage() {
             <div className="min-w-0 space-y-5">
               <div className="border border-border bg-surface">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
-                  <div>
-                    <span className="eyebrow">Recommended action</span>
-                    <h2 className="mt-1 text-base font-semibold">
-                      {selected.recommended_option_id ?? selected.chosen_option ?? "—"}
+                  <div className="min-w-0 flex-1">
+                    <span className="eyebrow">
+                      {optionsView.headlineKind === "chosen" ? "Chosen action" : "Recommended action"}
+                    </span>
+                    <h2 className="mt-1 break-words text-base font-semibold" data-testid="decision-recommended">
+                      {optionsView.headlineText}
                     </h2>
-                    <p className="mt-1 font-mono text-[10px] text-ink-muted">{selected.decision_id}</p>
+                    {optionsView.headline?.hasDescription && optionsView.headline.id && (
+                      <p className="mt-0.5 break-words text-[11px] text-ink-secondary">Option {optionsView.headline.id}</p>
+                    )}
+                    <p className="mt-1 break-all font-mono text-[10px] text-ink-muted">{selected.decision_id}</p>
                   </div>
                   <span className={phaseBadge(selected.phase)}>{(selected.phase ?? "UNKNOWN").toUpperCase()}</span>
                 </div>
@@ -370,17 +382,31 @@ export default function DecisionRoomPage() {
                   <Detail label="Expected cost" value={money(selected.recommended_cost)} />
                   <Detail label="Confidence" value={selected.confidence === null || selected.confidence === undefined ? "—" : `${Math.round(selected.confidence * 100)}%`} />
                   <Detail label="Policy" value={selected.policy_id ?? "not recorded"} />
-                  <Detail label="Alternatives on record" value={String(selected.options?.length ?? 0)} />
+                  <Detail label="Options on record" value={String(optionsView.options.length)} />
                   <Detail label="Evidence root" value={shortHash(selected.evidence_root_hash)} />
                   <Detail label="State hash" value={shortHash(selected.world_state_hash)} />
                 </dl>
 
-                {(selected.options ?? []).length > 0 && (
-                  <div className="border-t border-border px-5 py-3">
-                    <span className="eyebrow">Alternative actions considered</span>
-                    <ul className="mt-2 space-y-1 font-mono text-[10px] text-ink-secondary">
-                      {(selected.options ?? []).map((option, index) => (
-                        <li key={index}>· {JSON.stringify(option)}</li>
+                {optionsView.options.length > 0 && (
+                  <div className="border-t border-border px-5 py-3" data-testid="decision-options">
+                    <span className="eyebrow">Options on record ({optionsView.options.length})</span>
+                    <ul className="mt-2 space-y-2">
+                      {optionsView.options.map((option, index) => (
+                        <li key={index} className="min-w-0 text-xs text-ink-secondary" data-testid="decision-option">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="min-w-0 break-words font-medium text-ink">{option.name}</span>
+                            {option.recommended && <span className="badge badge-positive">RECOMMENDED</span>}
+                            {option.chosen && <span className="badge badge-neutral">CHOSEN</span>}
+                            {option.hasDescription && option.id && (
+                              <span className="break-all font-mono text-[10px] text-ink-muted">{option.id}</span>
+                            )}
+                          </div>
+                          {option.details.length > 0 && (
+                            <p className="mt-0.5 break-words text-[11px] leading-5">
+                              {option.details.map((detail) => `${detail.label}: ${detail.value}`).join(" · ")}
+                            </p>
+                          )}
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -444,7 +470,7 @@ export default function DecisionRoomPage() {
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="border border-border bg-surface">
                   <div className="border-b border-border px-4 py-3">
                     <span className="eyebrow">Supporting evidence ({evidence?.node_count ?? evidence?.nodes?.length ?? 0})</span>
@@ -516,7 +542,7 @@ export default function DecisionRoomPage() {
                     Reconstructed from authoritative decision, evidence, approval, transition, and scenario records.
                   </p>
                 </div>
-                <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 px-4 py-3 md:grid-cols-2">
                   <div>
                     <span className="eyebrow">Transition history</span>
                     <ul className="mt-2 space-y-1 font-mono text-[10px] text-ink-secondary">

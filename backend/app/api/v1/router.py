@@ -30,6 +30,7 @@ from app.api.v1 import (
     audit,
     auth,
     briefs,
+    contact,
     devices,
     execution,
     gnn,
@@ -60,6 +61,8 @@ from app.config import get_settings
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+# Public site: demo requests and contact messages (write-only, no account).
+api_router.include_router(contact.router, prefix="/public", tags=["public site"])
 api_router.include_router(sources.router, prefix="/sources", tags=["sources"])
 api_router.include_router(planning.router, prefix="/planning", tags=["material planning"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])

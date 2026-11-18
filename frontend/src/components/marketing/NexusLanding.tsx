@@ -219,7 +219,7 @@ export default function NexusLanding() {
             <span />
           </button>
           <div className="nx-header-actions">
-            <Link className="nx-text-link nx-workspace-link" href="/workspace/cockpit">Open workspace <span>↗</span></Link>
+            <Link className="nx-text-link nx-workspace-link" href="/nexus/cockpit">Open workspace <span>↗</span></Link>
             <Link className="nx-button nx-button-dark nx-button-small" href="/demo">Request a demo <span>↗</span></Link>
           </div>
         </div>
@@ -232,7 +232,7 @@ export default function NexusLanding() {
           <a href="#platform" onClick={() => setMobileNavOpen(false)}>Platform <span>01</span></a>
           <a href="#intelligence" onClick={() => setMobileNavOpen(false)}>Intelligence <span>02</span></a>
           <a href="#approach" onClick={() => setMobileNavOpen(false)}>Approach <span>03</span></a>
-          <Link href="/workspace/cockpit" onClick={() => setMobileNavOpen(false)}>Open workspace <span>↗</span></Link>
+          <Link href="/nexus/cockpit" onClick={() => setMobileNavOpen(false)}>Open workspace <span>↗</span></Link>
         </nav>
       </header>
 
@@ -395,7 +395,7 @@ export default function NexusLanding() {
               <p>Start with the operational picture. Move forward with evidence, context, and control.</p>
               <div className="nx-closing-actions">
                 <Link href="/demo" className="nx-button nx-button-white">Request a conversation <span>↗</span></Link>
-                <Link href="/workspace/cockpit" className="nx-light-link">Open workspace <span>↗</span></Link>
+                <Link href="/nexus/cockpit" className="nx-light-link">Open workspace <span>↗</span></Link>
               </div>
             </div>
           </div>
@@ -413,7 +413,7 @@ export default function NexusLanding() {
           </div>
           <div className="nx-footer-bottom">
             <span>© {new Date().getFullYear()} CORTEX. ALL RIGHTS RESERVED.</span>
-            <div><Link href="/security">Security</Link><Link href="/contact">Contact</Link><Link href="/workspace/cockpit">Workspace ↗</Link></div>
+            <div><Link href="/security">Security</Link><Link href="/contact">Contact</Link><Link href="/nexus/cockpit">Workspace ↗</Link></div>
           </div>
         </div>
       </footer>

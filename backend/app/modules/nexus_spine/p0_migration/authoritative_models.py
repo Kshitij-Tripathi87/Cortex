@@ -10,7 +10,9 @@ prediction provenance and closed-loop feedback.
 
 from __future__ import annotations
 
+import math
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -828,20 +830,11 @@ class AuthoritativeModelRegistry:
             )
             if deployed:
                 metrics = deployed.metrics or {}
-                if mtype == "forecast":
-                    accuracy = 1.0 - float(metrics.get("wape", 0.1))
-                elif mtype in ("risk", "sla"):
-                    accuracy = float(metrics.get("f1", metrics.get("accuracy", 0.92)))
-                elif mtype == "eta":
-                    accuracy = 1.0 - float(metrics.get("mape", 0.12))
-                else:
-                    accuracy = float(metrics.get("accuracy", 0.88))
-
                 summary[label] = {
                     "model_id": deployed.model_id,
                     "name": deployed.name,
                     "version": deployed.version,
-                    "accuracy": round(min(1.0, max(0.0, float(accuracy))), 4),
+                    "accuracy": measured_accuracy(mtype, metrics),
                     "deployed_at": deployed.deployed_at.isoformat()
                     if deployed.deployed_at
                     else None,
@@ -853,12 +846,47 @@ class AuthoritativeModelRegistry:
                     "model_id": None,
                     "name": None,
                     "version": None,
-                    "accuracy": 0.0,
+                    # No model, so no accuracy. (0.0 read as "0% accurate".)
+                    "accuracy": None,
                     "deployed_at": None,
                     "status": "unassigned",
                 }
 
         return summary
+
+
+def measured_accuracy(model_type: str, metrics: Mapping[str, Any]) -> float | None:
+    """Accuracy of a deployed model from the metrics recorded for it, or None.
+
+    A forecast is scored as 1 - WAPE, an arrival-time model as 1 - MAPE, a risk
+    or service-level model by its F1 (or accuracy), anything else by its
+    accuracy. When the metric was never recorded there is no figure to show.
+    This used to fall back to a fixed number instead (0.9 for a forecast
+    without a WAPE, 0.92 for a risk model without an F1, 0.88 elsewhere), so a
+    model nobody had measured was reported as about 90% accurate.
+    """
+
+    def recorded(*names: str) -> float | None:
+        for name in names:
+            value = metrics.get(name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            if math.isfinite(value):
+                return float(value)
+        return None
+
+    score: float | None
+    if model_type == "forecast":
+        wape = recorded("wape")
+        score = None if wape is None else 1.0 - wape
+    elif model_type == "eta":
+        mape = recorded("mape")
+        score = None if mape is None else 1.0 - mape
+    elif model_type in ("risk", "sla"):
+        score = recorded("f1", "accuracy")
+    else:
+        score = recorded("accuracy")
+    return None if score is None else round(min(1.0, max(0.0, score)), 4)
 
 
 _singleton: AuthoritativeModelRegistry | None = None
@@ -883,6 +911,7 @@ __all__ = [
     "PromotionGateFailedError",
     "ModelRollbackError",
     "validate_promotion_gates",
+    "measured_accuracy",
     "AuthoritativeModelRegistry",
     "get_authoritative_model_registry",
 ]

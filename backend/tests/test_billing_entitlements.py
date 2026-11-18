@@ -293,6 +293,17 @@ class TestExpiredSubscription:
             headers=_h(me["token"]),
         )
         assert resp.status_code == 402, resp.text
+        # The refusal is something a person can read: what ended, what is
+        # paused, what still works, and what to do. No database internals.
+        detail = resp.json()["detail"]
+        assert detail.startswith("The trial of 'Billing Org ")
+        assert " ended on " in detail
+        assert (
+            "Creating, running and approving tasks is paused; existing data stays available."
+            in detail
+        )
+        assert "Contact the Cortex team to continue." in detail
+        assert "expired at" not in detail and "+00:00" not in detail
 
     async def test_expired_trial_denies_run_and_approvals_402(self, api_client) -> None:
         client, maker = api_client

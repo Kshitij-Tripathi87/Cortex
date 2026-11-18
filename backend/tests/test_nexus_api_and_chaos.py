@@ -139,13 +139,21 @@ def test_deliberate_api_and_decision_room_flow(client):
     assert len(convs) == 1
     conv_id = convs[0]["conversation_id"]
 
-    # 3. Get single conversation detail
-    detail_resp = client.get(f"/api/v1/agents/conversations/{conv_id}")
+    # 3. Get single conversation detail. A conversation is readable only from
+    # the workspace it belongs to, so the same workspace is named here; the id
+    # alone (which lands in a different workspace) answers 404.
+    detail_resp = client.get(
+        f"/api/v1/agents/conversations/{conv_id}", headers={"x-workspace-id": ws_id}
+    )
     assert detail_resp.status_code == 200
     assert detail_resp.json()["conversation_id"] == conv_id
+    assert client.get(f"/api/v1/agents/conversations/{conv_id}").status_code == 404
+    assert client.get(f"/api/v1/agents/decision-room/{conv_id}").status_code == 404
 
     # 4. Get Decision Room timeline
-    room_resp = client.get(f"/api/v1/agents/decision-room/{conv_id}")
+    room_resp = client.get(
+        f"/api/v1/agents/decision-room/{conv_id}", headers={"x-workspace-id": ws_id}
+    )
     assert room_resp.status_code == 200
     room_data = room_resp.json()
     assert "timeline" in room_data

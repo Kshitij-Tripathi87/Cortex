@@ -47,7 +47,7 @@ from typing import Any, cast
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from app.config import get_settings
+from app.config import get_settings, is_local_environment
 
 __all__ = [
     "AuthContext",
@@ -100,11 +100,11 @@ class AuthContext:
 
 
 def _is_strict_env() -> bool:
-    """True when auth must be enforced (staging / pilot / prod)."""
+    """True when auth must be enforced: every environment except dev/test."""
     settings = get_settings()
-    # Same rule as app/infrastructure/security.py: staging is strict too, and
-    # "production" is accepted defensively.
-    return settings.env.strip().lower() in {"prod", "production", "pilot", "staging"}
+    # Same rule as app/infrastructure/security.py: anything that is not
+    # explicitly a local environment is strict (fails closed).
+    return not is_local_environment(getattr(settings, "env", None))
 
 
 def _header(request: Request, name: str) -> str | None:

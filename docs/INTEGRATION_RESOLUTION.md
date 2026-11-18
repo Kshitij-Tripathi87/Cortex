@@ -50,11 +50,37 @@ Every PR head commit is an ancestor of the integration head. Merging the integra
 - Applied without conflict: the frontend library rewire (`http.ts` delegates to the auth client; signals, graph, realtime, `WorkspaceContext`, `AskNexusBar`), removal of seven demo clients, `/nexus/cockpit` on `DisruptionCockpit`, and redirects for `/agents`, `/decisions`, `/graph`, `/mvp`, `/propagation`, `/recommendations`, `/scenarios` and `/signals`.
 - The Workflo router is **not** mounted. `main` removed the mount in 8357310 and that decision is kept; `app/api/v1/router.py` documents how to re-enable it. The package and its tests remain in the tree.
 - Six files under `frontend/src/app/` stay at their `main` version instead of PR #14's retirement redirects: `app/page.tsx`, `nexus/page.tsx`, `conflicts/page.tsx`, `readiness/page.tsx`, `audit/page.tsx` and `workspace/layout.tsx`. The release E2E specs assert those pages, `/app` holds the only logout and change-password UI, and the Decision Room at `/workspace/agents/decision-room` renders under that layout. Follow-up: `nexus/page.tsx`, `conflicts/page.tsx` and `readiness/page.tsx` have since been retired (see "Follow-up fixes" below).
+  - Update 2026-11-18: `workspace/layout.tsx` and the rest of `frontend/src/app/workspace/` have since been removed. The area only showed built-in sample data; its addresses now redirect to `/nexus/cockpit` (task review to `/nexus/decision-room/task`), which is the outcome PR #14's redirect intended.
 - PR #14's RC0 release changes are not release-qualified until staging acceptance, disaster-recovery rehearsal and rollback rehearsal are evidenced. Merging the code does not bypass those requirements.
 
 ### Frontend dependencies
 
 The consolidation branch carried PR #11's audit gate, which accepts no high or critical production advisories, together with `main`'s Next 14.2.35 manifest. That combination failed the gate. `frontend/package.json` and `frontend/package-lock.json` are taken from PR #11: Next 15.5.28, `eslint-config-next` 15.5.28, PostCSS 8.5.32 with overrides for `postcss` and `source-map-js`.
+
+- Update 2026-11-18: the gate failed on `main` (10 entries), all from one
+  advisory against `picomatch` (GHSA-fc5q-39xc-vjpf) for which no fixed
+  release exists. It was reached only through Tailwind, which was listed
+  under `dependencies` together with PostCSS and Autoprefixer although all
+  three only compile the style sheet during `next build`. The image
+  (`.next/standalone`, 17 packages, checked) holds neither Tailwind nor
+  Autoprefixer; it does hold PostCSS, but as a dependency of Next itself, at
+  the patched 8.5.32 the existing override pins. They are now
+  `devDependencies`, and the production gate reports nothing. Because the
+  `docker` job of `ci.yml` needs the `security` job, no image could be built
+  on `main` while the gate failed.
+  - Vitest went from 2.1.9 to 4.1.12, which removes two critical advisories
+    (Vitest, Tinypool) and those against Vite 5 and esbuild. Vite is held at
+    7.x by an override: with Vite 8 in the tree, npm 10 fails on its optional
+    developer-tools peer with `Cannot read properties of null (reading
+    'edgesOut')`. `npm audit fix` and one in-range update cleared the rest.
+    Before: 2 critical, 18 high, 9 moderate. After: the `picomatch` advisory
+    alone, in build, lint and test tools.
+  - `node scripts/audit-gate.mjs` checks production dependencies and fails on
+    high or critical; `--tools` checks every dependency and fails on
+    critical. An audit the registry does not answer fails after three
+    attempts instead of passing. `scripts/audit-gate.test.ts` covers these
+    decisions. The `dependencies` job of `security.yml`, whose two audits
+    ended in `|| true`, now runs the same gates, weekly as well.
 
 ### CI workflows
 
@@ -80,6 +106,7 @@ Migrations 022 and 023 create only what is missing, so the objects such a databa
 - **`ci.yml` was invalid YAML on PR #13.** An unquoted `sqlite+aiosqlite:///:memory:` value ends in a colon and parsed as a mapping key, so none of the `ci.yml` jobs ran on that PR.
 - **Six structural CSV parser tests could not pass.** Their payloads were double-escaped.
 - **Audit events failed on SQLite.** `audit.emit()` resolved the tenant from `core.organizations` and wrote the RLS session GUCs on every dialect. Both steps now run on PostgreSQL only; the PostgreSQL path is unchanged.
+  - Update 2026-11-18: the session settings are no longer written at all. Migration 026 removed the row-level security policies that read them: the application never satisfied them, so they did nothing under a superuser connection and blocked every upload under any other role (`docs/architecture/TENANT_ISOLATION.md`). The organization lookup stays, to fill `audit_events.tenant_id`.
 - **Every readiness computation raised `TypeError`.** The row-level compiler rewrite dropped `ReadinessResult.explanation`, which broke batch compile, the readiness endpoint and the graph publish check.
 - **Brief generation failed for scenarios with an affected warehouse.** Migration 020 changed inventory quantity and safety stock to `NUMERIC(18, 4)`, and the disruption engines multiply those values by floats. The brief adapter now converts to whole units; a fractional remainder is dropped.
 - **Two retry-idempotency tests used the previous `extract_claims()` signature.** They now pass the parsed rows. Their assertions are unchanged.
@@ -141,7 +168,16 @@ Fixed after the follow-up fixes above. All of these defects predate this work.
 - **Conflict resolution rule.** One value per field of a record reaches the graph. The record a claim describes is identified by the primary-key cell of its own row (the server derives it; the evidence page never sent an entity key, so no conflict was ever raised there and the first of two disagreeing rows was published without notice). Different accepted values for one field of one record raise one blocking conflict, which grows as further rows join it. `approved` keeps the selected claim and supersedes the others, accepted or pending; `rejected` rejects the selected claim, or all of them; `suppressed` records that the finding is not a real conflict, after which the first row's value is published; `escalated` keeps publishing blocked. Previously `approved` and `rejected` answered HTTP 409 for every conflict, because they required a pending claim while conflicts only form between accepted ones. Rows that share a key are merged field by field, so a later row can supply a field an earlier row lacks, and a record's own row is no longer dropped when an earlier row only referred to it.
 - **Staging accepted unauthenticated requests.** Only `prod`, `production` and `pilot` enforced Bearer tokens. `staging` now does too, compared without regard to case or surrounding spaces. `deploy/staging/docker-compose.yml` did not pass `CORTEX_JWT_SECRET` to the outbox relay or any `CORTEX_LLM_*` variable to the API, while the settings require them in staging, so neither container could start; they are now passed through.
 - **Unreadable text on the evidence page.** The page is a light surface inside the dark theme and inherited near-white body text wherever an element had no colour class (the published-snapshot figures, the confidence column, form controls), and its signed-out and no-batch states put dark text on the dark page background. Every state of the page now uses one light surface with a dark base text colour.
-- **Coverage.** `tests/test_ask_question_focus.py`, `test_ask_workspace_facts.py`, `test_ask_answer_rendering.py`, `test_ask_grounded_answers.py` (upload, review, publish and ask over HTTP, including a stubbed model gateway), `test_ask_workspace_evidence_postgres.py` (every evidence query on real PostgreSQL), `test_publish_uses_uploaded_rows.py`, `test_conflict_resolution_rule.py`, `test_staging_requires_authentication.py`, `frontend/src/lib/nexus/ask.test.ts`, and a browser test in `frontend/tests/critical-path-e2e.spec.ts` that publishes a file and asks about it in the cockpit.
+- **Update 2026-11-18: questions that were misread.** Six ordinary phrasings got no answer or the answer to another question. Each stands for a kind of question, and the kind is now read:
+  - *Who supplies a part* ("Who supplies ball bearings?"). A verb can name a kind of record ("supplies", "made by", "who do we buy ... from"), a regular plural names the record its singular names, and a supplier is linked to a product through the orders that name both. Before, "which supplier delivers the cast iron housing?" answered "None of the 6 suppliers refer to C-2000", because a supplier row never mentions a product.
+  - *The registers by name* ("show me decisions", "show scenarios"). The second used to start a what-if with nothing to simulate.
+  - *A country by name* ("Which suppliers are in Germany?" listed all six: the file stores `DE`). `country_names.py` maps names, adjectives and three-letter codes to the stored code and back. A country nobody is in gives an empty list. "Not in DE" used to be read as "in DE". For orders and stock, which have no country of their own, the country is read from the supplier, customer or warehouse the record names; the same goes for any field only that record has ("orders from tier 1 suppliers").
+  - *One figure* ("total quantity on order" listed the orders). Sum, average, highest and lowest of a numeric field, with the records that could not be read counted and left out, and a total over orders or stock broken down by product. A total of something the rows do not hold ("total value") is refused with the list of numeric fields; the quantity is not offered in its place.
+  - *Something the data does not hold* ("weather in Pune" answered with the Pune warehouse). The answer now starts by saying the published data holds nothing about "weather" for that record and lists its fields.
+  - *Two records side by side* ("Compare Acme Metals and Bharat Castings" went to the recommendation tool, led with one of the two, and was refused to viewers). It is a reading of the data: the fields of each, in the order asked, with their orders and stock, and no ranking.
+- **A false sentence found on the way.** A record with exactly one linked order that was on time was described as "The 1 purchase order linked to it is late or flagged". The same sentence was used on the Command Center for a workspace with one order. It now reads "is not late or flagged".
+- **What is still not read.** A filter on a field that both kinds of record have ("confirmed orders from active suppliers" reads "confirmed" and "active" as alternatives for the orders and for the suppliers alike); a ranking by a count ("which supplier has the most late orders" lists the suppliers with late orders, most first, without naming one); arithmetic across fields (quantity times price); dates as ranges ("orders due next week" lists every order). A record recognised from a single word of its name is a guess, and the answer says how it was read ("I read \"bearings\" as C-2004 Ball Bearing 6205").
+- **Coverage.** `tests/test_ask_question_focus.py`, `test_ask_workspace_facts.py`, `test_ask_answer_rendering.py`, `test_ask_grounded_answers.py` (upload, review, publish and ask over HTTP, including a stubbed model gateway), `test_ask_workspace_relations.py` and `test_ask_country_names.py` (links through orders, figures, countries), `test_ask_workspace_evidence_postgres.py` (every evidence query on real PostgreSQL), `test_publish_uses_uploaded_rows.py`, `test_conflict_resolution_rule.py`, `test_staging_requires_authentication.py`, `frontend/src/lib/nexus/ask.test.ts`, and a browser test in `frontend/tests/critical-path-e2e.spec.ts` that publishes a file and asks about it in the cockpit.
 
 ## Open items
 

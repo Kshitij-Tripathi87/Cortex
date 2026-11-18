@@ -633,3 +633,476 @@ async def test_configured_model_is_given_the_same_grounded_evidence(
     assert "evidence truncated" not in evidence
     # The workspace evidence leads the payload, ahead of the legacy fields.
     assert evidence.index('"workspace_data"') < evidence.index('"snapshot_id"')
+
+
+async def test_configured_model_is_given_computed_figures_and_what_is_missing(
+    stack: Stack, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A model answers from the same evidence, so the evidence must carry the
+    figure, the comparison and the note that something is not in the data."""
+    await stack.publish_all()
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        requests.append(payload)
+        content = (
+            '{"intent":"graph_query","confidence":0.9,"entities":{}}'
+            if "response_format" in payload
+            else "MODEL ANSWER"
+        )
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    model_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = OpenAICompatibleLLMAdapter(
+        base_url="https://model-gateway.example/v1",
+        api_key="test-secret",
+        model="test-model",
+        client=model_client,
+    )
+    monkeypatch.setattr(nexus_persistent, "get_llm_adapter", lambda settings=None: adapter)
+    try:
+        for question in (
+            "total quantity on order",
+            "Compare Acme Metals and Bharat Castings",
+            "weather in Pune",
+            "Who supplies ball bearings?",
+        ):
+            assert (await stack.ask(question))["response"] == "MODEL ANSWER"
+    finally:
+        await model_client.aclose()
+
+    prompts = [request["messages"] for request in requests if "response_format" not in request]
+    total, comparison, weather, supplier = (
+        json.loads(messages[1]["content"])["evidence"] for messages in prompts
+    )
+    system_prompt = prompts[0][0]["content"]
+    assert "A result of kind aggregate is a figure computed from the rows" in system_prompt
+    assert "do not rank them or pick one" in system_prompt
+
+    for fact in ('"kind":"aggregate"', '"field":"quantity"', '"value":7380.0', '"with_value":7'):
+        assert fact in total, fact
+    for fact in ('"kind":"comparison"', "Acme Metals GmbH", "Bharat Castings Pvt Ltd"):
+        assert fact in comparison, fact
+    # In the order the question names them.
+    assert comparison.index("Acme Metals GmbH") < comparison.index("Bharat Castings Pvt Ltd")
+    assert '"unanswered":[{"words":["weather"]' in weather
+    for fact in ('"via":"orders"', '"order_count":1', '"late_order_count":1', "Kyoto Bearings KK"):
+        assert fact in supplier, fact
+
+
+# ── Questions the built-in assistant used to misread ────────────────────────
+#
+# Six phrasings were reported: two were not understood at all, three got an
+# answer to a different question, and one named a record and ignored the rest
+# of the question. Each is pinned here together with its neighbours.
+
+
+async def test_who_supplies_a_part_is_answered_from_the_orders(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # Not understood before ("supplies" is not the word "supplier", and
+    # "ball bearings" is not "Ball Bearing 6205").
+    answer = await stack.ask("Who supplies ball bearings?")
+    assert answer["intent"] == "graph_query"
+    assert answer["actions_taken"] == ["nexus.graph.read"]
+    assert answer["response"].startswith(
+        "1 of 6 suppliers appears on your orders for C-2004 Ball Bearing 6205:\n"
+        "- S-105 Kyoto Bearings KK (1 order, 1 late): country: JP;"
+    )
+    _assert_plain_language(answer["response"])
+
+    # A supplier record never names a product, so this used to answer "None
+    # of the 6 suppliers refer to C-2000 Cast Iron Housing."
+    housing = await stack.ask("which supplier delivers the cast iron housing?")
+    assert housing["response"].startswith(
+        "2 of 6 suppliers appear on your orders for C-2000 Cast Iron Housing:"
+    )
+    assert "- S-101 Bharat Castings Pvt Ltd (2 orders, 2 late):" in housing["response"]
+    assert "- S-100 Acme Metals GmbH (1 order, 0 late):" in housing["response"]
+    for other in ("S-102", "S-103", "S-104", "S-105"):
+        assert other not in housing["response"]
+
+    for same_question in (
+        "who do we buy the housings from?",
+        "who is the supplier of Cast Iron Housing?",
+        "who supplies C-2000?",
+    ):
+        assert (await stack.ask(same_question))["response"].startswith(
+            "2 of 6 suppliers appear on your orders for C-2000 Cast Iron Housing:"
+        ), same_question
+
+    # From the supplier's side, and from an order to its warehouse.
+    products = await stack.ask("which products come from Bharat Castings?")
+    assert products["response"].startswith(
+        "1 of 6 products appears on your orders for S-101 Bharat Castings Pvt Ltd:\n"
+        "- C-2000 Cast Iron Housing (2 orders, 2 late):"
+    )
+    warehouse = await stack.ask("which warehouse is PO-5001 going to?")
+    assert warehouse["response"].startswith(
+        "1 of 2 facilities is named on PO-5001:\n- WH-PUNE Pune Plant Store:"
+    )
+    # A field that names the record directly is still read first.
+    orders = await stack.ask("Which purchase orders are from supplier S-101?")
+    assert orders["response"].startswith(
+        "2 of 7 purchase orders refer to S-101 Bharat Castings Pvt Ltd:"
+    )
+
+
+async def test_a_record_guessed_from_one_word_is_reported_as_a_guess(stack: Stack) -> None:
+    await stack.publish_all()
+
+    answer = await stack.ask("Who supplies bearings?")
+    assert answer["response"].startswith(
+        "1 of 6 suppliers appears on your orders for C-2004 Ball Bearing 6205:"
+    )
+    # The supplier called "Kyoto Bearings" is not what was asked about, and
+    # the reading is stated so a wrong one can be seen.
+    assert 'I read "bearings" as C-2004 Ball Bearing 6205.' in answer["response"]
+
+    # A word no name carries changes nothing and is not guessed at.
+    plain = await stack.ask("Which suppliers are reliable?")
+    assert plain["response"].startswith("You have 6 suppliers:")
+    assert "I read" not in plain["response"]
+
+
+async def test_a_country_can_be_asked_for_by_name(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # Used to list all six suppliers: the file stores "DE".
+    germany = await stack.ask("Which suppliers are in Germany?")
+    assert germany["response"].startswith(
+        "1 of 6 suppliers matches country = DE (Germany):\n- S-100 Acme Metals GmbH:"
+    )
+    for other in ("S-101", "S-102", "S-103", "S-104", "S-105"):
+        assert other not in germany["response"]
+
+    assert (await stack.ask("German suppliers"))["response"].startswith(
+        "1 of 6 suppliers matches country = DE (Germany):"
+    )
+    assert (await stack.ask("suppliers in India"))["response"].startswith(
+        "1 of 6 suppliers matches country = IN (India):\n- S-101 Bharat Castings Pvt Ltd:"
+    )
+    # A negation with a word in between used to be read as its opposite.
+    elsewhere = await stack.ask("Which suppliers are not in DE?")
+    assert elsewhere["response"].startswith("5 of 6 suppliers match country other than DE:")
+    assert "S-100" not in elsewhere["response"]
+    outside = await stack.ask("suppliers outside Germany")
+    assert outside["response"].startswith("5 of 6 suppliers match country other than DE (Germany):")
+    # A country no supplier is in gives an empty list, not all of them.
+    nowhere = await stack.ask("Which suppliers are in France?")
+    assert nowhere["response"].startswith("None of the 6 suppliers match country = France.")
+    either = await stack.ask("suppliers in Germany or France")
+    assert either["response"].startswith(
+        "1 of 6 suppliers matches country = DE (Germany) or France:\n- S-100 Acme Metals GmbH:"
+    )
+    assert (await stack.ask("suppliers in Germany or India"))["response"].startswith(
+        "2 of 6 suppliers match country = DE (Germany) or IN (India):"
+    )
+    # Ordinary capitals are not countries: "QA" is not Qatar.
+    assert (await stack.ask("which suppliers need QA review"))["response"].startswith(
+        "You have 6 suppliers:"
+    )
+
+
+async def test_a_country_is_found_on_the_record_an_order_names(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # A purchase order has no country; the supplier it names has one.
+    orders = await stack.ask("purchase orders from Germany")
+    assert orders["response"].startswith(
+        "1 of 7 purchase orders names a supplier with country = DE (Germany):\n- PO-5007:"
+    )
+    india = await stack.ask("which orders come from India?")
+    assert india["response"].startswith(
+        "2 of 7 purchase orders name a supplier with country = IN (India):"
+    )
+    assert "PO-5001" in india["response"] and "PO-5002" in india["response"]
+    assert "PO-5003" not in india["response"]
+    assert (await stack.ask("orders from France"))["response"].startswith(
+        "None of the 7 purchase orders name a supplier with country = France."
+    )
+    elsewhere = await stack.ask("orders not from India")
+    assert elsewhere["response"].startswith(
+        "5 of 7 purchase orders name a supplier with country other than IN (India):"
+    )
+
+    # Together with another filter, with "open", and under a total.
+    transit = await stack.ask("which orders are in transit from China")
+    assert transit["response"].startswith(
+        "1 of 7 purchase orders names a supplier with country = CN (China) and matches "
+        "status = in_transit:\n- PO-5003:"
+    )
+    both = await stack.ask("open purchase orders from Indian suppliers")
+    assert both["response"].startswith(
+        "2 of 7 purchase orders are open (not delivered or closed) and name a supplier with "
+        "country = IN (India):"
+    )
+    # Suppliers are listed too, narrowed on their own field.
+    assert "1 of 6 suppliers matches country = IN (India):" in both["response"]
+    total = await stack.ask("how many units are on order from Japan?")
+    assert total["response"].startswith(
+        "Total quantity across the 1 purchase order that is open (not delivered or closed) and "
+        "names a supplier with country = JP (Japan): 5,000."
+    )
+    # Stock is where its warehouse is.
+    stock = await stack.ask("how much stock do we have in Germany?")
+    assert stock["response"].startswith(
+        "Total quantity_on_hand across the 3 inventory records that name a facility with "
+        "country = DE (Germany): 2,725."
+    )
+
+    # Any field that only the named record has works the same way.
+    tier = await stack.ask("orders from tier 1 suppliers")
+    assert "4 of 7 purchase orders name a supplier with tier = tier_1:" in tier["response"]
+    assert "3 of 6 suppliers match tier = tier_1:" in tier["response"]
+    for order in ("PO-5001", "PO-5002", "PO-5006", "PO-5007"):
+        assert order in tier["response"]
+    for order in ("PO-5003", "PO-5004", "PO-5005"):
+        assert order not in tier["response"]
+    # One figure is asked for, and it is a field of the orders: the suppliers
+    # only say which orders.
+    figure = await stack.ask("total quantity on order from tier 1 suppliers")
+    assert figure["response"].startswith(
+        "Total quantity across the 4 purchase orders that are open (not delivered or closed) "
+        "and name a supplier with tier = tier_1: 5,800."
+    )
+    assert "on_time_rate" not in figure["response"]
+
+    # Products name nothing that has a country: the answer says it is not narrowed.
+    products = await stack.ask("products from Germany")
+    assert products["response"].startswith(
+        "I could not narrow this to Germany: products have no country field, and neither do "
+        "the records they name.\n\nYou have 6 products:"
+    )
+
+
+async def test_totals_and_averages_are_computed_from_the_rows(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # Used to list the seven orders without a total.
+    total = await stack.ask("total quantity on order")
+    assert total["response"].startswith(
+        "Total quantity across the 7 purchase orders that are open (not delivered or closed): "
+        "7,380.\n"
+        "- Lowest 80 (PO-5005), highest 5,000 (PO-5006).\n"
+        "- By product: C-2004 Ball Bearing 6205 5,000, C-2002 Mechanical Seal Kit 1,200, "
+        "C-2000 Cast Iron Housing 800, C-2001 Drive Motor 2kW 300 and C-2003 Hex Bolt M12 Box 80. "
+        "These are different parts, so the total adds units of different things."
+    )
+    assert "Source: your published data, version 5" in total["response"]
+    _assert_plain_language(total["response"])
+    assert (await stack.ask("how many units are on order?"))["response"].startswith(
+        "Total quantity across the 7 purchase orders that are open (not delivered or closed): 7,380."
+    )
+
+    # Narrowed by a named record and by a value.
+    from_supplier = await stack.ask("total quantity on order from S-101")
+    assert from_supplier["response"].startswith(
+        "Total quantity across the 2 purchase orders that refer to S-101 Bharat Castings Pvt Ltd "
+        "and are open (not delivered or closed): 650."
+    )
+    tier_one = await stack.ask("average lead time of tier 1 suppliers")
+    assert tier_one["response"].startswith(
+        "Average lead_time_days across the 3 suppliers that match tier = tier_1: 28.\n"
+        "- Lowest 21 (S-100 Acme Metals GmbH), highest 35 (S-101 Bharat Castings Pvt Ltd)."
+    )
+
+    average = await stack.ask("what is the average lead time of my suppliers?")
+    assert average["response"].startswith(
+        "Average lead_time_days across 6 suppliers: 25.\n"
+        "- Lowest 10 (S-104 Lone Star Fasteners), highest 42 (S-102 Shenzhen Microdrive Co)."
+    )
+    longest = await stack.ask("which supplier has the longest lead time?")
+    assert longest["response"].startswith(
+        "Highest lead_time_days among 6 suppliers: 42 (S-102 Shenzhen Microdrive Co)."
+    )
+    stock = await stack.ask("how much stock do we have of C-2000?")
+    assert stock["response"].startswith(
+        "Total quantity_on_hand across the 1 inventory record that refers to C-2000 Cast Iron "
+        "Housing: 120."
+    )
+    # No kind of record is named, but the field is.
+    price = await stack.ask("highest unit price")
+    assert price["intent"] == "graph_query"
+    assert price["response"].startswith(
+        "Highest unit_price among 6 products: 1,850 (P-1000 Centrifugal Pump CP-40)."
+    )
+    assert (await stack.ask("cheapest product"))["response"].startswith(
+        "Lowest unit_price among 6 products: 7.2 (C-2004 Ball Bearing 6205)."
+    )
+
+    # A count is still a count.
+    count = await stack.ask("How many suppliers do we have?")
+    assert count["response"].startswith("You have 6 suppliers:")
+
+
+async def test_a_total_of_something_the_rows_do_not_hold_is_refused(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # The orders have a quantity and no value: the quantity is not offered
+    # as if it were the answer.
+    value = await stack.ask("total value of purchase orders")
+    assert value["response"].startswith(
+        'No field of 7 purchase orders is called "value", so I cannot total it. Their numeric '
+        "fields are: quantity. Ask again naming one of them."
+    )
+    assert "7,380" not in value["response"]
+
+    # Suppliers have two numeric fields and no usual one.
+    unclear = await stack.ask("total for suppliers")
+    assert unclear["response"].startswith(
+        "I could not tell which number to total for 6 suppliers. Their numeric fields are: "
+        "lead_time_days and on_time_rate."
+    )
+    nothing = await stack.ask("what is the total?")
+    assert nothing["response"].startswith(
+        "I could not match that question to anything in your published data."
+    )
+
+
+async def test_something_the_data_does_not_hold_is_said_before_the_record(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # Used to answer with the Pune warehouse as if that were the weather.
+    weather = await stack.ask("weather in Pune")
+    assert weather["response"].startswith(
+        'Your published data holds nothing about "weather" for WH-PUNE Pune Plant Store. Its '
+        "fields are: warehouse_id, warehouse_name, city and country.\n\n"
+        "What it does hold:\n"
+        "WH-PUNE is a warehouse in your published data: Pune Plant Store."
+    )
+    _assert_plain_language(weather["response"])
+    price = await stack.ask("stock price of Acme Metals")
+    assert price["response"].startswith(
+        'Your published data holds nothing about "price" for S-100 Acme Metals GmbH.'
+    )
+
+    # A field the record has, and an ordinary request, are answered as before.
+    for question in (
+        "status of PO-5001",
+        "what is the country of S-101?",
+        "Tell me about supplier S-101",
+        "tell me about bharat castings",
+        "which orders are for C-2000?",
+    ):
+        answer = (await stack.ask(question))["response"]
+        assert "holds nothing about" not in answer, question
+
+    # With nothing in the data to hang it on, the question is simply not understood.
+    alone = await stack.ask("what is the weather?")
+    assert alone["intent"] == "unknown"
+
+
+async def test_two_records_are_put_side_by_side(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # Used to go to the recommendation tool and lead with one of the two.
+    answer = await stack.ask("Compare Acme Metals and Bharat Castings")
+    assert answer["intent"] == "graph_query"
+    assert answer["actions_taken"] == ["nexus.graph.read"]
+    assert answer["response"].startswith(
+        "S-100 Acme Metals GmbH and S-101 Bharat Castings Pvt Ltd, side by side (both "
+        "suppliers). Values are in that order.\n"
+        "- country: DE / IN\n"
+        "- tier: tier_1 / tier_1 (same)\n"
+        "- lead_time_days: 21 / 35\n"
+        "- status: active / delayed\n"
+        "- on_time_rate: 0.96 / 0.71\n"
+        "- Orders linked to it: 1 purchase order, 0 late / 2 purchase orders, 2 late "
+        "(PO-5001 and PO-5002)\n"
+        "- Its orders are for: C-2000 Cast Iron Housing / C-2000 Cast Iron Housing\n"
+    )
+    assert (
+        "These are the values in your published data; I do not rank the records or choose "
+        "between them." in answer["response"]
+    )
+    _assert_plain_language(answer["response"])
+
+    # In the order the question names them, for identifiers and three records too.
+    three = await stack.ask("S-100 vs S-105 vs S-103")
+    assert three["response"].startswith(
+        "S-100 Acme Metals GmbH, S-105 Kyoto Bearings KK and S-103 Nordic Seals AB, side by side."
+    )
+    assert "- lead_time_days: 21 / 28 / 14" in three["response"]
+    parts = await stack.ask("compare C-2000 and C-2004")
+    assert "- unit_price: 210.00 / 7.20" in parts["response"]
+    assert (
+        "- Ordered from: S-101 Bharat Castings Pvt Ltd and S-100 Acme Metals GmbH / "
+        "S-105 Kyoto Bearings KK" in parts["response"]
+    )
+
+    # Reading two records is not a recommendation: a viewer may do it.
+    stack.user["roles"] = ["viewer"]
+    viewer = await stack.ask("Compare S-100 and S-101")
+    assert viewer["permission_denied"] is None
+    assert viewer["response"].startswith("S-100 Acme Metals GmbH and S-101 Bharat Castings Pvt Ltd")
+
+
+async def test_one_order_that_is_on_time_is_not_called_late(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # S-100 has one order, and it is on time. The sentence used to read "The
+    # 1 purchase order linked to it is late or flagged".
+    detail = await stack.ask("Tell me about Acme Metals")
+    assert "Its orders are for: C-2000 Cast Iron Housing (1 order, 0 late)." in detail["response"]
+    assert (
+        "- Orders: The 1 purchase order linked to it is not late or flagged as of 2026-11-17 "
+        "(UTC)." in detail["response"]
+    )
+    assert "is late or flagged" not in detail["response"]
+
+    asked = await stack.ask("Is anything late from S-100?")
+    assert (
+        "The 1 purchase order linked to S-100 Acme Metals GmbH is not late or flagged as of "
+        "2026-11-17 (UTC)." in asked["response"]
+    )
+
+
+async def test_decisions_risks_and_scenarios_are_listed_by_name(stack: Stack) -> None:
+    await stack.publish_all()
+
+    # "show me decisions" was not understood, and "show scenarios" started a
+    # what-if with nothing to simulate.
+    empty = await stack.ask("show me decisions")
+    assert empty["intent"] == "decision_query"
+    assert empty["response"] == "No decisions are recorded in this workspace."
+    scenarios = await stack.ask("show scenarios")
+    assert scenarios["intent"] == "scenario_query"
+    assert scenarios["response"] == "No scenarios are saved in this workspace."
+
+    workspace = stack.workspace_id
+    created = await stack.client.post(
+        "/api/v1/nexus/scenarios",
+        json={
+            "workspace_id": workspace,
+            "name": "Second source for cast iron housings",
+            "world_state_version": 5,
+        },
+    )
+    assert created.status_code == 201, created.text
+    created = await stack.client.post(
+        "/api/v1/nexus/decisions",
+        json={
+            "workspace_id": workspace,
+            "situation": "Cast iron housings from S-101 are three weeks late.",
+            "options": [
+                {"option_id": "opt-a", "label": "Expedite PO-5001 by air"},
+                {"option_id": "opt-b", "label": "Move 250 units to Acme Metals"},
+            ],
+            "recommended_option_id": "opt-b",
+            "world_state_version": 5,
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    for question in ("show me decisions", "decisions", "what is waiting for approval?"):
+        listed = await stack.ask(question)
+        assert listed["actions_taken"] == ["nexus.decision.list"], question
+        assert listed["response"].startswith("1 decision in this workspace:\n- D-"), question
+        assert (
+            "Cast iron housings from S-101 are three weeks late. (proposed)" in listed["response"]
+        )
+    saved = await stack.ask("show scenarios")
+    assert saved["response"].startswith("1 saved scenario in this workspace:\n- scn-")
+    assert "Second source for cast iron housings" in saved["response"]

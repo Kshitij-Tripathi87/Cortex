@@ -43,6 +43,22 @@ class DeviceHeartbeatRequest(BaseModel):
     status: str | None = Field(default=None, max_length=32)
 
 
+async def require_own_device(session: AsyncSession, device_id: str, auth: AuthContext) -> None:
+    """Refuse a device id that is not registered to the caller.
+
+    Push tokens, voice tokens and sessions are tied to a device. Without this
+    check any signed-in user could attach them to a device id belonging to
+    someone else. The answer is the same whether the device is unknown or
+    owned by another user, so device ids cannot be probed.
+    """
+    owner_id = str(auth.user_id or "anonymous")
+    if await _svc(session).get_owned_device(device_id, owner_id=owner_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Device is not registered to this user. Register it first with POST /devices.",
+        )
+
+
 @router.post("/devices", status_code=201)
 async def register_device(
     body: DeviceRegisterRequest,

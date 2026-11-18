@@ -69,6 +69,12 @@ PUBLIC_PATHS: frozenset[str] = frozenset(
         "/signup",
         "/reset/request",
         "/reset/confirm",
+        # app/api/v1/contact.py — the public site's demo request and contact
+        # form (audit note D3j). The sender has no account, so it cannot
+        # require a token. Write-only: no route reads the table back. Every
+        # field is length-limited, unknown fields are rejected, and the route
+        # is rate-limited per client address and for the server as a whole.
+        "/contact-requests",
     }
 )
 

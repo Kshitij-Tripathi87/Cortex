@@ -1,10 +1,16 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
+
+import { ContactForm } from '@/components/marketing/ContactForm';
 
 export const metadata: Metadata = {
   title: 'Contact | Cortex',
   description: 'Contact Cortex for enterprise, engineering, and security inquiries.',
 };
+
+const writeLinkClass =
+  'block w-full md:w-auto border border-[#262626] bg-[#141414] hover:bg-[#1A1A1A] px-6 py-3 text-center font-mono text-sm transition-colors';
 
 export default function ContactPage() {
   return (
@@ -17,9 +23,10 @@ export default function ContactPage() {
           <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-8">
             Contact Cortex
           </h1>
-          
+
           <p className="text-lg text-[#E5E5E5] mb-16">
-            Please direct your inquiry to the appropriate channel below. We aim to route all communications efficiently and securely.
+            Choose the subject that fits and write to us with the form below. Every message is
+            saved with a reference number, and we reply to the email address you give.
           </p>
 
           <div className="space-y-6">
@@ -37,12 +44,9 @@ export default function ContactPage() {
                 </div>
               </div>
               <div className="shrink-0 w-full md:w-auto">
-                <a 
-                  href="mailto:enterprise@cortex.example.com" 
-                  className="block w-full md:w-auto border border-[#262626] bg-[#141414] hover:bg-[#1A1A1A] px-6 py-3 text-center font-mono text-sm transition-colors"
-                >
-                  enterprise@cortex.example.com
-                </a>
+                <Link href="/contact?topic=sales#write" className={writeLinkClass}>
+                  Write to sales
+                </Link>
               </div>
             </div>
 
@@ -55,12 +59,9 @@ export default function ContactPage() {
                 </p>
               </div>
               <div className="shrink-0 w-full md:w-auto">
-                <a 
-                  href="mailto:engineering@cortex.example.com" 
-                  className="block w-full md:w-auto border border-[#262626] bg-[#141414] hover:bg-[#1A1A1A] px-6 py-3 text-center font-mono text-sm transition-colors"
-                >
-                  engineering@cortex.example.com
-                </a>
+                <Link href="/contact?topic=engineering#write" className={writeLinkClass}>
+                  Write to engineering
+                </Link>
               </div>
             </div>
 
@@ -78,18 +79,26 @@ export default function ContactPage() {
                 </div>
               </div>
               <div className="shrink-0 w-full md:w-auto">
-                <a 
-                  href="mailto:security@cortex.example.com" 
-                  className="block w-full md:w-auto border border-[#262626] bg-[#141414] hover:bg-[#1A1A1A] px-6 py-3 text-center font-mono text-sm transition-colors"
-                >
-                  security@cortex.example.com
-                </a>
+                <Link href="/contact?topic=security#write" className={writeLinkClass}>
+                  Report a security issue
+                </Link>
               </div>
             </div>
           </div>
-          
-          <div className="mt-16 text-sm text-[#666666]">
-            Note: For all inquiries, please share only non-sensitive, necessary information. Do not send proprietary data or credentials through these channels.
+
+          <section id="write" className="mt-16 scroll-mt-24" aria-labelledby="write-heading">
+            <h2 id="write-heading" className="text-2xl font-medium mb-6">
+              Write to us
+            </h2>
+            <Suspense
+              fallback={<div className="bg-[#111111] border border-[#262626] p-8 text-[#999999]">Loading the form...</div>}
+            >
+              <ContactForm />
+            </Suspense>
+          </section>
+
+          <div className="mt-8 text-sm text-[#666666]">
+            Note: For all inquiries, please share only non-sensitive, necessary information. Do not send proprietary data or credentials through this form.
           </div>
         </div>
       </main>

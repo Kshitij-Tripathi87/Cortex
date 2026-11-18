@@ -102,9 +102,14 @@ export default function UploadPage() {
             Upload operational data into the active workspace
           </p>
         </div>
-        <Link href="/nexus/world" className="button-secondary">
-          World State Explorer
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/evidence" className="button-secondary" data-testid="upload-earlier">
+            Earlier uploads
+          </Link>
+          <Link href="/nexus/world" className="button-secondary">
+            World State Explorer
+          </Link>
+        </div>
       </header>
 
       <main className="px-5 py-8 sm:px-8">
@@ -207,7 +212,7 @@ export default function UploadPage() {
                 separate downstream steps; the World State is not claimed to be updated yet.
               </p>
             </div>
-            <dl className="grid gap-3 px-5 py-4 sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2">
               <div>
                 <dt className="eyebrow">Batch ID</dt>
                 <dd className="mt-1 break-all font-mono text-xs text-ink">{result.batch_id}</dd>

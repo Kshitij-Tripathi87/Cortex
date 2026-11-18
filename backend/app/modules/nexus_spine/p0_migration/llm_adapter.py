@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from app.config import Settings
+from app.config import Settings, is_local_environment
 from app.modules.nexus_spine.p0_migration.vanessa_pipeline import (
     INTENT_TO_TOOL,
     DeterministicLLMAdapter,
@@ -137,6 +137,10 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
             "and about upload, review or publish status. Use state_overview for a general summary "
             "of the workspace. Use risk_query for what is exposed, affected or at risk. Use "
             "recommend when the user asks what to do. "
+            "Also use graph_query for totals, averages and highest or lowest values over those "
+            "records, for who supplies or buys a part, and for putting two or more named records "
+            "side by side. Use decision_query to list decisions and what awaits approval, and "
+            "scenario_query to list saved scenarios; use compare only for scenarios or options. "
             "Extract only identifiers and numeric parameters explicitly present in the user message. "
             "Supported fields are sku, supplier_id, entity_id, decision_id, risk_id, scenario_id, "
             "region, mutation_kind, delay_days, demand_multiplier, capacity_pct, closure_days, "
@@ -245,6 +249,16 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
             "files: question_focus says how the question was read, result holds the facts for "
             "it, attention lists what stands out, and every *_count is the full total even where "
             "a list is shortened. Lateness is judged as of the as_of date; state that date. "
+            "A result of kind aggregate is a figure computed from the rows: give the figure, the "
+            "field it was read from, how many records it covers and how many had no readable "
+            "value; when its field is null, no field could be chosen, so say which numeric "
+            "fields exist and give no figure. A result of kind comparison holds records side "
+            "by side: report their values and do not rank them or pick one. When "
+            "question_focus.unanswered is not empty, say first that the published data holds "
+            "nothing about those words for that record, then what it does hold. When "
+            "question_focus.countries_not_applied is not empty, say first that the answer is not "
+            "narrowed to those countries. A matched record whose matched_on is word_in_name was "
+            "recognised from one word of its name: say how you read it. "
             "Signals are derived from graph structure only, not from dates, statuses or "
             "quantities; never present a signal as evidence of a delay or a shortage. "
             "Cite the evidence source/tool "
@@ -263,7 +277,7 @@ def build_llm_adapter(settings: Settings) -> LLMAdapter:
     """Build the configured adapter; deterministic fallback is dev/test only."""
     provider = settings.llm_provider.strip().lower()
     if provider == "deterministic":
-        if settings.env.lower() in {"staging", "pilot", "prod", "production"}:
+        if not is_local_environment(settings.env):
             raise LLMProviderError("Deterministic intelligence is disabled in production")
         return DeterministicLLMAdapter()
     if provider == "openai_compatible":

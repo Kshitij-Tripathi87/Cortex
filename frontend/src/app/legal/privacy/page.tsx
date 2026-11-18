@@ -110,7 +110,7 @@ export default function PrivacyPage() {
           <section id="demo-requests" className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-white">8. Demo Request Data Handling</h2>
             <p className="text-[#E5E5E5] leading-relaxed mb-4">
-              Information submitted via demo request forms is used exclusively to contact you regarding the Cortex platform and schedule controlled demonstrations. This data is not sold to third parties and is retained only as long as necessary to facilitate the requested engagement.
+              Information submitted via the demo request and contact forms is stored by Cortex and used exclusively to answer your request, contact you regarding the Cortex platform, and schedule controlled demonstrations. This data is not sold to third parties and is retained only as long as necessary to facilitate the requested engagement.
             </p>
           </section>
 
@@ -124,8 +124,8 @@ export default function PrivacyPage() {
           <section id="contact" className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-white">10. Contact Information</h2>
             <p className="text-[#E5E5E5] leading-relaxed mb-4">
-              For privacy-related inquiries, data subject requests, or questions regarding this policy, please contact our Data Protection Officer at: <br/><br/>
-              <span className="font-mono text-[#10B981]">privacy@cortex.test</span>
+              For privacy-related inquiries, data subject requests, or questions regarding this policy, please contact our Data Protection Officer through the{' '}
+              <Link href="/contact?topic=privacy#write">contact form</Link>, choosing the topic &ldquo;Privacy request&rdquo;.
             </p>
           </section>
         </div>

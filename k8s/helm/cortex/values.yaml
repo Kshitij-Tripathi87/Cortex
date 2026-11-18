@@ -116,6 +116,14 @@ objectStorage:
 # Environment configuration
 config:
   CORTEX_ENV: prod
+  # Required. The address the site is served from (scheme and host, no path),
+  # e.g. https://app.example.com. Browsers let the site call the API only if
+  # it is listed here; several addresses are separated by commas.
+  CORTEX_CORS_ALLOWED_ORIGINS: ""
+  # Address(es) the ingress reaches the API from. Sign-in and sign-up limits
+  # are counted per visitor address; without this every visitor appears to
+  # come from the ingress.
+  FORWARDED_ALLOW_IPS: "127.0.0.1"
   CORTEX_HOST: 0.0.0.0
   CORTEX_PORT: 8000
   OTEL_SERVICE_NAME: cortex-backend

@@ -16,7 +16,7 @@ export default function EnterprisePage() {
           </p>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-6 mb-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-24">
           {/* CFO */}
           <div className="bg-[#111111] border border-[#262626] p-8">
             <div className="font-mono text-[#10B981] text-xs tracking-wider mb-2">AUDIENCE: CFO</div>
@@ -57,7 +57,7 @@ export default function EnterprisePage() {
         <div className="mb-24">
           <h2 className="text-3xl text-white font-medium mb-8">Architecture Intent</h2>
           <div className="bg-[#111111] border border-[#262626] p-8 lg:p-12">
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="p-6 bg-[#141414] border border-[#262626]">
                 <h4 className="text-white font-mono text-sm tracking-wide mb-3">01. INGESTION</h4>
                 <p className="text-[#999999] text-xs leading-relaxed">
@@ -83,7 +83,7 @@ export default function EnterprisePage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           <div>
             <h3 className="text-xl text-white font-medium mb-4">Controls & Data Isolation</h3>
             <p className="text-[#999999] text-sm leading-relaxed mb-6">

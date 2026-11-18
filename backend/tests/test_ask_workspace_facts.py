@@ -411,9 +411,12 @@ def test_names_in_a_question_are_linked_to_records() -> None:
     assert linked("is bharat castings late") == [("S-101", "start_of_name")]
     assert linked("what about bharat") == [("S-101", "first_word_of_name")]
     assert linked("where is the cast iron housing") == [("C-2000", "name")]
+    # A regular plural names the record its singular names ("Pump A").
+    assert linked("where is the pump going") == [("P-1000", "first_word_of_name")]
+    assert linked("where are the pumps going") == [("P-1000", "first_word_of_name")]
     # Common and short words do not identify a record.
-    assert linked("where are the pumps going") == []
     assert linked("which orders are late") == []
+    assert linked("where is a going") == []
 
 
 def test_a_first_word_shared_by_two_names_links_neither() -> None:

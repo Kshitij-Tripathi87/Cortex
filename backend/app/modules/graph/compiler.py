@@ -41,7 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import ClaimState
 from app.common.ids import uuid7
-from app.config import get_settings
+from app.config import get_settings, is_local_environment
 from app.infrastructure.storage_client import ObjectStorageClient, get_storage
 from app.modules.compiler.models import EvidenceClaim
 from app.modules.graph.entity_keys import (
@@ -237,7 +237,7 @@ async def compile_evidence_to_graph(
 
     # Production and pilot must compile the exact immutable bytes held in object
     # storage. Profile samples are a local test/dev fallback only.
-    if storage is None and get_settings().env.lower() in {"staging", "pilot", "prod", "production"}:
+    if storage is None and not is_local_environment(get_settings().env):
         storage = get_storage()
 
     # Lock the batch row so two concurrent publish requests for the same batch
@@ -422,7 +422,7 @@ async def compile_evidence_to_graph(
                 sample_rows = list(_parse_xlsx_rows(raw_bytes))
             else:
                 sample_rows = list(_parse_csv_rows(raw_bytes, file.encoding))
-        elif get_settings().env.lower() in {"dev", "test"}:
+        elif is_local_environment(get_settings().env):
             sample_rows = list(_reconstruct_rows_from_profiles(profiles))
         else:
             raise RuntimeError(

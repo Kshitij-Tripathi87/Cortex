@@ -1,6 +1,10 @@
 /**
  * Reset password (?token=...). Redeems the single-use backend token. Invalid,
- * expired, and already-used tokens all render the same message (no oracle).
+ * expired, and already-used tokens all render the same message (no oracle):
+ * the link is no longer valid, and here is where to ask for a new one.
+ *
+ * The link comes from a member of the Cortex team (there is no automatic
+ * email); how long it works is stated in their message.
  */
 
 "use client";
@@ -13,6 +17,7 @@ import { AuthField } from "@/components/auth/AuthField";
 import { AuthAlert } from "@/components/auth/AuthAlert";
 import { confirmPasswordReset } from "@/lib/api/auth";
 import { resetPasswordSchema, toFieldErrors, authFormMessage, type FieldErrors } from "@/lib/auth";
+import { isApiClientError } from "@/lib/auth/errors";
 
 export default function ResetPasswordPage(): React.JSX.Element {
   const router = useRouter();
@@ -22,12 +27,15 @@ export default function ResetPasswordPage(): React.JSX.Element {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  // The server refused the link itself (expired, used, or never valid).
+  const [linkRefused, setLinkRefused] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     if (submitting) return;
     setFormError(null);
+    setLinkRefused(false);
     const parsed = resetPasswordSchema.safeParse({ token, newPassword, confirmPassword });
     if (!parsed.success) {
       setFieldErrors(toFieldErrors(parsed.error));
@@ -39,8 +47,16 @@ export default function ResetPasswordPage(): React.JSX.Element {
       await confirmPasswordReset(parsed.data.token, parsed.data.newPassword);
       router.replace("/auth/login?reset=1");
     } catch (error) {
-      // Uniform: the backend does not distinguish invalid/expired/used.
-      setFormError(authFormMessage(error, "login"));
+      if (isApiClientError(error) && error.status === 400) {
+        // Uniform: the backend does not distinguish invalid/expired/used.
+        // Trying again cannot help, so say what will: a new link.
+        setLinkRefused(true);
+        setFormError(
+          "This reset link is no longer valid: it has expired or was already used. Your password was not changed.",
+        );
+      } else {
+        setFormError(authFormMessage(error, "login"));
+      }
       setSubmitting(false);
     }
   }
@@ -61,7 +77,7 @@ export default function ResetPasswordPage(): React.JSX.Element {
   }
 
   return (
-    <AuthShell title="Choose a new password" subtitle="The link expires 30 minutes after issue." testId="reset-page">
+    <AuthShell title="Choose a new password" subtitle="A reset link works once and for a limited time." testId="reset-page">
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <AuthField
           id="newPassword"
@@ -89,6 +105,19 @@ export default function ResetPasswordPage(): React.JSX.Element {
         {formError ? (
           <AuthAlert tone="error" testId="reset-error">
             {formError}
+            {linkRefused ? (
+              <>
+                {" "}
+                <Link
+                  href="/auth/forgot-password"
+                  data-testid="reset-request-new"
+                  className="underline underline-offset-2"
+                >
+                  Request a new link
+                </Link>
+                .
+              </>
+            ) : null}
           </AuthAlert>
         ) : null}
         <button
