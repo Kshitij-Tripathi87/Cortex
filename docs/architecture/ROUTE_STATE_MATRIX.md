@@ -47,17 +47,7 @@ for the data states.
 | `/propagation` | required | ⚠️ | ⚠️ | ✅ | ❌ | ⚠️ |
 | `/agents` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
 | `/agents/[id]` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/agents/*` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/analysis` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/cockpit` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/data` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/decisions` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/evidence` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/graph` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/risk` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/scenarios` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/signals` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
-| `/workspace/world` | required | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ |
+| `/nexus/decision-room/task` | required | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `/company`, `/contact`, `/enterprise`, `/intelligence`, `/platform`, `/products`, `/research`, `/security`, `/demo`, `/legal/*` | public/static | N/A | N/A | N/A | N/A | N/A |
 
 ## Findings
@@ -66,9 +56,14 @@ for the data states.
    this out as a Phase 2/15 gate. No page surfaces "data is older than
    `last_sync_at`" — the assumption is that data is always fresh because
    it's fetched on mount.
-2. **Workspace pages (`/workspace/*`) carry `use client` but no explicit
-   loading/error UI.** They either render an error boundary or fall
-   through to `null`. Needs a shared `<DataSurface>` wrapper.
+2. **The `/workspace/*` demo area has been removed (2026-11-18).** Its 17
+   pages rendered built-in sample data inside a second navigation shell and
+   were reachable from the signed-in home, so a signed-in customer could
+   land on figures that were not theirs. The one page that read real data
+   (task review) now lives at `/nexus/decision-room/task`. Old addresses
+   redirect (`next.config.js`): `/workspace/agents/decision-room` to the
+   task review page with its query string, everything else under
+   `/workspace` to `/nexus/cockpit`.
 3. **Unauthorized handling is reactive, not proactive.** A 401 from the
    backend surfaces in the error state; the user is not redirected to
    `/login` automatically.
@@ -78,17 +73,25 @@ for the data states.
 - **F3-stale**: introduce a `last_synced_at` from the backend on every
   data response and surface a "stale > N seconds" indicator on each page.
 - **F3-shared**: extract a `<DataSurface loading error empty children>` to
-  enforce the contract on workspace pages.
+  enforce the contract on the `/nexus/*` pages.
 - **D3-authZ**: every page that requires auth must redirect to `/login` on
   401, server-side via the authZ middleware.
 
 ## Verification
 
-The matrix is enforced by:
-- `tests/e2e-acceptance.spec.ts` — happy-path coverage (already present)
-- `tests/realtime-e2e.spec.ts` — live-data paths
-- `tests/scale-qualification.spec.ts` — load/throughput
-- `tests/visual-regression.spec.ts` — UI consistency
+The matrix is enforced by the Playwright specs in `frontend/tests/`:
+- `auth-e2e.spec.ts`: sign-up, sign-in, guards, and that retired
+  `/workspace` addresses land on the working cockpit
+- `critical-path-e2e.spec.ts`: upload, review, publish, ask
+- `decision-room-e2e.spec.ts`: task review (roles, signed-out state,
+  redirect from the retired address)
+- `realtime-e2e.spec.ts`: live-data paths
+
+`e2e-acceptance.spec.ts`, `scale-qualification.spec.ts` and
+`visual-regression.spec.ts` were deleted with the `/workspace/*` area: every
+test in them opened one of the removed demo pages, none ran in CI, and their
+screenshots were Windows-only baselines of those pages. Visual and load
+coverage of the `/nexus/*` pages is not replaced yet.
 
 Per Phase 2 completion criteria, all ⚠️ cells in the matrix should reach
 ✅ or be explicitly marked N/A by Phase 15. This document is the source

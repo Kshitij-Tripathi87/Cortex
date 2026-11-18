@@ -17,6 +17,10 @@ import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 const TASK_ID = 't-golden-001';
+// The task review page lives inside the Nexus shell. Its old address under
+// the retired /workspace demo area redirects here (see next.config.js).
+const TASK_REVIEW = '/nexus/decision-room/task';
+const RETIRED_TASK_REVIEW = '/workspace/agents/decision-room';
 const WORKSPACE_ID = 'ws-golden-001';
 
 function meResponse(role: string) {
@@ -201,7 +205,7 @@ test.describe('Decision Room — read-only projection', () => {
       })
     );
 
-    await page.goto(`${BASE_URL}/workspace/agents/decision-room?task_id=${TASK_ID}`);
+    await page.goto(`${BASE_URL}${TASK_REVIEW}?task_id=${TASK_ID}`);
 
     const task = page.getByTestId('decision-room-task');
     await expect(task).toBeVisible({ timeout: 10_000 });
@@ -233,7 +237,7 @@ test.describe('Decision Room — read-only projection', () => {
       })
     );
 
-    await page.goto(`${BASE_URL}/workspace/agents/decision-room?task_id=${TASK_ID}`);
+    await page.goto(`${BASE_URL}${TASK_REVIEW}?task_id=${TASK_ID}`);
 
     await expect(page.getByTestId('decision-room-pending')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('decision-approve')).toHaveCount(0);
@@ -267,7 +271,7 @@ test.describe('Decision Room — read-only projection', () => {
       })
     );
 
-    await page.goto(`${BASE_URL}/workspace/agents/decision-room?task_id=${TASK_ID}`);
+    await page.goto(`${BASE_URL}${TASK_REVIEW}?task_id=${TASK_ID}`);
     await expect(page.getByTestId('decision-approve')).toBeVisible({ timeout: 10_000 });
     await page.getByTestId('decision-approve').click();
 
@@ -287,16 +291,57 @@ test.describe('Decision Room — read-only projection', () => {
       route.fulfill({ status: 500, body: 'backend error' })
     );
 
-    await page.goto(`${BASE_URL}/workspace/agents/decision-room?task_id=${TASK_ID}`);
+    await page.goto(`${BASE_URL}${TASK_REVIEW}?task_id=${TASK_ID}`);
     await expect(page.getByTestId('decision-room-error')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('main, header, body').first()).toBeVisible();
   });
 
   test('no task selected shows honest guidance, no fixture data', async ({ page }) => {
     await seedSession(page, 'operator');
-    await page.goto(`${BASE_URL}/workspace/agents/decision-room`);
-    await expect(page.getByText('No task selected.')).toBeVisible({ timeout: 10_000 });
+    await page.goto(`${BASE_URL}${TASK_REVIEW}`);
+    const note = page.getByTestId('decision-room-no-task');
+    await expect(note).toBeVisible({ timeout: 10_000 });
+    await expect(note).toContainText('No task selected.');
     // The old hardcoded deliberation fixtures must not render.
     await expect(page.getByText('CTDE Protocol')).toHaveCount(0);
+    // The guidance must not point at a removed screen: its one link goes to
+    // the Decision Room, which exists.
+    const links = note.getByRole('link');
+    await expect(links).toHaveCount(1);
+    await expect(links.first()).toHaveAttribute('href', '/nexus/decision-room');
+  });
+
+  test('the retired address still opens the same task', async ({ page }) => {
+    await seedSession(page, 'operator');
+    await page.context().route(`**/api/v1/nexus/tasks/${TASK_ID}/decision-room**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(envelope({ decision_room: awaitingView() })),
+      })
+    );
+
+    await page.goto(`${BASE_URL}${RETIRED_TASK_REVIEW}?task_id=${TASK_ID}`);
+
+    // Redirected into the Nexus shell with the task id carried over.
+    await expect(page).toHaveURL(new RegExp(`${TASK_REVIEW}\\?task_id=${TASK_ID}$`));
+    await expect(page.getByTestId('decision-room-task')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('task-status-badge')).toHaveText('AWAITING_APPROVAL');
+    // It renders inside the working navigation, not the old demo sidebar.
+    await expect(page.getByRole('link', { name: 'Command Center' })).toBeVisible();
+  });
+
+  test('signed out, the page asks for sign-in and returns to the same task', async ({ page }) => {
+    await page.context().route('**/api/v1/auth/me', (route) =>
+      route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ detail: 'Bearer token required' }) })
+    );
+    await page.goto(`${BASE_URL}${TASK_REVIEW}?task_id=${TASK_ID}`);
+    const signIn = page.getByRole('link', { name: 'Sign in', exact: true });
+    await expect(signIn).toBeVisible({ timeout: 10_000 });
+    await expect(signIn).toHaveAttribute(
+      'href',
+      `/auth/login?next=${encodeURIComponent(`${TASK_REVIEW}?task_id=${TASK_ID}`)}`,
+    );
+    await expect(page.getByTestId('decision-room-task')).toHaveCount(0);
   });
 });

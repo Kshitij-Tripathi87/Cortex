@@ -16,6 +16,23 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: apiOrigin,
     NEXT_PUBLIC_API_BASE_URL: apiBase,
   },
+  // The old /workspace demo area was removed. Its screens showed invented
+  // figures; the working product lives under /nexus. Old links and bookmarks
+  // are sent to the working cockpit, and the one real page it contained (the
+  // review of a single agent task) to its new address. Query strings such as
+  // ?task_id=… are carried over by Next. Temporary (307) on purpose, so a
+  // browser never caches the hop for good.
+  async redirects() {
+    return [
+      {
+        source: "/workspace/agents/decision-room",
+        destination: "/nexus/decision-room/task",
+        permanent: false,
+      },
+      { source: "/workspace", destination: "/nexus/cockpit", permanent: false },
+      { source: "/workspace/:path*", destination: "/nexus/cockpit", permanent: false },
+    ];
+  },
 }
 
 module.exports = nextConfig

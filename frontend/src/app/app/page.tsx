@@ -218,7 +218,7 @@ export default function AppHomePage(): React.JSX.Element {
           </p>
           <div className="mt-4">
             <Link
-              href="/workspace/cockpit"
+              href="/nexus/cockpit"
               data-testid="open-workspace-link"
               className="inline-block bg-accent hover:bg-accent-hover text-white text-sm font-medium px-4 py-2"
             >

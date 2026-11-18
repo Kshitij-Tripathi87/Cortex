@@ -46,7 +46,7 @@ interface AuthContextValue extends AuthSnapshot {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const PROTECTED_PREFIXES = ["/app", "/workspace", "/onboarding", "/settings"];
+const PROTECTED_PREFIXES = ["/app", "/onboarding", "/settings"];
 
 function isProtectedPath(pathname: string | null): boolean {
   if (!pathname) return false;

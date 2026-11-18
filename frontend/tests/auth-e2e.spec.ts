@@ -129,8 +129,37 @@ test.describe('B2 auth gate', () => {
   test('anonymous → protected route bounces with validated next', async ({ page }) => {
     await page.goto('/app');
     await expect(page).toHaveURL(/\/auth\/login\?next=%2Fapp/);
-    await page.goto('/workspace/cockpit');
-    await expect(page).toHaveURL(/\/auth\/login\?next=%2Fworkspace%2Fcockpit/);
+    await page.goto('/onboarding');
+    await expect(page).toHaveURL(/\/auth\/login\?next=%2Fonboarding/);
+  });
+
+  test('retired /workspace addresses land on the working cockpit', async ({ page }) => {
+    // The old demo area is gone. Any of its addresses must end on the real
+    // cockpit, never on a "page not found" and never on a demo screen.
+    for (const retired of ['/workspace', '/workspace/cockpit', '/workspace/graph', '/workspace/data']) {
+      await page.goto(retired);
+      await expect(page).toHaveURL(/\/nexus\/cockpit$/);
+    }
+    // Signed out, the cockpit asks for sign-in and comes back to itself afterwards.
+    const signIn = page.getByRole('link', { name: 'Sign in', exact: true });
+    await expect(signIn).toBeVisible();
+    await expect(signIn).toHaveAttribute('href', '/auth/login?next=%2Fnexus%2Fcockpit');
+  });
+
+  test('"Open Nexus workspace" opens the working cockpit', async ({ page, request }) => {
+    const { accessToken, userId } = await signupViaApi(request, 'frontdoor');
+    await setSession(page, accessToken, userId);
+    await page.goto('/app');
+    const open = page.getByTestId('open-workspace-link');
+    await expect(open).toHaveAttribute('href', '/nexus/cockpit');
+    await open.click();
+    await expect(page).toHaveURL(/\/nexus\/cockpit$/);
+    // The working cockpit: a plain-text heading (no markup characters leak
+    // into it) and none of the invented alerts the old demo screen showed.
+    const heading = page.getByRole('heading', { level: 1 });
+    await expect(heading).toBeVisible();
+    await expect(heading).not.toContainText('<');
+    await expect(page.getByText('BLOCKING')).toHaveCount(0);
   });
 
   test('external next URLs are rejected', async ({ page, request }) => {

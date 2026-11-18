@@ -3,7 +3,6 @@
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { IntentWorkspaceBar } from "@/components/shell/IntentWorkspaceBar";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ApiClientError } from "@/lib/auth/errors";
 import { decideTaskApproval, fetchDecisionRoom } from "@/lib/api/decisionRoom";
@@ -14,9 +13,16 @@ import {
 } from "@/lib/nexus/decisionRoomModel";
 import type { DecisionRoomView } from "@/types/nexus";
 
+/** Address of this page inside the Nexus shell. */
+const TASK_REVIEW_PATH = "/nexus/decision-room/task";
+
 /**
- * Decision-1 — Decision Room as a read-only projection of the durable
- * runtime (GET /nexus/tasks/{task_id}/decision-room).
+ * Task review — the Decision Room for one agent task, as a read-only
+ * projection of the durable runtime (GET /nexus/tasks/{task_id}/decision-room).
+ *
+ * Lives inside the Nexus shell at /nexus/decision-room/task?task_id=…
+ * (it used to be the only API-backed page under the retired /workspace
+ * demo area; old links are redirected here by next.config.js).
  *
  * CRITICAL CONSTRAINT: this page owns NO state machine, NO approval logic,
  * NO execution logic, and NO World State mutation. Every field is rendered
@@ -27,7 +33,7 @@ import type { DecisionRoomView } from "@/types/nexus";
  * fresh read of the projection.
  */
 function DecisionRoomProjection() {
-  const { user, workspace } = useAuth();
+  const { status, user, workspace } = useAuth();
   const searchParams = useSearchParams();
   const taskId = searchParams.get("task_id");
 
@@ -89,19 +95,41 @@ function DecisionRoomProjection() {
     [taskId, workspaceId]
   );
 
+  if (status === "CHECKING" || status === "UNKNOWN") {
+    return <CenteredNote title="Opening Cortex" detail="Checking your workspace session…" />;
+  }
+  if (status !== "AUTHENTICATED") {
+    const here = taskId ? `${TASK_REVIEW_PATH}?task_id=${taskId}` : TASK_REVIEW_PATH;
+    return (
+      <CenteredNote
+        title="Sign in to Cortex"
+        detail="Task review is available to signed-in members of the workspace."
+        action={
+          <Link href={`/auth/login?next=${encodeURIComponent(here)}`} className="button-primary">
+            Sign in
+          </Link>
+        }
+      />
+    );
+  }
+
   if (!taskId) {
     return (
-      <div className="space-y-6 max-w-6xl mx-auto font-sans pb-10">
-        <IntentWorkspaceBar />
-        <div className="border border-zinc-800 rounded-xl p-8 text-center bg-zinc-950/90">
-          <h1 className="text-xl font-bold text-zinc-100 font-mono">Decision Room</h1>
+      <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 font-sans sm:px-8">
+        <div
+          className="border border-zinc-800 rounded-xl p-8 text-center bg-zinc-950/90"
+          data-testid="decision-room-no-task"
+        >
+          <h1 className="text-xl font-bold text-zinc-100 font-mono">Task review</h1>
           <p className="text-sm text-zinc-400 mt-2">
-            No task selected. Open a task from the{" "}
-            <Link href="/workspace/agents/tasks" className="text-emerald-400 hover:underline">
-              agent tasks
-            </Link>{" "}
-            view or pass <code className="font-mono text-xs text-zinc-300">?task_id=</code> in the
-            URL to project its durable runtime here.
+            No task selected. This page shows one agent task at a time: open it with the
+            task&apos;s address, which ends in{" "}
+            <code className="font-mono text-xs text-zinc-300">?task_id=</code> followed by the task
+            id. Decisions made in this workspace are listed in the{" "}
+            <Link href="/nexus/decision-room" className="text-emerald-400 hover:underline">
+              Decision Room
+            </Link>
+            .
           </p>
         </div>
       </div>
@@ -109,15 +137,22 @@ function DecisionRoomProjection() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto font-sans pb-10">
-      <IntentWorkspaceBar />
-
-      <div className="flex items-center justify-between" data-testid="decision-room-header">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-100 font-mono">Decision Room</h1>
+    <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 font-sans sm:px-8">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3"
+        data-testid="decision-room-header"
+      >
+        <div className="min-w-0">
+          <p className="text-xs text-zinc-500">
+            <Link href="/nexus/decision-room" className="hover:underline">
+              Decision Room
+            </Link>{" "}
+            / Task review
+          </p>
+          <h1 className="text-xl font-bold text-zinc-100 font-mono">Task review</h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Read-only projection of the durable task runtime. Every field is derived from
-            PostgreSQL; the backend is the only authority.
+            Read-only view of the saved state of this task. Every field comes from the server;
+            approving or rejecting here is recorded by the server, which alone decides what runs.
           </p>
         </div>
         <button
@@ -384,10 +419,30 @@ function EvidenceRow({ refs, label }: { refs: string[]; label: string }) {
   );
 }
 
-export default function DecisionRoomPage() {
+function CenteredNote({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center px-6 text-center">
+      <div className="max-w-md">
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="mt-2 text-sm text-ink-secondary">{detail}</p>
+        {action && <div className="mt-6">{action}</div>}
+      </div>
+    </div>
+  );
+}
+
+export default function TaskReviewPage() {
   // useSearchParams requires a Suspense boundary during prerender.
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-zinc-400">Loading Decision Room...</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-zinc-400">Loading task review...</div>}>
       <DecisionRoomProjection />
     </Suspense>
   );
