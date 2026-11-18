@@ -96,6 +96,7 @@ from app.modules.nexus_spine.p0_migration.llm_adapter import (
     get_llm_adapter,
 )
 from app.modules.nexus_spine.p0_migration.vanessa_tools import register_vanessa_tools
+from app.modules.nexus_spine.p0_migration.workspace_overview import build_workspace_overview
 from app.modules.orchestration.capabilities import (
     JsonSchemaLiteValidator,
     WorkspaceCapabilityAuthorizer,
@@ -1502,6 +1503,29 @@ async def vanessa_ask(
     )
     await commit_and_notify(session)
     return _envelope(request, response_data, correlation_id=response.trace_id)
+
+
+# /workspace/overview: what the published records show (Command Center)
+#
+# Read-only, and derived on each call from the records themselves by the code
+# that also answers the Ask box, so the cockpit and an answer cannot disagree.
+# The risk register below is a separate thing: it holds what a person or an
+# integration recorded, and nothing writes it from an upload.
+
+
+@router.get("/workspace/overview")
+async def workspace_overview(
+    request: Request,
+    workspace_id: str = Query(...),
+    session: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Counts of the published records, and the late orders, low stock and flagged partners in them."""
+    require_workspace_access(workspace_id, auth)
+    p = _principal(auth, workspace_id)
+    _authz_check(p, "nexus.cockpit.read", workspace_id)
+    overview = await build_workspace_overview(session, workspace_id)
+    return _envelope(request, {"overview": overview})
 
 
 # ─────────────────────────────────────────────────────────────────────

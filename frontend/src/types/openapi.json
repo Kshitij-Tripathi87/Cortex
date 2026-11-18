@@ -340,6 +340,49 @@
         }
       }
     },
+    "/api/v1/sources/batches": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List Batches",
+        "description": "Uploads of the workspace, newest first, each with its files and state.\n\nWithout this list an upload could only be reopened by someone who had kept\nits address: the review page needs the batch ID and nothing showed it.",
+        "operationId": "list_batches_api_v1_sources_batches_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources/batches/{batch_id}": {
       "get": {
         "tags": [
@@ -8510,6 +8553,52 @@
         }
       }
     },
+    "/api/v1/nexus/workspace/overview": {
+      "get": {
+        "tags": [
+          "Nexus Decision Intelligence",
+          "Nexus Decision Intelligence"
+        ],
+        "summary": "Workspace Overview",
+        "description": "Counts of the published records, and the late orders, low stock and flagged partners in them.",
+        "operationId": "workspace_overview_api_v1_nexus_workspace_overview_get",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Workspace Overview Api V1 Nexus Workspace Overview Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/nexus/risks": {
       "post": {
         "tags": [
@@ -10467,6 +10556,103 @@
           "payload"
         ],
         "title": "AuditEventResponse"
+      },
+      "BatchListItem": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedFile"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "claims_accepted": {
+            "type": "integer",
+            "title": "Claims Accepted"
+          },
+          "claims_pending_review": {
+            "type": "integer",
+            "title": "Claims Pending Review"
+          },
+          "claims_rejected": {
+            "type": "integer",
+            "title": "Claims Rejected"
+          },
+          "open_conflicts": {
+            "type": "integer",
+            "title": "Open Conflicts"
+          },
+          "blocking_conflicts": {
+            "type": "integer",
+            "title": "Blocking Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "files",
+          "uploaded_at",
+          "state",
+          "published_version",
+          "claims_accepted",
+          "claims_pending_review",
+          "claims_rejected",
+          "open_conflicts",
+          "blocking_conflicts"
+        ],
+        "title": "BatchListItem",
+        "description": "One upload and where it stands between upload and publication."
+      },
+      "BatchListResponse": {
+        "properties": {
+          "batch_count": {
+            "type": "integer",
+            "title": "Batch Count"
+          },
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/BatchListItem"
+            },
+            "type": "array",
+            "title": "Batches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_count",
+          "batches"
+        ],
+        "title": "BatchListResponse"
       },
       "BatchSimulationRequest": {
         "properties": {
@@ -20431,6 +20617,31 @@
           "profiling_scheduled"
         ],
         "title": "UploadResponse"
+      },
+      "UploadedFile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "rows"
+        ],
+        "title": "UploadedFile"
       },
       "ValidateStateRequest": {
         "properties": {

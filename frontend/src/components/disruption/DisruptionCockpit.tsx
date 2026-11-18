@@ -5,6 +5,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/auth/client";
 import { askPlaceholder, askSuggestions } from "@/lib/nexus/ask";
+import {
+  attentionQueue,
+  cockpitTiles,
+  emptyQueueMessage,
+  formatCount,
+  sourceLine,
+  unlistedCount,
+  workspaceState,
+  type WorkspaceOverview,
+} from "@/lib/nexus/overview";
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "WATCH";
 
@@ -46,6 +56,16 @@ interface VanessaMessage {
 }
 
 type RiskEnvelope = { data?: { risks?: Risk[] } };
+type OverviewEnvelope = { data?: { overview?: WorkspaceOverview } };
+
+/** Records drawn in the dependency view. */
+const MAP_NODE_LIMIT = 18;
+
+const QUEUE_BADGE: Record<"late" | "stock" | "flagged", string> = {
+  late: "border-critical/50 bg-critical-subtle text-critical",
+  stock: "border-warning/50 bg-warning-subtle text-warning",
+  flagged: "border-warning/40 bg-warning-subtle text-warning",
+};
 
 const severityStyles: Record<Severity, string> = {
   CRITICAL: "border-critical/50 bg-critical-subtle text-critical",
@@ -100,6 +120,8 @@ function riskLabel(risk: Risk): string {
 export default function DisruptionCockpit() {
   const { status, workspace } = useAuth();
   const [risks, setRisks] = useState<Risk[]>([]);
+  // What the published records show: counts, late orders, low stock, flagged partners.
+  const [overview, setOverview] = useState<WorkspaceOverview | null>(null);
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [selectedRiskId, setSelectedRiskId] = useState<string | null>(null);
@@ -109,6 +131,7 @@ export default function DisruptionCockpit() {
   const [messages, setMessages] = useState<VanessaMessage[]>([]);
   const [asking, setAsking] = useState(false);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const askPanelRef = useRef<HTMLDivElement>(null);
 
   // Keep the newest question and answer in view inside the scrolling list.
   useEffect(() => {
@@ -121,12 +144,14 @@ export default function DisruptionCockpit() {
     setConnection("loading");
     setError(null);
     try {
-      const [riskResponse, nodeResponse, edgeResponse] = await Promise.all([
+      const [overviewResponse, riskResponse, nodeResponse, edgeResponse] = await Promise.all([
+        apiClient.get<OverviewEnvelope>("/nexus/workspace/overview", { workspace_id: workspace.id }),
         apiClient.get<RiskEnvelope>("/nexus/risks", { workspace_id: workspace.id, status: "open" }),
         apiClient.get<GraphNode[]>("/graph/nodes", { workspace_id: workspace.id, limit: 200 }),
         apiClient.get<GraphEdge[]>("/graph/edges", { workspace_id: workspace.id, limit: 200 }),
       ]);
       const nextRisks = riskResponse.data?.risks ?? [];
+      setOverview(overviewResponse.data?.overview ?? null);
       setRisks(nextRisks);
       setNodes(nodeResponse);
       setEdges(edgeResponse);
@@ -136,6 +161,8 @@ export default function DisruptionCockpit() {
       setConnection("live");
     } catch (requestError) {
       setConnection("offline");
+      // Figures from an earlier load are not shown as if they were current.
+      setOverview(null);
       setError(requestError instanceof Error ? requestError.message : "The workspace could not be loaded.");
     }
   }, [workspace?.id]);
@@ -149,17 +176,30 @@ export default function DisruptionCockpit() {
     [risks, selectedRiskId],
   );
 
-  const summary = useMemo(() => {
-    const exposure = risks.reduce((largest, risk) => Math.max(largest, risk.revenue_exposure ?? 0), 0);
-    const orders = risks.reduce((largest, risk) => Math.max(largest, risk.blast_radius_count ?? 0), 0);
-    return {
-      critical: risks.filter((risk) => risk.severity === "CRITICAL").length,
-      high: risks.filter((risk) => risk.severity === "HIGH").length,
-      exposure,
-      orders,
-      worldVersion: risks.reduce((latest, risk) => Math.max(latest, risk.world_state_version ?? 0), 0),
-    };
-  }, [risks]);
+  // Everything below is arranged from the server's reading of the published
+  // records; the page adds no figure of its own.
+  const findings = useMemo(() => attentionQueue(overview), [overview]);
+  const missing = connection === "offline" ? "failed" : "loading";
+  const tiles = useMemo(() => cockpitTiles(overview, risks, missing), [overview, risks, missing]);
+  const stateRows = useMemo(() => workspaceState(overview), [overview]);
+  const source = sourceLine(overview);
+  const moreFindings = unlistedCount(overview);
+  const attentionTotal = risks.length + (overview?.attention_count ?? 0);
+  const emptyQueue = emptyQueueMessage(overview, missing);
+  // The map draws a sample; say how much of the data it is.
+  const drawn = Math.min(nodes.length, MAP_NODE_LIMIT);
+  const recordTotal = overview?.records.total ?? nodes.length;
+  const mapNote =
+    drawn === 0
+      ? "How your published records connect."
+      : drawn < recordTotal
+        ? `The first ${drawn} of ${formatCount(recordTotal)} published records and the links between them. Open the full graph for the rest.`
+        : `All ${formatCount(recordTotal)} published records and the links between them.`;
+
+  const askAbout = (question: string) => {
+    askPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    void askCortex(question);
+  };
 
   const askCortex = async (question?: string) => {
     const trimmed = (question ?? query).trim();
@@ -215,7 +255,7 @@ export default function DisruptionCockpit() {
             <div className="flex items-center gap-3">
               <div className="hidden text-right sm:block">
                 <div className="text-[11px] text-ink">{workspace?.name ?? "Workspace"}</div>
-                <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink-muted">{connection === "live" ? "Live state" : "Connection unavailable"}</div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink-muted">{connection === "live" ? "Live state" : connection === "loading" ? "Loading…" : "Connection unavailable"}</div>
               </div>
               <Link href="/nexus/decision-room" className="button-secondary">Open decision room</Link>
             </div>
@@ -235,31 +275,43 @@ export default function DisruptionCockpit() {
                   <span className="eyebrow">Workspace state</span>
                   <span className={`badge ${connection === "live" ? "badge-positive" : "badge-neutral"}`}>{connection === "live" ? "CONNECTED" : connection.toUpperCase()}</span>
                 </div>
-                <dl className="mt-3 space-y-3 text-xs">
-                  <DataPoint label="World state" value={summary.worldVersion ? `v${summary.worldVersion}` : "Not available"} />
-                  <DataPoint label="Operational nodes" value={nodes.length ? nodes.length.toLocaleString("en-IN") : "Not loaded"} />
-                  <DataPoint label="Relationships" value={edges.length ? edges.length.toLocaleString("en-IN") : "Not loaded"} />
+                <dl className="mt-3 space-y-3 text-xs" data-testid="cockpit-state">
+                  {stateRows.map((row) => (
+                    <DataPoint key={row.label} label={row.label} value={row.value} />
+                  ))}
                 </dl>
               </div>
             </section>
 
-            <section className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
-              <Metric label="Open disruptions" value={risks.length.toString()} detail={`${summary.critical} critical · ${summary.high} high`} />
-              <Metric label="Largest exposure" value={formatINR(summary.exposure)} detail="Highest persisted risk record" />
-              <Metric label="Largest blast radius" value={summary.orders ? summary.orders.toLocaleString("en-IN") : "—"} detail="Highest recorded order count" />
-              <Metric label="Data posture" value={nodes.length && edges.length ? "Traceable" : "Incomplete"} detail={nodes.length && edges.length ? "Graph records available" : "Upload or reconcile data"} />
-            </section>
+            <div>
+              <section className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4" data-testid="cockpit-tiles">
+                {tiles.map((tile) => (
+                  <Metric key={tile.label} label={tile.label} value={tile.value} detail={tile.detail} />
+                ))}
+              </section>
+              {source ? (
+                <p className="mt-2 text-[11px] text-ink-muted" data-testid="cockpit-source">{source}</p>
+              ) : null}
+            </div>
 
-            <section className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <section className="grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
               <div className="border border-border bg-surface">
                 <div className="flex items-start justify-between border-b border-border px-4 py-4">
-                  <div><p className="eyebrow">Attention queue</p><h2 className="mt-1 text-base font-semibold">Open disruptions</h2></div>
-                  <span className="font-mono text-xs text-ink-muted">{risks.length.toString().padStart(2, "0")}</span>
+                  <div><p className="eyebrow">Attention queue</p><h2 className="mt-1 text-base font-semibold">Needs attention</h2></div>
+                  <span className="font-mono text-xs text-ink-muted" data-testid="cockpit-attention-count">{attentionTotal.toString().padStart(2, "0")}</span>
                 </div>
-                {risks.length === 0 ? (
-                  <EmptyState title="No open disruptions" detail="Cortex will show a risk here after the workspace has validated operational data." action={<Link href="/upload" className="text-accent hover:underline">Review data readiness →</Link>} />
+                {risks.length === 0 && findings.length === 0 ? (
+                  <EmptyState
+                    title={emptyQueue.title}
+                    detail={emptyQueue.detail}
+                    action={
+                      overview && overview.published === null ? (
+                        <Link href="/upload" className="text-accent hover:underline">Upload data →</Link>
+                      ) : null
+                    }
+                  />
                 ) : (
-                  <div className="divide-y divide-border">
+                  <div className="max-h-[36rem] divide-y divide-border overflow-y-auto" data-testid="cockpit-queue">
                     {risks.slice(0, 10).map((risk) => (
                       <button key={risk.entity_id} type="button" onClick={() => setSelectedRiskId(risk.entity_id)} className={`w-full px-4 py-4 text-left transition-colors hover:bg-surface-2 ${selectedRisk?.entity_id === risk.entity_id ? "border-l-2 border-accent bg-surface-2" : "border-l-2 border-transparent"}`}>
                         <div className="flex items-start justify-between gap-2"><span className="text-sm font-medium text-ink">{riskLabel(risk)}</span><span className={`badge ${severityStyles[risk.severity]}`}>{risk.severity}</span></div>
@@ -267,13 +319,38 @@ export default function DisruptionCockpit() {
                         <div className="mt-3 flex gap-3 font-mono text-[10px] text-ink-muted"><span>{formatINR(risk.revenue_exposure)} exposure</span><span>{risk.blast_radius_count ?? "—"} orders</span></div>
                       </button>
                     ))}
+                    {/* Read from the published records. A row asks the Ask box about its record. */}
+                    {findings.map((finding) => (
+                      <button
+                        key={finding.key}
+                        type="button"
+                        onClick={() => askAbout(finding.question)}
+                        disabled={asking}
+                        data-testid="cockpit-finding"
+                        title={finding.question}
+                        className="w-full border-l-2 border-transparent px-4 py-4 text-left transition-colors hover:bg-surface-2 disabled:cursor-wait"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 break-words text-sm font-medium text-ink">{finding.title}</span>
+                          <span className={`badge shrink-0 ${QUEUE_BADGE[finding.kind]}`}>{finding.badge}</span>
+                        </div>
+                        {finding.lines.map((line) => (
+                          <p key={line} className="mt-1 break-words text-xs leading-5 text-ink-secondary">{line}</p>
+                        ))}
+                      </button>
+                    ))}
+                    {moreFindings > 0 ? (
+                      <p className="px-4 py-3 text-[11px] text-ink-muted" data-testid="cockpit-more">
+                        {moreFindings} more not listed here. Ask &ldquo;Which orders are late?&rdquo; or &ldquo;What is below safety stock?&rdquo; for the full lists.
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </div>
 
               <div className="min-w-0 border border-border bg-surface">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
-                  <div><p className="eyebrow">Impact assessment</p><h2 className="mt-1 text-base font-semibold">Dependency view</h2><p className="mt-1 text-xs text-ink-secondary">Relationships loaded from the current workspace graph.</p></div>
+                  <div><p className="eyebrow">Impact assessment</p><h2 className="mt-1 text-base font-semibold">Dependency view</h2><p className="mt-1 text-xs text-ink-secondary" data-testid="cockpit-map-note">{mapNote}</p></div>
                   <Link href="/nexus/world" className="button-secondary">Inspect full graph</Link>
                 </div>
                 <DependencyMap nodes={nodes} edges={edges} selectedRisk={selectedRisk} />
@@ -291,7 +368,7 @@ export default function DisruptionCockpit() {
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4"><Link href="/nexus/scenarios" className="button-primary">Open scenario lab</Link><Link href="/nexus/decision-room" className="button-secondary">Review decisions</Link></div>
               </div>
-              <div className="border border-border bg-surface p-5">
+              <div ref={askPanelRef} className="border border-border bg-surface p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="eyebrow">Grounded investigation</p>
@@ -389,8 +466,8 @@ function WorkflowStep({ number, title, detail, active = false }: { number: strin
 }
 
 function DependencyMap({ nodes, edges, selectedRisk }: { nodes: GraphNode[]; edges: GraphEdge[]; selectedRisk: Risk | null }) {
-  if (nodes.length === 0) return <div className="flex min-h-[270px] items-center justify-center px-5 text-center"><div><div className="text-sm font-medium">No operational graph loaded</div><p className="mt-2 max-w-sm text-xs leading-5 text-ink-secondary">Upload and validate the supported data contract to build the dependency view.</p><Link href="/upload" className="mt-4 inline-block text-xs text-accent hover:underline">Open data readiness →</Link></div></div>;
-  const visibleNodes = nodes.slice(0, 18);
+  if (nodes.length === 0) return <div className="flex min-h-[270px] items-center justify-center px-5 text-center"><div><div className="text-sm font-medium">No published records yet</div><p className="mt-2 max-w-sm text-xs leading-5 text-ink-secondary">Upload a file, review it and publish it to see how its records connect.</p><Link href="/upload" className="mt-4 inline-block text-xs text-accent hover:underline">Upload data →</Link></div></div>;
+  const visibleNodes = nodes.slice(0, MAP_NODE_LIMIT);
   const width = 920;
   const height = 270;
   const positions = new Map(visibleNodes.map((node, index) => [node.node_id ?? node.entity_id ?? String(index), { x: 52 + (index % 6) * 160, y: 65 + Math.floor(index / 6) * 80 }]));

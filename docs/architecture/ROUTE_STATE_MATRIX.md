@@ -35,7 +35,8 @@ for the data states.
 | `/audit` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
 | `/conflicts` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
 | `/decisions` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
-| `/evidence` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
+| `/evidence` | required | ✅ | ✅ | ✅ | ❌ | ⚠️ |
+| `/nexus/cockpit` | required | ✅ | ✅ | ✅ | ❌ | ⚠️ |
 | `/graph` | required | ✅ | ✅ | ✅ | ❌ | ⚠️ |
 | `/nexus` | required | ✅ | ✅ | ✅ | ❌ | ⚠️ |
 | `/readiness` | required | ✅ | ⚠️ | ✅ | ❌ | ⚠️ |
@@ -67,6 +68,23 @@ for the data states.
 3. **Unauthorized handling is reactive, not proactive.** A 401 from the
    backend surfaces in the error state; the user is not redirected to
    `/login` automatically.
+4. **The Command Center reads the published records (2026-11-18).** Its
+   figures used to come from the risk register alone, which only a direct
+   API call writes, so a workspace with late purchase orders showed "0 open
+   disruptions", "World state: Not available" and "Data posture:
+   Incomplete" beside an Ask box that listed the late orders. The page now
+   calls `GET /nexus/workspace/overview`, which the server derives from the
+   records with the code that also answers the Ask box (late orders, stock
+   below its threshold, partners flagged by their own status, record and
+   relationship totals, published version). A figure that could not be
+   checked is a dash with the reason, not a zero; a failed read says so.
+   Recorded risks are still listed, labelled as what they are.
+5. **`/evidence` without a batch lists the uploads (2026-11-18).** It used
+   to say "Open this page from a source upload so the batch ID is
+   included", so an upload could only be reopened by someone who had kept
+   its address. `GET /sources/batches` returns the uploads of the
+   workspace, newest first, with their files and state; `/upload` links to
+   the list.
 
 ## Required follow-ups (Phase 2 → Phase 15)
 
@@ -82,7 +100,9 @@ for the data states.
 The matrix is enforced by the Playwright specs in `frontend/tests/`:
 - `auth-e2e.spec.ts`: sign-up, sign-in, guards, and that retired
   `/workspace` addresses land on the working cockpit
-- `critical-path-e2e.spec.ts`: upload, review, publish, ask
+- `critical-path-e2e.spec.ts`: upload, review, publish, ask; the list of
+  uploads; the Command Center figures against the uploaded rows and the
+  Ask box, for an empty workspace and for a failed read
 - `decision-room-e2e.spec.ts`: task review (roles, signed-out state,
   redirect from the retired address)
 - `realtime-e2e.spec.ts`: live-data paths

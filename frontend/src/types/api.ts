@@ -191,6 +191,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sources/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Batches
+         * @description Uploads of the workspace, newest first, each with its files and state.
+         *
+         *     Without this list an upload could only be reopened by someone who had kept
+         *     its address: the review page needs the batch ID and nothing showed it.
+         */
+        get: operations["list_batches_api_v1_sources_batches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources/batches/{batch_id}": {
         parameters: {
             query?: never;
@@ -3327,6 +3350,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nexus/workspace/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workspace Overview
+         * @description Counts of the published records, and the late orders, low stock and flagged partners in them.
+         */
+        get: operations["workspace_overview_api_v1_nexus_workspace_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nexus/risks": {
         parameters: {
             query?: never;
@@ -4047,6 +4090,39 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * BatchListItem
+         * @description One upload and where it stands between upload and publication.
+         */
+        BatchListItem: {
+            /** Batch Id */
+            batch_id: string;
+            /** Files */
+            files: components["schemas"]["UploadedFile"][];
+            /** Uploaded At */
+            uploaded_at: string | null;
+            /** State */
+            state: string;
+            /** Published Version */
+            published_version: number | null;
+            /** Claims Accepted */
+            claims_accepted: number;
+            /** Claims Pending Review */
+            claims_pending_review: number;
+            /** Claims Rejected */
+            claims_rejected: number;
+            /** Open Conflicts */
+            open_conflicts: number;
+            /** Blocking Conflicts */
+            blocking_conflicts: number;
+        };
+        /** BatchListResponse */
+        BatchListResponse: {
+            /** Batch Count */
+            batch_count: number;
+            /** Batches */
+            batches: components["schemas"]["BatchListItem"][];
         };
         /** BatchSimulationRequest */
         BatchSimulationRequest: {
@@ -8227,6 +8303,13 @@ export interface components {
             /** Profiling Scheduled */
             profiling_scheduled: boolean;
         };
+        /** UploadedFile */
+        UploadedFile: {
+            /** Name */
+            name: string;
+            /** Rows */
+            rows: number | null;
+        };
         /** ValidateStateRequest */
         ValidateStateRequest: {
             /** Workspace Id */
@@ -8637,6 +8720,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_batches_api_v1_sources_batches_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -13954,6 +14068,39 @@ export interface operations {
                 "application/json": components["schemas"]["VanessaAskRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workspace_overview_api_v1_nexus_workspace_overview_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

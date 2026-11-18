@@ -50,14 +50,8 @@ async function signUp(request: APIRequestContext, tag: string): Promise<Account>
   return { email, password, token: String(body.access_token), workspaceId: String(body.workspace_id) };
 }
 
-async function createLoggedInSession(
-  page: Page,
-  request: APIRequestContext,
-  tag: string,
-): Promise<Account> {
-  const account = await signUp(request, tag);
-
-  // Establish the session through the real UI so AuthProvider owns token state.
+/** Sign in through the real UI so AuthProvider owns the token state. */
+async function logIn(page: Page, account: Account): Promise<void> {
   await page.goto(`${BASE_URL}/auth/login`);
   await page.getByLabel('Work email').fill(account.email);
   await page.getByLabel('Password').fill(account.password);
@@ -65,19 +59,44 @@ async function createLoggedInSession(
   await expect(page).toHaveURL(/onboarding/);
   await page.getByTestId('onboarding-continue').click();
   await expect(page).toHaveURL(/app$/);
+}
+
+/** A new organization with its own workspace, signed in. For tests that write data. */
+async function createLoggedInSession(
+  page: Page,
+  request: APIRequestContext,
+  tag: string,
+): Promise<Account> {
+  const account = await signUp(request, tag);
+  await logIn(page, account);
   return account;
+}
+
+// The API accepts 30 signups an hour from one address, and every browser test
+// comes from one address. Tests that only need a signed-in user whose
+// workspace holds nothing share this account instead of creating one each.
+// No test may write to it.
+let emptyWorkspaceAccount: Account | null = null;
+
+async function openEmptyWorkspace(page: Page, request: APIRequestContext): Promise<Account> {
+  emptyWorkspaceAccount ??= await signUp(request, 'empty');
+  await logIn(page, emptyWorkspaceAccount);
+  return emptyWorkspaceAccount;
 }
 
 /**
  * Upload a file and take it through prepare -> review -> publish over the API,
  * as an integration would. Review accepts every claim, mapped to its own column.
+ * With `publish: false` it stops after prepare, so the upload waits for review.
  */
 async function publishSupplierFile(
   request: APIRequestContext,
   account: Account,
   name: string,
   csv: string,
-): Promise<void> {
+  options: { entity?: string; publish?: boolean } = {},
+): Promise<string> {
+  const entity = options.entity ?? 'Supplier';
   const headers = { Authorization: `Bearer ${account.token}` };
   const params = { workspace_id: account.workspaceId };
 
@@ -94,6 +113,7 @@ async function publishSupplierFile(
 
   const prepared = await request.post(`${BACKEND}/api/v1/sources/batches/${batchId}/compile`, { headers, params });
   expect(prepared.status(), `prepare body: ${await prepared.text()}`).toBe(200);
+  if (options.publish === false) return batchId;
 
   const claims = await request.get(`${BACKEND}/api/v1/sources/batches/${batchId}/claims`, {
     headers,
@@ -109,7 +129,7 @@ async function publishSupplierFile(
         data: {
           decision: 'accepted',
           rationale: 'Checked against the supplier master.',
-          canonical_entity: 'Supplier',
+          canonical_entity: entity,
           canonical_field: claim.source_column,
         },
       },
@@ -119,11 +139,12 @@ async function publishSupplierFile(
 
   const published = await request.post(`${BACKEND}/api/v1/graph/batches/${batchId}/compile`, { headers, params });
   expect(published.status(), `publish body: ${await published.text()}`).toBe(200);
+  return batchId;
 }
 
 test.describe('Upload → Evidence → Conflict → Readiness → Audit path', () => {
   test('authenticated workspace can open the source upload form', async ({ page, request }) => {
-    await createLoggedInSession(page, request, 'upload');
+    await openEmptyWorkspace(page, request);
     await page.goto(`${BASE_URL}/upload`);
     await expect(page.getByRole('heading', { name: 'Upload a source file' })).toBeVisible();
     await expect(page.locator('#source-file')).toBeVisible();
@@ -131,12 +152,70 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await expect(page.getByText(/authenticated workspace/i)).toBeVisible();
   });
 
-  test('evidence review requires a batch and directs the operator to source intake', async ({ page, request }) => {
-    await createLoggedInSession(page, request, 'evidence');
+  test('evidence without a batch says that nothing was uploaded and leads to the upload form', async ({ page, request }) => {
+    await openEmptyWorkspace(page, request);
     await page.goto(`${BASE_URL}/evidence`);
-    await expect(page.getByRole('heading', { name: 'Evidence Review' })).toBeVisible();
-    await expect(page.getByText(/open this page from a source upload/i)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Upload source data' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your uploads' })).toBeVisible();
+    await expect(page.getByTestId('uploads-empty')).toContainText('No uploads yet');
+    await page.getByRole('link', { name: 'Upload source data' }).click();
+    await expect(page).toHaveURL(/\/upload$/);
+  });
+
+  test('every upload can be found again, with where it stands', async ({ page, request }) => {
+    const account = await createLoggedInSession(page, request, 'uploads');
+    await publishSupplierFile(
+      request,
+      account,
+      'suppliers.csv',
+      'supplier_id,supplier_name,country\nS-1,Acme Metals,DE\nS-2,Borealis Plastics,SE\n',
+    );
+    const waitingId = await publishSupplierFile(
+      request,
+      account,
+      'more_suppliers.csv',
+      'supplier_id,supplier_name,country\nS-3,Castor Bearings,JP\n',
+      { publish: false },
+    );
+
+    // The upload form leads to the list; nobody has to keep a batch address.
+    await page.goto(`${BASE_URL}/upload`);
+    await page.getByTestId('upload-earlier').click();
+    await expect(page).toHaveURL(/\/evidence$/);
+    await expect(page.getByTestId('uploads-summary')).toHaveText('2 uploads · 1 not published');
+
+    const rows = page.getByTestId('upload-row');
+    await expect(rows).toHaveCount(2);
+    // Newest first.
+    const waiting = rows.nth(0);
+    await expect(waiting).toContainText('more_suppliers.csv');
+    await expect(waiting.getByTestId('upload-state')).toHaveText('Waiting for review');
+    await expect(waiting).toContainText('3 values wait for a decision. Not part of your data yet.');
+    await expect(waiting).toContainText('1 row');
+    const published = rows.nth(1);
+    await expect(published).toContainText('suppliers.csv');
+    await expect(published.getByTestId('upload-state')).toHaveText('Published · version 1');
+    await expect(published).toContainText('6 values accepted and part of your data.');
+    await expect(published).toContainText('2 rows');
+
+    // A row opens the review page of that upload, which leads back to the list.
+    await waiting.getByRole('link', { name: 'Review: more_suppliers.csv' }).click();
+    await expect(page).toHaveURL(new RegExp(`/evidence\\?batch_id=${waitingId}$`));
+    await expect(page.getByRole('heading', { name: 'Evidence review' })).toBeVisible();
+    await expect(page.locator('tbody tr')).toHaveCount(3);
+    await page.getByTestId('evidence-all-uploads').click();
+    await expect(page).toHaveURL(/\/evidence$/);
+    await expect(page.getByTestId('upload-row')).toHaveCount(2);
+  });
+
+  test('a list of uploads that cannot be loaded says so', async ({ page, context, request }) => {
+    await openEmptyWorkspace(page, request);
+    await context.route(/\/api\/v1\/sources\/batches\?/, (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: 'storage offline' }) }),
+    );
+    await page.goto(`${BASE_URL}/evidence`);
+    await expect(page.getByTestId('uploads-error')).toContainText('The uploads could not be loaded');
+    // Not the empty state: the uploads may exist.
+    await expect(page.getByTestId('uploads-empty')).toHaveCount(0);
   });
 
   test('uploaded source file is accepted and its evidence can be prepared', async ({ page, request }) => {
@@ -220,6 +299,118 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await expect(answers.last()).toContainText('I could not find PO-9999 in your published data.');
   });
 
+  test('a new workspace is told that nothing is published, not shown zeros', async ({ page, request }) => {
+    await openEmptyWorkspace(page, request);
+    await page.goto(`${BASE_URL}/nexus/cockpit`);
+
+    const state = page.getByTestId('cockpit-state');
+    await expect(state).toContainText('Published data');
+    await expect(state).toContainText('Nothing published');
+    // The old card said "World state: Not available" beside a CONNECTED badge.
+    await expect(page.getByText('Not available')).toHaveCount(0);
+    await expect(page.getByText('Incomplete')).toHaveCount(0);
+
+    const tiles = page.getByTestId('cockpit-tiles');
+    await expect(tiles).toContainText('Late orders');
+    await expect(tiles).toContainText('No data published yet');
+    await expect(page.getByText('Nothing to check yet')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Upload data →' }).first()).toBeVisible();
+    await expect(page.getByTestId('cockpit-attention-count')).toHaveText('00');
+    await expect(page.getByTestId('cockpit-source')).toHaveCount(0);
+  });
+
+  test('the Command Center shows what the published files hold and agrees with the Ask box', async ({ page, request }) => {
+    const account = await createLoggedInSession(page, request, 'cockpit');
+    await publishSupplierFile(
+      request,
+      account,
+      'suppliers.csv',
+      'supplier_id,supplier_name,country,status\nS-1,Acme Metals,DE,active\nS-2,Borealis Plastics,SE,delayed\n',
+    );
+    // PO-1 says it is delayed; PO-2 is promised far in the future. Neither
+    // verdict depends on the day the test runs.
+    await publishSupplierFile(
+      request,
+      account,
+      'purchase_orders.csv',
+      'po_number,supplier_id,quantity,promised_date,expected_date,status\n' +
+        'PO-1,S-2,400,2026-11-05,2026-11-26,delayed\n' +
+        'PO-2,S-1,150,2099-01-24,2099-01-24,confirmed\n',
+      { entity: 'PurchaseOrder' },
+    );
+
+    await page.goto(`${BASE_URL}/nexus/cockpit`);
+
+    // Totals of the published data, not "Not available" / "Not loaded".
+    const state = page.getByTestId('cockpit-state');
+    await expect(state).toContainText('Version 2', { timeout: 15_000 });
+    await expect(state.locator('div', { hasText: 'Records' }).last()).toContainText('4');
+    await expect(state.locator('div', { hasText: 'Relationships' }).last()).toContainText('2');
+
+    // One of the two purchase orders is late; no stock was published, so the
+    // stock figure is a dash with the reason, not a zero.
+    const tiles = page.getByTestId('cockpit-tiles').locator('> div');
+    await expect(tiles.nth(0)).toContainText('Late orders');
+    await expect(tiles.nth(0)).toContainText('1');
+    await expect(tiles.nth(0)).toContainText('of 2 orders and shipments checked');
+    await expect(tiles.nth(1)).toContainText('—');
+    await expect(tiles.nth(1)).toContainText('No stock records in your data');
+    await expect(tiles.nth(2)).toContainText('Flagged partners');
+    await expect(tiles.nth(2)).toContainText('1');
+    await expect(tiles.nth(3)).toContainText('Recorded risks');
+    await expect(tiles.nth(3)).toContainText('0');
+    await expect(page.getByTestId('cockpit-source')).toContainText('Read from your published data, version 2');
+
+    // The queue lists the late order and the flagged supplier with the reason
+    // read from the uploaded rows.
+    await expect(page.getByTestId('cockpit-attention-count')).toHaveText('02');
+    const findings = page.getByTestId('cockpit-finding');
+    await expect(findings).toHaveCount(2);
+    await expect(findings.nth(0)).toContainText('Purchase order PO-1');
+    await expect(findings.nth(0)).toContainText('21 days late');
+    await expect(findings.nth(0)).toContainText('400 units from S-2 Borealis Plastics');
+    await expect(findings.nth(0)).toContainText(
+      'Status is delayed; now expected 2026-11-26, 21 days after the promised 2026-11-05',
+    );
+    await expect(findings.nth(1)).toContainText('S-2 Borealis Plastics');
+    await expect(findings.nth(1)).toContainText('Supplier with status delayed');
+    // The order that is on time is not listed.
+    await expect(page.getByTestId('cockpit-queue')).not.toContainText('PO-2');
+    await expect(page.getByTestId('cockpit-map-note')).toHaveText(
+      'All 4 published records and the links between them.',
+    );
+
+    // The Ask box reads the same records and reports the same order as late.
+    await page.getByLabel('Question about this workspace').fill('Which orders are late?');
+    await page.getByRole('button', { name: 'Ask', exact: true }).click();
+    const answers = page.getByTestId('ask-answer');
+    await expect(answers.last()).toContainText('1 of 2 purchase orders', { timeout: 15_000 });
+    await expect(answers.last()).toContainText(
+      'PO-1: 400 units from S-2 Borealis Plastics; status is delayed; now expected 2026-11-26, 21 days after the promised 2026-11-05.',
+    );
+
+    // A row of the queue asks about its record.
+    await findings.nth(1).click();
+    await expect(page.getByTestId('ask-question').last()).toHaveText(/Tell me about S-2/);
+    await expect(answers).toHaveCount(2, { timeout: 15_000 });
+    await expect(answers.last()).toContainText('S-2 is a supplier in your published data: Borealis Plastics.');
+    await expect(answers.last()).toContainText('1 purchase order refers to it: PO-1.');
+  });
+
+  test('figures that cannot be read are not shown as zeros', async ({ page, context, request }) => {
+    await openEmptyWorkspace(page, request);
+    await context.route(/\/api\/v1\/nexus\/workspace\/overview\?/, (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: 'database offline' }) }),
+    );
+    await page.goto(`${BASE_URL}/nexus/cockpit`);
+    await expect(page.getByRole('alert').filter({ hasText: 'Retry' })).toBeVisible({ timeout: 15_000 });
+    const tiles = page.getByTestId('cockpit-tiles').locator('> div');
+    await expect(tiles.nth(0)).toContainText('Could not be read');
+    await expect(tiles.nth(0)).toContainText('—');
+    await expect(page.getByText('Your data could not be read')).toBeVisible();
+    await expect(page.getByText('CONNECTED')).toHaveCount(0);
+  });
+
   test('retired conflict and readiness routes lead to source intake', async ({ page }) => {
     // Conflicts and the readiness gate are part of /evidence?batch_id=…, which
     // is reached from an upload. The old standalone pages called API routes
@@ -253,7 +444,7 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
 
 test.describe('Failure behavior — backend 5xx surfaces error UI', () => {
   test('authenticated evidence review surfaces a backend 500', async ({ page, context, request }) => {
-    await createLoggedInSession(page, request, 'evidence-500');
+    await openEmptyWorkspace(page, request);
     await context.route('**/api/v1/**', (route) => {
       if (route.request().url().includes('/auth/me')) {
         return route.continue();

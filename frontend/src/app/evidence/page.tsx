@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiClient, useAuth } from "@/lib/auth";
+import { UploadsList } from "@/components/evidence/UploadsList";
 
 type ClaimState = "pending_review" | "accepted" | "rejected" | "superseded" | "conflicted";
 
@@ -331,10 +332,20 @@ function EvidenceContent() {
 
   if (!batchId) {
     return (
-      <main className={`${PAGE_SURFACE} p-8`}>
-        <h1 className="text-2xl font-semibold text-gray-900">Evidence Review</h1>
-        <p className="mt-2 text-sm text-gray-600">Open this page from a source upload so the batch ID is included.</p>
-        <Link href="/upload" className="mt-4 inline-flex rounded bg-slate-900 px-4 py-2 text-white">Upload source data</Link>
+      <main className={`${PAGE_SURFACE} p-5 sm:p-8`}>
+        <div className="mx-auto max-w-4xl">
+          <div className="text-xs text-slate-500">
+            <Link href="/nexus/cockpit" className="font-medium text-slate-700 hover:underline">Cortex Nexus</Link>
+            <span className="px-2">/</span>
+            <span>Source evidence</span>
+          </div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Your uploads</h1>
+          <p className="mt-1 mb-6 max-w-2xl text-sm text-slate-600">
+            {workspace?.name ?? "Active workspace"} · every file uploaded to this workspace and where it stands.
+            A file becomes part of your data only after it is reviewed and published.
+          </p>
+          <UploadsList workspaceId={workspaceId} />
+        </div>
       </main>
     );
   }
@@ -346,6 +357,8 @@ function EvidenceContent() {
           <div>
             <div className="text-xs text-slate-500">
               <Link href="/nexus/cockpit" className="font-medium text-slate-700 hover:underline">Cortex Nexus</Link>
+              <span className="px-2">/</span>
+              <Link href="/evidence" className="font-medium text-slate-700 hover:underline" data-testid="evidence-all-uploads">All uploads</Link>
               <span className="px-2">/</span>
               <span>Source evidence</span>
             </div>

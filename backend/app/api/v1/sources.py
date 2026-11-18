@@ -36,6 +36,7 @@ from app.modules.compiler.service import (
     row_entity_key,
 )
 from app.modules.graph.entity_keys import ENTITY_PRIMARY_KEYS, FACILITY_ENTITY_TYPES
+from app.modules.nexus_spine.p0_migration.workspace_evidence import list_uploads
 from app.modules.sources.models import SourceBatch
 from app.modules.sources.service import get_batch, get_file, list_profiles, process_upload
 
@@ -58,6 +59,34 @@ class BatchStatusResponse(BaseModel):
     file_count: int
     checksum: str
     source_system_hint: str
+
+
+class UploadedFile(BaseModel):
+    name: str
+    rows: int | None
+
+
+class BatchListItem(BaseModel):
+    """One upload and where it stands between upload and publication."""
+
+    batch_id: str
+    files: list[UploadedFile]
+    uploaded_at: str | None
+    # published | ready_to_publish | review_required | blocked |
+    # nothing_accepted | not_prepared
+    state: str
+    published_version: int | None
+    claims_accepted: int
+    claims_pending_review: int
+    claims_rejected: int
+    open_conflicts: int
+    blocking_conflicts: int
+
+
+class BatchListResponse(BaseModel):
+    # Every upload of the workspace; ``batches`` lists the most recent ones.
+    batch_count: int
+    batches: list[BatchListItem]
 
 
 class FileProfileResponse(BaseModel):
@@ -199,6 +228,25 @@ async def upload_source_file(
         raise HTTPException(status_code=422, detail=str(e)) from e
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
+
+
+@router.get("/batches", response_model=BatchListResponse)
+async def list_batches(
+    workspace_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_user),
+) -> BatchListResponse:
+    """Uploads of the workspace, newest first, each with its files and state.
+
+    Without this list an upload could only be reopened by someone who had kept
+    its address: the review page needs the batch ID and nothing showed it.
+    """
+    require_workspace_access(workspace_id, auth)
+    uploads = await list_uploads(db, workspace_id)
+    return BatchListResponse(
+        batch_count=uploads["batch_count"],
+        batches=[BatchListItem(**batch) for batch in uploads["batches"]],
+    )
 
 
 @router.get("/batches/{batch_id}", response_model=BatchStatusResponse)

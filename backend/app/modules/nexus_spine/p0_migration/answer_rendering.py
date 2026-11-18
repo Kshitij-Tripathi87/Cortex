@@ -1531,6 +1531,64 @@ def summarize_evidence(tool: str | None, data: Any) -> str:
     return "Read workspace data."
 
 
+# ── Wording shared with the Command Center ──────────────────────────────────
+#
+# The cockpit lists what stands out in the published records. It uses these
+# functions, so a line there reads the same as the matching line of an answer.
+
+
+def kind_noun(entity_type: str, count: int = 2) -> str:
+    """Everyday name of a record kind: 'purchase order', 'purchase orders'."""
+    return _noun(entity_type, count)
+
+
+def late_flow_parts(flow: Mapping[str, Any]) -> tuple[str, str]:
+    """What a late order or shipment carries, and why it counts as late.
+
+    ('400 x C-2000 Cast Iron Housing from S-101 Bharat Castings Pvt Ltd',
+    'promised for 2026-11-10 and not marked as delivered 8 days later'). The
+    first part is empty when the record names no product, quantity or partner.
+    """
+    reasons = "; ".join(str(reason) for reason in _list(flow.get("reasons")))
+    return _flow_subject(flow), reasons
+
+
+def late_flow_sentence(flow: Mapping[str, Any]) -> str:
+    """One late order or shipment as the answer to "which orders are late?" lists it."""
+    return _flow_line(flow)
+
+
+def stock_sentence(position: Mapping[str, Any]) -> str:
+    """'C-2000 Cast Iron Housing at WH-PUNE: 120 on hand against a safety stock of 300 (180 short)'."""
+    return _stock_phrase(position)
+
+
+def stock_parts(position: Mapping[str, Any]) -> tuple[str, str]:
+    """``stock_sentence`` as (which stock, the figures it is judged on).
+
+    ('C-2000 Cast Iron Housing at WH-PUNE', '120 on hand against a safety
+    stock of 300 (180 short)').
+    """
+    product = _label(_dict(position.get("product")))
+    facility = _label(_dict(position.get("facility")))
+    where = f"{product} at {facility}" if product and facility else product or facility
+    head = str(where or position.get("entity_id"))
+    sentence = _stock_phrase(position)
+    prefix = f"{head}: "
+    return (head, sentence[len(prefix) :]) if sentence.startswith(prefix) else (head, sentence)
+
+
+def flagged_sentence(flag: Mapping[str, Any]) -> str:
+    """'S-102 Borealis Plastics: status is delayed.'"""
+    field_name = _field(flag.get("status_field") or "status")
+    return f"{_label(flag)}: {field_name} is {flag.get('status')}."
+
+
+def attention_sentences(attention: Mapping[str, Any]) -> list[str]:
+    """The sentences an overview answer gives about late orders, stock and flagged partners."""
+    return _attention_lines(attention)
+
+
 def world_state_version_of(data: Any) -> int | None:
     """Published data version a tool answered from, when it reports one."""
     mapping = _dict(data)

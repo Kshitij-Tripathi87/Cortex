@@ -314,9 +314,9 @@ export default function DecisionRoomPage() {
               <span className="eyebrow">Decisions ({filteredDecisions.length})</span>
             </div>
             {filteredDecisions.length === 0 ? (
-              <p className="px-4 py-8 text-center text-xs text-ink-secondary">
+              <p className="px-4 py-8 text-center text-xs leading-5 text-ink-secondary" data-testid="decisions-empty">
                 {decisions.length === 0
-                  ? "No decisions recorded. Decisions appear after the pipeline proposes a governed action."
+                  ? "No decisions recorded. A decision is added through the Cortex API by an integration or an operator; uploading data does not create one."
                   : "No decisions in this phase."}
               </p>
             ) : (

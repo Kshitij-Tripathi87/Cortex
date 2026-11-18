@@ -730,6 +730,37 @@ async def _intake(session: AsyncSession, workspace_id: str) -> dict[str, Any]:
     }
 
 
+def utc_iso(value: str | None) -> str | None:
+    """An ISO timestamp with its UTC offset.
+
+    PostgreSQL returns timezone-aware values; SQLite returns naive ones for the
+    same columns. A browser reads a timestamp without an offset as local time,
+    so a value that leaves the API always carries one.
+    """
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.isoformat()
+
+
+async def list_uploads(session: AsyncSession, workspace_id: str) -> dict[str, Any]:
+    """Uploads of a workspace, newest first, and where each stands.
+
+    The same reading as the answer to "Is my data ready?": at most
+    ``MAX_BATCHES`` uploads are listed and ``batch_count`` carries the full
+    number.
+    """
+    intake = await _intake(session, workspace_id)
+    return {
+        "batch_count": intake["batch_count"],
+        "batches": [
+            {**batch, "uploaded_at": utc_iso(batch["uploaded_at"])} for batch in intake["batches"]
+        ],
+    }
+
+
 def _matched_view(match: Mapping[str, Any]) -> dict[str, Any]:
     record: NodeRecord = match["record"]
     return {**record.ref(), "matched_on": match["matched_on"], "text": match["text"]}

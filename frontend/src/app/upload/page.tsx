@@ -102,9 +102,14 @@ export default function UploadPage() {
             Upload operational data into the active workspace
           </p>
         </div>
-        <Link href="/nexus/world" className="button-secondary">
-          World State Explorer
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/evidence" className="button-secondary" data-testid="upload-earlier">
+            Earlier uploads
+          </Link>
+          <Link href="/nexus/world" className="button-secondary">
+            World State Explorer
+          </Link>
+        </div>
       </header>
 
       <main className="px-5 py-8 sm:px-8">
