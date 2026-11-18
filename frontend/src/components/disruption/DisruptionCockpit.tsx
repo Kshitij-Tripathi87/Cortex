@@ -311,7 +311,9 @@ export default function DisruptionCockpit() {
                     }
                   />
                 ) : (
-                  <div className="max-h-[36rem] divide-y divide-border overflow-y-auto" data-testid="cockpit-queue">
+                  // Beside the dependency view (xl) a long queue scrolls in its card;
+                  // on narrower screens it is one column and simply continues.
+                  <div className="divide-y divide-border xl:max-h-[36rem] xl:overflow-y-auto" data-testid="cockpit-queue">
                     {risks.slice(0, 10).map((risk) => (
                       <button key={risk.entity_id} type="button" onClick={() => setSelectedRiskId(risk.entity_id)} className={`w-full px-4 py-4 text-left transition-colors hover:bg-surface-2 ${selectedRisk?.entity_id === risk.entity_id ? "border-l-2 border-accent bg-surface-2" : "border-l-2 border-transparent"}`}>
                         <div className="flex items-start justify-between gap-2"><span className="text-sm font-medium text-ink">{riskLabel(risk)}</span><span className={`badge ${severityStyles[risk.severity]}`}>{risk.severity}</span></div>

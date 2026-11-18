@@ -460,7 +460,9 @@ function EvidenceContent() {
           </section>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
+        {/* `grid-cols-1` lets the single narrow-screen column shrink to the
+            screen, so the wide claims table scrolls inside its own box. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
           <section className="border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-4">
               <h2 className="font-semibold text-slate-950">Extracted claims</h2>

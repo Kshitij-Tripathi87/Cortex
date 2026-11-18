@@ -9,9 +9,12 @@ import { PlanPausedNotice } from "@/components/auth/PlanPausedNotice";
 export default function NexusLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-bg text-ink">
-      <div className="mx-auto flex min-h-screen max-w-[1600px]">
+      {/* A column on narrow screens (navigation above the page), a row from
+          `lg` up (sidebar beside it). As one row at every width the phone
+          navigation sat next to the page and pushed it off the screen. */}
+      <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col lg:flex-row">
         <NexusNav />
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1" data-testid="nexus-page">
           {/* Says why task actions are refused once a trial has ended. */}
           <PlanPausedNotice testId="nexus-plan-paused" className="mx-5 mt-4 sm:mx-8" />
           {children}

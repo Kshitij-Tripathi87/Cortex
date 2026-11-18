@@ -85,6 +85,22 @@ for the data states.
    its address. `GET /sources/batches` returns the uploads of the
    workspace, newest first, with their files and state; `/upload` links to
    the list.
+6. **The `/nexus` pages fit a phone (2026-11-18).** The shell was one row at
+   every width, so below 1024 px the navigation strip sat beside the page
+   and pushed it off screen (the pages measured 889 to 1128 px wide on a
+   390 px screen). The shell is now a column below `lg`: the six sections
+   wrap above the page, none behind a sideways scroll. On `/evidence` the
+   claims table scrolls inside its own box. Measured with data at 390, 768
+   and 1280 px: every signed-in page is exactly as wide as the screen.
+7. **`/security` states what exists (2026-11-18).** It promised single
+   sign-on, mutual TLS, AES-256 with customer-managed keys, dedicated
+   infrastructure per customer and a tamper-evident log exported to
+   monitoring tools; none of these exist. Each sentence now describes
+   behaviour in the code (the sources are listed at the top of
+   `src/app/security/page.tsx`), and what is missing is listed under "Not
+   available yet". Where data is hosted, disk encryption and backups are
+   properties of a deployment that the repository cannot show: the page
+   says so and must be completed by whoever runs the deployment.
 
 ## Required follow-ups (Phase 2 → Phase 15)
 
@@ -102,10 +118,13 @@ The matrix is enforced by the Playwright specs in `frontend/tests/`:
   `/workspace` addresses land on the working cockpit
 - `critical-path-e2e.spec.ts`: upload, review, publish, ask; the list of
   uploads; the Command Center figures against the uploaded rows and the
-  Ask box, for an empty workspace and for a failed read
+  Ask box, for an empty workspace and for a failed read; every `/nexus` page at
+  390 px (navigation above the page, nothing to scroll sideways)
 - `decision-room-e2e.spec.ts`: task review (roles, signed-out state,
   redirect from the retired address)
 - `realtime-e2e.spec.ts`: live-data paths
+- `public-forms-e2e.spec.ts`: the demo and contact forms; that `/security`
+  no longer makes the promises listed in finding 7
 
 `e2e-acceptance.spec.ts`, `scale-qualification.spec.ts` and
 `visual-regression.spec.ts` were deleted with the `/workspace/*` area: every

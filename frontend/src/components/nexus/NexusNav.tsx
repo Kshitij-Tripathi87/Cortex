@@ -82,13 +82,19 @@ export default function NexusNav() {
   const pathname = usePathname();
 
   const links = (compact = false) => (
-    <nav className={compact ? "flex items-center gap-1 overflow-x-auto px-3 py-2" : "space-y-1 px-3"}>
+    <nav
+      aria-label="Cortex Nexus"
+      // Narrow screens: the six sections wrap onto as many lines as they need,
+      // so none is hidden behind a sideways scroll.
+      className={compact ? "flex flex-wrap items-center gap-1 px-3 py-2" : "space-y-1 px-3"}
+    >
       {NAV_GROUPS.map((group) => {
         const active = isActive(pathname, group.href);
         return (
           <div key={group.label} className={compact ? "shrink-0" : ""}>
             <Link
               href={group.href}
+              aria-current={active ? "page" : undefined}
               className={`block border-l-2 px-3 py-2 text-sm transition-colors ${
                 compact ? "border-0 whitespace-nowrap" : ""
               } ${
@@ -121,7 +127,10 @@ export default function NexusNav() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden w-[232px] shrink-0 flex-col border-r border-border bg-surface/40 py-5 lg:flex">
+      <aside
+        className="hidden w-[232px] shrink-0 flex-col border-r border-border bg-surface/40 py-5 lg:flex"
+        data-testid="nexus-nav-wide"
+      >
         <Link href="/" className="mb-8 flex items-center gap-2 px-5">
           <span className="flex h-7 w-7 items-center justify-center bg-accent text-sm font-bold text-white">C</span>
           <span className="text-sm font-semibold tracking-tight">Cortex Nexus</span>
@@ -136,7 +145,7 @@ export default function NexusNav() {
       </aside>
 
       {/* Mobile / narrow top navigation */}
-      <div className="border-b border-border bg-surface/60 lg:hidden">
+      <div className="border-b border-border bg-surface/60 lg:hidden" data-testid="nexus-nav-narrow">
         <div className="flex items-center gap-2 px-3 pt-3">
           <span className="flex h-6 w-6 items-center justify-center bg-accent text-xs font-bold text-white">C</span>
           <span className="text-sm font-semibold tracking-tight">Cortex Nexus</span>

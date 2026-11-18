@@ -264,6 +264,65 @@ test.describe('Contact form', () => {
   });
 });
 
+test.describe('Security page', () => {
+  // Promises this page used to make that nothing in the product backs.
+  const UNBACKED_CLAIMS = [
+    'AES-256',
+    'TLS 1.3',
+    'mTLS',
+    'mutual TLS',
+    'AWS KMS',
+    'HashiCorp',
+    'Splunk',
+    'Datadog',
+    'tamper-evident',
+    'dedicated per tenant',
+    'cryptographic approval',
+  ];
+
+  test('says what the product does and names what it does not do yet', async ({ page }) => {
+    await page.goto(`${BASE_URL}/security`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('How Cortex protects your data');
+
+    const text = await page.getByTestId('security-page').innerText();
+    for (const claim of UNBACKED_CLAIMS) {
+      expect(text, `the page must not promise ${claim}`).not.toContain(claim);
+    }
+
+    // Single sign-on is named once, as something that is missing.
+    const missing = page.getByTestId('security-not-available');
+    await expect(missing.getByRole('heading')).toHaveText('Not available yet');
+    await expect(missing).toContainText('Single sign-on through your identity provider (SAML or OIDC)');
+    await expect(missing).toContainText('Encryption keys that you manage yourself.');
+    await expect(missing).toContainText('Servers or databases reserved for one customer.');
+    expect(text.match(/SAML/g) ?? []).toHaveLength(1);
+
+    // The stages are the ones the server enforces, in its order.
+    await expect(page.getByTestId('security-decision-stages').locator('li')).toHaveCount(9);
+    await expect(page.getByTestId('security-decision-stages')).toContainText('Awaiting approval');
+
+    await expect(page.getByRole('link', { name: /Report a vulnerability/ })).toHaveAttribute(
+      'href',
+      '/security/report-vulnerability',
+    );
+    await expect(page.getByRole('link', { name: /Ask a security question/ })).toHaveAttribute(
+      'href',
+      '/contact?topic=security#write',
+    );
+  });
+
+  test('fits a phone screen', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE_URL}/security`);
+    await expect(page.getByTestId('security-not-available')).toBeVisible();
+    const widths = await page.evaluate(() => ({
+      page: document.documentElement.scrollWidth,
+      screen: document.documentElement.clientWidth,
+    }));
+    expect(widths.page).toBeLessThanOrEqual(widths.screen);
+  });
+});
+
 test.describe('No placeholder addresses', () => {
   const pages = [
     '/contact',

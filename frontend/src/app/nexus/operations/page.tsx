@@ -13,6 +13,9 @@ import { apiClient } from "@/lib/auth/client";
  * the services themselves — the UI never synthesizes a status.
  */
 
+/** How many audit events the page asks for (the newest ones). */
+const AUDIT_PAGE_SIZE = 100;
+
 interface AuditEvent {
   event_id: string;
   event_type: string;
@@ -62,7 +65,7 @@ export default function OperationsPage() {
         workspace_id: workspace.id,
       }),
       apiClient.get<{ data?: Record<string, unknown> }>("/nexus/realtime/health"),
-      apiClient.get<AuditEvent[]>("/audit", { workspace_id: workspace.id, limit: 100 }),
+      apiClient.get<AuditEvent[]>("/audit", { workspace_id: workspace.id, limit: AUDIT_PAGE_SIZE }),
     ]);
     if (modelResult.status === "fulfilled") setModelHealth(modelResult.value.data?.health ?? null);
     if (relayResult.status === "fulfilled") setRelayHealth(relayResult.value.data ?? null);
@@ -144,7 +147,10 @@ export default function OperationsPage() {
               <span className="eyebrow">Audit events</span>
               <p className="mt-1 text-[11px] text-ink-secondary">Append-only audit store, newest first</p>
             </div>
-            <span className="font-mono text-[10px] text-ink-muted">{events.length} events</span>
+            <span className="font-mono text-[10px] text-ink-muted" data-testid="operations-audit-count">
+              {/* A full page means there may be more: do not present it as the total. */}
+              {events.length >= AUDIT_PAGE_SIZE ? `Latest ${AUDIT_PAGE_SIZE} events` : `${events.length} events`}
+            </span>
           </div>
           {events.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-ink-secondary">No audit events recorded yet.</p>

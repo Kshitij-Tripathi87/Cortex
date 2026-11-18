@@ -61,6 +61,19 @@ async function logIn(page: Page, account: Account): Promise<void> {
   await expect(page).toHaveURL(/app$/);
 }
 
+const PHONE = { width: 390, height: 844 };
+
+/** The page must not be wider than the screen (nothing to scroll sideways). */
+async function expectNoSidewaysScroll(page: Page, what: string): Promise<void> {
+  const widths = await page.evaluate(() => ({
+    page: document.documentElement.scrollWidth,
+    screen: document.documentElement.clientWidth,
+  }));
+  expect(widths.page, `${what} is ${widths.page}px wide on a ${widths.screen}px screen`).toBeLessThanOrEqual(
+    widths.screen,
+  );
+}
+
 /** A new organization with its own workspace, signed in. For tests that write data. */
 async function createLoggedInSession(
   page: Page,
@@ -205,6 +218,15 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await page.getByTestId('evidence-all-uploads').click();
     await expect(page).toHaveURL(/\/evidence$/);
     await expect(page.getByTestId('upload-row')).toHaveCount(2);
+
+    // On a phone the review table scrolls inside its own box; the page keeps the width of the screen.
+    await page.setViewportSize(PHONE);
+    await page.goto(`${BASE_URL}/evidence?batch_id=${waitingId}`);
+    await expect(page.locator('tbody tr')).toHaveCount(3);
+    await expectNoSidewaysScroll(page, 'the review page');
+    await page.goto(`${BASE_URL}/evidence`);
+    await expect(page.getByTestId('upload-row')).toHaveCount(2);
+    await expectNoSidewaysScroll(page, 'the list of uploads');
   });
 
   test('a list of uploads that cannot be loaded says so', async ({ page, context, request }) => {
@@ -439,6 +461,63 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     for (const item of ['Command Center', 'World State']) {
       await expect(navLinks.filter({ hasText: item }).first()).toBeVisible({ timeout: 10_000 });
     }
+  });
+});
+
+test.describe('Phone layout', () => {
+  test.use({ viewport: PHONE });
+
+  const SECTIONS = ['Command Center', 'World State', 'Intelligence', 'Scenario Studio', 'Decision Room', 'Operations'];
+  // Something each page shows once it has loaded, so the width is measured on the real page.
+  const PAGES: Array<[string, (page: Page) => Promise<void>]> = [
+    ['/nexus/cockpit', async (page) => { await expect(page.getByTestId('cockpit-tiles')).toBeVisible(); }],
+    ['/nexus/world', async (page) => { await expect(page.getByText('World State').last()).toBeVisible(); }],
+    ['/nexus/impact', async (page) => { await expect(page.getByTestId('impact-empty')).toBeVisible(); }],
+    ['/nexus/scenarios', async (page) => { await expect(page.getByText('Scenario Studio').last()).toBeVisible(); }],
+    ['/nexus/decision-room', async (page) => { await expect(page.getByTestId('decisions-empty')).toBeVisible(); }],
+    ['/nexus/operations', async (page) => { await expect(page.getByTestId('operations-audit-count')).toBeVisible(); }],
+  ];
+
+  test('every Nexus page fits the screen, with the navigation above it', async ({ page, request }) => {
+    await openEmptyWorkspace(page, request);
+    for (const [path, loaded] of PAGES) {
+      await page.goto(`${BASE_URL}${path}`);
+      await loaded(page);
+
+      const nav = page.getByTestId('nexus-nav-narrow');
+      await expect(nav).toBeVisible();
+      await expect(page.getByTestId('nexus-nav-wide')).toBeHidden();
+      // All six sections are on the screen: none sits behind a sideways scroll.
+      for (const name of SECTIONS) {
+        await expect(nav.getByRole('link', { name, exact: true })).toBeInViewport();
+      }
+
+      // The page starts below the navigation and spans the screen. (As one
+      // row, the navigation sat beside the page and pushed it off screen.)
+      const navBox = await nav.boundingBox();
+      const pageBox = await page.getByTestId('nexus-page').boundingBox();
+      expect(navBox && pageBox, `${path}: navigation and page are laid out`).toBeTruthy();
+      expect(pageBox!.y, `${path}: page starts below the navigation`).toBeGreaterThanOrEqual(
+        navBox!.y + navBox!.height - 1,
+      );
+      expect(pageBox!.x, `${path}: page starts at the left edge`).toBe(0);
+      expect(pageBox!.width, `${path}: page spans the screen`).toBe(PHONE.width);
+
+      await expectNoSidewaysScroll(page, path);
+    }
+  });
+
+  test('the sidebar returns on a wide screen', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openEmptyWorkspace(page, request);
+    await page.goto(`${BASE_URL}/nexus/cockpit`);
+    await expect(page.getByTestId('nexus-nav-wide')).toBeVisible();
+    await expect(page.getByTestId('nexus-nav-narrow')).toBeHidden();
+    const navBox = await page.getByTestId('nexus-nav-wide').boundingBox();
+    const pageBox = await page.getByTestId('nexus-page').boundingBox();
+    // Sidebar on the left, page beside it.
+    expect(pageBox!.x).toBeGreaterThanOrEqual(navBox!.x + navBox!.width - 1);
+    await expectNoSidewaysScroll(page, '/nexus/cockpit');
   });
 });
 
