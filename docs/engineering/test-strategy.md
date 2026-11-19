@@ -39,15 +39,75 @@ specific assertion of the contracts, not when a route answers 200.
 - **A missing database fails, it does not skip.** A skipped database test is
   a false green.
 
+- **Concurrency is tested with a held lock, not with luck.** A test that
+  starts two writers and checks the outcome can pass without the lock it is
+  meant to prove, because the race may fall the harmless way. The tests in
+  `tests/integration/test_concurrency.py` therefore hold a row lock in one
+  session, start the writer under test, and wait until PostgreSQL itself
+  reports that writer as waiting for a lock (`pg_stat_activity`). Only then is
+  the lock released. Without the lock in the code the writer never waits and
+  the test fails every time.
+
 ## Tests that were shown to fail without the behaviour
 
-A test that cannot fail proves nothing. These were run against a deliberately
-broken build:
+A test that cannot fail proves nothing. Each line below is a defect that is
+put into the code on purpose, one at a time; the tests named are run, and the
+file is restored.
 
-| Test | Broken on purpose | Result |
-|---|---|---|
-| `test_readiness_does_not_trust_a_connection_that_is_already_open` | Readiness probe through the connection pool | Fails: readiness answers 200 while PostgreSQL refuses new connections |
-| `test_two_concurrent_commits_of_one_batch_take_effect_once` | Batch row lock removed | Fails in 3 of 3 runs |
+`scripts/defect_detection.py` holds defects 1 to 26 and runs them in one go:
+
+```bash
+cd services/api
+uv run python ../../scripts/defect_detection.py
+```
+
+It reports `DETECTED` only when the tests ran and at least one failed, and it
+ends with exit code 1 when a defect leaves every test green or when the text
+it replaces is no longer in the code. The run on the final code of the sprint
+is recorded in `artifacts/sprint/day3-defect-detection.txt`: 26 of 26
+detected. Defect 27 was checked by hand.
+
+This is not an automated mutation run. The defects are chosen by hand, one
+per behaviour that matters most (row locks, workspace filters, bounds, the
+answer to a deadlock), and behaviour outside this list has no such evidence.
+The script edits source files while it runs, so it is not part of
+`make verify` or of CI.
+
+| # | Broken on purpose | Detected by | Result |
+|---|---|---|---|
+| 1 | Readiness probe goes through the connection pool | `test_health.py::test_readiness_does_not_trust_a_connection_that_is_already_open` | Fails: 200 while PostgreSQL refuses new connections |
+| 2 | Import commit reads purchase orders without a row lock | `test_concurrency.py::test_a_commitment_import_waits_for_a_writer_that_holds_the_purchase_order` | 1 failed |
+| 3 | Appending a commitment through the API does not lock the purchase order | `test_concurrency.py` (the API commitment waits; a commitment that became current while waiting is not appended twice) | 2 failed |
+| 4 | Import commit reads milestones without a row lock | `test_concurrency.py` (milestone import) | 1 failed |
+| 5 | Appending a plan version through the API does not lock the milestone | `test_concurrency.py` (API re-plan) | 1 failed |
+| 6 | Commit does not lock the batch row | `test_concurrency.py::test_a_second_commit_waits_for_the_first_and_then_reports_its_result`, `test_two_concurrent_commits_of_one_batch_take_effect_once` | 2 failed |
+| 7 | Preview does not look again after losing the race for a new file | `test_concurrency.py` (both upload-race tests) | 2 failed |
+| 8 | World State reads the latest commitment with one query per purchase order | `test_world_state_queries.py` | 1 failed |
+| 9 | Text with a NUL character passes the request schema | `test_unstorable_values.py` | 5 failed |
+| 10 | Imports do not bound whole numbers | `test_unstorable_values.py`, `test_normalization.py` | 8 failed |
+| 11 | `sequence_no` has no upper bound in the API | `test_unstorable_values.py` | 3 failed |
+| 12 | `offset` of the lists has no upper bound | `test_unstorable_values.py` | 6 failed |
+| 13 | Offsets of the project World State have no upper bound | `test_unstorable_values.py` | 1 failed |
+| 14 | The stored file name keeps control characters | `test_unstorable_values.py` | 1 failed |
+| 15 | No handler for a value the database refuses | `test_unstorable_values.py` | 1 failed |
+| 16 | Decimal places are counted after rounding to the arithmetic precision | `test_normalization.py::test_a_digit_far_to_the_right_is_still_seen` | 1 failed |
+| 17 | Commit has no branch for a value the database refuses | `test_import_preview_commit.py::test_a_value_the_database_cannot_store_fails_the_batch_and_says_what_to_do` | 1 failed |
+| 18 | A deadlock during commit is treated like an outage | `test_concurrency.py::test_a_commit_ended_by_a_deadlock_writes_nothing_and_can_be_sent_again` | 1 failed |
+| 19 | A deadlock on a JSON route is answered 503 | `test_error_envelope.py::test_a_deadlock_is_a_conflict_to_retry_not_an_outage` | 1 failed |
+| 20 | `sequence_no` accepts `"1"`, `1.0` and `true` | `test_unstorable_values.py` | 3 failed |
+| 21 | Project lookup by id ignores the workspace | `test_workspace_isolation_http.py` | 4 failed |
+| 22 | Purchase-order lock by id ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
+| 23 | Milestone lookup by id ignores the workspace | `test_workspace_isolation_http.py` | 3 failed |
+| 24 | Batch lock for commit ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
+| 25 | Equipment list ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
+| 26 | World State counts ignore the workspace | `test_workspace_isolation_http.py` | 1 failed |
+| 27 | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
+
+One test was found **not** to prove what its name suggests.
+`test_two_batches_that_touch_the_same_order_allocate_distinct_versions`
+passes in 5 of 5 runs with the purchase-order lock removed: the race falls
+the harmless way on this machine. It is kept as a check of the outcome; the
+evidence for the lock is defect 2.
 
 ## Where each required scenario is tested
 
@@ -73,11 +133,16 @@ broken build:
 | Commit of the valid subset | `tests/integration/test_import_preview_commit.py`, `tests/api/test_ingestion_commit.py` |
 | Reference drift between preview and commit | same files |
 | Rollback on a failure in the middle of a batch | `tests/integration/test_import_preview_commit.py` |
-| Commit replay, concurrent commit | `tests/integration/test_import_preview_commit.py`, `test_import_idempotency.py` |
+| Commit replay, concurrent commit | `tests/integration/test_import_preview_commit.py`, `test_import_idempotency.py`, `test_concurrency.py` |
+| Writers on the same purchase order or milestone; the same new file uploaded at once; a deadlock | `tests/integration/test_concurrency.py` |
+| Values the database cannot hold (NUL in text, whole numbers and offsets beyond 32 bits, very long decimals) | `tests/api/test_unstorable_values.py`, `tests/unit/test_normalization.py` |
 | A different file with the same keys; conflicting rows | `tests/integration/test_import_idempotency.py` |
 | World State counts equal the database | `tests/api/test_world_state.py`, `tests/integration/test_demo_dataset_e2e.py` |
 | Procurement gap, missing confirmation, commitment history | `tests/api/test_world_state.py` |
 | Paging, empty workspace, deterministic order, isolation | `tests/api/test_world_state.py`, `tests/api/test_workspace_context.py` |
+| An id of another workspace on every route that takes an id | `tests/api/test_workspace_isolation_http.py` (the list of routes is read from the OpenAPI document; a new route without a case fails) |
+| World State cost does not grow with the data | `tests/integration/test_world_state_queries.py` (statement count) |
+| The demo dataset as an Excel workbook with typed cells | `tests/integration/test_demo_dataset_e2e.py` |
 | Full import, repeat import | `tests/integration/test_demo_dataset_e2e.py` |
 | Restart of the API | `tests/integration/test_world_state_persistence.py` (a second instance and a new process), `make e2e` |
 | Restart of the database container with its volume | `make e2e`; in CI with Docker Compose |
@@ -85,7 +150,12 @@ broken build:
 
 ## What the suite does not cover
 
-- Load, and concurrency beyond a handful of simultaneous commits.
+- Load and soak. Concurrency is tested with held locks and with races of up
+  to six writers; timings of large files were measured once
+  (`known-limitations.md`, L-10) and are not asserted.
+- Deadlocks between two imports: the test builds one deadlock, between an
+  import and another writer, and it relies on PostgreSQL's default
+  `deadlock_timeout`.
 - A real spreadsheet produced by Excel or a supplier portal: workbooks in the
   tests are written by openpyxl.
 - Authentication and authorisation, which do not exist in this release.
