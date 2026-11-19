@@ -1,0 +1,8 @@
+Row counts in PostgreSQL before and after an import preview (development database, build machine).
+File: data/samples/validation_examples/equipment_with_issues.csv, previewed as entity type "equipment".
+The preview response is in day2-preview-equipment.json.
+
+before: projects=1 suppliers=0 equipment=0 purchase_orders=0 purchase_order_items=0 milestones=0 milestone_plan_versions=0 supplier_commitment_versions=0 | ingestion_batches=0 ingestion_rows=0
+after:  projects=1 suppliers=0 equipment=0 purchase_orders=0 purchase_order_items=0 milestones=0 milestone_plan_versions=0 supplier_commitment_versions=0 | ingestion_batches=1 ingestion_rows=6
+
+Canonical tables (left of the bar): unchanged. Ingestion ledger (right): one batch, six source rows.

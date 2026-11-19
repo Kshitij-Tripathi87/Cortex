@@ -1,0 +1,74 @@
+{
+    "batch_id": "21f0ea9d-3175-442d-84c6-70c9592abfb1",
+    "status": "PREVIEWED",
+    "entity_type": "equipment",
+    "original_filename": "equipment_with_issues.csv",
+    "source_format": "CSV",
+    "sheet_name": null,
+    "file_sha256": "7da007e513782a37644df87927b3550b3dc960ffafacd048b824a62e2799ea1c",
+    "duplicate_file": false,
+    "total_rows": 6,
+    "valid_rows": 3,
+    "invalid_rows": 3,
+    "planned_actions": {
+        "CREATE": 2,
+        "UPDATE": 0,
+        "NO_CHANGE": 1
+    },
+    "errors_count": 3,
+    "warnings_count": 4,
+    "quality": {
+        "COMPLETENESS": 0,
+        "VALIDITY": 2,
+        "CONSISTENCY": 0,
+        "UNIQUENESS": 0,
+        "REFERENTIAL_INTEGRITY": 1
+    },
+    "errors": [
+        {
+            "row_number": 3,
+            "column": "required_on_site_date",
+            "code": "INVALID_DATE",
+            "message": "Use an unambiguous date in YYYY-MM-DD format."
+        },
+        {
+            "row_number": 4,
+            "column": "project_code",
+            "code": "REFERENCE_NOT_FOUND",
+            "message": "The project does not exist in this workspace. Import it first or correct the reference."
+        },
+        {
+            "row_number": 7,
+            "column": "category",
+            "code": "INVALID_ENUM",
+            "message": "Use one of: TRANSFORMER, SWITCHGEAR, GENERATOR, UPS, COOLING, OTHER."
+        }
+    ],
+    "warnings": [
+        {
+            "row_number": 2,
+            "column": "Vendor Notes",
+            "code": "UNKNOWN_SOURCE_COLUMN",
+            "message": "Column retained in raw source data but not mapped to a canonical field."
+        },
+        {
+            "row_number": 5,
+            "column": "required_on_site_date",
+            "code": "REQUIRED_ON_SITE_DATE_NOT_RECORDED",
+            "message": "No required-on-site date is recorded for this equipment."
+        },
+        {
+            "row_number": 6,
+            "column": "required_on_site_date",
+            "code": "REQUIRED_ON_SITE_DATE_NOT_RECORDED",
+            "message": "No required-on-site date is recorded for this equipment."
+        },
+        {
+            "row_number": 6,
+            "column": null,
+            "code": "DUPLICATE_ROW",
+            "message": "The row repeats row 5 exactly and will be skipped."
+        }
+    ],
+    "truncated": false
+}

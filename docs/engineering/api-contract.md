@@ -88,7 +88,8 @@ Codes are stable. Messages may be reworded.
 | `FILE_TOO_LARGE` | Larger than the upload limit (413) | Split the file |
 | `EMPTY_FILE`, `MISSING_HEADER`, `DUPLICATE_HEADER`, `INVALID_ENCODING`, `MALFORMED_FILE`, `ROW_LIMIT_EXCEEDED`, `COLUMN_LIMIT_EXCEEDED`, `CELL_TOO_LONG` | The file cannot be read as a bounded table (422) | Correct the file |
 | `AMBIGUOUS_WORKSHEET`, `WORKSHEET_NOT_FOUND` | The workbook has several data sheets and none was named, or the named one is absent | Send `sheet_name` |
-| `UNSUPPORTED_ENTITY_TYPE` | `entity_type` is not an importable entity | Use a listed entity type |
+| `DUPLICATE_FILE` | The same workbook was already submitted for this entity type with another worksheet (409) | Use the existing batch, or save the worksheet as its own file |
+| `REQUEST_TOO_LARGE` | A request body other than an upload is larger than 1 MB (413) | Send less in one request |
 | `BATCH_NOT_COMMITTABLE` | The batch is not `PREVIEWED` (409) | Preview a new or corrected file |
 | `COMMIT_CONFLICT` | A row that was valid at preview is no longer valid; nothing was committed and the batch is `FAILED` (409) | Fix the cause and upload the file again |
 | `WORKSPACE_NOT_AVAILABLE` | The workspace is not the configured one, is missing or is disabled (404) | Use the configured development workspace |
@@ -205,7 +206,10 @@ batches by `created_at` descending; batch rows by `row_number`.
 - `quality` counts blocking errors by data-quality dimension. It is not a
   score.
 - A file that cannot be read as a table is rejected with 413, 415 or 422 and
-  leaves no batch.
+  leaves no batch. An `entity_type` outside the list is a 422 with
+  `INVALID_ENUM` on the field.
+- The request body is bounded while it is read: the declared length is
+  checked first, and a body sent without one is counted as it arrives.
 
 **Same bytes again** (`duplicate_file: true`, status 200):
 

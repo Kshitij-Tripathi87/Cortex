@@ -33,3 +33,7 @@ named volume and the container restart are exercised.
 | `day1-openapi.json` | G1 | The OpenAPI document served on Day 1 |
 | `day1-alembic.txt` | G1 | Alembic reaches the database and sees the model metadata |
 | `day1-test-results.txt` | G1 | The verification chain: configuration, lockfile, databases, migrations, Ruff, mypy, tests, OpenAPI |
+| `day2-migration-review.txt` | G2 | The review checklist of migration 0001 and the SQL it executes |
+| `day2-preview-equipment.json` | G2 | Preview response for `data/samples/validation_examples/equipment_with_issues.csv` |
+| `day2-canonical-counts-before-after.txt` | G2 | Row counts of every table before and after that preview |
+| `day2-test-results.txt` | G2 | The verification chain at the end of Day 2 (503 tests) |

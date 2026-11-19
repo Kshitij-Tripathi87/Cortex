@@ -204,6 +204,7 @@ cannot produce the same number.
 | `source_format` | enum | `CSV`, `XLSX` |
 | `file_size_bytes` | integer | Positive |
 | `sheet_name` | text(160) | XLSX only |
+| `file_warnings` | JSONB | Findings about the file as a whole, such as skipped blank rows (addition) |
 | `status` | enum | `UPLOADED`, `PREVIEWED`, `COMMITTING`, `COMMITTED`, `FAILED` |
 | `total_rows`, `valid_rows`, `invalid_rows` | integer | Preview counters; not negative |
 | `committed_rows`, `skipped_rows`, `failed_rows` | integer | Commit counters (addition); not negative |
