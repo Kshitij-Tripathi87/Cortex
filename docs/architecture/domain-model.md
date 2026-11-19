@@ -287,8 +287,9 @@ and its batch are never deleted.
 | A deadlock | PostgreSQL ends one transaction. Nothing of it is written and the answer is 409 `CONFLICT`. A commit ended this way leaves its batch `PREVIEWED`, so the same request can be sent again |
 
 An import takes its row locks in one fixed order: projects, suppliers,
-equipment, purchase orders, then line items or milestones, each in the order
-of the natural key.
+equipment, purchase orders, then line items or milestones. Within one kind
+the rows are locked in the order of the columns of the natural key (the
+code or number; for a line item and a milestone, the purchase order first).
 
 ## Field ownership for imports
 

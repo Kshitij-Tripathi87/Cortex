@@ -1,0 +1,2327 @@
+{
+  "project": {
+    "data_quality": {
+      "warning_counts": {
+        "EQUIPMENT_WITHOUT_PO_LINE_ITEM": 1,
+        "PO_ACKNOWLEDGEMENT_NOT_RECORDED": 1,
+        "PO_WITHOUT_SUPPLIER_COMMITMENT": 1
+      },
+      "warnings": [
+        {
+          "code": "EQUIPMENT_WITHOUT_PO_LINE_ITEM",
+          "dimension": "COMPLETENESS",
+          "entity_id": "0bf5523b-272f-4938-9f48-a392df8a620e",
+          "entity_type": "equipment",
+          "message": "No purchase order line item is recorded for this equipment.",
+          "project_id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "reference": "DG-003"
+        },
+        {
+          "code": "PO_ACKNOWLEDGEMENT_NOT_RECORDED",
+          "dimension": "COMPLETENESS",
+          "entity_id": "6c506881-9ffb-425f-8e2c-3618efc0cc18",
+          "entity_type": "purchase_order",
+          "message": "No acknowledgement milestone is recorded for this purchase order.",
+          "project_id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "reference": "PO-1005"
+        },
+        {
+          "code": "PO_WITHOUT_SUPPLIER_COMMITMENT",
+          "dimension": "COMPLETENESS",
+          "entity_id": "6c506881-9ffb-425f-8e2c-3618efc0cc18",
+          "entity_type": "purchase_order",
+          "message": "No supplier commitment is recorded for this purchase order.",
+          "project_id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "reference": "PO-1005"
+        }
+      ],
+      "warnings_truncated": false
+    },
+    "equipment": {
+      "items": [
+        {
+          "category": "OTHER",
+          "criticality": "LOW",
+          "equipment_code": "AUX-001",
+          "id": "98269ca5-6a3f-4cee-9a9e-b8477bce4f57",
+          "name": "Fire suppression control panel",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1012",
+              "purchase_order_id": "be88517d-47a5-4146-a0d2-26a3db060461",
+              "purchase_order_item_id": "b3018d8c-597c-4871-9e9e-86ad95b94ed2",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "374f0ae5-2c7f-4693-844d-c7086c92f8c4",
+                "name": "Tessaly Busway and Controls",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-007"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-02-22",
+          "specification": {
+            "description": "Addressable 4-loop panel",
+            "manufacturer": "Tessaly Busway and Controls",
+            "model": "TB-FS-4L",
+            "notes": null
+          }
+        },
+        {
+          "category": "COOLING",
+          "criticality": "HIGH",
+          "equipment_code": "CH-001",
+          "id": "adc13832-b4bd-4535-9247-2af16d0d854a",
+          "name": "Air-cooled chiller 1",
+          "procurement_status": "DELIVERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1009",
+              "purchase_order_id": "b6199e5b-808d-4308-936b-95efdcc60774",
+              "purchase_order_item_id": "14047838-0936-4a91-8c26-aecebf24c045",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "8d3654c9-9ac4-4d4d-91c4-225079ce69ba",
+                "name": "Brightwater Chiller Company",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-005"
+              }
+            }
+          ],
+          "required_on_site_date": "2026-10-12",
+          "specification": {
+            "description": "1200 kW free-cooling",
+            "manufacturer": "Brightwater Chiller Company",
+            "model": "BW-1200F",
+            "notes": null
+          }
+        },
+        {
+          "category": "COOLING",
+          "criticality": "HIGH",
+          "equipment_code": "CH-002",
+          "id": "c6ceefc8-f961-4610-ba69-15b413a29c92",
+          "name": "Air-cooled chiller 2",
+          "procurement_status": "DELIVERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1009",
+              "purchase_order_id": "b6199e5b-808d-4308-936b-95efdcc60774",
+              "purchase_order_item_id": "89bfc92f-500b-41f7-92cd-5c549dc0acee",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "8d3654c9-9ac4-4d4d-91c4-225079ce69ba",
+                "name": "Brightwater Chiller Company",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-005"
+              }
+            }
+          ],
+          "required_on_site_date": "2026-10-12",
+          "specification": {
+            "description": "1200 kW free-cooling",
+            "manufacturer": "Brightwater Chiller Company",
+            "model": "BW-1200F",
+            "notes": null
+          }
+        },
+        {
+          "category": "COOLING",
+          "criticality": "MEDIUM",
+          "equipment_code": "CH-003",
+          "id": "6cfbdb45-1c52-4f4d-a5ae-5e8316482a3b",
+          "name": "Air-cooled chiller 3",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1010",
+              "purchase_order_id": "b1188d3b-8122-459e-aa7f-3aa54c4ad980",
+              "purchase_order_item_id": "31db57c0-ea30-4234-a637-f35f62606cfd",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "8d3654c9-9ac4-4d4d-91c4-225079ce69ba",
+                "name": "Brightwater Chiller Company",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-005"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-01-12",
+          "specification": {
+            "description": "1200 kW free-cooling",
+            "manufacturer": "Brightwater Chiller Company",
+            "model": "BW-1200F",
+            "notes": null
+          }
+        },
+        {
+          "category": "COOLING",
+          "criticality": "MEDIUM",
+          "equipment_code": "CH-004",
+          "id": "1ff68687-9ed9-492d-9465-7a7f42ff0e5f",
+          "name": "Air-cooled chiller 4",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1010",
+              "purchase_order_id": "b1188d3b-8122-459e-aa7f-3aa54c4ad980",
+              "purchase_order_item_id": "c2e1dd9b-e62f-45aa-a6e0-f014707ef681",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "8d3654c9-9ac4-4d4d-91c4-225079ce69ba",
+                "name": "Brightwater Chiller Company",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-005"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-01-12",
+          "specification": {
+            "description": "1200 kW free-cooling",
+            "manufacturer": "Brightwater Chiller Company",
+            "model": "BW-1200F",
+            "notes": null
+          }
+        },
+        {
+          "category": "COOLING",
+          "criticality": "MEDIUM",
+          "equipment_code": "CH-005",
+          "id": "dc48205f-e349-4bb6-ae2b-83dc320aa47d",
+          "name": "Computer room air handler set",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1011",
+              "purchase_order_id": "88450079-e594-499c-b917-f464ffbc1e7e",
+              "purchase_order_item_id": "b35611a3-5fca-471d-9bdd-e61db2f13dfc",
+              "quantity": "8.000",
+              "supplier": {
+                "id": "c7915f98-d92c-467b-85bd-e5cc956cefbf",
+                "name": "Marrow Creek Thermal",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-008"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-03-15",
+          "specification": {
+            "description": "8 units 150 kW chilled water",
+            "manufacturer": "Marrow Creek Thermal",
+            "model": "MC-CRAH-150",
+            "notes": null
+          }
+        },
+        {
+          "category": "GENERATOR",
+          "criticality": "CRITICAL",
+          "equipment_code": "DG-001",
+          "id": "b0ff1ee5-6506-4522-b621-48757b530f4d",
+          "name": "Diesel generator set 1",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1006",
+              "purchase_order_id": "f916d93c-a7ce-428b-a114-a2715a6a9860",
+              "purchase_order_item_id": "a6d327c6-31d6-45f6-b4aa-a1ef2723c7de",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "0ccd9b95-eb0f-466d-858e-f13475df25c1",
+                "name": "Kestrel Genset Systems",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-003"
+              }
+            }
+          ],
+          "required_on_site_date": "2026-11-25",
+          "specification": {
+            "description": "2.5 MVA 11 kV standby",
+            "manufacturer": "Kestrel Genset Systems",
+            "model": "KG-2500",
+            "notes": null
+          }
+        },
+        {
+          "category": "GENERATOR",
+          "criticality": "HIGH",
+          "equipment_code": "DG-002",
+          "id": "4aaefc4c-c02c-4535-a2c9-4d2bcb704cca",
+          "name": "Diesel generator set 2",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1006",
+              "purchase_order_id": "f916d93c-a7ce-428b-a114-a2715a6a9860",
+              "purchase_order_item_id": "f15944ad-6a3c-4dc6-9bc6-c6e7785cb59f",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "0ccd9b95-eb0f-466d-858e-f13475df25c1",
+                "name": "Kestrel Genset Systems",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-003"
+              }
+            }
+          ],
+          "required_on_site_date": "2026-11-25",
+          "specification": {
+            "description": "2.5 MVA 11 kV standby",
+            "manufacturer": "Kestrel Genset Systems",
+            "model": "KG-2500",
+            "notes": null
+          }
+        },
+        {
+          "category": "GENERATOR",
+          "criticality": "CRITICAL",
+          "equipment_code": "DG-003",
+          "id": "0bf5523b-272f-4938-9f48-a392df8a620e",
+          "name": "Diesel generator set 3",
+          "procurement_status": "RFQ",
+          "purchase_order_count": 0,
+          "purchase_orders": [],
+          "required_on_site_date": "2027-01-18",
+          "specification": {
+            "description": "2.5 MVA 11 kV standby",
+            "manufacturer": null,
+            "model": null,
+            "notes": null
+          }
+        },
+        {
+          "category": "SWITCHGEAR",
+          "criticality": "CRITICAL",
+          "equipment_code": "SG-001",
+          "id": "d87e28d0-2a02-4671-adcd-81a15645a8f2",
+          "name": "33 kV switchgear line-up A",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1003",
+              "purchase_order_id": "6f9ea5d7-6b7d-4ffb-b256-150a4ce5fcb0",
+              "purchase_order_item_id": "7aa6ec79-42f6-41e3-8206-748c2d3a56bc",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "b6cdf1f6-1479-4b18-b0de-3db18d8799e3",
+                "name": "Corvane Switchgear Works",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-002"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-01-11",
+          "specification": {
+            "description": "33 kV gas-insulated 7 panels",
+            "manufacturer": "Corvane Switchgear Works",
+            "model": "CV-GIS-33",
+            "notes": null
+          }
+        },
+        {
+          "category": "SWITCHGEAR",
+          "criticality": "HIGH",
+          "equipment_code": "SG-002",
+          "id": "0c09b3a2-d311-437e-92df-3f0bd0333f1d",
+          "name": "33 kV switchgear line-up B",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1003",
+              "purchase_order_id": "6f9ea5d7-6b7d-4ffb-b256-150a4ce5fcb0",
+              "purchase_order_item_id": "c12c1c0b-bbbf-4b62-b377-235cd2f1aaee",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "b6cdf1f6-1479-4b18-b0de-3db18d8799e3",
+                "name": "Corvane Switchgear Works",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-002"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-01-11",
+          "specification": {
+            "description": "33 kV gas-insulated 7 panels",
+            "manufacturer": "Corvane Switchgear Works",
+            "model": "CV-GIS-33",
+            "notes": null
+          }
+        },
+        {
+          "category": "SWITCHGEAR",
+          "criticality": "HIGH",
+          "equipment_code": "SG-003",
+          "id": "7e912588-c859-4d27-ad1f-7aaceeff715d",
+          "name": "11 kV switchgear panel",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1004",
+              "purchase_order_id": "982da18a-db68-4645-976a-b92f2204ec1e",
+              "purchase_order_item_id": "863c9578-bbc6-46c5-94fa-becb2a32320e",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "b6cdf1f6-1479-4b18-b0de-3db18d8799e3",
+                "name": "Corvane Switchgear Works",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-002"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-03-01",
+          "specification": {
+            "description": "11 kV metal-clad 12 panels",
+            "manufacturer": "Corvane Switchgear Works",
+            "model": "CV-MC-11",
+            "notes": null
+          }
+        },
+        {
+          "category": "SWITCHGEAR",
+          "criticality": "MEDIUM",
+          "equipment_code": "SG-004",
+          "id": "945e5df2-f616-4a57-8636-226d2a534548",
+          "name": "LV main distribution board",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1005",
+              "purchase_order_id": "6c506881-9ffb-425f-8e2c-3618efc0cc18",
+              "purchase_order_item_id": "0ffce7da-ef63-4ec4-8319-021e17072ca8",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "374f0ae5-2c7f-4693-844d-c7086c92f8c4",
+                "name": "Tessaly Busway and Controls",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-007"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-04-12",
+          "specification": {
+            "description": "415 V 6300 A form 4b",
+            "manufacturer": "Tessaly Busway and Controls",
+            "model": "TB-LV-63",
+            "notes": null
+          }
+        },
+        {
+          "category": "TRANSFORMER",
+          "criticality": "CRITICAL",
+          "equipment_code": "TR-001",
+          "id": "2fd66798-edfe-4252-bdff-73c990050cdf",
+          "name": "Main power transformer 1",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1001",
+              "purchase_order_id": "42e746bb-1f8d-440b-8d9a-eb4cf8400034",
+              "purchase_order_item_id": "45111ff6-28e6-4b86-9c61-59ee1e2f1335",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "e002bac3-3836-4d71-9099-18e8c6cc2146",
+                "name": "Halcyon Grid Transformers",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-001"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-02-01",
+          "specification": {
+            "description": "33/11 kV 25 MVA oil-filled",
+            "manufacturer": "Halcyon Grid Transformers",
+            "model": "HG-25M",
+            "notes": null
+          }
+        },
+        {
+          "category": "TRANSFORMER",
+          "criticality": "CRITICAL",
+          "equipment_code": "TR-002",
+          "id": "eb4ba6ad-847b-43c9-be2e-7440518f8aa0",
+          "name": "Main power transformer 2",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1001",
+              "purchase_order_id": "42e746bb-1f8d-440b-8d9a-eb4cf8400034",
+              "purchase_order_item_id": "83f66979-c488-4228-9e53-5e10284e1f6c",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "e002bac3-3836-4d71-9099-18e8c6cc2146",
+                "name": "Halcyon Grid Transformers",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-001"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-02-01",
+          "specification": {
+            "description": "33/11 kV 25 MVA oil-filled",
+            "manufacturer": "Halcyon Grid Transformers",
+            "model": "HG-25M",
+            "notes": null
+          }
+        },
+        {
+          "category": "TRANSFORMER",
+          "criticality": "HIGH",
+          "equipment_code": "TR-003",
+          "id": "9e09418b-a3c7-42e7-b9ae-3bd515dea318",
+          "name": "Auxiliary transformer",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1002",
+              "purchase_order_id": "2ef39a6c-057f-4b91-92e9-dfb29e2b999a",
+              "purchase_order_item_id": "306026e8-7f55-4045-8d28-e33e31b0e888",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "e002bac3-3836-4d71-9099-18e8c6cc2146",
+                "name": "Halcyon Grid Transformers",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-001"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-02-15",
+          "specification": {
+            "description": "11/0.415 kV 2.5 MVA dry-type",
+            "manufacturer": "Halcyon Grid Transformers",
+            "model": "HG-2D5",
+            "notes": null
+          }
+        },
+        {
+          "category": "UPS",
+          "criticality": "CRITICAL",
+          "equipment_code": "UPS-001",
+          "id": "b81d3c18-3d82-4789-ac9e-88ff7235d64d",
+          "name": "UPS module A1",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1007",
+              "purchase_order_id": "1010c6fd-e1b6-4e67-bd0f-c29c9e489ce8",
+              "purchase_order_item_id": "cd52009b-1307-4580-a367-fb8f3fb39fd9",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "ce68e1ce-9f75-4fe1-ab02-2b90fc69e995",
+                "name": "Pellam UPS Technologies",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-004"
+              }
+            }
+          ],
+          "required_on_site_date": "2026-12-15",
+          "specification": {
+            "description": "500 kVA modular double-conversion",
+            "manufacturer": "Pellam UPS Technologies",
+            "model": "PU-500M",
+            "notes": null
+          }
+        },
+        {
+          "category": "UPS",
+          "criticality": "HIGH",
+          "equipment_code": "UPS-002",
+          "id": "137434d5-5f57-4b90-ab18-0f3bca8b171d",
+          "name": "UPS module A2",
+          "procurement_status": "IN_PRODUCTION",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1007",
+              "purchase_order_id": "1010c6fd-e1b6-4e67-bd0f-c29c9e489ce8",
+              "purchase_order_item_id": "8df3ff0a-03a1-4a05-9b14-5c27d71cb14f",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "ce68e1ce-9f75-4fe1-ab02-2b90fc69e995",
+                "name": "Pellam UPS Technologies",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-004"
+              }
+            }
+          ],
+          "required_on_site_date": "2026-12-15",
+          "specification": {
+            "description": "500 kVA modular double-conversion",
+            "manufacturer": "Pellam UPS Technologies",
+            "model": "PU-500M",
+            "notes": null
+          }
+        },
+        {
+          "category": "UPS",
+          "criticality": "HIGH",
+          "equipment_code": "UPS-003",
+          "id": "eb51ac19-6f04-44c5-84a2-7c6a2a6ee26d",
+          "name": "UPS module B1",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1008",
+              "purchase_order_id": "0ebb982c-781c-4f87-a131-dc7e07afcc02",
+              "purchase_order_item_id": "03815e1f-0de3-47a8-9ba0-6c3ea60d70e2",
+              "quantity": "1.000",
+              "supplier": {
+                "id": "147f2803-9d67-4b02-b52c-6d3ed62a52c0",
+                "name": "Quillon Critical Power",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-006"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-02-08",
+          "specification": {
+            "description": "500 kVA modular double-conversion",
+            "manufacturer": "Quillon Critical Power",
+            "model": "QC-M500",
+            "notes": null
+          }
+        },
+        {
+          "category": "UPS",
+          "criticality": "HIGH",
+          "equipment_code": "UPS-004",
+          "id": "8123c1a9-1416-42b1-a8a2-b96bb3a926bb",
+          "name": "UPS battery cabinet set",
+          "procurement_status": "ORDERED",
+          "purchase_order_count": 1,
+          "purchase_orders": [
+            {
+              "po_number": "PO-1008",
+              "purchase_order_id": "0ebb982c-781c-4f87-a131-dc7e07afcc02",
+              "purchase_order_item_id": "83619dd5-837e-40af-b339-8e723a18fe19",
+              "quantity": "4.000",
+              "supplier": {
+                "id": "147f2803-9d67-4b02-b52c-6d3ed62a52c0",
+                "name": "Quillon Critical Power",
+                "status": "ACTIVE",
+                "supplier_code": "SUP-006"
+              }
+            }
+          ],
+          "required_on_site_date": "2027-02-08",
+          "specification": {
+            "description": "Lithium-ion 10 minute autonomy",
+            "manufacturer": "Quillon Critical Power",
+            "model": "QC-LB10",
+            "notes": null
+          }
+        }
+      ],
+      "limit": 200,
+      "offset": 0,
+      "total": 20
+    },
+    "generated_at": "2026-11-19T13:32:35.165854Z",
+    "project": {
+      "code": "DC-IN-001",
+      "id": "08bce028-f648-41b7-8b35-0ca517c19272",
+      "location": "Pune, Maharashtra",
+      "name": "North Ridge Data Centre Phase 1",
+      "status": "ACTIVE",
+      "target_completion_date": "2027-09-30"
+    },
+    "purchase_orders": {
+      "items": [
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2027-01-15",
+              "recorded_at": "2026-11-19T13:32:34.792818Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "c1afdf2a-eb81-4797-a183-4acfdf00b3c8",
+              "source_reference": "ACK-HG-2026-0188",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2027-01-15",
+            "recorded_at": "2026-11-19T13:32:34.792818Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "c1afdf2a-eb81-4797-a183-4acfdf00b3c8",
+            "source_reference": "ACK-HG-2026-0188",
+            "version_no": 1
+          },
+          "id": "42e746bb-1f8d-440b-8d9a-eb4cf8400034",
+          "issue_date": "2026-05-12",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "TR-001",
+              "equipment_id": "2fd66798-edfe-4252-bdff-73c990050cdf",
+              "equipment_name": "Main power transformer 1",
+              "id": "45111ff6-28e6-4b86-9c61-59ee1e2f1335",
+              "quantity": "1.000",
+              "unit_price": "42250000.00"
+            },
+            {
+              "equipment_code": "TR-002",
+              "equipment_id": "eb4ba6ad-847b-43c9-be2e-7440518f8aa0",
+              "equipment_name": "Main power transformer 2",
+              "id": "83f66979-c488-4228-9e53-5e10284e1f6c",
+              "quantity": "1.000",
+              "unit_price": "42250000.00"
+            }
+          ],
+          "milestone_count": 4,
+          "milestones": [
+            {
+              "actual_date": "2026-05-18",
+              "current_plan": {
+                "planned_date": "2026-05-19",
+                "recorded_at": "2026-11-19T13:32:34.527909Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "17f2e251-d3a5-4e93-8057-ccdf4efc766c",
+                "version_no": 1
+              },
+              "id": "65c95bfb-6f64-4ee1-bf8a-c79569a2bbca",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-05-19",
+                  "recorded_at": "2026-11-19T13:32:34.527909Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "17f2e251-d3a5-4e93-8057-ccdf4efc766c",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-06-12",
+              "current_plan": {
+                "planned_date": "2026-06-15",
+                "recorded_at": "2026-11-19T13:32:34.532888Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "4b94e2d3-1e98-460c-bc7c-7bad0e4e379c",
+                "version_no": 1
+              },
+              "id": "ef17cf7f-b791-44c2-80ac-2bbedbef0a0f",
+              "milestone_type": "DRAWING_SUBMISSION",
+              "plan_history": [
+                {
+                  "planned_date": "2026-06-15",
+                  "recorded_at": "2026-11-19T13:32:34.532888Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "4b94e2d3-1e98-460c-bc7c-7bad0e4e379c",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-07-03",
+              "current_plan": {
+                "planned_date": "2026-07-06",
+                "recorded_at": "2026-11-19T13:32:34.536722Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "7dacc421-d409-4c2e-bf34-6ef065371c5e",
+                "version_no": 1
+              },
+              "id": "8e8b544e-1de2-4078-a983-b6b88ec68063",
+              "milestone_type": "DRAWING_APPROVAL",
+              "plan_history": [
+                {
+                  "planned_date": "2026-07-06",
+                  "recorded_at": "2026-11-19T13:32:34.536722Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "7dacc421-d409-4c2e-bf34-6ef065371c5e",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-12-10",
+                "recorded_at": "2026-11-19T13:32:34.540613Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "f3e59273-d34b-4745-9859-8dd68f078ba7",
+                "version_no": 1
+              },
+              "id": "7e0019c3-e77a-4595-8b7f-9166b9559731",
+              "milestone_type": "FACTORY_ACCEPTANCE_TEST",
+              "plan_history": [
+                {
+                  "planned_date": "2026-12-10",
+                  "recorded_at": "2026-11-19T13:32:34.540613Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "f3e59273-d34b-4745-9859-8dd68f078ba7",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1001",
+          "status": "IN_PRODUCTION",
+          "supplier": {
+            "id": "e002bac3-3836-4d71-9099-18e8c6cc2146",
+            "name": "Halcyon Grid Transformers",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-001"
+          },
+          "total_value": "84500000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2027-01-25",
+              "recorded_at": "2026-11-19T13:32:34.795911Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "08ab8352-7f43-477f-936e-d17836c6d70e",
+              "source_reference": "ACK-HG-2026-0214",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2027-01-25",
+            "recorded_at": "2026-11-19T13:32:34.795911Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "08ab8352-7f43-477f-936e-d17836c6d70e",
+            "source_reference": "ACK-HG-2026-0214",
+            "version_no": 1
+          },
+          "id": "2ef39a6c-057f-4b91-92e9-dfb29e2b999a",
+          "issue_date": "2026-06-02",
+          "line_item_count": 1,
+          "line_items": [
+            {
+              "equipment_code": "TR-003",
+              "equipment_id": "9e09418b-a3c7-42e7-b9ae-3bd515dea318",
+              "equipment_name": "Auxiliary transformer",
+              "id": "306026e8-7f55-4045-8d28-e33e31b0e888",
+              "quantity": "1.000",
+              "unit_price": "9800000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-06-09",
+              "current_plan": {
+                "planned_date": "2026-06-09",
+                "recorded_at": "2026-11-19T13:32:34.544202Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "f702a8fa-64cb-46e2-9510-f7c8de19099e",
+                "version_no": 1
+              },
+              "id": "a045f842-2b30-4b6c-9b54-24f3608f6078",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-06-09",
+                  "recorded_at": "2026-11-19T13:32:34.544202Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "f702a8fa-64cb-46e2-9510-f7c8de19099e",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-08-03",
+              "current_plan": {
+                "planned_date": "2026-08-03",
+                "recorded_at": "2026-11-19T13:32:34.547977Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "22a15c8b-f662-497f-88ee-80254d77d29a",
+                "version_no": 1
+              },
+              "id": "9a7366fe-996d-4b71-9b69-57144d3c0622",
+              "milestone_type": "MANUFACTURING_START",
+              "plan_history": [
+                {
+                  "planned_date": "2026-08-03",
+                  "recorded_at": "2026-11-19T13:32:34.547977Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "22a15c8b-f662-497f-88ee-80254d77d29a",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2027-01-18",
+                "recorded_at": "2026-11-19T13:32:34.552373Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "b1bbb70e-5116-402a-af43-88add6b2a431",
+                "version_no": 1
+              },
+              "id": "b4f104a4-a4c1-405f-b7c5-277f9381894e",
+              "milestone_type": "DISPATCH",
+              "plan_history": [
+                {
+                  "planned_date": "2027-01-18",
+                  "recorded_at": "2026-11-19T13:32:34.552373Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "b1bbb70e-5116-402a-af43-88add6b2a431",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1002",
+          "status": "ACKNOWLEDGED",
+          "supplier": {
+            "id": "e002bac3-3836-4d71-9099-18e8c6cc2146",
+            "name": "Halcyon Grid Transformers",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-001"
+          },
+          "total_value": "9800000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2026-12-15",
+              "recorded_at": "2026-11-19T13:32:34.798079Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "ff173b6a-5561-4f4d-85cc-4537217fca49",
+              "source_reference": "CSW-OC-7741",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2026-12-15",
+            "recorded_at": "2026-11-19T13:32:34.798079Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "ff173b6a-5561-4f4d-85cc-4537217fca49",
+            "source_reference": "CSW-OC-7741",
+            "version_no": 1
+          },
+          "id": "6f9ea5d7-6b7d-4ffb-b256-150a4ce5fcb0",
+          "issue_date": "2026-05-20",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "SG-001",
+              "equipment_id": "d87e28d0-2a02-4671-adcd-81a15645a8f2",
+              "equipment_name": "33 kV switchgear line-up A",
+              "id": "7aa6ec79-42f6-41e3-8206-748c2d3a56bc",
+              "quantity": "1.000",
+              "unit_price": "30600000.00"
+            },
+            {
+              "equipment_code": "SG-002",
+              "equipment_id": "0c09b3a2-d311-437e-92df-3f0bd0333f1d",
+              "equipment_name": "33 kV switchgear line-up B",
+              "id": "c12c1c0b-bbbf-4b62-b377-235cd2f1aaee",
+              "quantity": "1.000",
+              "unit_price": "30600000.00"
+            }
+          ],
+          "milestone_count": 4,
+          "milestones": [
+            {
+              "actual_date": "2026-05-26",
+              "current_plan": {
+                "planned_date": "2026-05-27",
+                "recorded_at": "2026-11-19T13:32:34.556456Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "bdba8295-0e2e-4da7-9bc9-456d43359ac3",
+                "version_no": 1
+              },
+              "id": "a0b74da6-d069-49dd-a6a8-2d0c51d5f904",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-05-27",
+                  "recorded_at": "2026-11-19T13:32:34.556456Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "bdba8295-0e2e-4da7-9bc9-456d43359ac3",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-07-10",
+              "current_plan": {
+                "planned_date": "2026-07-13",
+                "recorded_at": "2026-11-19T13:32:34.560219Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "ff915691-de5f-481f-b7ce-26e741df051b",
+                "version_no": 1
+              },
+              "id": "cf79e7fe-ec9e-458f-8eee-4bd7f43964d5",
+              "milestone_type": "DRAWING_APPROVAL",
+              "plan_history": [
+                {
+                  "planned_date": "2026-07-13",
+                  "recorded_at": "2026-11-19T13:32:34.560219Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "ff915691-de5f-481f-b7ce-26e741df051b",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-11-14",
+              "current_plan": {
+                "planned_date": "2026-11-10",
+                "recorded_at": "2026-11-19T13:32:34.563849Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "c8e25394-80ac-462b-94a9-8955b48d59f7",
+                "version_no": 1
+              },
+              "id": "787ec206-58ce-4d07-9557-32906cb63412",
+              "milestone_type": "FACTORY_ACCEPTANCE_TEST",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-10",
+                  "recorded_at": "2026-11-19T13:32:34.563849Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "c8e25394-80ac-462b-94a9-8955b48d59f7",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-12-15",
+                "recorded_at": "2026-11-19T13:32:34.568407Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "fa4af27a-2e13-4592-bf86-406729689e18",
+                "version_no": 1
+              },
+              "id": "d355daec-ccc1-4249-8b27-f9a4a9b27f80",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2026-12-15",
+                  "recorded_at": "2026-11-19T13:32:34.568407Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "fa4af27a-2e13-4592-bf86-406729689e18",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1003",
+          "status": "IN_PRODUCTION",
+          "supplier": {
+            "id": "b6cdf1f6-1479-4b18-b0de-3db18d8799e3",
+            "name": "Corvane Switchgear Works",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-002"
+          },
+          "total_value": "61200000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2027-02-10",
+              "recorded_at": "2026-11-19T13:32:34.800391Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "c477a785-63ac-4ad2-882f-53e589390ae0",
+              "source_reference": "CSW-OC-7902",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2027-02-10",
+            "recorded_at": "2026-11-19T13:32:34.800391Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "c477a785-63ac-4ad2-882f-53e589390ae0",
+            "source_reference": "CSW-OC-7902",
+            "version_no": 1
+          },
+          "id": "982da18a-db68-4645-976a-b92f2204ec1e",
+          "issue_date": "2026-07-01",
+          "line_item_count": 1,
+          "line_items": [
+            {
+              "equipment_code": "SG-003",
+              "equipment_id": "7e912588-c859-4d27-ad1f-7aaceeff715d",
+              "equipment_name": "11 kV switchgear panel",
+              "id": "863c9578-bbc6-46c5-94fa-becb2a32320e",
+              "quantity": "1.000",
+              "unit_price": "18400000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-07-07",
+              "current_plan": {
+                "planned_date": "2026-07-08",
+                "recorded_at": "2026-11-19T13:32:34.572760Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "4019a815-8b16-4f7a-a874-ce72a69b5811",
+                "version_no": 1
+              },
+              "id": "7e318e25-f891-43df-bc28-08ee00de38d5",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-07-08",
+                  "recorded_at": "2026-11-19T13:32:34.572760Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "4019a815-8b16-4f7a-a874-ce72a69b5811",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-11-30",
+                "recorded_at": "2026-11-19T13:32:34.576324Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "63145b06-b722-4c40-8b2c-721c222a4157",
+                "version_no": 1
+              },
+              "id": "4747523d-879d-4a0a-b9ad-e69d974ecea8",
+              "milestone_type": "MANUFACTURING_START",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-30",
+                  "recorded_at": "2026-11-19T13:32:34.576324Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "63145b06-b722-4c40-8b2c-721c222a4157",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2027-02-10",
+                "recorded_at": "2026-11-19T13:32:34.579777Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "b3b06f01-0047-4437-a141-4f55e92f391f",
+                "version_no": 1
+              },
+              "id": "891b39fc-1a13-4db5-a4b0-2d40d5ae7b37",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2027-02-10",
+                  "recorded_at": "2026-11-19T13:32:34.579777Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "b3b06f01-0047-4437-a141-4f55e92f391f",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1004",
+          "status": "ACKNOWLEDGED",
+          "supplier": {
+            "id": "b6cdf1f6-1479-4b18-b0de-3db18d8799e3",
+            "name": "Corvane Switchgear Works",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-002"
+          },
+          "total_value": "18400000.00"
+        },
+        {
+          "commitment_history": [],
+          "commitment_version_count": 0,
+          "currency": "INR",
+          "current_commitment": null,
+          "id": "6c506881-9ffb-425f-8e2c-3618efc0cc18",
+          "issue_date": "2026-08-17",
+          "line_item_count": 1,
+          "line_items": [
+            {
+              "equipment_code": "SG-004",
+              "equipment_id": "945e5df2-f616-4a57-8636-226d2a534548",
+              "equipment_name": "LV main distribution board",
+              "id": "0ffce7da-ef63-4ec4-8319-021e17072ca8",
+              "quantity": "1.000",
+              "unit_price": "7350000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-12-01",
+                "recorded_at": "2026-11-19T13:32:34.582630Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "da2ac97d-73dd-4229-ae68-bf8262dfba50",
+                "version_no": 1
+              },
+              "id": "9cc88847-03a5-49f8-8ad2-f3de0cc09120",
+              "milestone_type": "DRAWING_SUBMISSION",
+              "plan_history": [
+                {
+                  "planned_date": "2026-12-01",
+                  "recorded_at": "2026-11-19T13:32:34.582630Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "da2ac97d-73dd-4229-ae68-bf8262dfba50",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2027-01-11",
+                "recorded_at": "2026-11-19T13:32:34.585174Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "5ac493ef-3611-4c09-8e0e-1537bde4d2f4",
+                "version_no": 1
+              },
+              "id": "0f162316-b2c4-48ea-a194-c325dbd406e6",
+              "milestone_type": "MANUFACTURING_START",
+              "plan_history": [
+                {
+                  "planned_date": "2027-01-11",
+                  "recorded_at": "2026-11-19T13:32:34.585174Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "5ac493ef-3611-4c09-8e0e-1537bde4d2f4",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2027-03-22",
+                "recorded_at": "2026-11-19T13:32:34.587713Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "c561f7e4-1ef0-43af-9713-eef7fd8910a7",
+                "version_no": 1
+              },
+              "id": "cb7537b9-7d5e-49be-ab5b-c8732e86402f",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2027-03-22",
+                  "recorded_at": "2026-11-19T13:32:34.587713Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "c561f7e4-1ef0-43af-9713-eef7fd8910a7",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1005",
+          "status": "ISSUED",
+          "supplier": {
+            "id": "374f0ae5-2c7f-4693-844d-c7086c92f8c4",
+            "name": "Tessaly Busway and Controls",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-007"
+          },
+          "total_value": "7350000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2026-11-10",
+              "recorded_at": "2026-11-19T13:32:34.803753Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "20fbb2ee-953e-4cbf-a4d4-0120732f0a1c",
+              "source_reference": "KGS-CONF-0456",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2026-11-10",
+            "recorded_at": "2026-11-19T13:32:34.803753Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "20fbb2ee-953e-4cbf-a4d4-0120732f0a1c",
+            "source_reference": "KGS-CONF-0456",
+            "version_no": 1
+          },
+          "id": "f916d93c-a7ce-428b-a114-a2715a6a9860",
+          "issue_date": "2026-04-27",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "DG-001",
+              "equipment_id": "b0ff1ee5-6506-4522-b621-48757b530f4d",
+              "equipment_name": "Diesel generator set 1",
+              "id": "a6d327c6-31d6-45f6-b4aa-a1ef2723c7de",
+              "quantity": "1.000",
+              "unit_price": "26300000.00"
+            },
+            {
+              "equipment_code": "DG-002",
+              "equipment_id": "4aaefc4c-c02c-4535-a2c9-4d2bcb704cca",
+              "equipment_name": "Diesel generator set 2",
+              "id": "f15944ad-6a3c-4dc6-9bc6-c6e7785cb59f",
+              "quantity": "1.000",
+              "unit_price": "26300000.00"
+            }
+          ],
+          "milestone_count": 4,
+          "milestones": [
+            {
+              "actual_date": "2026-05-04",
+              "current_plan": {
+                "planned_date": "2026-05-04",
+                "recorded_at": "2026-11-19T13:32:34.590413Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "d2e78620-ebb5-4ae5-9e70-81a6dbc6125b",
+                "version_no": 1
+              },
+              "id": "210068f1-d5af-4212-86b4-72f44ecd4864",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-05-04",
+                  "recorded_at": "2026-11-19T13:32:34.590413Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "d2e78620-ebb5-4ae5-9e70-81a6dbc6125b",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-10-19",
+              "current_plan": {
+                "planned_date": "2026-10-20",
+                "recorded_at": "2026-11-19T13:32:34.593116Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "176a897d-c539-4ec8-bdef-f80d6f72538e",
+                "version_no": 1
+              },
+              "id": "a076ef62-18b9-4371-9822-5e089c4c5a6d",
+              "milestone_type": "FACTORY_ACCEPTANCE_TEST",
+              "plan_history": [
+                {
+                  "planned_date": "2026-10-20",
+                  "recorded_at": "2026-11-19T13:32:34.593116Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "176a897d-c539-4ec8-bdef-f80d6f72538e",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-11-03",
+                "recorded_at": "2026-11-19T13:32:34.596411Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "2cb339f1-a868-4bfc-9422-0033f25ca4ee",
+                "version_no": 1
+              },
+              "id": "0e50f719-049a-4fe1-890a-7d770879000f",
+              "milestone_type": "DISPATCH",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-03",
+                  "recorded_at": "2026-11-19T13:32:34.596411Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "2cb339f1-a868-4bfc-9422-0033f25ca4ee",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-11-10",
+                "recorded_at": "2026-11-19T13:32:34.601412Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "a71375a6-6572-42a6-abd7-64496de60d41",
+                "version_no": 1
+              },
+              "id": "59f0f355-6af3-46f4-9e39-7a7f053ccbbc",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-10",
+                  "recorded_at": "2026-11-19T13:32:34.601412Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "a71375a6-6572-42a6-abd7-64496de60d41",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1006",
+          "status": "IN_PRODUCTION",
+          "supplier": {
+            "id": "0ccd9b95-eb0f-466d-858e-f13475df25c1",
+            "name": "Kestrel Genset Systems",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-003"
+          },
+          "total_value": "52600000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2026-11-28",
+              "recorded_at": "2026-11-19T13:32:34.807575Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "821a41af-a266-4ac0-9cc3-928ce7073e79",
+              "source_reference": "PUT-AB-26-1093",
+              "version_no": 1
+            },
+            {
+              "committed_delivery_date": "2026-12-06",
+              "recorded_at": "2026-11-19T13:32:34.850713Z",
+              "recorded_by": "Expediting",
+              "source_ingestion_row_id": "44b50638-e8d8-49d4-bf7f-03a3d984c5d1",
+              "source_reference": "PUT-AB-26-1093-R1",
+              "version_no": 2
+            }
+          ],
+          "commitment_version_count": 2,
+          "currency": "EUR",
+          "current_commitment": {
+            "committed_delivery_date": "2026-12-06",
+            "recorded_at": "2026-11-19T13:32:34.850713Z",
+            "recorded_by": "Expediting",
+            "source_ingestion_row_id": "44b50638-e8d8-49d4-bf7f-03a3d984c5d1",
+            "source_reference": "PUT-AB-26-1093-R1",
+            "version_no": 2
+          },
+          "id": "1010c6fd-e1b6-4e67-bd0f-c29c9e489ce8",
+          "issue_date": "2026-06-22",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "UPS-001",
+              "equipment_id": "b81d3c18-3d82-4789-ac9e-88ff7235d64d",
+              "equipment_name": "UPS module A1",
+              "id": "cd52009b-1307-4580-a367-fb8f3fb39fd9",
+              "quantity": "1.000",
+              "unit_price": "206000.00"
+            },
+            {
+              "equipment_code": "UPS-002",
+              "equipment_id": "137434d5-5f57-4b90-ab18-0f3bca8b171d",
+              "equipment_name": "UPS module A2",
+              "id": "8df3ff0a-03a1-4a05-9b14-5c27d71cb14f",
+              "quantity": "1.000",
+              "unit_price": "206000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-06-29",
+              "current_plan": {
+                "planned_date": "2026-06-29",
+                "recorded_at": "2026-11-19T13:32:34.693993Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "911a9e2d-13e5-4a07-94c1-f5e0e58bea95",
+                "version_no": 1
+              },
+              "id": "eed62842-ca59-42e8-ad7f-e05df314798a",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-06-29",
+                  "recorded_at": "2026-11-19T13:32:34.693993Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "911a9e2d-13e5-4a07-94c1-f5e0e58bea95",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-08-24",
+              "current_plan": {
+                "planned_date": "2026-08-24",
+                "recorded_at": "2026-11-19T13:32:34.698158Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "e3b7aa0b-8956-4a07-abac-7c85eed81447",
+                "version_no": 1
+              },
+              "id": "e164f9e9-d01e-4233-ba66-842340e8b350",
+              "milestone_type": "MANUFACTURING_START",
+              "plan_history": [
+                {
+                  "planned_date": "2026-08-24",
+                  "recorded_at": "2026-11-19T13:32:34.698158Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "e3b7aa0b-8956-4a07-abac-7c85eed81447",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-11-24",
+                "recorded_at": "2026-11-19T13:32:34.701341Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "395d6751-bf48-4f73-a027-7bdd0f0d2ea8",
+                "version_no": 1
+              },
+              "id": "2792d227-e9fe-4c71-b1e8-4345226ffa4a",
+              "milestone_type": "FACTORY_ACCEPTANCE_TEST",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-24",
+                  "recorded_at": "2026-11-19T13:32:34.701341Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "395d6751-bf48-4f73-a027-7bdd0f0d2ea8",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1007",
+          "status": "IN_PRODUCTION",
+          "supplier": {
+            "id": "ce68e1ce-9f75-4fe1-ab02-2b90fc69e995",
+            "name": "Pellam UPS Technologies",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-004"
+          },
+          "total_value": "412000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2027-01-20",
+              "recorded_at": "2026-11-19T13:32:34.811219Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "9ef892e3-7de2-4c6d-92d5-bfd8efce3fd1",
+              "source_reference": "QCP-SO-55210",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "USD",
+          "current_commitment": {
+            "committed_delivery_date": "2027-01-20",
+            "recorded_at": "2026-11-19T13:32:34.811219Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "9ef892e3-7de2-4c6d-92d5-bfd8efce3fd1",
+            "source_reference": "QCP-SO-55210",
+            "version_no": 1
+          },
+          "id": "0ebb982c-781c-4f87-a131-dc7e07afcc02",
+          "issue_date": "2026-07-13",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "UPS-003",
+              "equipment_id": "eb51ac19-6f04-44c5-84a2-7c6a2a6ee26d",
+              "equipment_name": "UPS module B1",
+              "id": "03815e1f-0de3-47a8-9ba0-6c3ea60d70e2",
+              "quantity": "1.000",
+              "unit_price": "154500.00"
+            },
+            {
+              "equipment_code": "UPS-004",
+              "equipment_id": "8123c1a9-1416-42b1-a8a2-b96bb3a926bb",
+              "equipment_name": "UPS battery cabinet set",
+              "id": "83619dd5-837e-40af-b339-8e723a18fe19",
+              "quantity": "4.000",
+              "unit_price": "33000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-07-17",
+              "current_plan": {
+                "planned_date": "2026-07-20",
+                "recorded_at": "2026-11-19T13:32:34.704908Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "82edb805-cf19-4df2-95a6-7d7ce4739a7e",
+                "version_no": 1
+              },
+              "id": "d41a82c5-8f3b-480e-ac49-189b37ebac5e",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-07-20",
+                  "recorded_at": "2026-11-19T13:32:34.704908Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "82edb805-cf19-4df2-95a6-7d7ce4739a7e",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-08-28",
+              "current_plan": {
+                "planned_date": "2026-08-31",
+                "recorded_at": "2026-11-19T13:32:34.707856Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "d3a4a0bd-8947-46b8-ae85-812d8d7f100c",
+                "version_no": 1
+              },
+              "id": "ad0d91ca-c5e6-40f3-b696-339c4d86b4e5",
+              "milestone_type": "DRAWING_SUBMISSION",
+              "plan_history": [
+                {
+                  "planned_date": "2026-08-31",
+                  "recorded_at": "2026-11-19T13:32:34.707856Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "d3a4a0bd-8947-46b8-ae85-812d8d7f100c",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-11-27",
+                "recorded_at": "2026-11-19T13:32:34.711340Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "ea9f0ab2-8d0d-4f6b-ace7-83cf797f1dde",
+                "version_no": 1
+              },
+              "id": "0910e188-c49a-4eb2-bf3a-f7afb8909d73",
+              "milestone_type": "DRAWING_APPROVAL",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-27",
+                  "recorded_at": "2026-11-19T13:32:34.711340Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "ea9f0ab2-8d0d-4f6b-ace7-83cf797f1dde",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1008",
+          "status": "ACKNOWLEDGED",
+          "supplier": {
+            "id": "147f2803-9d67-4b02-b52c-6d3ed62a52c0",
+            "name": "Quillon Critical Power",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-006"
+          },
+          "total_value": "286500.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2026-10-05",
+              "recorded_at": "2026-11-19T13:32:34.813908Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "71eba069-f2b9-49f2-a887-17104a5aa27c",
+              "source_reference": "BCC-OA-3318",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2026-10-05",
+            "recorded_at": "2026-11-19T13:32:34.813908Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "71eba069-f2b9-49f2-a887-17104a5aa27c",
+            "source_reference": "BCC-OA-3318",
+            "version_no": 1
+          },
+          "id": "b6199e5b-808d-4308-936b-95efdcc60774",
+          "issue_date": "2026-03-16",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "CH-001",
+              "equipment_id": "adc13832-b4bd-4535-9247-2af16d0d854a",
+              "equipment_name": "Air-cooled chiller 1",
+              "id": "14047838-0936-4a91-8c26-aecebf24c045",
+              "quantity": "1.000",
+              "unit_price": "16900000.00"
+            },
+            {
+              "equipment_code": "CH-002",
+              "equipment_id": "c6ceefc8-f961-4610-ba69-15b413a29c92",
+              "equipment_name": "Air-cooled chiller 2",
+              "id": "89bfc92f-500b-41f7-92cd-5c549dc0acee",
+              "quantity": "1.000",
+              "unit_price": "16900000.00"
+            }
+          ],
+          "milestone_count": 4,
+          "milestones": [
+            {
+              "actual_date": "2026-03-20",
+              "current_plan": {
+                "planned_date": "2026-03-23",
+                "recorded_at": "2026-11-19T13:32:34.714073Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "6b11ac1b-0bae-4a18-b879-4bd1d9b3f886",
+                "version_no": 1
+              },
+              "id": "6e88d7fe-7a16-4e8e-9176-94f13d35533a",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-03-23",
+                  "recorded_at": "2026-11-19T13:32:34.714073Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "6b11ac1b-0bae-4a18-b879-4bd1d9b3f886",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-09-12",
+              "current_plan": {
+                "planned_date": "2026-09-14",
+                "recorded_at": "2026-11-19T13:32:34.717203Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "bb98095c-7c51-4271-aae1-884c153edb4d",
+                "version_no": 1
+              },
+              "id": "b0000a50-9b23-4e88-9912-eeda4534c925",
+              "milestone_type": "DISPATCH",
+              "plan_history": [
+                {
+                  "planned_date": "2026-09-14",
+                  "recorded_at": "2026-11-19T13:32:34.717203Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "bb98095c-7c51-4271-aae1-884c153edb4d",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-10-02",
+              "current_plan": {
+                "planned_date": "2026-10-05",
+                "recorded_at": "2026-11-19T13:32:34.721312Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "78743b89-a57c-4d6b-bba1-bb0fd807967e",
+                "version_no": 1
+              },
+              "id": "115ad10a-ed2c-4db2-a706-df9308a0c9c3",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2026-10-05",
+                  "recorded_at": "2026-11-19T13:32:34.721312Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "78743b89-a57c-4d6b-bba1-bb0fd807967e",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-12-08",
+                "recorded_at": "2026-11-19T13:32:34.725201Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "2450c375-29e5-420e-8293-613a10bb5d22",
+                "version_no": 1
+              },
+              "id": "e760830d-e6ca-41c8-adf0-854007d911c0",
+              "milestone_type": "INSTALLATION",
+              "plan_history": [
+                {
+                  "planned_date": "2026-12-08",
+                  "recorded_at": "2026-11-19T13:32:34.725201Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "2450c375-29e5-420e-8293-613a10bb5d22",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1009",
+          "status": "DELIVERED",
+          "supplier": {
+            "id": "8d3654c9-9ac4-4d4d-91c4-225079ce69ba",
+            "name": "Brightwater Chiller Company",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-005"
+          },
+          "total_value": "33800000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2026-12-21",
+              "recorded_at": "2026-11-19T13:32:34.816497Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "bd434c2c-d69c-4196-b55e-12d5ce900ec0",
+              "source_reference": "BCC-OA-3391",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2026-12-21",
+            "recorded_at": "2026-11-19T13:32:34.816497Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "bd434c2c-d69c-4196-b55e-12d5ce900ec0",
+            "source_reference": "BCC-OA-3391",
+            "version_no": 1
+          },
+          "id": "b1188d3b-8122-459e-aa7f-3aa54c4ad980",
+          "issue_date": "2026-05-04",
+          "line_item_count": 2,
+          "line_items": [
+            {
+              "equipment_code": "CH-003",
+              "equipment_id": "6cfbdb45-1c52-4f4d-a5ae-5e8316482a3b",
+              "equipment_name": "Air-cooled chiller 3",
+              "id": "31db57c0-ea30-4234-a637-f35f62606cfd",
+              "quantity": "1.000",
+              "unit_price": "16900000.00"
+            },
+            {
+              "equipment_code": "CH-004",
+              "equipment_id": "1ff68687-9ed9-492d-9465-7a7f42ff0e5f",
+              "equipment_name": "Air-cooled chiller 4",
+              "id": "c2e1dd9b-e62f-45aa-a6e0-f014707ef681",
+              "quantity": "1.000",
+              "unit_price": "16900000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-05-11",
+              "current_plan": {
+                "planned_date": "2026-05-11",
+                "recorded_at": "2026-11-19T13:32:34.728731Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "20ec3afd-b9f9-42ab-86c9-44488db9d1f9",
+                "version_no": 1
+              },
+              "id": "e06cc3b0-df6a-470d-b9aa-1ea7372cd077",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-05-11",
+                  "recorded_at": "2026-11-19T13:32:34.728731Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "20ec3afd-b9f9-42ab-86c9-44488db9d1f9",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": "2026-07-20",
+              "current_plan": {
+                "planned_date": "2026-07-20",
+                "recorded_at": "2026-11-19T13:32:34.732550Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "c6890d77-0e17-4c0d-b3ca-a4584b2738e5",
+                "version_no": 1
+              },
+              "id": "d6d97015-abba-4a91-a856-0402f59c5458",
+              "milestone_type": "MANUFACTURING_START",
+              "plan_history": [
+                {
+                  "planned_date": "2026-07-20",
+                  "recorded_at": "2026-11-19T13:32:34.732550Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "c6890d77-0e17-4c0d-b3ca-a4584b2738e5",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-12-21",
+                "recorded_at": "2026-11-19T13:32:34.736316Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "af7bdf94-1c2f-473b-b2a0-4c76a21b3995",
+                "version_no": 1
+              },
+              "id": "a256c58d-7b6c-43b0-8f27-234fffb86ae9",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2026-12-21",
+                  "recorded_at": "2026-11-19T13:32:34.736316Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "af7bdf94-1c2f-473b-b2a0-4c76a21b3995",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1010",
+          "status": "IN_PRODUCTION",
+          "supplier": {
+            "id": "8d3654c9-9ac4-4d4d-91c4-225079ce69ba",
+            "name": "Brightwater Chiller Company",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-005"
+          },
+          "total_value": "33800000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2027-02-24",
+              "recorded_at": "2026-11-19T13:32:34.819175Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "abe9ff9b-d5dc-4a40-bd63-ae1a3cdfce7c",
+              "source_reference": "MCT-ORD-0907",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "USD",
+          "current_commitment": {
+            "committed_delivery_date": "2027-02-24",
+            "recorded_at": "2026-11-19T13:32:34.819175Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "abe9ff9b-d5dc-4a40-bd63-ae1a3cdfce7c",
+            "source_reference": "MCT-ORD-0907",
+            "version_no": 1
+          },
+          "id": "88450079-e594-499c-b917-f464ffbc1e7e",
+          "issue_date": "2026-08-03",
+          "line_item_count": 1,
+          "line_items": [
+            {
+              "equipment_code": "CH-005",
+              "equipment_id": "dc48205f-e349-4bb6-ae2b-83dc320aa47d",
+              "equipment_name": "Computer room air handler set",
+              "id": "b35611a3-5fca-471d-9bdd-e61db2f13dfc",
+              "quantity": "8.000",
+              "unit_price": "18500.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-08-07",
+              "current_plan": {
+                "planned_date": "2026-08-10",
+                "recorded_at": "2026-11-19T13:32:34.739686Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "f9d8cd1a-3e4b-4a1d-a598-fc48184d5c41",
+                "version_no": 1
+              },
+              "id": "d654ef41-0551-49d6-8f75-656b19bcc0ab",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-08-10",
+                  "recorded_at": "2026-11-19T13:32:34.739686Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "f9d8cd1a-3e4b-4a1d-a598-fc48184d5c41",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-11-25",
+                "recorded_at": "2026-11-19T13:32:34.743303Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "ce6deaea-2f62-4ee8-ba63-d811f10a6fc8",
+                "version_no": 1
+              },
+              "id": "3b22f261-2779-4a75-b5fc-4c126ede7361",
+              "milestone_type": "DRAWING_SUBMISSION",
+              "plan_history": [
+                {
+                  "planned_date": "2026-11-25",
+                  "recorded_at": "2026-11-19T13:32:34.743303Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "ce6deaea-2f62-4ee8-ba63-d811f10a6fc8",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2027-02-24",
+                "recorded_at": "2026-11-19T13:32:34.746955Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "e81f215e-c3b0-4d1b-99f5-cf09c35441da",
+                "version_no": 1
+              },
+              "id": "1b6e564c-23af-4623-9bd0-b28e19d20c52",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2027-02-24",
+                  "recorded_at": "2026-11-19T13:32:34.746955Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "e81f215e-c3b0-4d1b-99f5-cf09c35441da",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1011",
+          "status": "ACKNOWLEDGED",
+          "supplier": {
+            "id": "c7915f98-d92c-467b-85bd-e5cc956cefbf",
+            "name": "Marrow Creek Thermal",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-008"
+          },
+          "total_value": "148000.00"
+        },
+        {
+          "commitment_history": [
+            {
+              "committed_delivery_date": "2027-01-29",
+              "recorded_at": "2026-11-19T13:32:34.821563Z",
+              "recorded_by": "Procurement desk",
+              "source_ingestion_row_id": "f4743379-5e7d-4b92-a122-60f3ff76c06b",
+              "source_reference": "TBC-OC-1220",
+              "version_no": 1
+            }
+          ],
+          "commitment_version_count": 1,
+          "currency": "INR",
+          "current_commitment": {
+            "committed_delivery_date": "2027-01-29",
+            "recorded_at": "2026-11-19T13:32:34.821563Z",
+            "recorded_by": "Procurement desk",
+            "source_ingestion_row_id": "f4743379-5e7d-4b92-a122-60f3ff76c06b",
+            "source_reference": "TBC-OC-1220",
+            "version_no": 1
+          },
+          "id": "be88517d-47a5-4146-a0d2-26a3db060461",
+          "issue_date": "2026-09-07",
+          "line_item_count": 1,
+          "line_items": [
+            {
+              "equipment_code": "AUX-001",
+              "equipment_id": "98269ca5-6a3f-4cee-9a9e-b8477bce4f57",
+              "equipment_name": "Fire suppression control panel",
+              "id": "b3018d8c-597c-4871-9e9e-86ad95b94ed2",
+              "quantity": "1.000",
+              "unit_price": "2150000.00"
+            }
+          ],
+          "milestone_count": 3,
+          "milestones": [
+            {
+              "actual_date": "2026-09-11",
+              "current_plan": {
+                "planned_date": "2026-09-14",
+                "recorded_at": "2026-11-19T13:32:34.750598Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "f81e91ed-5d35-435e-aa5b-faae19134682",
+                "version_no": 1
+              },
+              "id": "c67a434f-9b8d-4c18-aff2-cd1b75e5cb39",
+              "milestone_type": "PO_ACKNOWLEDGEMENT",
+              "plan_history": [
+                {
+                  "planned_date": "2026-09-14",
+                  "recorded_at": "2026-11-19T13:32:34.750598Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "f81e91ed-5d35-435e-aa5b-faae19134682",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "COMPLETED"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2026-12-14",
+                "recorded_at": "2026-11-19T13:32:34.753838Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "5e399ca7-6954-4b99-aff3-bf84ac5f1210",
+                "version_no": 1
+              },
+              "id": "274bacbc-afca-4835-8b26-924a6ac57a9d",
+              "milestone_type": "MANUFACTURING_START",
+              "plan_history": [
+                {
+                  "planned_date": "2026-12-14",
+                  "recorded_at": "2026-11-19T13:32:34.753838Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "5e399ca7-6954-4b99-aff3-bf84ac5f1210",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            },
+            {
+              "actual_date": null,
+              "current_plan": {
+                "planned_date": "2027-01-29",
+                "recorded_at": "2026-11-19T13:32:34.757190Z",
+                "recorded_by": "import:milestones.csv",
+                "source_ingestion_row_id": "207083cb-789f-4bdb-84b5-2733cfc5cc73",
+                "version_no": 1
+              },
+              "id": "d9e86dea-9bb2-4b62-85a2-51db2c286bce",
+              "milestone_type": "DELIVERY",
+              "plan_history": [
+                {
+                  "planned_date": "2027-01-29",
+                  "recorded_at": "2026-11-19T13:32:34.757190Z",
+                  "recorded_by": "import:milestones.csv",
+                  "source_ingestion_row_id": "207083cb-789f-4bdb-84b5-2733cfc5cc73",
+                  "version_no": 1
+                }
+              ],
+              "plan_version_count": 1,
+              "sequence_no": 1,
+              "status": "PENDING"
+            }
+          ],
+          "po_number": "PO-1012",
+          "status": "ACKNOWLEDGED",
+          "supplier": {
+            "id": "374f0ae5-2c7f-4693-844d-c7086c92f8c4",
+            "name": "Tessaly Busway and Controls",
+            "status": "ACTIVE",
+            "supplier_code": "SUP-007"
+          },
+          "total_value": "2150000.00"
+        }
+      ],
+      "limit": 200,
+      "offset": 0,
+      "total": 12
+    },
+    "summary": {
+      "equipment": 20,
+      "milestones": 40,
+      "purchase_order_items": 19,
+      "purchase_orders": 12,
+      "suppliers": 8
+    },
+    "workspace_id": "00000000-0000-4000-8000-000000000001"
+  },
+  "workspace": {
+    "data_quality": {
+      "ingestion": {
+        "batches": {
+          "COMMITTED": 8,
+          "COMMITTING": 0,
+          "FAILED": 0,
+          "PREVIEWED": 0,
+          "UPLOADED": 0
+        },
+        "rows": {
+          "COMMITTED": 112,
+          "FAILED": 0,
+          "INVALID": 0,
+          "SKIPPED": 0,
+          "VALID": 0
+        }
+      },
+      "invalid_records": 0,
+      "valid_records": 112,
+      "warning_counts": {
+        "EQUIPMENT_WITHOUT_PO_LINE_ITEM": 1,
+        "PO_ACKNOWLEDGEMENT_NOT_RECORDED": 1,
+        "PO_WITHOUT_SUPPLIER_COMMITMENT": 1
+      },
+      "warnings": [
+        {
+          "code": "EQUIPMENT_WITHOUT_PO_LINE_ITEM",
+          "dimension": "COMPLETENESS",
+          "entity_id": "0bf5523b-272f-4938-9f48-a392df8a620e",
+          "entity_type": "equipment",
+          "message": "No purchase order line item is recorded for this equipment.",
+          "project_id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "reference": "DG-003"
+        },
+        {
+          "code": "PO_ACKNOWLEDGEMENT_NOT_RECORDED",
+          "dimension": "COMPLETENESS",
+          "entity_id": "6c506881-9ffb-425f-8e2c-3618efc0cc18",
+          "entity_type": "purchase_order",
+          "message": "No acknowledgement milestone is recorded for this purchase order.",
+          "project_id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "reference": "PO-1005"
+        },
+        {
+          "code": "PO_WITHOUT_SUPPLIER_COMMITMENT",
+          "dimension": "COMPLETENESS",
+          "entity_id": "6c506881-9ffb-425f-8e2c-3618efc0cc18",
+          "entity_type": "purchase_order",
+          "message": "No supplier commitment is recorded for this purchase order.",
+          "project_id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "reference": "PO-1005"
+        }
+      ],
+      "warnings_truncated": false
+    },
+    "generated_at": "2026-11-19T13:32:35.121229Z",
+    "projects": {
+      "items": [
+        {
+          "code": "DC-IN-001",
+          "counts": {
+            "equipment": 20,
+            "milestones": 40,
+            "purchase_order_items": 19,
+            "purchase_orders": 12
+          },
+          "id": "08bce028-f648-41b7-8b35-0ca517c19272",
+          "location": "Pune, Maharashtra",
+          "name": "North Ridge Data Centre Phase 1",
+          "status": "ACTIVE",
+          "target_completion_date": "2027-09-30"
+        }
+      ],
+      "limit": 50,
+      "offset": 0,
+      "total": 1
+    },
+    "summary": {
+      "equipment": 20,
+      "milestone_plan_versions": 40,
+      "milestones": 40,
+      "projects": 1,
+      "purchase_order_items": 19,
+      "purchase_orders": 12,
+      "supplier_commitment_versions": 12,
+      "suppliers": 8
+    },
+    "workspace": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Nexus Demo Workspace",
+      "slug": "nexus-demo",
+      "status": "ACTIVE"
+    },
+    "workspace_id": "00000000-0000-4000-8000-000000000001"
+  }
+}

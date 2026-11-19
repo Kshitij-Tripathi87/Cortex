@@ -23,6 +23,10 @@ defaults:
     # whose output is piped into `tee` must fail the step.
     shell: bash
 
+env:
+  # Output through `tee` stays in the order in which it was written.
+  PYTHONUNBUFFERED: "1"
+
 jobs:
   verify:
     name: Clean checkout to end-to-end proof
@@ -67,14 +71,18 @@ jobs:
 
       - name: Start PostgreSQL 16 with Docker Compose (development and test)
         run: |
-          make db-up
-          docker compose -f infra/docker-compose.yml ps
-          docker volume ls --filter name=nexus_pgdata
+          {
+            make db-up
+            docker compose -f infra/docker-compose.yml ps
+            docker volume ls --filter name=nexus_pgdata
+          } 2>&1 | tee artifacts/tmp/ci-db-up.txt
 
       - name: Migrate the empty development database
         run: |
-          make migrate
-          make migration-check
+          {
+            make migrate
+            make migration-check
+          } 2>&1 | tee artifacts/tmp/ci-migrate.txt
 
       - name: API tests on the test database
         run: make test-api | tee artifacts/tmp/ci-test-api.txt
@@ -95,22 +103,25 @@ jobs:
           cd services/api
           uv run python ../../scripts/verify_sprint.py --e2e-only \
             --evidence-dir ../../artifacts/tmp/e2e \
-            --summary ../../artifacts/tmp/verify-e2e.json
+            --summary ../../artifacts/tmp/verify-e2e.json 2>&1 | tee ../../artifacts/tmp/ci-e2e.txt
 
       - name: Report the evidence
         if: always()
         run: |
+          # Reporting never decides the result of the job.
+          set +e +o pipefail
           annotate() {
             # One annotation per item, readable on the run page without the log.
+            # A title must not contain a comma: it would end the title.
             local title="$1" body
-            body=$(cat | head -c 3500 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            body=$(head -c 3500 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::notice title=${title}::${body}"
           }
           docker compose -f infra/docker-compose.yml ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' | annotate "docker compose ps" || true
           docker volume ls --filter name=nexus_pgdata --format '{{.Name}} ({{.Driver}})' | annotate "named volume" || true
           for level in unit api integration; do
             if [ -f "artifacts/tmp/ci-test-${level}.txt" ]; then
-              tail -n 1 "artifacts/tmp/ci-test-${level}.txt" | annotate "tests: ${level}"
+              tail -n 1 "artifacts/tmp/ci-test-${level}.txt" | annotate "tests ${level}"
             fi
           done
           if [ -f artifacts/tmp/e2e/day3-restart-proof.txt ]; then
@@ -120,6 +131,24 @@ jobs:
             annotate "end-to-end summary" < artifacts/tmp/verify-e2e.json
           fi
           (cd services/api && uv run python --version) | annotate "python" || true
+
+      - name: Explain a failure
+        # The last lines of what each step printed, and of the database logs,
+        # as annotations: readable without opening the log.
+        if: failure()
+        run: |
+          set +e +o pipefail
+          annotate() {
+            local title="$1" body
+            body=$(head -c 3500 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=${title}::${body}"
+          }
+          for file in artifacts/tmp/ci-*.txt; do
+            if [ -f "$file" ]; then
+              tail -n 30 "$file" | cut -c1-200 | annotate "last lines of $(basename "$file" .txt)"
+            fi
+          done
+          docker compose -f infra/docker-compose.yml logs --tail 20 2>&1 | cut -c1-200 | annotate "docker compose logs"
 
       - name: Keep the evidence files
         if: always()
@@ -164,12 +193,12 @@ jobs:
         run: make setup
 
       - name: Start PostgreSQL 16 with Docker Compose
-        run: make db-up
+        run: make db-up 2>&1 | tee artifacts/tmp/ci-db-up.txt
 
       - name: Remove one behaviour at a time; a test must fail each time
         run: |
           cd services/api
-          uv run python ../../scripts/defect_detection.py | tee ../../artifacts/tmp/ci-defect-detection.txt
+          uv run python ../../scripts/defect_detection.py 2>&1 | tee ../../artifacts/tmp/ci-defect-detection.txt
 
       - name: Every file was put back
         if: always()
@@ -178,15 +207,19 @@ jobs:
       - name: Report the result
         if: always()
         run: |
+          set +e +o pipefail
           annotate() {
             local title="$1" body
-            body=$(cat | head -c 3500 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            body=$(head -c 3500 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::notice title=${title}::${body}"
           }
           if [ -f artifacts/tmp/ci-defect-detection.txt ]; then
             # Two annotations: one would be cut short by the size limit.
-            sed -n '1,14p' artifacts/tmp/ci-defect-detection.txt | cut -c1-120 | annotate "defect detection, 1 of 2"
-            sed -n '15,$p' artifacts/tmp/ci-defect-detection.txt | cut -c1-120 | annotate "defect detection, 2 of 2"
+            sed -n '1,14p' artifacts/tmp/ci-defect-detection.txt | cut -c1-120 | annotate "defect detection 1 of 2"
+            sed -n '15,$p' artifacts/tmp/ci-defect-detection.txt | cut -c1-120 | annotate "defect detection 2 of 2"
+          fi
+          if [ ! -s artifacts/tmp/ci-defect-detection.txt ] && [ -f artifacts/tmp/ci-db-up.txt ]; then
+            tail -n 30 artifacts/tmp/ci-db-up.txt | cut -c1-200 | annotate "last lines of ci-db-up"
           fi
 
       - name: Keep the result

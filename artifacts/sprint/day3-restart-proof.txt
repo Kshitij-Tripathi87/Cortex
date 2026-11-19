@@ -1,0 +1,22 @@
+End-to-end demonstration and restart proof
+
+2026-11-19T13:32:32Z  API started (pid 43460) on 127.0.0.2:42441; readiness 200
+2026-11-19T13:32:33Z  development workspace created or found (seed_demo_data.py --workspace-only)
+2026-11-19T13:32:35Z  demo dataset imported over HTTP for the first time: 8 files previewed (201) and committed, 112 rows committed
+2026-11-19T13:32:35Z  dataset sent again over HTTP: every file resolved to its batch, every commit a replay
+2026-11-19T13:32:35Z  World State saved without generated_at: sha256 4ff8c201ce8776f3e7aa59d50010c2ab967c08bd681d30cb444f321faeb453b6
+2026-11-19T13:32:36Z  seed run through the preview and commit services: every file already committed
+2026-11-19T13:32:37Z  World State after the seed identical to the saved one
+2026-11-19T13:32:37Z  API stopped (pid 43460)
+2026-11-19T13:32:38Z  PostgreSQL restarted with: <tools>/pg_restart.sh dev 5432
+2026-11-19T13:32:38Z  PostgreSQL start time before 2026-11-19 12:48:05.661761+00:00, after 2026-11-19 13:32:38.052510+00:00
+2026-11-19T13:32:40Z  API started again (pid 43511) on 127.0.0.2:57677; readiness 200
+2026-11-19T13:32:42Z  World State read again: sha256 4ff8c201ce8776f3e7aa59d50010c2ab967c08bd681d30cb444f321faeb453b6
+2026-11-19T13:32:42Z  World State before and after the restart identical: yes
+
+Written by scripts/verify_sprint.py during the run recorded in day3-full-test-results.txt.
+Build machine: Python 3.12.16, PostgreSQL 16.2 for development and test, both on 127.0.0.2
+(see README.md in this folder for the differences from the project defaults).
+The restart is of the local PostgreSQL daemon with its data directory kept, not of a container:
+that machine has no Docker. The container restart with the named volume runs in CI; its result
+is in docs/engineering/implementation-log.md under "Continuous integration".

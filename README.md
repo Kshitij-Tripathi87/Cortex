@@ -27,8 +27,8 @@ on, an earlier Cortex Nexus codebase.
   every row and writes only a ledger of the source rows. `commit` writes the
   valid rows in one transaction, or nothing. Sending the same file or the same
   commit again changes nothing.
-- **Provenance.** Each record and each version points to the source row that
-  introduced it.
+- **Provenance.** Each source row is linked to the record it produced, and
+  each version names the source row that introduced it.
 - **The World State**: counts, records, current and earlier versions, and
   what is not recorded, read from PostgreSQL on every request.
 
@@ -113,11 +113,17 @@ curl -s -F entity_type=project -F file=@data/samples/nexus_demo/projects.csv "$W
 # Commit the batch whose id the preview returned.
 curl -s -X POST "$WS/ingestion/<batch_id>/commit"
 
-# Read it back.
+# Read it back. The project id is in the list of projects.
 curl -s "$WS/world-state/summary"
 curl -s "$WS/world-state"
+curl -s "$WS/projects"
 curl -s "$WS/world-state/projects/<project_id>?include_history=true"
 ```
+
+A new file is answered 201 by the preview. A file that was imported before
+is answered 200 with its existing batch (`duplicate_file: true`), and its
+commit returns the recorded result (`replayed: true`). Nothing is written
+twice.
 
 Files are imported in the order of their references: projects, suppliers,
 equipment, purchase orders, line items, milestones, supplier commitments.
@@ -137,7 +143,8 @@ development database and restarts the database containers.
 `scripts/defect_detection.py` answers a different question: do the tests fail
 when the behaviour they guard is removed? It breaks the code in 26 chosen
 ways, one at a time, and expects a failing test each time
-(`docs/engineering/test-strategy.md`).
+(`docs/engineering/test-strategy.md`). It edits source files while it runs
+and puts each one back; run it on a clean working tree.
 
 ## Commands
 
@@ -167,7 +174,7 @@ another target and needs an explicit confirmation phrase.
 ## Repository layout
 
 ```text
-.github/workflows/ci.yml     clean-checkout verification, end to end
+.github/workflows/ci.yml     clean-checkout verification, end to end; defect detection
 infra/docker-compose.yml     local PostgreSQL (development and test)
 data/samples/                the demonstration dataset and validation examples
 scripts/                     wait_for_db, export_openapi, seed_demo_data, demo_checks,

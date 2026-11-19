@@ -19,6 +19,13 @@ exists.
   its first commit on the branch removes every file of the earlier codebase
   (the licence file is kept), and everything after it is new. The earlier
   code remains in the Git history only.
+- **"Day" means a stage of the playbook, not a calendar day.** The three
+  stages were worked in one continuous effort. By the clock of the build
+  machine every commit falls on 2026-11-19 (UTC); the commit tables below
+  give the times. Each gate was run before the next stage started.
+- **The playbook is not in the repository.** The repository is public and
+  the playbook is a planning document of the project lead. What a change
+  needs from it is restated in `docs/`.
 - **Build machine.** No Docker, and network access limited to GitHub, PyPI
   and npm. Python 3.12.16 was compiled from the official source; PostgreSQL
   16.2 ran from binaries, as two instances shaped like the Compose services,
@@ -38,6 +45,26 @@ exists.
 - [x] D1.6 Database session and migration harness: engine, sessions, transaction helpers, Alembic environment
 - [x] D1.7 Harness: Makefile, CI workflow, `wait_for_db`, `export_openapi`, `smoke_test`, `verify_sprint`
 - [x] D1.8 Integration gate run (below)
+
+### Commits
+
+| Commit | Time (UTC) | Summary |
+|---|---|---|
+| `eaabe49` | 09:38 | chore(repo): remove the previous implementation for the greenfield rebuild |
+| `5ae40af` | 10:02 | chore(dev): bootstrap the repository, toolchain and local PostgreSQL |
+| `e1f9489` | 10:02 | feat(api): application spine with health checks, request ids and the error envelope |
+| `6f6f257` | 10:02 | docs(architecture): freeze the boundaries, the domain model and the contracts |
+
+All on the branch `arena/6e4094b4-cortex`.
+
+### Files changed
+
+66 files added, 5,209 lines (`git diff --shortstat eaabe49 6f6f257`): the
+repository files, `infra/`, `scripts/` (4), `services/api` (application
+spine in `app/core`, `app/db`, `app/api`; Alembic environment; 6 test
+files), `docs/architecture/` (4), `docs/engineering/` (3) and 8 evidence
+files. The commit before them removes the 1,189 files of the earlier
+codebase.
 
 ### Commands executed
 
@@ -92,6 +119,31 @@ exists.
 - Blockers: none.
 - Deferred items: none.
 
+### End-of-day review
+
+1. **What works now?** A clean copy installs from the lockfile. The API
+   starts, answers liveness without the database and readiness only when
+   PostgreSQL is reachable and the schema is at the migration head. Every
+   response carries a request id; every error uses one envelope. Alembic
+   reaches the database. One command runs the whole verification chain.
+2. **Which test proves it?** `tests/api/test_health.py`,
+   `tests/api/test_error_envelope.py`, `tests/unit/test_config.py`,
+   `tests/unit/test_clock.py`, `tests/unit/test_logging.py`,
+   `tests/integration/test_database_session.py`; 72 tests. Alembic reaching
+   the database is shown by `day1-alembic.txt`, not by a test yet.
+3. **Which data invariants remain untested?** All of them: there is no model
+   yet. Also the named volume, which needs Docker.
+4. **Which contract changed and why?** None after the freeze. The test client
+   library became `httpx2` (ADR-001).
+5. **Is the branch runnable from a clean environment?** Yes for everything
+   except Docker Compose (`day1-clean-install.txt`); Compose is left to CI.
+6. **Was a file ownership or transaction boundary bypassed?** No.
+7. **Highest-severity open defect?** None known. Open risk: Compose not run.
+8. **What was deferred?** Nothing.
+9. **Is the next stage feasible?** Yes, at full scope.
+10. **What can be shown without narration?** The `day1-*` files and
+    `make verify`.
+
 ## Day 2 — Canonical domain and preview
 
 ### Completed
@@ -105,6 +157,23 @@ exists.
 - [x] D2.7 Column mapping and normalization: fixed alias tables, ISO dates only, exact decimals
 - [x] D2.8 Row validation and preview: batch and row ledger, no canonical write
 - [x] D2.9 Tests and OpenAPI export
+
+### Commits
+
+| Commit | Time (UTC) | Summary |
+|---|---|---|
+| `da0f5f7` | 10:46 | feat(domain): canonical models and the initial migration |
+| `104c57b` | 10:47 | feat(api): workspace-scoped services and routes for the canonical records |
+| `1457ebd` | 10:47 | feat(ingestion): safe CSV/XLSX reading, deterministic mapping and import preview |
+| `ca232c7` | 10:47 | docs(engineering): Day 2 record, gate G2 and evidence |
+
+### Files changed
+
+97 files, 19,738 lines added (`git diff --shortstat 6f6f257 ca232c7`):
+`app/models` (15), `app/schemas` (9), `app/repositories` (9), `app/services`
+(11), `app/ingestion` (6), `app/api` (9), the migration, 14 new test files
+with their helpers, the validation example, the exported OpenAPI document and
+5 evidence files.
 
 ### Commands executed
 
@@ -184,16 +253,348 @@ All are in `docs/architecture/domain-model.md` or
 - Blockers: none.
 - Deferred items: none. XLSX, which the solo fallback allows deferring, is implemented.
 
+### End-of-day review
+
+1. **What works now?** The eleven tables exist through a migration. Records
+   are created, read and updated through workspace-scoped routes; a purchase
+   order is created with its line items in one transaction; a changed planned
+   date or commitment appends a version. CSV and XLSX files are read within
+   bounds and previewed row by row; a preview writes the ledger and no
+   canonical record.
+2. **Which test proves it?** `tests/integration/test_model_constraints.py`
+   and `test_migrations.py`; `tests/api/test_projects.py`,
+   `test_suppliers_equipment.py`, `test_purchase_orders.py`,
+   `test_ingestion_preview.py`; `tests/unit/test_readers.py`,
+   `test_column_mapping.py`, `test_normalization.py`,
+   `test_row_validation.py`; `tests/integration/test_workspace_isolation.py`.
+   503 tests.
+3. **Which data invariants remain untested?** Everything about commit:
+   atomicity, replay, provenance links, two writers on one record. World
+   State does not exist yet.
+4. **Which contract changed and why?** Additions to the playbook tables, each
+   marked in the domain model: file warnings and commit counters on the
+   batch, planned action and outcome on the row, the supplier's own reference
+   on a commitment. Routes beyond the inventory are marked † in the API
+   contract.
+5. **Is the branch runnable from a clean environment?** Yes; `make verify`
+   passes 11 of 11 steps. Compose is still left to CI.
+6. **Was a file ownership or transaction boundary bypassed?** No. Repositories
+   do not commit; endpoints hold no SQL; `app/ingestion` has no database
+   access.
+7. **Highest-severity open defect?** None open. The five found that day are
+   listed above, each fixed with a test.
+8. **What was deferred?** Nothing.
+9. **Is the next stage feasible?** Yes.
+10. **What can be shown without narration?** The `day2-*` files and
+    `make verify`.
+
+## Day 3 — Commit and World State
+
+### Completed
+
+- [x] D3.1 Batch state machine: commit only from `PREVIEWED`, under a row lock on the batch; `COMMITTING` exists only inside the commit transaction
+- [x] D3.2 Transactional commit: every valid row is checked again at commit time; the valid rows are written in one transaction or not at all; a failure is recorded in a transaction of its own
+- [x] D3.3 Idempotency: one batch per file and entity type; records resolved by natural key; only source-owned fields change; a policy for duplicates inside a file
+- [x] D3.4 Provenance and history: each committed row is linked to its record; each new version names the source row that introduced it; the six audit lookups of the playbook have a test each
+- [x] D3.5 World State service: workspace, summary and project projections; data-quality warnings for what is not recorded
+- [x] D3.6 World State endpoints: paged, scoped, with a number of SQL statements that does not grow with the data
+- [x] D3.7 Demonstration dataset: 8 files and `expected.json` in `data/samples/nexus_demo/`
+- [x] D3.8 Seed, smoke test over HTTP, end-to-end run with a restart of the API and of PostgreSQL
+- [x] D3.9 Release record: OpenAPI document, test strategy, known limitations, evidence, CI workflow
+
+After the first end-to-end pass the build was probed on purpose, which is not
+a package of the playbook: one file and one batch sent by eight clients at
+once, files of several thousand rows, extreme values in imports and in JSON,
+ids and codes of a second workspace on every route. The probes were throwaway
+scripts against a running API and are not in the repository. What they found
+is listed under "Found and fixed" below; each defect of the application has
+a test in the repository.
+
+### Commits
+
+| Commit | Time (UTC) | Summary |
+|---|---|---|
+| `7720548` | 11:56 | feat(ingestion): transactional commit with replay, provenance links and version history |
+| `46cde61` | 11:56 | feat(world-state): workspace, summary and project projections read from PostgreSQL |
+| `bcd26d4` | 11:56 | feat(demo): synthetic dataset, seed through the services, end-to-end verification |
+| `6329e8b` | 12:13 | fix(ingestion): one new file uploaded several times at once is one batch |
+| `54f9a8b` | 12:25 | fix(api): values PostgreSQL cannot hold are refused as input, not answered 500 |
+| `eaaa053` | 12:28 | fix(errors): a deadlock is a conflict to send again, not an outage |
+| `aaa62dd` | 12:34 | test(e2e): the demo dataset as an Excel workbook with typed cells |
+| `2ffe4b8` | 12:36 | fix(api): sequence_no is a JSON whole number |
+| `b19decf` | 12:44 | fix(e2e): the first import of the demonstration goes over HTTP |
+| `2434cce` | 12:46 | test(api): an id of another workspace on every route that takes an id |
+| `45b0671` | 12:59 | test: show that the tests fail when the behaviour is removed |
+| `c830e48` | 13:02 | fix(dates): a date takes the digits 0 to 9 only, stated in the code |
+| `6be089d` | 13:30 | docs,ci: README for the finished v0.1; CI reports test totals and runs defect detection |
+| the commit that holds this text | | docs(engineering): Day 3 record, gate G3 and evidence |
+
+**How this history was made.** The session that built Day 3 was interrupted
+once, with the commit path, the World State and the dataset written and not
+yet committed. That work was committed as it was found and then verified by
+the full suite before anything was added. All Day 3 work was first committed
+as work-in-progress commits. Before the pull request those were replaced by
+the commits above, built from the same file contents: the final tree is
+identical (`git diff` between the old and the new tip is empty). The first
+work-in-progress commit was divided by file into the three `feat` commits.
+In three of the thirteen commits the committed OpenAPI document was exported
+again from the code of that commit, so that the check for a stale document
+passes at every commit. The times are those of the original commits. Each
+of the thirteen commits was then checked out on its own and run through
+lint, format check, mypy, the OpenAPI check and the three test suites: all
+pass (`day3-commit-validation.txt`).
+
+### Files changed
+
+60 files, 10,219 lines added and 218 removed between the end of Day 2 and
+`6be089d` (`git diff --shortstat ca232c7 6be089d`):
+
+- `app/services`: `ingestion_service.py` (commit), `world_state_service.py`, `data_quality_service.py`
+- `app/repositories/world_state_repository.py`; `app/schemas/world_state.py`; `app/api/v1/endpoints/world_state.py` and `ingestion.py`
+- `app/core/errors.py`, `app/core/decimals.py`, `app/models/limits.py`, `app/models/ingestion.py`, `app/ingestion/normalization.py`, `app/ingestion/column_mapping.py`, `app/schemas/common.py`, `app/schemas/milestone.py`, `app/api/deps.py` (the fixes)
+- `data/samples/nexus_demo/` (9 files)
+- `scripts/`: `seed_demo_data.py`, `demo_checks.py`, `defect_detection.py` (new); `smoke_test.py`, `verify_sprint.py` (extended)
+- Tests: 7 files in `tests/api`, 7 in `tests/integration`, 2 in `tests/unit`, and the helper `tests/importing.py`
+- `README.md`, `AGENTS.md`, `Makefile`, `.github/workflows/ci.yml`, `infra/docker-compose.yml`
+- `docs/`: `known-limitations.md`, `test-strategy.md` (new); `domain-model.md`, `api-contract.md`, `openapi.json` (updated)
+
+The commit that holds this text adds the Day 3 evidence files and this record.
+
+### Commands executed
+
+All on the build machine, on the code identified in the header of
+`day3-full-test-results.txt`.
+
+| Command | Result | Evidence |
+|---|---|---|
+| `DROP DATABASE`, `CREATE DATABASE`, `uv run alembic upgrade head` | An empty development database: 12 tables, no workspace, no record | `day3-full-test-results.txt` (header) |
+| `uv run python ../../scripts/verify_sprint.py --e2e …` (`make e2e` with a restart command for a machine without Docker) | Exit 0; 12 of 12 steps pass | `day3-full-test-results.txt`, `day3-verify-summary.json` |
+| — unit, API and integration tests in that run | 339, 224 and 126 passed (689) | same |
+| — workspace created, 8 files previewed and committed over HTTP | 8 × 201 and `COMMITTED`; 112 rows committed, none rejected | `day3-import-results.json` |
+| — the whole dataset sent again over HTTP | Every file resolved to its batch, every commit a replay, counts unchanged; 53 of 53 checks | `day3-full-test-results.txt` |
+| — `seed_demo_data.py` on top | Every file "already committed"; 28 of 28 dataset checks | same |
+| — World State of the project with its history | 20 equipment records, 12 purchase orders, 40 milestones, 12 commitment versions | `day3-world-state.json` |
+| — commitment history of `PO-1007` | Version 1 (2026-11-28) and version 2 (2026-12-06), each with its source row | `day3-commitment-history.json` |
+| — API stopped, PostgreSQL restarted, API started | World State identical before and after (same SHA-256); 42 of 42 checks, twice | `day3-restart-proof.txt` |
+| `psql` counts of every table next to `GET …/world-state/summary` | Equal; 8 batches and 112 source rows after the dataset was sent three times; every row linked to a record | `day3-database-counts.txt` |
+| `uv run python ../../scripts/defect_detection.py` | 26 of 26 deliberate defects detected | `day3-defect-detection.txt` |
+| The `curl` commands of the README against the running API | Preview 200 (file already known), commit 200 (`replayed: true`), the three World State routes 200 | — |
+| Lint, format check, mypy, OpenAPI check and the three suites at each of the 13 commits | All pass | `day3-commit-validation.txt` |
+| `make db-up`, `make e2e` with Docker Compose | NOT RUN on the build machine (no Docker) | CI, below |
+
+### Found and fixed on the way
+
+Found by the probes and by reading the code against the contract. Items 1
+to 10 are defects of the application. Each has a test, and the run with
+deliberate defects shows a test failing when the fix is taken out
+(`docs/engineering/test-strategy.md`); for item 5 that run covers the
+rounding case, and the over-long text has an ordinary test. Items 11 to 13
+are of another kind, and each says so.
+
+1. **One new file sent by eight clients at once: seven were answered 409.**
+   The requests raced to create the batch and the losers surfaced the unique
+   violation. The index now decides the race; a request that loses waits and
+   answers with the batch that won. One batch, one 201, seven 200.
+2. **A NUL character in JSON text was answered 500.** PostgreSQL text cannot
+   hold it. It is now a field error (422, `INVALID_VALUE`).
+3. **A sequence number above 2,147,483,647 was answered 500, and an import
+   previewed it as valid and then failed at commit.** It is now refused at
+   the boundary: 422 in the API, `INVALID_INTEGER` on the row at preview.
+4. **An offset beyond 64 bits was answered 500.** Offsets end at
+   2,147,483,647 (422, `OUT_OF_RANGE`).
+5. **Decimal text of thousands of digits crashed the parser, and a digit
+   beyond the 28th place was rounded away and the value accepted.** The size
+   of a number is now read from its digits; both cases are `INVALID_DECIMAL`.
+   The second one mattered more: a value was stored that the file did not
+   contain.
+6. **A deadlock was answered 503 and failed the batch.** It is 409
+   `CONFLICT`; nothing is written and the batch stays `PREVIEWED`, so the
+   same commit can be sent again.
+7. **A value the database refuses all the same** is answered 422 with the
+   transaction rolled back (`COMMIT_FAILED` for an import, whose batch
+   becomes `FAILED`), and logged as an error without the value.
+8. **Control characters in an uploaded file name were stored.** They are
+   dropped; the name is display text.
+9. **`sequence_no` accepted `"1"`, `1.0` and `true`.** It is a JSON whole
+   number.
+10. **A test did not prove what its name said.** The test with two imports
+    on one purchase order passes without the row lock, because the race
+    falls the harmless way. The locks are now proven by holding the row in
+    another session and waiting until PostgreSQL reports the writer as
+    waiting.
+11. **The end-to-end run imported through the seed first**, so the import
+    over HTTP only replayed and proved less than it claimed. The first import
+    now goes over HTTP. A defect of the verification script, not of the
+    application; the run itself is the check.
+12. **A date in the digits of another script was refused only because the
+    standard library refuses it.** The rule is now stated in the patterns
+    and has tests. The behaviour did not change, so those tests pass with
+    or without the change.
+13. **The Compose health check could report "healthy" too early.** Not
+    observed: found by reading the entrypoint of the PostgreSQL image, which
+    runs a temporary server on the Unix socket while it creates the data
+    directory. The check now goes over TCP. No test; Compose runs in CI
+    only.
+
+### Decisions recorded while implementing
+
+All are in `docs/architecture/domain-model.md`,
+`docs/architecture/world-state-contract.md` or
+`docs/engineering/api-contract.md`.
+
+| Decision | Reason |
+|---|---|
+| Identical rows in one file: the first is applied, the others are skipped as `DUPLICATE_ROW`. Conflicting rows: all rejected | Row order must never decide which value is stored |
+| A row that names an existing record with another project or supplier is an error (`IMMUTABLE_FIELD_CONFLICT`) | An import must not move a record |
+| A failed commit answers 409 `COMMIT_CONFLICT` and the batch is `FAILED`; the file is uploaded again as a new batch | The retry policy the playbook calls the safest |
+| A deadlock answers 409 `CONFLICT` and leaves the batch `PREVIEWED` | Nothing about the file is wrong; the same request succeeds when sent again |
+| The same new file uploaded several times at once is one batch | The rule "one file, one batch" must hold under a race too |
+| Whole numbers and offsets end at 2,147,483,647 | The size of the column; a larger value is refused, never cut |
+| In numbers a digit of any script is the digit it is; dates take 0 to 9 only | A number has one meaning in any script. A date in another script may be of another calendar |
+| A `COMPLETED` milestone may lack an actual date; an actual date on a milestone that is not completed is an error | A source may say "completed" without a date; the date is not invented |
+| The provenance route answers an empty list for a record that is unknown or belongs to another workspace | The two cases must look the same |
+| World State reports what is not recorded as warnings, and compares no dates | Facts and judgement stay apart; lateness belongs to a later layer |
+
+### Gate G3
+
+| # | Check | Status | Evidence |
+|---|---|---|---|
+| 1 | Batch state machine implemented and guarded against concurrent commits | PASS | `test_two_concurrent_commits_of_one_batch_take_effect_once`, `test_a_second_commit_waits_for_the_first_and_then_reports_its_result`, `test_commit_status_codes`; defect 6 |
+| 2 | Commit revalidates references and state | PASS | `test_a_reference_that_became_invalid_after_preview_fails_the_whole_batch`, `test_commit_refuses_rows_whose_stored_values_no_longer_validate` |
+| 3 | The valid-row subset commits in one transaction | PASS | `test_the_valid_subset_is_committed_and_invalid_rows_stay_visible`, `test_commit_reports_counters_and_links_each_row_to_its_record` |
+| 4 | Any commit-time failure rolls back the canonical writes of the batch | PASS | `test_an_unexpected_failure_mid_batch_leaves_no_partial_records`, `test_a_database_constraint_failure_mid_batch_rolls_everything_back`, `test_a_value_the_database_cannot_store_fails_the_batch_and_says_what_to_do`, `test_a_commit_ended_by_a_deadlock_writes_nothing_and_can_be_sent_again` |
+| 5 | A repeated commit returns the original result without writing | PASS | `test_committing_a_committed_batch_again_writes_nothing`, `test_repeated_commit_does_not_duplicate_records`; end-to-end run: every commit of the second pass is a replay |
+| 6 | The same file checksum does not create a second batch | PASS | `test_the_same_file_is_one_batch_and_one_import`, `test_the_same_new_file_uploaded_at_once_is_one_batch_for_everyone`; `day3-database-counts.txt` (8 batches after three passes) |
+| 7 | Different files with the same natural keys do not duplicate records | PASS | `test_known_records_are_resolved_and_only_source_owned_fields_change`, `test_a_different_file_with_the_same_keys_updates_instead_of_duplicating` |
+| 8 | Conflicting duplicate rows are rejected or handled by a documented policy | PASS | `test_conflicting_rows_in_one_file_are_rejected_whatever_their_order`, `test_identical_rows_in_one_file_are_applied_once_and_both_linked`; `domain-model.md`, "Field ownership for imports" |
+| 9 | Source rows link to the committed canonical records | PASS | `test_every_source_row_is_linked_to_the_record_it_produced`; `day3-database-counts.txt` (112 of 112) |
+| 10 | Commitment and plan history is append-only | PASS | `test_commitment_history_first_revised_replayed`, `test_plan_history_first_revised_replayed`, `test_versions_have_no_update_or_delete_operation`, `test_the_revised_commitment_is_appended_and_the_old_one_remains`; `day3-commitment-history.json` |
+| 11 | World State is generated from PostgreSQL | PASS | `test_summary_counts_match_the_database`, `test_counts_follow_the_database_not_a_fixture`, `test_a_new_process_reads_the_same_world_state`; `day3-database-counts.txt` |
+| 12 | Workspace and project World State are bounded and scoped | PASS | `test_the_project_list_is_paged_and_the_total_stays_complete`, `test_project_collections_are_paged`, `test_nested_lists_are_capped_and_the_count_stays_complete`, `test_warnings_are_bounded_and_counts_are_complete`, `test_counts_exclude_other_workspaces`, `test_world_state_of_another_workspace_or_project_is_not_disclosed`; `test_world_state_queries.py`; `test_workspace_isolation_http.py` |
+| 13 | The demo dataset imports through the public application flow | PASS | End-to-end run over HTTP on an empty database: `day3-import-results.json`, `day3-full-test-results.txt` |
+| 14 | All five data conditions are represented and queryable | PASS | `test_all_five_conditions_are_represented_and_queryable`; the dataset checks of the end-to-end run |
+| 15 | Repeating the seed or the import changes no count and appends no version | PASS | `test_repeating_the_whole_import_changes_no_count_and_appends_no_version`, `test_no_table_is_touched_by_a_full_replay`; end-to-end run, three passes |
+| 16 | Data survives a restart of the API and of the database container, volume retained | PASS on the build machine for the API and the PostgreSQL server, data directory kept. The container and the named volume: NOT RUN locally, left to CI | `day3-restart-proof.txt`; "Continuous integration" below |
+| 17 | Critical unit, API, integration and end-to-end tests pass | PASS | 339 unit, 224 API, 126 integration; 165 end-to-end checks; `day3-full-test-results.txt` |
+| 18 | OpenAPI export, test report, sample World State and known-gap list are committed | PASS | `docs/engineering/openapi.json`, `day3-full-test-results.txt`, `day3-world-state.json`, `day3-known-limitations.md` |
+
+The stop rule of the playbook: the demonstration must not work only through
+direct seeding, fixed JSON, manual SQL or a mocked World State. In the
+end-to-end run the first import of every file is an HTTP upload to the
+preview route followed by an HTTP commit, on a database that holds nothing
+but the schema and the workspace. The seed calls the same two services. No
+script inserts a canonical record, and
+`test_preview_then_commit_is_the_only_way_a_file_becomes_records` holds the
+API to it.
+
+- Status: **PASS on the build machine for 17 of 18 checks. Check 16 passes
+  there for a restarted server and waits for CI for the container.**
+- Blockers: none.
+- Deferred items: none.
+
+### End-of-day review
+
+1. **What works now?** A previewed file can be committed: the valid rows are
+   written in one transaction, linked to their source rows, with history
+   appended where a date changed. Sending the same file or the same commit
+   again changes nothing. The World State reads the result back from
+   PostgreSQL in three bounded projections. The demonstration dataset goes
+   from eight files to the World State over HTTP and reads back identically
+   after a restart of the API and of PostgreSQL.
+2. **Which test proves it?** The tests named in the gate table; the
+   end-to-end run; and, for the tests themselves, the 26 deliberate defects.
+3. **Which data invariants remain untested?**
+   - Nothing in the database stops an `UPDATE` or `DELETE` of a version row
+     by someone with SQL access. Append-only is a property of the service,
+     which has no such operation; that is what the test checks (L-34).
+   - A deadlock between two imports. One deadlock is tested, between an
+     import and another writer.
+   - Behaviour under load: no load test was run. Timings were taken once.
+   - A file produced by Excel or by a supplier system.
+   - Docker Compose, the named volume and the container restart, until CI
+     has run.
+4. **Which contract changed and why?** The API contract gained the code
+   `COMMIT_FAILED`, bounds on `offset` and `sequence_no`, and the answers to
+   a simultaneous upload and to a deadlock: each closes a case that was
+   answered 500, 503 or 409 before. It also lists `OUT_OF_RANGE`,
+   `INVALID_VALUE` and `BAD_REQUEST`, which the API returned already and the
+   document had left out. The OpenAPI document went from 19 to 23 paths
+   (commit, three World State routes). The domain model gained the section
+   on writers at the same time.
+5. **Is the branch runnable from a clean environment?** From an empty
+   database on the build machine, yes: that is the run recorded above.
+   From a clean clone with Docker: that is what the CI workflow does, and
+   it has not run yet.
+6. **Was a file ownership or transaction boundary bypassed?** No. Checked
+   again on the final code with `grep`: no `commit` or `rollback` in
+   `app/repositories`, no query in `app/api`, no HTTP type in `app/services`,
+   no database import in `app/ingestion`, no `datetime.now` outside
+   `app/core/clock.py`. The seed creates the workspace through the workspace
+   service and everything else through preview and commit.
+7. **Highest-severity open defect?** No P0 or P1 is known. The highest open
+   items are P2 limitations, first of them L-10: commit is synchronous and
+   writes row by row, about 26 seconds for 8,000 milestones.
+8. **What was deferred?** Nothing of the sprint scope. What the sprint does
+   not build is L-01 to L-06 in `known-limitations.md`: authentication,
+   intelligence, agents, frontend, deployment, integrations.
+9. **Is the next scope feasible?** Not assessed here. The next phase reads
+   the World State and derives findings from it; this release gives it a
+   contract and a dataset to start from. Authentication (L-01) comes before
+   any use beyond a developer machine.
+10. **What can be shown without narration?** `make e2e` is one command and
+    prints every check. The `day3-*` files hold its output.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request, in two jobs:
+
+- **Clean checkout to end-to-end proof.** Installs from the lockfile, runs
+  lint, format check, mypy and the unit tests, starts both databases with
+  Docker Compose, migrates, runs the API and integration tests and the
+  OpenAPI check, then the end-to-end demonstration. Its database restart is
+  `make db-down && make db-up`: the container is removed and created again
+  and the named volume is kept.
+- **Tests fail when the behaviour is removed.** Runs
+  `scripts/defect_detection.py`.
+
+Both jobs publish their results as annotations on the run and keep the
+output files as artifacts for 30 days.
+
+No run exists at the time of this commit: the workflow starts when the pull
+request is opened. The result is recorded here by the commit that follows
+the first run.
+
 ## Work-package status board
 
-| Task | Status | Evidence |
-|---|---|---|
-| D1.1–D1.8 | PASS | Gate G1 above |
-| D2.1–D2.2 Models and migration | PASS | Gate G2 above |
-| D2.3–D2.5 Schemas, repositories, services, CRUD | PASS | Gate G2 above |
-| D2.6–D2.8 Readers, mapping, validation, preview | PASS | Gate G2 above |
-| D2.9 Tests and OpenAPI review | PASS | Gate G2 above |
-| D3.1–D3.4 Commit, idempotency, provenance | NOT STARTED | |
-| D3.5–D3.6 World State | NOT STARTED | |
-| D3.7–D3.8 Dataset, seed, end-to-end | NOT STARTED | |
-| D3.9 Release record | NOT STARTED | |
+| Task | Status | Commits | Evidence |
+|---|---|---|---|
+| D1.1–D1.8 Foundation | PASS | `5ae40af`, `e1f9489`, `6f6f257` | Gate G1 |
+| D2.1–D2.2 Models and migration | PASS | `da0f5f7` | Gate G2 |
+| D2.3–D2.5 Schemas, repositories, services, CRUD | PASS | `104c57b` | Gate G2 |
+| D2.6–D2.8 Readers, mapping, validation, preview | PASS | `1457ebd` | Gate G2 |
+| D2.9 Tests and OpenAPI review | PASS | `ca232c7` | Gate G2 |
+| D3.1–D3.4 Commit, idempotency, provenance | PASS | `7720548`, `6329e8b`, `54f9a8b`, `eaaa053` | Gate G3, checks 1 to 10 |
+| D3.5–D3.6 World State | PASS | `46cde61` | Gate G3, checks 11 and 12 |
+| D3.7–D3.8 Dataset, seed, end-to-end | PASS | `bcd26d4`, `aaa62dd`, `b19decf` | Gate G3, checks 13 to 17 |
+| D3.9 Release record | PASS | `45b0671`, `6be089d`, the commit that holds this text | Gate G3, check 18 |
+
+Owner of every task: the one contributor. Blockers: none.
+
+## Final known limitations
+
+The full list, with what is not built at all, is
+`docs/engineering/known-limitations.md`. The ones that matter most:
+
+| ID | Limitation | Severity | Follow-up phase |
+|---|---|---|---|
+| L-01 | No authentication or authorisation; one configured workspace; loopback only | Blocks any use beyond a developer machine | Before any exposure |
+| L-05 | No deployment: TLS, secrets, backup, monitoring, rate limits | Blocks production | A production-readiness phase |
+| L-10 | Preview and commit are synchronous; commit writes row by row | P2 | When imports grow beyond a few thousand rows: batched writes, a job runner |
+| L-11 | A commit locks every record its rows refer to; a deadlock is answered 409 and must be sent again by the client | P2 | With L-10 |
+| L-30 | Two files that create the same new records at the same moment: one fails and must be uploaded again | P2 | With L-10 |
+| L-12, L-13 | CSV must be UTF-8 and comma-separated; dates must be `YYYY-MM-DD` or a spreadsheet date cell | P2 | Per-import settings, when a real source needs them |
+| L-34 | History is append-only in the service, not in the database | P2 | Before the history is relied on as an audit record |
+| L-15 | Natural keys are compared exactly (`TR-001` is not `tr-001`) | P2 | When real source data shows the need |
+| L-19 | Nothing can be deleted or archived | P2 | With a retention policy (L-23, L-24) |
+| V-03 | One contributor; no independent review | — | Review of the pull request |
+| V-05 | No file from a real source system was imported | — | First pilot data |

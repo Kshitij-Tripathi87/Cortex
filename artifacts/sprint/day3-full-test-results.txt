@@ -1,0 +1,310 @@
+Day 3 verification chain with the end-to-end demonstration (make e2e), final code of the sprint.
+Started 2026-11-19T13:31:04Z on a development database that had just been dropped, created and migrated:
+12 tables, no workspace, no record.
+Build machine: Python 3.12.16, PostgreSQL 16.2 for development and test, both on 127.0.0.2
+(see README.md in this folder for the differences from the project defaults).
+Code verified: services/api 0dc050c483dbe2d00294e80dc2ddf331e326961b, scripts ebdd8bba4e64097dfffe37e6b7d0bff501d54119, data 269192f5af4c18280b51173e171b1da6d621aad0
+(git tree hashes; compare with `git rev-parse HEAD:services/api` and so on).
+Command, from services/api:
+  uv run python ../../scripts/verify_sprint.py --e2e --e2e-host 127.0.0.2 \
+    --db-restart-cmd "<tools>/pg_restart.sh dev 5432" --evidence-dir <evidence>/e2e --summary <evidence>/verify-summary.json
+<tools>/pg_restart.sh stops the local PostgreSQL (fast shutdown) and starts it again on the same data
+directory. It stands in for `make db-down && make db-up`, which needs Docker and runs in CI.
+Paths are shown as <repo>, <evidence> and <tools>. Nothing else in the output was changed.
+Exit code of the command: 0.
+
+
+=== configuration is valid ===
+APP_ENV=development, database postgresql+psycopg://nexus:***@127.0.0.2:5432/cortex_nexus
+
+=== lockfile matches pyproject.toml ===
+$ uv lock --check
+Resolved 45 packages in 6ms
+
+=== PostgreSQL 16 is reachable (development and test) ===
+development PostgreSQL 16.2, test PostgreSQL 16.2
+
+=== migrations: models match the applied schema ===
+$ uv run alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+
+=== ruff lint ===
+$ uv run ruff check <repo>
+All checks passed!
+
+=== ruff format ===
+$ uv run ruff format --check <repo>
+143 files already formatted
+
+=== mypy ===
+$ uv run mypy app
+Success: no issues found in 81 source files
+
+=== unit tests ===
+$ uv run pytest tests/unit -q
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 63%]
+........................................................................ [ 84%]
+...................................................                      [100%]
+339 passed in 0.54s
+
+=== API tests ===
+$ uv run pytest tests/api -q
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+........                                                                 [100%]
+224 passed in 46.27s
+
+=== integration tests ===
+$ uv run pytest tests/integration -q
+........................................................................ [ 57%]
+......................................................                   [100%]
+126 passed in 27.90s
+
+=== OpenAPI document is up to date ===
+$ uv run python <repo>/scripts/export_openapi.py --check
+<repo>/docs/engineering/openapi.json is up to date.
+
+=== end to end: import, World State, restart of API and PostgreSQL, compare ===
+$ uv run uvicorn app.main:app --host 127.0.0.2 --port 42441   (log: api.log)
+API ready on http://127.0.0.2:42441 (pid 43460)
+$ uv run python <repo>/scripts/seed_demo_data.py --workspace-only
+WORKSPACE 00000000-0000-4000-8000-000000000001 'nexus-demo' (created, ACTIVE)
+$ uv run python <repo>/scripts/smoke_test.py --base-url http://127.0.0.2:42441 --import-demo --save-world-state <evidence>/e2e/world-state-before-restart.json --evidence-dir <evidence>/e2e
+PASS  liveness answers 200  [HTTP 200]
+PASS  every response carries a request id
+PASS  readiness: database reachable and schema at the migration head  [HTTP 200; database=ok, migrations=ok]
+PASS  OpenAPI document lists the import and World State routes  [23 paths]
+PASS  errors use the standard envelope and echo the request id  [HTTP 404; code=NOT_FOUND]
+PASS  the configured workspace is served and active  [HTTP 200]
+PASS  any other workspace id is not available  [HTTP 404; code=WORKSPACE_NOT_AVAILABLE]
+PASS  import projects.csv  [preview HTTP 201, rows=1, invalid=0, commit=COMMITTED, committed=1, skipped=0, replayed=False]
+PASS  import suppliers.csv  [preview HTTP 201, rows=8, invalid=0, commit=COMMITTED, committed=8, skipped=0, replayed=False]
+PASS  import equipment.csv  [preview HTTP 201, rows=20, invalid=0, commit=COMMITTED, committed=20, skipped=0, replayed=False]
+PASS  import purchase_orders.csv  [preview HTTP 201, rows=12, invalid=0, commit=COMMITTED, committed=12, skipped=0, replayed=False]
+PASS  import purchase_order_items.csv  [preview HTTP 201, rows=19, invalid=0, commit=COMMITTED, committed=19, skipped=0, replayed=False]
+PASS  import milestones.csv  [preview HTTP 201, rows=40, invalid=0, commit=COMMITTED, committed=40, skipped=0, replayed=False]
+PASS  import supplier_commitments.csv  [preview HTTP 201, rows=11, invalid=0, commit=COMMITTED, committed=11, skipped=0, replayed=False]
+PASS  import updates/supplier_commitments_revision_01.csv  [preview HTTP 201, rows=1, invalid=0, commit=COMMITTED, committed=1, skipped=0, replayed=False]
+PASS  repeat import: every file resolves to its existing batch
+PASS  repeat import: every commit is a replay
+PASS  repeat import: record counts unchanged  [{"projects": 1, "suppliers": 8, "equipment": 20, "purchase_orders": 12, "purchase_order_items": 19, "milestones": 40, "milestone_plan_versions": 40, "supplier_commitment_versions": 12}]
+PASS  repeat import: no new batch  [8 batches]
+PASS  workspace count: projects  [1]
+PASS  workspace count: suppliers  [8]
+PASS  workspace count: equipment  [20]
+PASS  workspace count: purchase_orders  [12]
+PASS  workspace count: purchase_order_items  [19]
+PASS  workspace count: milestones  [40]
+PASS  workspace count: milestone_plan_versions  [40]
+PASS  workspace count: supplier_commitment_versions  [12]
+PASS  project code  [DC-IN-001]
+PASS  project count: equipment  [20]
+PASS  project count: purchase_orders  [12]
+PASS  project count: purchase_order_items  [19]
+PASS  project count: milestones  [40]
+PASS  project count: suppliers  [8]
+PASS  equipment listed  [20]
+PASS  purchase orders listed  [12]
+PASS  source rows rejected  [0]
+PASS  procurement gap: equipment without a line item  [[('DG-003', 'CRITICAL')]]
+PASS  missing confirmation: orders without acknowledgement  [['PO-1005']]
+PASS  changed commitment: history  [[(1, '2026-11-28'), (2, '2026-12-06')]]
+PASS  changed commitment: current version  [(2, '2026-12-06')]
+PASS  changed commitment: orders with more than one version  [['PO-1007']]
+PASS  milestone slippage: planned and actual dates  [('2026-11-10', '2026-11-14')]
+PASS  milestone slippage: milestones whose actual date is after the plan  [[('PO-1003', 'FACTORY_ACCEPTANCE_TEST')]]
+PASS  overdue delivery candidate: commitment before 2026-11-19 and no completed delivery  [[('PO-1006', '2026-11-10')]]
+PASS  data quality: missing information  [{'EQUIPMENT_WITHOUT_PO_LINE_ITEM': 1, 'PO_ACKNOWLEDGEMENT_NOT_RECORDED': 1, 'PO_WITHOUT_SUPPLIER_COMMITMENT': 1}]
+PASS  data quality: which records  [[('EQUIPMENT_WITHOUT_PO_LINE_ITEM', 'DG-003'), ('PO_ACKNOWLEDGEMENT_NOT_RECORDED', 'PO-1005'), ('PO_WITHOUT_SUPPLIER_COMMITMENT', 'PO-1005')]]
+PASS  no risk, lateness or recommendation field in the World State  [[]]
+PASS  World State count equals the list total: projects  [1]
+PASS  World State count equals the list total: suppliers  [8]
+PASS  World State count equals the list total: equipment  [20]
+PASS  World State count equals the list total: purchase_orders  [12]
+PASS  provenance: the file that supplied PO-1007  [purchase_orders.csv row 8]
+PASS  provenance: the source row of the current commitment of PO-1007  [version 2 from supplier_commitments_revision_01.csv]
+SAVED World State to <evidence>/e2e/world-state-before-restart.json
+
+53 of 53 checks passed.
+$ uv run python <repo>/scripts/seed_demo_data.py
+WORKSPACE 00000000-0000-4000-8000-000000000001 'nexus-demo' (already present, ACTIVE)
+projects.csv                                   project              batch=5f8607fb-fa07-47fc-82c1-239ba1e4fe46 rows=1 valid=1 invalid=0 committed=1 skipped=0  already committed (same file, nothing written)
+suppliers.csv                                  supplier             batch=700ade6d-e8c9-4a2c-992e-98962a9c01ea rows=8 valid=8 invalid=0 committed=8 skipped=0  already committed (same file, nothing written)
+equipment.csv                                  equipment            batch=bfcf77e6-a3a3-43b6-8a8c-d0c7e05ff006 rows=20 valid=20 invalid=0 committed=20 skipped=0  already committed (same file, nothing written)
+purchase_orders.csv                            purchase_order       batch=6d9fb11c-8f01-4ef9-8180-3a545408a852 rows=12 valid=12 invalid=0 committed=12 skipped=0  already committed (same file, nothing written)
+purchase_order_items.csv                       purchase_order_item  batch=41668ec9-e240-4da4-966f-cb41ca66f4cc rows=19 valid=19 invalid=0 committed=19 skipped=0  already committed (same file, nothing written)
+milestones.csv                                 milestone            batch=f36d0363-1ff1-4776-9082-2d8cbecd3ca8 rows=40 valid=40 invalid=0 committed=40 skipped=0  already committed (same file, nothing written)
+supplier_commitments.csv                       supplier_commitment  batch=0b648369-3269-4b27-8d51-d9e701c17c85 rows=11 valid=11 invalid=0 committed=11 skipped=0  already committed (same file, nothing written)
+updates/supplier_commitments_revision_01.csv   supplier_commitment  batch=8de555d2-76ab-4ea2-85c0-1f6dcf2f1ec0 rows=1 valid=1 invalid=0 committed=1 skipped=0  already committed (same file, nothing written)
+
+WORLD STATE totals (counted in PostgreSQL)
+  projects                       1
+  suppliers                      8
+  equipment                      20
+  purchase_orders                12
+  purchase_order_items           19
+  milestones                     40
+  milestone_plan_versions        40
+  supplier_commitment_versions   12
+
+DATASET CHECKS
+  PASS  workspace count: projects: expected 1, actual 1
+  PASS  workspace count: suppliers: expected 8, actual 8
+  PASS  workspace count: equipment: expected 20, actual 20
+  PASS  workspace count: purchase_orders: expected 12, actual 12
+  PASS  workspace count: purchase_order_items: expected 19, actual 19
+  PASS  workspace count: milestones: expected 40, actual 40
+  PASS  workspace count: milestone_plan_versions: expected 40, actual 40
+  PASS  workspace count: supplier_commitment_versions: expected 12, actual 12
+  PASS  project code: expected DC-IN-001, actual DC-IN-001
+  PASS  project count: equipment: expected 20, actual 20
+  PASS  project count: purchase_orders: expected 12, actual 12
+  PASS  project count: purchase_order_items: expected 19, actual 19
+  PASS  project count: milestones: expected 40, actual 40
+  PASS  project count: suppliers: expected 8, actual 8
+  PASS  equipment listed: expected 20, actual 20
+  PASS  purchase orders listed: expected 12, actual 12
+  PASS  source rows rejected: expected 0, actual 0
+  PASS  procurement gap: equipment without a line item: expected [('DG-003', 'CRITICAL')], actual [('DG-003', 'CRITICAL')]
+  PASS  missing confirmation: orders without acknowledgement: expected ['PO-1005'], actual ['PO-1005']
+  PASS  changed commitment: history: expected [(1, '2026-11-28'), (2, '2026-12-06')], actual [(1, '2026-11-28'), (2, '2026-12-06')]
+  PASS  changed commitment: current version: expected (2, '2026-12-06'), actual (2, '2026-12-06')
+  PASS  changed commitment: orders with more than one version: expected ['PO-1007'], actual ['PO-1007']
+  PASS  milestone slippage: planned and actual dates: expected ('2026-11-10', '2026-11-14'), actual ('2026-11-10', '2026-11-14')
+  PASS  milestone slippage: milestones whose actual date is after the plan: expected [('PO-1003', 'FACTORY_ACCEPTANCE_TEST')], actual [('PO-1003', 'FACTORY_ACCEPTANCE_TEST')]
+  PASS  overdue delivery candidate: commitment before 2026-11-19 and no completed delivery: expected [('PO-1006', '2026-11-10')], actual [('PO-1006', '2026-11-10')]
+  PASS  data quality: missing information: expected {'EQUIPMENT_WITHOUT_PO_LINE_ITEM': 1, 'PO_ACKNOWLEDGEMENT_NOT_RECORDED': 1, 'PO_WITHOUT_SUPPLIER_COMMITMENT': 1}, actual {'EQUIPMENT_WITHOUT_PO_LINE_ITEM': 1, 'PO_ACKNOWLEDGEMENT_NOT_RECORDED': 1, 'PO_WITHOUT_SUPPLIER_COMMITMENT': 1}
+  PASS  data quality: which records: expected [('EQUIPMENT_WITHOUT_PO_LINE_ITEM', 'DG-003'), ('PO_ACKNOWLEDGEMENT_NOT_RECORDED', 'PO-1005'), ('PO_WITHOUT_SUPPLIER_COMMITMENT', 'PO-1005')], actual [('EQUIPMENT_WITHOUT_PO_LINE_ITEM', 'DG-003'), ('PO_ACKNOWLEDGEMENT_NOT_RECORDED', 'PO-1005'), ('PO_WITHOUT_SUPPLIER_COMMITMENT', 'PO-1005')]
+  PASS  no risk, lateness or recommendation field in the World State: expected [], actual []
+
+28 of 28 checks passed.
+$ uv run python <repo>/scripts/smoke_test.py --base-url http://127.0.0.2:42441 --compare-world-state <evidence>/e2e/world-state-before-restart.json
+PASS  liveness answers 200  [HTTP 200]
+PASS  every response carries a request id
+PASS  readiness: database reachable and schema at the migration head  [HTTP 200; database=ok, migrations=ok]
+PASS  OpenAPI document lists the import and World State routes  [23 paths]
+PASS  errors use the standard envelope and echo the request id  [HTTP 404; code=NOT_FOUND]
+PASS  the configured workspace is served and active  [HTTP 200]
+PASS  any other workspace id is not available  [HTTP 404; code=WORKSPACE_NOT_AVAILABLE]
+PASS  workspace count: projects  [1]
+PASS  workspace count: suppliers  [8]
+PASS  workspace count: equipment  [20]
+PASS  workspace count: purchase_orders  [12]
+PASS  workspace count: purchase_order_items  [19]
+PASS  workspace count: milestones  [40]
+PASS  workspace count: milestone_plan_versions  [40]
+PASS  workspace count: supplier_commitment_versions  [12]
+PASS  project code  [DC-IN-001]
+PASS  project count: equipment  [20]
+PASS  project count: purchase_orders  [12]
+PASS  project count: purchase_order_items  [19]
+PASS  project count: milestones  [40]
+PASS  project count: suppliers  [8]
+PASS  equipment listed  [20]
+PASS  purchase orders listed  [12]
+PASS  source rows rejected  [0]
+PASS  procurement gap: equipment without a line item  [[('DG-003', 'CRITICAL')]]
+PASS  missing confirmation: orders without acknowledgement  [['PO-1005']]
+PASS  changed commitment: history  [[(1, '2026-11-28'), (2, '2026-12-06')]]
+PASS  changed commitment: current version  [(2, '2026-12-06')]
+PASS  changed commitment: orders with more than one version  [['PO-1007']]
+PASS  milestone slippage: planned and actual dates  [('2026-11-10', '2026-11-14')]
+PASS  milestone slippage: milestones whose actual date is after the plan  [[('PO-1003', 'FACTORY_ACCEPTANCE_TEST')]]
+PASS  overdue delivery candidate: commitment before 2026-11-19 and no completed delivery  [[('PO-1006', '2026-11-10')]]
+PASS  data quality: missing information  [{'EQUIPMENT_WITHOUT_PO_LINE_ITEM': 1, 'PO_ACKNOWLEDGEMENT_NOT_RECORDED': 1, 'PO_WITHOUT_SUPPLIER_COMMITMENT': 1}]
+PASS  data quality: which records  [[('EQUIPMENT_WITHOUT_PO_LINE_ITEM', 'DG-003'), ('PO_ACKNOWLEDGEMENT_NOT_RECORDED', 'PO-1005'), ('PO_WITHOUT_SUPPLIER_COMMITMENT', 'PO-1005')]]
+PASS  no risk, lateness or recommendation field in the World State  [[]]
+PASS  World State count equals the list total: projects  [1]
+PASS  World State count equals the list total: suppliers  [8]
+PASS  World State count equals the list total: equipment  [20]
+PASS  World State count equals the list total: purchase_orders  [12]
+PASS  provenance: the file that supplied PO-1007  [purchase_orders.csv row 8]
+PASS  provenance: the source row of the current commitment of PO-1007  [version 2 from supplier_commitments_revision_01.csv]
+PASS  World State is identical to the saved one (apart from generated_at)  [compared with world-state-before-restart.json]
+
+42 of 42 checks passed.
+API stopped (pid 43460)
+$ <tools>/pg_restart.sh dev 5432
+waiting for server to shut down.... done
+server stopped
+waiting for server to start.... done
+server started
+$ uv run python <repo>/scripts/wait_for_db.py
+PostgreSQL 16.2 is ready at postgresql+psycopg://nexus:***@127.0.0.2:5432/cortex_nexus
+$ uv run uvicorn app.main:app --host 127.0.0.2 --port 57677   (log: api.log)
+API ready on http://127.0.0.2:57677 (pid 43511)
+$ uv run python <repo>/scripts/smoke_test.py --base-url http://127.0.0.2:57677 --compare-world-state <evidence>/e2e/world-state-before-restart.json --save-world-state <evidence>/e2e/world-state-after-restart.json
+PASS  liveness answers 200  [HTTP 200]
+PASS  every response carries a request id
+PASS  readiness: database reachable and schema at the migration head  [HTTP 200; database=ok, migrations=ok]
+PASS  OpenAPI document lists the import and World State routes  [23 paths]
+PASS  errors use the standard envelope and echo the request id  [HTTP 404; code=NOT_FOUND]
+PASS  the configured workspace is served and active  [HTTP 200]
+PASS  any other workspace id is not available  [HTTP 404; code=WORKSPACE_NOT_AVAILABLE]
+PASS  workspace count: projects  [1]
+PASS  workspace count: suppliers  [8]
+PASS  workspace count: equipment  [20]
+PASS  workspace count: purchase_orders  [12]
+PASS  workspace count: purchase_order_items  [19]
+PASS  workspace count: milestones  [40]
+PASS  workspace count: milestone_plan_versions  [40]
+PASS  workspace count: supplier_commitment_versions  [12]
+PASS  project code  [DC-IN-001]
+PASS  project count: equipment  [20]
+PASS  project count: purchase_orders  [12]
+PASS  project count: purchase_order_items  [19]
+PASS  project count: milestones  [40]
+PASS  project count: suppliers  [8]
+PASS  equipment listed  [20]
+PASS  purchase orders listed  [12]
+PASS  source rows rejected  [0]
+PASS  procurement gap: equipment without a line item  [[('DG-003', 'CRITICAL')]]
+PASS  missing confirmation: orders without acknowledgement  [['PO-1005']]
+PASS  changed commitment: history  [[(1, '2026-11-28'), (2, '2026-12-06')]]
+PASS  changed commitment: current version  [(2, '2026-12-06')]
+PASS  changed commitment: orders with more than one version  [['PO-1007']]
+PASS  milestone slippage: planned and actual dates  [('2026-11-10', '2026-11-14')]
+PASS  milestone slippage: milestones whose actual date is after the plan  [[('PO-1003', 'FACTORY_ACCEPTANCE_TEST')]]
+PASS  overdue delivery candidate: commitment before 2026-11-19 and no completed delivery  [[('PO-1006', '2026-11-10')]]
+PASS  data quality: missing information  [{'EQUIPMENT_WITHOUT_PO_LINE_ITEM': 1, 'PO_ACKNOWLEDGEMENT_NOT_RECORDED': 1, 'PO_WITHOUT_SUPPLIER_COMMITMENT': 1}]
+PASS  data quality: which records  [[('EQUIPMENT_WITHOUT_PO_LINE_ITEM', 'DG-003'), ('PO_ACKNOWLEDGEMENT_NOT_RECORDED', 'PO-1005'), ('PO_WITHOUT_SUPPLIER_COMMITMENT', 'PO-1005')]]
+PASS  no risk, lateness or recommendation field in the World State  [[]]
+PASS  World State count equals the list total: projects  [1]
+PASS  World State count equals the list total: suppliers  [8]
+PASS  World State count equals the list total: equipment  [20]
+PASS  World State count equals the list total: purchase_orders  [12]
+PASS  provenance: the file that supplied PO-1007  [purchase_orders.csv row 8]
+PASS  provenance: the source row of the current commitment of PO-1007  [version 2 from supplier_commitments_revision_01.csv]
+SAVED World State to <evidence>/e2e/world-state-after-restart.json
+PASS  World State is identical to the saved one (apart from generated_at)  [compared with world-state-before-restart.json]
+
+42 of 42 checks passed.
+API stopped (pid 43511)
+World State identical across the restart; evidence in <evidence>/e2e
+
+=== summary ===
+PASS  configuration is valid  (0.0s)
+PASS  lockfile matches pyproject.toml  (0.02s)
+PASS  PostgreSQL 16 is reachable (development and test)  (0.17s)
+PASS  migrations: models match the applied schema  (1.05s)
+PASS  ruff lint  (0.03s)
+PASS  ruff format  (0.03s)
+PASS  mypy  (0.42s)
+PASS  unit tests  (2.52s)
+PASS  API tests  (49.18s)
+PASS  integration tests  (30.64s)
+PASS  OpenAPI document is up to date  (1.91s)
+PASS  end to end: import, World State, restart of API and PostgreSQL, compare  (11.8s)
+
+VERIFICATION PASSED

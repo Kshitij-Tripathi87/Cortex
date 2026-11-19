@@ -38,7 +38,6 @@ specific assertion of the contracts, not when a route answers 200.
   cloud API.
 - **A missing database fails, it does not skip.** A skipped database test is
   a false green.
-
 - **Concurrency is tested with a held lock, not with luck.** A test that
   starts two writers and checks the outcome can pass without the lock it is
   meant to prove, because the race may fall the harmless way. The tests in

@@ -1,0 +1,39 @@
+Deliberate defects against the final code of the sprint: do the tests fail when the behaviour is removed?
+Build machine: Python 3.12.16, PostgreSQL 16.2 for development and test, both on 127.0.0.2
+(see README.md in this folder for the differences from the project defaults).
+Code verified: services/api 0dc050c483dbe2d00294e80dc2ddf331e326961b, scripts ebdd8bba4e64097dfffe37e6b7d0bff501d54119, data 269192f5af4c18280b51173e171b1da6d621aad0
+(git tree hashes; compare with `git rev-parse HEAD:services/api` and so on).
+Command, from services/api: uv run python ../../scripts/defect_detection.py
+Each line: number, verdict, the behaviour that was removed, and the last line of pytest for the tests
+that guard it. Line 00 is the same tests on the unchanged code. The output is unchanged.
+
+00  unchanged code: 235 passed in 17.97s
+01  DETECTED      readiness borrows a pooled connection  [1 failed, 9 passed in 0.55s]
+02  DETECTED      import commit reads purchase orders without a row lock  [1 failed, 8 passed in 4.25s]
+03  DETECTED      appending a commitment through the API does not lock the purchase order  [2 failed, 7 passed in 5.52s]
+04  DETECTED      import commit reads milestones without a row lock  [1 failed, 8 passed in 4.49s]
+05  DETECTED      appending a plan version through the API does not lock the milestone  [1 failed, 8 passed in 4.35s]
+06  DETECTED      commit does not lock the batch row  [2 failed, 21 passed in 3.92s]
+07  DETECTED      preview does not look again after losing the race for a new file  [2 failed, 7 passed in 4.00s]
+08  DETECTED      World State reads the current commitment with one query per purchase order  [1 failed, 1 passed in 2.66s]
+09  DETECTED      text with a NUL character passes the request schema  [5 failed, 21 passed in 4.32s]
+10  DETECTED      imports do not bound whole numbers  [8 failed, 151 passed in 4.66s]
+11  DETECTED      sequence_no has no upper bound in the API  [3 failed, 23 passed in 4.15s]
+12  DETECTED      offset of the lists has no upper bound  [6 failed, 20 passed in 4.12s]
+13  DETECTED      offsets of the project World State have no upper bound  [1 failed, 25 passed in 3.24s]
+14  DETECTED      the stored file name keeps control characters  [1 failed, 25 passed in 3.95s]
+15  DETECTED      no handler for a value the database refuses  [1 failed, 25 passed in 3.94s]
+16  DETECTED      decimal places are counted after rounding to the arithmetic precision  [1 failed, 132 passed in 0.28s]
+17  DETECTED      commit has no branch for a value the database refuses  [1 failed, 13 passed in 2.11s]
+18  DETECTED      a deadlock during commit is treated like an outage  [1 failed, 8 passed in 3.26s]
+19  DETECTED      a deadlock on a JSON route is answered 503  [1 failed, 17 passed in 2.65s]
+20  DETECTED      sequence_no accepts text, fractions and booleans  [3 failed, 23 passed in 4.72s]
+21  DETECTED      project lookup by id ignores the workspace  [4 failed, 19 passed in 5.63s]
+22  DETECTED      purchase-order lock by id ignores the workspace  [1 failed, 22 passed in 6.18s]
+23  DETECTED      milestone lookup by id ignores the workspace  [3 failed, 20 passed in 5.44s]
+24  DETECTED      batch lock for commit ignores the workspace  [1 failed, 22 passed in 5.95s]
+25  DETECTED      equipment list ignores the workspace  [1 failed, 22 passed in 4.37s]
+26  DETECTED      World State counts ignore the workspace  [1 failed, 22 passed in 5.21s]
+
+26 of 26 deliberate defects were detected by the tests.
+exit code: 0
