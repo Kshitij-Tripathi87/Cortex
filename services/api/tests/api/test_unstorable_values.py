@@ -155,6 +155,19 @@ def test_a_sequence_number_beyond_it_is_a_validation_error(
     assert session.scalar(select(Milestone)) is None
 
 
+@pytest.mark.parametrize("sequence_no", ["1", 1.0, 1.5, True, None, [1]])
+def test_a_sequence_number_is_a_json_whole_number_and_nothing_else(
+    api: Api, order: str, sequence_no: object
+) -> None:
+    body = {"milestone_type": "DELIVERY", "sequence_no": sequence_no, "planned_date": "2026-12-01"}
+
+    error = error_of(
+        api.post(f"/purchase-orders/{order}/milestones", json=body), 422, "VALIDATION_ERROR"
+    )
+
+    assert detail_codes(error) == {("sequence_no", "INVALID_INTEGER")}
+
+
 def test_a_row_with_a_sequence_number_beyond_it_is_invalid_at_preview(
     api: Api, order: str, session: Session
 ) -> None:

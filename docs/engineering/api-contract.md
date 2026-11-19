@@ -16,7 +16,9 @@ CI fails when it is stale. The World State responses are specified in
 | Dates | `YYYY-MM-DD`. Nothing else is accepted |
 | Timestamps | ISO 8601 in UTC with `Z` |
 | Decimals | JSON **strings** with a fixed scale: money `"1234.56"`, quantity `"2.000"`. Requests may send a string or an integer; a JSON float is rejected, because it cannot carry every decimal exactly |
-| Lists | `{"items": [...], "total": n, "limit": n, "offset": n}`; `limit` 1–200, default 50; `offset` ≥ 0; a fixed, documented order |
+| Lists | `{"items": [...], "total": n, "limit": n, "offset": n}`; `limit` 1–200, default 50; `offset` 0–2,147,483,647; a fixed, documented order |
+| Text | Trimmed; empty text is rejected; bounded in length. The NUL character is rejected (`INVALID_VALUE`): the database cannot store it |
+| Whole numbers | A milestone `sequence_no` is 1–2,147,483,647 |
 | Partial update | `PATCH` changes only the fields that are present. Unknown fields, natural keys included, are rejected |
 | Request id | `X-Request-ID` is returned on every response. A well-formed id sent by the caller (8–128 characters of letters, digits, `.`, `_`, `-`) is kept; otherwise one is generated |
 
@@ -28,10 +30,10 @@ CI fails when it is stale. The World State responses are specified in
 | 201 | A record, version or batch was created |
 | 400 | The body is not valid JSON |
 | 404 | The record or route does not exist, or the record is not in the verified workspace |
-| 409 | Natural-key conflict; a batch that is not in a committable state; a commit whose preconditions no longer hold |
+| 409 | Natural-key conflict; a batch that is not in a committable state; a commit whose preconditions no longer hold; a request that PostgreSQL rolled back to resolve a deadlock with another writer (send it again) |
 | 413 | The upload is larger than `MAX_UPLOAD_SIZE_MB` |
 | 415 | The upload is not a CSV or XLSX file |
-| 422 | The request is well formed and its content is invalid: a field, a reference, or a file that cannot be read as a table |
+| 422 | The request is well formed and its content is invalid: a field, a reference, a value the database cannot store, or a file that cannot be read as a table |
 | 500 | Unexpected failure: generic message, request id, details only in the log |
 | 503 | The database is not reachable |
 
@@ -68,7 +70,9 @@ Codes are stable. Messages may be reworded.
 | `INVALID_DATE` | Not an unambiguous `YYYY-MM-DD` date | Use ISO dates |
 | `INVALID_ENUM` | Not one of the allowed values or documented aliases | Use an allowed value |
 | `INVALID_DECIMAL` | Malformed, non-finite or too precise a number | Supply plain decimal text |
-| `INVALID_INTEGER` | Not a whole number | Supply a whole number |
+| `INVALID_INTEGER` | Not a whole number, or one larger than 2,147,483,647 | Supply a whole number in range |
+| `OUT_OF_RANGE` | A number outside the documented range of a JSON field or query parameter (`limit`, `offset`, `sequence_no`) | Correct the value |
+| `INVALID_VALUE` | A value of the wrong kind, or text with a character that cannot be stored (NUL) | Correct the value |
 | `INVALID_CURRENCY` | Not three letters | Use a three-letter currency code |
 | `INVALID_UUID` | Not a UUID | Correct the identifier |
 | `MUST_BE_POSITIVE` | Must be greater than zero | Correct the value |
@@ -92,8 +96,10 @@ Codes are stable. Messages may be reworded.
 | `REQUEST_TOO_LARGE` | A request body other than an upload is larger than 1 MB (413) | Send less in one request |
 | `BATCH_NOT_COMMITTABLE` | The batch is not `PREVIEWED` (409) | Preview a new or corrected file |
 | `COMMIT_CONFLICT` | A row that was valid at preview is no longer valid; nothing was committed and the batch is `FAILED` (409) | Fix the cause and upload the file again |
+| `COMMIT_FAILED` | The database could not store a value of a validated batch; nothing was committed and the batch is `FAILED` (422). Validation is meant to make this impossible; it is logged as an error | Correct the file and upload it again |
+| `CONFLICT` | The request collided with another writer: two requests created the same key at the same moment, or PostgreSQL rolled this one back to resolve a deadlock (409). Nothing was written; after a deadlock a batch stays `PREVIEWED` | Send the request again |
 | `WORKSPACE_NOT_AVAILABLE` | The workspace is not the configured one, is missing or is disabled (404) | Use the configured development workspace |
-| `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `MALFORMED_REQUEST`, `VALIDATION_ERROR`, `DATABASE_UNAVAILABLE`, `INTERNAL_ERROR` | Generic envelope codes | — |
+| `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `MALFORMED_REQUEST`, `BAD_REQUEST`, `VALIDATION_ERROR`, `DATABASE_UNAVAILABLE`, `INTERNAL_ERROR` | Generic envelope codes | — |
 
 Warnings (never blocking): `UNKNOWN_SOURCE_COLUMN`, `DUPLICATE_ROW`,
 `MULTIPLE_COLUMNS_FOR_FIELD`, `BLANK_ROWS_SKIPPED`,
@@ -219,6 +225,11 @@ batches by `created_at` descending; batch rows by `row_number`.
 | `COMMITTED` | The recorded result. Nothing is written |
 | `FAILED` | Not a duplicate: a new batch is created |
 
+The same new file sent by several clients at the same moment is one batch:
+one request creates it (201) and the others are answered with it (200,
+`duplicate_file: true`). The file name is display text: only its last path
+segment is kept, without control characters.
+
 ### Commit
 
 `POST {ws}/ingestion/{batch_id}/commit`, no body.
@@ -257,6 +268,13 @@ batches by `created_at` descending; batch rows by `row_number`.
   `supplier_commitment_version`.
 - Two commit requests for one batch are serialised by a row lock: one
   commits, the other gets the recorded result.
+- A commit locks the records its rows refer to, in a fixed order, and reads
+  "the latest version" only under that lock: a commitment or plan version
+  appended by another request at the same time is numbered before or after
+  it, never beside it.
+- If PostgreSQL ends the commit to resolve a deadlock with another writer,
+  the answer is `409 CONFLICT`, nothing is written and the batch stays
+  `PREVIEWED`: send the commit again.
 
 ### Import order
 

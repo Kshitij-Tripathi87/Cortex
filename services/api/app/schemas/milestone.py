@@ -26,7 +26,8 @@ def _check_actual_date(status: MilestoneStatus | None, actual_date: date | None)
 
 class MilestoneCreate(RequestModel):
     milestone_type: MilestoneType
-    sequence_no: int = Field(default=1, gt=0, le=limits.SEQUENCE_NO_MAX)
+    # strict: a JSON number without a fraction. Not "1", not 1.0, not true.
+    sequence_no: int = Field(default=1, gt=0, le=limits.SEQUENCE_NO_MAX, strict=True)
     planned_date: IsoDate
     actual_date: IsoDate | None = None
     status: MilestoneStatus | None = Field(
