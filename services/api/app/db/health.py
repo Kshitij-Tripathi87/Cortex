@@ -7,6 +7,7 @@ returned as a short fixed text; connection details never leave the process.
 
 import logging
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from alembic.config import Config
@@ -29,8 +30,12 @@ class CheckOutcome:
     detail: str
 
 
+@lru_cache(maxsize=1)
 def migration_heads() -> frozenset[str]:
-    """Revision ids at the head of the migration scripts shipped with this code."""
+    """Revision ids at the head of the migration scripts shipped with this code.
+
+    Read once per process: the scripts are part of the code that is running.
+    """
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "alembic"))
     return frozenset(ScriptDirectory.from_config(config).get_heads())

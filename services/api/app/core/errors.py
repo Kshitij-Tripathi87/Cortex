@@ -18,6 +18,7 @@ from typing import Any, ClassVar
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from psycopg.errors import ForeignKeyViolation, UniqueViolation
 from sqlalchemy.exc import DBAPIError, IntegrityError, InterfaceError, OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -238,8 +239,12 @@ async def _handle_http_exception(request: Request, exc: Exception) -> JSONRespon
 
 async def _handle_integrity_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, IntegrityError)
-    # Services check natural keys before writing; this is the answer when two
-    # writers race. Only the constraint name is logged, never the statement.
+    if not isinstance(exc.orig, (UniqueViolation, ForeignKeyViolation)):
+        # A CHECK or NOT NULL violation means invalid data got past validation:
+        # a defect of this service, not a conflict. It surfaces as a logged 500.
+        raise exc
+    # Services check keys and references before writing; this is the answer
+    # when two writers race. Only the constraint name is logged.
     constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
     _log.warning("Integrity constraint rejected a write", extra={"constraint": constraint})
     return _respond(request, 409, "CONFLICT", "The request conflicts with existing data.")

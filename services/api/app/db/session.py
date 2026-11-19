@@ -36,13 +36,19 @@ def build_engine(settings: Settings) -> Engine:
         pool_size=5,
         max_overflow=5,
         connect_args=_connect_args(settings),
+        # Bound values never appear in an error message or a log line: they
+        # can be source rows.
+        hide_parameters=True,
     )
 
 
 def build_probe_engine(settings: Settings) -> Engine:
     """An engine without a pool: every use opens a new connection."""
     return create_engine(
-        settings.sqlalchemy_url, poolclass=NullPool, connect_args=_connect_args(settings)
+        settings.sqlalchemy_url,
+        poolclass=NullPool,
+        connect_args=_connect_args(settings),
+        hide_parameters=True,
     )
 
 
