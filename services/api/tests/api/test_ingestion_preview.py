@@ -24,6 +24,7 @@ from app.models import (
 )
 from tests.conftest import Api, error_of, make_settings
 from tests.factories import csv_bytes, xlsx_bytes
+from tests.workbooks import Raw, entity_declaration, handmade_workbook, sheet_part
 
 pytestmark = pytest.mark.db
 
@@ -583,6 +584,118 @@ def test_xlsx_with_several_sheets_needs_sheet_name(api: Api, session: Session) -
         409,
         "DUPLICATE_FILE",
     )
+
+
+# --- workbooks no spreadsheet program writes --------------------------------------------
+
+SUPPLIER_ROWS = [
+    ["Supplier Code", "Supplier Name"],
+    ["SUP-1", "Acme Power"],
+    ["SUP-2", "Beta Cooling"],
+    ["SUP-3", "Gamma Switchgear"],
+]
+
+
+def test_a_worksheet_that_understates_its_range_is_imported_whole(
+    api: Api, session: Session
+) -> None:
+    """Some exports state the used range as ``A1``. Every row is previewed and committed."""
+    workbook = handmade_workbook([("Suppliers", sheet_part(SUPPLIER_ROWS, dimension="A1"))])
+
+    preview = upload(api, workbook, "supplier", filename="export.xlsx", content_type=XLSX)
+
+    assert preview.status_code == 201, preview.text
+    body = preview.json()
+    assert (body["total_rows"], body["valid_rows"], body["invalid_rows"]) == (3, 3, 0)
+    committed = api.post(f"/ingestion/{body['batch_id']}/commit")
+    assert committed.status_code == 200, committed.text
+    assert counts(session, Supplier) == {"Supplier": 3}
+    assert sorted(item["supplier_code"] for item in api.get("/suppliers").json()["items"]) == [
+        "SUP-1",
+        "SUP-2",
+        "SUP-3",
+    ]
+
+
+def _with_an_entity() -> bytes:
+    declared = sheet_part(
+        [["Supplier Code", "Supplier Name"], ["SUP-1", Raw("&name;")]],
+        prolog=entity_declaration("name", "Acme Power"),
+    )
+    return handmade_workbook([("Suppliers", declared)])
+
+
+def _with_a_row_number_used_twice() -> bytes:
+    rows = {1: {1: "Supplier Code", 2: "Supplier Name"}, 2: {1: "SUP-1", 2: "Acme Power"}}
+    part = sheet_part(rows).replace(
+        b"</sheetData>",
+        b'<row r="2"><c r="A2" t="inlineStr"><is><t>SUP-2</t></is></c></row></sheetData>',
+    )
+    return handmade_workbook([("Suppliers", part)])
+
+
+def _with_two_worksheets_of_one_name() -> bytes:
+    part = sheet_part(SUPPLIER_ROWS)
+    return handmade_workbook([("Suppliers", part), ("Suppliers", part)])
+
+
+def _with_a_worksheet_name_too_long_to_record() -> bytes:
+    return handmade_workbook([("S" * 161, sheet_part(SUPPLIER_ROWS))])
+
+
+def _with_a_flood_of_cell_formats() -> bytes:
+    styles = (
+        '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        "<cellXfs>" + "<xf/>" * 250_001 + "</cellXfs></styleSheet>"
+    ).encode()
+    return handmade_workbook(
+        [("Suppliers", sheet_part(SUPPLIER_ROWS))], extra_parts={"xl/styles.xml": styles}
+    )
+
+
+@pytest.mark.parametrize(
+    ("workbook", "status", "code", "says"),
+    [
+        (_with_an_entity, 422, "MALFORMED_FILE", "cannot be read"),
+        (_with_a_row_number_used_twice, 422, "MALFORMED_FILE", "ascending order"),
+        (_with_two_worksheets_of_one_name, 422, "MALFORMED_FILE", "same name"),
+        (_with_a_worksheet_name_too_long_to_record, 422, "MALFORMED_FILE", "longer than 160"),
+        (_with_a_flood_of_cell_formats, 413, "FILE_TOO_LARGE", "formatting and structure"),
+    ],
+    ids=["entity", "row number twice", "worksheet name twice", "long name", "format flood"],
+)
+def test_a_workbook_no_program_writes_is_refused_and_leaves_no_batch(
+    api: Api, session: Session, workbook: Any, status: int, code: str, says: str
+) -> None:
+    response = upload(api, workbook(), "supplier", filename="crafted.xlsx", content_type=XLSX)
+
+    error = error_of(response, status, code)
+    assert says in error["message"]
+    assert "Acme" not in response.text
+    assert counts(session, IngestionBatch, IngestionRow, Supplier) == {
+        "IngestionBatch": 0,
+        "IngestionRow": 0,
+        "Supplier": 0,
+    }
+
+
+def test_cells_beyond_the_header_are_kept_with_the_row_they_invalidate(api: Api) -> None:
+    """Nothing of a source row is dropped, also not what belongs to no column."""
+    data = b"Supplier Code,Supplier Name\nSUP-1,Acme Power\nSUP-2,Beta Cooling,surplus,more\n"
+
+    body = upload(api, data, "supplier").json()
+
+    assert (body["valid_rows"], body["invalid_rows"]) == (1, 1)
+    rows = api.get(f"/ingestion/{body['batch_id']}").json()["rows"]["items"]
+    by_number = {row["row_number"]: row for row in rows}
+    assert by_number[2]["raw_data"] == {"Supplier Code": "SUP-1", "Supplier Name": "Acme Power"}
+    assert by_number[3]["status"] == "INVALID"
+    assert by_number[3]["raw_data"] == {
+        "Supplier Code": "SUP-2",
+        "Supplier Name": "Beta Cooling",
+        "__cells_beyond_header__": ["surplus", "more"],
+    }
+    assert [issue["code"] for issue in by_number[3]["validation_errors"]] == ["ROW_SHAPE_MISMATCH"]
 
 
 # --- batches --------------------------------------------------------------------------

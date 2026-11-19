@@ -4,6 +4,18 @@ The readers turn bytes into a ParsedSheet and nothing more. They do not
 interpret a value, execute a formula or a macro, write to disk, or use the
 file name as a path. Every size is capped before or while the content is
 read. A file that cannot be read as a table raises SourceFileError.
+
+A workbook is XML inside a ZIP archive, and both can ask for far more work
+than their size suggests. The archive is bounded by the sizes it declares.
+The XML is weighed before the workbook is opened (see workbook_scan) and is
+parsed by defusedxml, which refuses a document that declares an entity: the
+standard parser would fill such entities in, and a few kilobytes of upload
+become gigabytes of cell text.
+
+What a worksheet says about itself is not believed. The range it claims to
+use is discarded, and rows or cells that are not numbered in ascending order
+make the workbook malformed: the library would otherwise read a part of the
+worksheet and say nothing about the rest.
 """
 
 import csv
@@ -16,7 +28,7 @@ from decimal import Decimal
 from pathlib import PurePosixPath
 from typing import Any
 
-from openpyxl import load_workbook
+from openpyxl import DEFUSEDXML, load_workbook
 
 from app.ingestion.contracts import (
     JSONScalar,
@@ -28,7 +40,20 @@ from app.ingestion.contracts import (
     warning,
 )
 from app.ingestion.normalization import BYTE_ORDER_MARK, is_blank, normalize_header
+from app.ingestion.workbook_scan import content_budget, scan_parts
 from app.models.enums import SourceFormat
+from app.models.limits import SHEET_NAME_MAX
+
+if not DEFUSEDXML:
+    # openpyxl parses with defusedxml when it can import that package and
+    # OPENPYXL_DEFUSEDXML does not say otherwise, and silently falls back to
+    # the standard library when it cannot. This module does not read workbooks
+    # with the fallback, so it does not load at all.
+    raise ImportError(
+        "openpyxl is not using defusedxml, so a workbook could make this service expand "
+        "XML entities without limit. Install the locked dependencies (uv sync --locked) "
+        "and do not set OPENPYXL_DEFUSEDXML."
+    )
 
 CSV_MEDIA_TYPES = frozenset(
     {
@@ -59,6 +84,9 @@ MAX_ARCHIVE_ENTRIES = 5_000
 BLANK_ROW_ALLOWANCE = 1_000
 # Rows inspected to decide whether a worksheet holds data at all.
 SHEET_PROBE_ROWS = 50
+# Worksheet names quoted in an error message: this many, each cut to this length.
+SHEET_NAMES_SHOWN = 10
+SHEET_NAME_SHOWN_CHARS = 40
 
 # A parsed record before headers are applied: row number, cells, formula flags.
 _Record = tuple[int, list[JSONScalar], list[bool]]
@@ -131,16 +159,17 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
     """
     _check_workbook_container(file_bytes, limits)
     try:
-        values = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
-        formulas = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=False)
+        values = _open_workbook(file_bytes, data_only=True)
+        formulas = _open_workbook(file_bytes, data_only=False)
     except Exception:
-        # openpyxl fails in many ways on a damaged workbook; all of them mean
-        # the same to the caller.
+        # openpyxl fails in many ways on a damaged workbook, and defusedxml
+        # fails on one that declares entities; all of them mean the same to
+        # the caller.
         raise SourceFileError(
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
         ) from None
     try:
-        name = _select_sheet(values, sheet_name)
+        name = _select_sheet(values, sheet_name, limits)
         records = _xlsx_records(values[name], formulas[name], limits)
         sheet = _build_sheet(records, SourceFormat.XLSX, name, limits)
     except SourceFileError:
@@ -153,6 +182,18 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
         values.close()
         formulas.close()
     return sheet
+
+
+def _open_workbook(file_bytes: bytes, *, data_only: bool) -> Any:
+    """The workbook for streaming, row by row. Links to other workbooks are not read."""
+    return load_workbook(
+        io.BytesIO(file_bytes), read_only=True, data_only=data_only, keep_links=False
+    )
+
+
+def _scanned_rows(limits: ReaderLimits) -> int:
+    """Rows of a worksheet that are looked at before it is refused as too long."""
+    return limits.max_rows + BLANK_ROW_ALLOWANCE + 1
 
 
 def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> None:
@@ -177,6 +218,11 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> None:
                     "FILE_TOO_LARGE", "The workbook is too large once uncompressed."
                 )
             content_types = archive.read(CONTENT_TYPES_PART).decode("utf-8", errors="replace")
+            scan_parts(
+                archive,
+                [entry.filename for entry in entries],
+                cell_elements=content_budget(limits, _scanned_rows(limits)),
+            )
     except zipfile.BadZipFile:
         raise SourceFileError(
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
@@ -189,44 +235,94 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> None:
         )
 
 
-def _select_sheet(workbook: Any, requested: str | None) -> str:
-    """The worksheet to read: the named one, or the only one that holds data."""
+def _select_sheet(workbook: Any, requested: str | None, limits: ReaderLimits) -> str:
+    """The worksheet to read: the named one, or the only one that holds data.
+
+    The names come from the workbook and are whatever its author wrote: any
+    length, any character, even the same name twice. They are compared, the
+    chosen one is stored, and an error quotes a few of them in a short form.
+    """
     available = [str(sheet.title) for sheet in workbook.worksheets]
+    if len(set(available)) != len(available):
+        # No spreadsheet program writes this, and a name would no longer say
+        # which worksheet is meant.
+        raise SourceFileError(
+            "MALFORMED_FILE", "Two worksheets of the workbook have the same name."
+        )
     if requested is not None:
-        wanted = requested.strip()
-        if wanted in available:
-            return wanted
+        selected = _named_sheet(available, requested)
+    else:
+        candidates = [
+            str(sheet.title)
+            for sheet in workbook.worksheets
+            if sheet.sheet_state == "visible" and _sheet_has_data(sheet, limits)
+        ]
+        if not candidates:
+            raise SourceFileError("EMPTY_FILE", "The workbook has no worksheet with data.")
+        if len(candidates) > 1:
+            raise SourceFileError(
+                "AMBIGUOUS_WORKSHEET",
+                "Several worksheets hold data. Name the one to import with sheet_name: "
+                + _names_for_message(candidates),
+            )
+        selected = candidates[0]
+    if len(selected) > SHEET_NAME_MAX:
+        # The name is recorded with the batch. Spreadsheet programs stop at 31.
         raise SourceFileError(
-            "WORKSHEET_NOT_FOUND",
-            "The workbook has no worksheet with that name. Available: " + ", ".join(available),
+            "MALFORMED_FILE",
+            f"The name of the worksheet is longer than {SHEET_NAME_MAX} characters. Rename it.",
         )
-    candidates = [
-        str(sheet.title)
-        for sheet in workbook.worksheets
-        if sheet.sheet_state == "visible" and _sheet_has_data(sheet)
-    ]
-    if not candidates:
-        raise SourceFileError("EMPTY_FILE", "The workbook has no worksheet with data.")
-    if len(candidates) > 1:
-        raise SourceFileError(
-            "AMBIGUOUS_WORKSHEET",
-            "Several worksheets hold data. Name the one to import with sheet_name: "
-            + ", ".join(candidates),
-        )
-    return candidates[0]
+    return selected
 
 
-def _sheet_has_data(sheet: Any) -> bool:
-    for row in sheet.iter_rows(max_row=SHEET_PROBE_ROWS):
-        if any(not is_blank(cell.value) for cell in row):
-            return True
-    return False
+def _named_sheet(available: list[str], requested: str) -> str:
+    """The worksheet with exactly this name, or the only one equal to it once trimmed."""
+    if requested in available:
+        return requested
+    wanted = requested.strip()
+    matches = [name for name in available if name.strip() == wanted]
+    if len(matches) == 1:
+        return matches[0]
+    raise SourceFileError(
+        "WORKSHEET_NOT_FOUND",
+        "The workbook has no worksheet with that name. Available: " + _names_for_message(available),
+    )
+
+
+def _names_for_message(names: list[str]) -> str:
+    """A few worksheet names in a form that is safe and short enough to show."""
+    shown = []
+    for name in names[:SHEET_NAMES_SHOWN]:
+        printable = "".join(character for character in name if character.isprintable())
+        if len(printable) > SHEET_NAME_SHOWN_CHARS:
+            printable = printable[:SHEET_NAME_SHOWN_CHARS] + "..."
+        shown.append(printable)
+    text = ", ".join(shown)
+    if len(names) > SHEET_NAMES_SHOWN:
+        text += f" and {len(names) - SHEET_NAMES_SHOWN} more"
+    return text
+
+
+def _sheet_has_data(sheet: Any, limits: ReaderLimits) -> bool:
+    """Whether the first rows hold anything, within the columns that can be imported.
+
+    Without the column bound a single cell in the last column of a row makes
+    the reader visit sixteen thousand empty ones, on every row probed and on
+    every worksheet of the workbook.
+    """
+    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS, max_col=limits.max_columns + 1)
+    return any(not is_blank(cell.value) for row in rows for cell in row)
 
 
 def _xlsx_records(
     values_sheet: Any, formulas_sheet: Any, limits: ReaderLimits
 ) -> Iterator[_Record]:
-    max_scanned = limits.max_rows + BLANK_ROW_ALLOWANCE + 1
+    max_scanned = _scanned_rows(limits)
+    # The range a worksheet claims to use is a hint, and some programs write
+    # "A1" whatever the worksheet holds. The library would stop at the last
+    # row claimed; without the claim it reads the rows that are there.
+    values_sheet.reset_dimensions()
+    formulas_sheet.reset_dimensions()
     # One column beyond the limit is read so that an over-wide sheet is noticed.
     bounds = {"max_col": limits.max_columns + 1}
     paired = zip(values_sheet.iter_rows(**bounds), formulas_sheet.iter_rows(**bounds), strict=False)

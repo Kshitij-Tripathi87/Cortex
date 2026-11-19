@@ -2,15 +2,17 @@
 
 import io
 import zipfile
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from openpyxl import Workbook
 
+from app.ingestion import readers
 from app.ingestion.contracts import ParsedSheet, ReaderLimits, SourceFileError
 from app.ingestion.readers import detect_file_format, read_csv, read_xlsx
 from app.models.enums import SourceFormat
 from tests.factories import csv_bytes, xlsx_bytes
+from tests.workbooks import handmade_workbook, sheet_part
 
 LIMITS = ReaderLimits(
     max_rows=100, max_columns=10, max_cell_chars=50, max_uncompressed_bytes=5_000_000
@@ -84,7 +86,17 @@ def test_csv_with_utf8_bom() -> None:
     assert rows_of(sheet) == [(2, {"Project Code": "P1", "Project Name": "Näme"})]
 
 
-@pytest.mark.parametrize("content", [b"", b"   \n\n  \n", b"\xef\xbb\xbf"])
+@pytest.mark.parametrize(
+    "content",
+    [
+        b"",
+        b"   \n\n  \n",
+        b"\xef\xbb\xbf",
+        # Separators and quotes, and nothing between them.
+        b",,,\n,,,\n",
+        b'"","",""\n"",""\n',
+    ],
+)
 def test_empty_csv(content: bytes) -> None:
     with refused("EMPTY_FILE"):
         read_csv(content, LIMITS)
@@ -93,11 +105,16 @@ def test_empty_csv(content: bytes) -> None:
 def test_csv_with_a_header_and_no_rows() -> None:
     with refused("EMPTY_FILE"):
         read_csv(b"Project Code,Project Name\n", LIMITS)
+    with refused("EMPTY_FILE"):
+        read_csv(b"Project Code,Project Name\n,\n,\n", LIMITS)
 
 
 def test_csv_whose_header_names_nothing() -> None:
     with refused("MISSING_HEADER"):
         read_csv(b"###,---\n1,2\n", LIMITS)
+    # A first row that holds only a second byte-order mark, and a value beside it below.
+    with refused("MISSING_HEADER"):
+        read_csv(b"\xef\xbb\xbf\xef\xbb\xbf\n,x\n", LIMITS)
 
 
 def test_csv_column_with_values_and_no_header() -> None:
@@ -245,6 +262,27 @@ def test_xlsx_single_sheet_with_typed_cells() -> None:
     ]
 
 
+def test_xlsx_cells_holding_a_time_or_a_duration_become_text() -> None:
+    """Neither is a date. They are passed on as written, for the field to accept or refuse."""
+    workbook = xlsx_bytes(
+        {
+            "Log": [
+                ["Entry", "At", "Lasted", "Whole day"],
+                ["first", time(12, 30), timedelta(hours=30), datetime(2026, 6, 2)],
+            ]
+        }
+    )
+
+    sheet = read_xlsx(workbook, None, LIMITS)
+
+    assert dict(sheet.rows[0].raw_data) == {
+        "Entry": "first",
+        "At": "12:30:00",
+        "Lasted": "1 day, 6:00:00",
+        "Whole day": "2026-06-02",
+    }
+
+
 def test_xlsx_sheet_selection() -> None:
     workbook = xlsx_bytes(
         {"Projects": [["Project Code"], ["P1"]], "Suppliers": [["Supplier Code"], ["S1"], ["S2"]]}
@@ -277,6 +315,14 @@ def test_xlsx_unknown_sheet_and_empty_workbook() -> None:
         read_xlsx(xlsx_bytes({"Projects": [["Project Code"], ["P1"]]}), "Suppliers", LIMITS)
     with refused("EMPTY_FILE"):
         read_xlsx(xlsx_bytes({"Empty": []}), None, LIMITS)
+
+
+def test_a_named_worksheet_without_content_is_an_empty_file() -> None:
+    workbook = xlsx_bytes({"Projects": [["Project Code"], ["P1"]], "Empty": [], "Blank": [[" "]]})
+
+    for name in ("Empty", "Blank"):
+        with refused("EMPTY_FILE"):
+            read_xlsx(workbook, name, LIMITS)
 
 
 def test_hidden_sheets_are_not_picked_automatically() -> None:
@@ -323,6 +369,48 @@ def test_a_truncated_workbook_is_malformed() -> None:
 
     with refused("MALFORMED_FILE"):
         read_xlsx(workbook[: len(workbook) // 2], None, LIMITS)
+
+
+@pytest.mark.parametrize(
+    "part",
+    ["xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/styles.xml", "xl/_rels/workbook.xml.rels"],
+)
+def test_a_workbook_with_a_damaged_part_is_malformed(part: str) -> None:
+    """The archive is sound and names the right parts; one of them is not XML."""
+    workbook = xlsx_bytes({"Projects": [["Project Code"], ["P1"]]})
+
+    for damaged in (b"", b"<<< not xml", b"<worksheet><sheetData><row><c"):
+        with refused("MALFORMED_FILE"):
+            read_xlsx(_rewrite(workbook, replace={part: damaged}), None, LIMITS)
+
+
+def test_a_worksheet_that_breaks_off_below_its_first_rows_is_malformed() -> None:
+    """The workbook opens and the worksheet starts well; the damage is met while reading."""
+    filler = "x" * 40
+    whole = sheet_part(
+        [
+            ["Project Code", *[f"Column {number}" for number in range(9)]],
+            *[[f"P{index}", *[filler] * 9] for index in range(60)],
+        ],
+        # With its range stated, a worksheet is opened without being read to the end.
+        dimension="A1:J61",
+    )
+    cut = whole[: whole.index(b"P55")]
+
+    assert len(cut) > 40_000
+    with refused("MALFORMED_FILE"):
+        read_xlsx(handmade_workbook([("Projects", cut)]), None, LIMITS)
+
+
+def test_a_workbook_with_too_many_parts_is_malformed() -> None:
+    workbook = xlsx_bytes({"Projects": [["Project Code"], ["P1"]]})
+    surplus = {f"xl/media/part{index}.bin": "" for index in range(readers.MAX_ARCHIVE_ENTRIES)}
+
+    with pytest.raises(SourceFileError) as failure:
+        read_xlsx(_rewrite(workbook, add=surplus), None, LIMITS)
+
+    assert failure.value.code == "MALFORMED_FILE"
+    assert "too many parts" in failure.value.message
 
 
 def _rewrite(
@@ -375,6 +463,19 @@ def test_xlsx_row_and_column_limits() -> None:
         read_xlsx(tall, None, LIMITS)
     with refused("COLUMN_LIMIT_EXCEEDED"):
         read_xlsx(wide, None, LIMITS)
+
+
+def test_xlsx_data_far_below_blank_rows() -> None:
+    """Formatted but empty rows are skipped, up to an allowance beyond the row limit."""
+    within = LIMITS.max_rows + readers.BLANK_ROW_ALLOWANCE
+    near = sheet_part({1: {1: "Project Code"}, within: {1: "P-near"}})
+    far = sheet_part({1: {1: "Project Code"}, within + 2: {1: "P-far"}})
+
+    sheet = read_xlsx(handmade_workbook([("Projects", near)]), None, LIMITS)
+
+    assert rows_of(sheet) == [(within, {"Project Code": "P-near"})]
+    with refused("ROW_LIMIT_EXCEEDED"):
+        read_xlsx(handmade_workbook([("Projects", far)]), None, LIMITS)
 
 
 def _workbook_with_formulas() -> bytes:
