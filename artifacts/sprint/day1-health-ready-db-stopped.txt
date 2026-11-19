@@ -1,0 +1,8 @@
+Readiness and liveness while the development PostgreSQL was stopped and the API kept running.
+Captured on the build machine, where the API was bound to 127.0.0.2:8000 (see README.md in this folder).
+
+GET /health/ready -> {"status":"not_ready","checks":{"database":{"status":"failed","detail":"The database is not reachable."},"migrations":{"status":"failed","detail":"Not checked: the database is not reachable."}}} [HTTP 503]
+GET /health/live  -> {"status":"alive"} [HTTP 200]
+
+After PostgreSQL was started again, without restarting the API:
+GET /health/ready -> {"status":"ready","checks":{"database":{"status":"ok","detail":"The database accepts queries."},"migrations":{"status":"ok","detail":"The schema is at the migration head."}}} [HTTP 200]

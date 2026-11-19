@@ -1,0 +1,17 @@
+Clean-checkout install check, Day 1 (build machine: Python 3.12.16, uv 0.13.9 (x86_64-unknown-linux-gnu))
+A copy of the tracked files in an empty directory, no virtual environment present.
+
+$ cp .env.example .env
+$ make setup
+ + truststore==0.10.5
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.5
+ + uvicorn==0.54.0
+
+$ cd services/api && uv run python -c "from app.main import app; print(app.title)"
+Cortex Nexus API
+
+uv.lock compared byte for byte with the repository copy after the install: identical.
+
+$ cd services/api && uv lock --check
+Resolved 45 packages in 5ms
