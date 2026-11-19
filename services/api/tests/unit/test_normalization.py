@@ -25,6 +25,7 @@ from app.models.enums import (
     ProcurementStatus,
     PurchaseOrderStatus,
 )
+from app.models.limits import INTEGER_MAX
 
 
 def fails(code: str) -> pytest.RaisesExc[NormalizationError]:
@@ -186,6 +187,49 @@ def test_numbers_that_do_not_fit_the_column_are_rejected() -> None:
         parse_decimal("12345678901234567", places=2, max_integer_digits=16)
 
 
+def test_a_digit_far_to_the_right_is_still_seen() -> None:
+    # Forty decimal places with a 1 at the very end. Rounding to the precision
+    # of ordinary decimal arithmetic would turn this into 1.01 and accept it.
+    with pytest.raises(NormalizationError, match="not rounded"):
+        parse_decimal("1.01" + "0" * 37 + "1", places=2, max_integer_digits=16)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "9" * 5_000,  # more digits than Python converts to an integer
+        "9" * 100_000,
+        "0." + "0" * 5_000 + "1",
+        "-" + "9" * 5_000 + ".5",
+        10**40,
+        1e300,
+    ],
+)
+def test_very_long_numbers_are_rejected_as_invalid_not_as_a_crash(value: object) -> None:
+    with fails("INVALID_DECIMAL"):
+        parse_decimal(value, places=2, max_integer_digits=16)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("0000000000000000000000012.50", "12.5"),  # leading zeros are not digits of the value
+        ("1.5" + "0" * 40, "1.5"),  # nor are trailing zeros decimal places
+        ("0.00", "0"),
+        ("0", "0"),
+        ("9999999999999999.99", "9999999999999999.99"),
+    ],
+)
+def test_zeros_around_a_number_do_not_change_its_size(value: str, expected: str) -> None:
+    assert parse_decimal(value, places=2, max_integer_digits=16) == Decimal(expected)
+
+
+def test_digits_of_another_script_are_the_digits_they_are() -> None:
+    # Unambiguous, so accepted: nothing is guessed. Stored as the plain number.
+    assert parse_decimal("१२३.४५", places=2, max_integer_digits=16) == Decimal("123.45")
+    assert parse_integer("１２", maximum=INTEGER_MAX) == 12
+
+
 # --- integers and currency ------------------------------------------------------------
 
 
@@ -193,13 +237,28 @@ def test_numbers_that_do_not_fit_the_column_are_rejected() -> None:
     ("value", "expected"), [(3, 3), ("3", 3), (" 12 ", 12), (3.0, 3), ("-1", -1)]
 )
 def test_whole_numbers(value: object, expected: int) -> None:
-    assert parse_integer(value) == expected
+    assert parse_integer(value, maximum=INTEGER_MAX) == expected
 
 
 @pytest.mark.parametrize("value", [3.5, "3.5", "three", "", True, None, float("nan")])
 def test_values_that_are_not_whole_numbers(value: object) -> None:
     with fails("INVALID_INTEGER"):
-        parse_integer(value)
+        parse_integer(value, maximum=INTEGER_MAX)
+
+
+@pytest.mark.parametrize("value", ["2147483647", "+2147483647", "0000000002147483647", 2147483647])
+def test_the_largest_storable_whole_number_is_accepted(value: object) -> None:
+    assert parse_integer(value, maximum=INTEGER_MAX) == 2_147_483_647
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2147483648", 2_147_483_648, 99_999_999_999.0, "-2147483648", 10**30, "9" * 400, "9" * 5000],
+)
+def test_a_whole_number_the_database_cannot_hold_is_refused(value: object) -> None:
+    # A row that passes validation must always be storable.
+    with fails("INVALID_INTEGER"):
+        parse_integer(value, maximum=INTEGER_MAX)
 
 
 @pytest.mark.parametrize(("value", "expected"), [("INR", "INR"), (" usd ", "USD"), ("Eur", "EUR")])

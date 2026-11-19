@@ -9,7 +9,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, InvalidStateError, NotFoundError
+from app.core.errors import (
+    ConflictError,
+    InvalidStateError,
+    NotFoundError,
+    ValidationFailedError,
+)
 from app.db.session import Database
 from app.models import (
     IngestionBatch,
@@ -346,6 +351,35 @@ def test_a_database_constraint_failure_mid_batch_rolls_everything_back(
         "COMMIT_CONFLICT",
         0,
     )
+
+
+def test_a_value_the_database_cannot_store_fails_the_batch_and_says_what_to_do(
+    importer: Importer, session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validation is meant to refuse such a value at preview. If one gets through,
+    the batch still ends in a recorded state and the caller is not shown an
+    internal error."""
+    preview = importer.preview(E.SUPPLIER, SUPPLIER_HEADERS, SUPPLIERS)
+    real_apply = supplier_service.apply_source_record
+
+    def with_an_unstorable_name(*args: Any, values: Any, **kwargs: Any) -> Any:
+        if values["supplier_code"] == "SUP-3":
+            values = {**values, "name": "Supplier\x00three"}
+        return real_apply(*args, values=values, **kwargs)
+
+    monkeypatch.setattr(supplier_service, "apply_source_record", with_an_unstorable_name)
+
+    with pytest.raises(ValidationFailedError) as failure:
+        importer.commit(preview.batch.id)
+
+    assert failure.value.code == "COMMIT_FAILED"
+    assert "Nothing was committed" in failure.value.message
+    # SUP-1 and SUP-2 were written before the refusal. Neither survives.
+    assert table_counts(session, Supplier) == {"Supplier": 0}
+    batch = importer.batch(preview.batch.id)
+    assert (batch.status, batch.failure_code) == (BatchStatus.FAILED, "COMMIT_FAILED")
+    assert (batch.committed_rows, batch.skipped_rows, batch.failed_rows) == (0, 4, 0)
+    assert {outcome for _, _, outcome in statuses(importer, batch.id)} == {"ROLLED_BACK"}
 
 
 def test_commit_refuses_rows_whose_stored_values_no_longer_validate(

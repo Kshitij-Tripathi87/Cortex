@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import WorkspaceNotAvailableError
 from app.db.session import Database
+from app.models.limits import OFFSET_MAX
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
@@ -72,7 +73,7 @@ def get_pagination(
     limit: Annotated[
         int, Query(ge=1, le=MAX_PAGE_SIZE, description="Maximum number of items to return.")
     ] = DEFAULT_PAGE_SIZE,
-    offset: Annotated[int, Query(ge=0, description="Number of items to skip.")] = 0,
+    offset: Annotated[int, Query(ge=0, le=OFFSET_MAX, description="Number of items to skip.")] = 0,
 ) -> Pagination:
     return Pagination(limit=limit, offset=offset)
 

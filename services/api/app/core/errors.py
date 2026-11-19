@@ -19,7 +19,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
-from sqlalchemy.exc import DBAPIError, IntegrityError, InterfaceError, OperationalError
+from sqlalchemy.exc import (
+    DataError,
+    DBAPIError,
+    IntegrityError,
+    InterfaceError,
+    OperationalError,
+)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.request_context import current_request_id, error_body
@@ -250,6 +256,32 @@ async def _handle_integrity_error(request: Request, exc: Exception) -> JSONRespo
     return _respond(request, 409, "CONFLICT", "The request conflicts with existing data.")
 
 
+async def _handle_data_error(request: Request, exc: Exception) -> JSONResponse:
+    """The database could not store or compare a value that validation let through.
+
+    The request is at fault (a number out of range, a character text cannot
+    hold) and is answered as invalid. The contract's schemas are meant to
+    refuse such a value with the name of the field, so reaching this handler
+    is logged as an error. Only the kind of failure is logged: the database's
+    message can repeat the value.
+    """
+    assert isinstance(exc, DataError)
+    _log.error(
+        "The database refused a value that passed validation",
+        extra={
+            "error_type": type(exc.orig).__name__,
+            "sqlstate": getattr(exc.orig, "sqlstate", None),
+        },
+    )
+    return _respond(
+        request,
+        422,
+        "VALIDATION_ERROR",
+        "A value in the request cannot be stored: a number is out of range or a text "
+        "contains a character that is not allowed.",
+    )
+
+
 async def _handle_database_unavailable(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DBAPIError)
     _log.error("Database is not reachable", extra={"error_type": type(exc.orig).__name__})
@@ -264,5 +296,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _handle_request_validation)
     app.add_exception_handler(StarletteHTTPException, _handle_http_exception)
     app.add_exception_handler(IntegrityError, _handle_integrity_error)
+    app.add_exception_handler(DataError, _handle_data_error)
     app.add_exception_handler(OperationalError, _handle_database_unavailable)
     app.add_exception_handler(InterfaceError, _handle_database_unavailable)

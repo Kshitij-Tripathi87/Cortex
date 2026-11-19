@@ -166,20 +166,30 @@ def parse_decimal(value: object, *, places: int, max_integer_digits: int) -> Dec
     return number
 
 
-def parse_integer(value: object) -> int:
-    """A whole number. ``3.0`` from a spreadsheet is accepted, ``3.5`` is not."""
+def parse_integer(value: object, *, maximum: int) -> int:
+    """A whole number. ``3.0`` from a spreadsheet is accepted, ``3.5`` is not.
+
+    A number beyond ``maximum`` (in either direction) is refused here, so that
+    a row which passes validation can always be stored.
+    """
     invalid = NormalizationError("INVALID_INTEGER", "Supply a whole number.")
     if isinstance(value, bool):
         raise invalid
     if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        if math.isfinite(value) and value.is_integer():
-            return int(value)
+        number = value
+    elif isinstance(value, float):
+        if not (math.isfinite(value) and value.is_integer()):
+            raise invalid
+        number = int(value)
+    elif isinstance(value, str) and _WHOLE_NUMBER.fullmatch(value.strip()):
+        digits = value.strip().lstrip("+-").lstrip("0")
+        # Judged by length first: converting thousands of digits is refused by Python itself.
+        number = maximum + 1 if len(digits) > len(str(maximum)) else int(value.strip())
+    else:
         raise invalid
-    if isinstance(value, str) and _WHOLE_NUMBER.fullmatch(value.strip()):
-        return int(value.strip())
-    raise invalid
+    if abs(number) > maximum:
+        raise NormalizationError("INVALID_INTEGER", f"The number is larger than {maximum}.")
+    return number
 
 
 def enum_token(value: object) -> str:

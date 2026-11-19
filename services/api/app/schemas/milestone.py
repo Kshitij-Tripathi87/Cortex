@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 from pydantic_core import PydanticCustomError
 
+from app.models import limits
 from app.models.enums import MilestoneStatus, MilestoneType
 from app.schemas.common import ActorText, IsoDate, Page, PatchModel, RequestModel, ResponseModel
 
@@ -25,7 +26,7 @@ def _check_actual_date(status: MilestoneStatus | None, actual_date: date | None)
 
 class MilestoneCreate(RequestModel):
     milestone_type: MilestoneType
-    sequence_no: int = Field(default=1, gt=0)
+    sequence_no: int = Field(default=1, gt=0, le=limits.SEQUENCE_NO_MAX)
     planned_date: IsoDate
     actual_date: IsoDate | None = None
     status: MilestoneStatus | None = Field(

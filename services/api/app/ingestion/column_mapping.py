@@ -67,6 +67,7 @@ class FieldSpec:
     enum: type[StrEnum] | None = None
     decimal_places: int = 0
     max_integer_digits: int = 0
+    max_integer: int = limits.INTEGER_MAX
     positive: bool = False
     non_negative: bool = False
     # Warning raised when the value is absent and absence is allowed.
@@ -84,7 +85,7 @@ class FieldSpec:
                 value, places=self.decimal_places, max_integer_digits=self.max_integer_digits
             )
         if self.kind is FieldKind.INTEGER:
-            return parse_integer(value)
+            return parse_integer(value, maximum=self.max_integer)
         if self.kind is FieldKind.ENUM:
             assert self.enum is not None
             return parse_enum(value, self.enum)
@@ -249,6 +250,7 @@ ENTITY_SPECS: Mapping[IngestionEntityType, EntitySpec] = {
                 FieldKind.INTEGER,
                 ("Sequence No", "Sequence", "Seq No"),
                 required=True,
+                max_integer=limits.SEQUENCE_NO_MAX,
                 positive=True,
             ),
             _date("planned_date", ("Planned Date", "Baseline Date"), required=True),

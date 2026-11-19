@@ -1400,6 +1400,7 @@
           "sequence_no": {
             "default": 1,
             "exclusiveMinimum": 0.0,
+            "maximum": 2147483647.0,
             "title": "Sequence No",
             "type": "integer"
           },
@@ -4242,6 +4243,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -4717,6 +4719,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -4994,6 +4997,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -5142,6 +5146,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -5386,6 +5391,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -5879,6 +5885,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -6332,6 +6339,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -6587,6 +6595,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -7211,6 +7220,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -7655,6 +7665,7 @@
             "schema": {
               "default": 0,
               "description": "Number of items to skip.",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -7784,6 +7795,7 @@
             "required": false,
             "schema": {
               "default": 0,
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Equipment Offset",
               "type": "integer"
@@ -7807,6 +7819,7 @@
             "required": false,
             "schema": {
               "default": 0,
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Po Offset",
               "type": "integer"

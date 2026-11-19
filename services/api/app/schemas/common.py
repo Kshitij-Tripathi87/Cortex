@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Annotated, Any, ClassVar
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -94,18 +95,32 @@ Quantity = Annotated[
 CurrencyCode = Annotated[str, BeforeValidator(_currency_code)]
 
 
+def _storable_text(value: str) -> str:
+    """Refuse the one character PostgreSQL text cannot hold, as a validation error."""
+    if limits.UNSTORABLE_CHARACTER in value:
+        raise PydanticCustomError(
+            "INVALID_VALUE", "The text contains a character that is not allowed."
+        )
+    return value
+
+
 def _text(max_length: int) -> Any:
-    return StringConstraints(strip_whitespace=True, min_length=1, max_length=max_length)
+    """Trimmed, non-empty, bounded text that the database can store."""
+    return Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=max_length),
+        AfterValidator(_storable_text),
+    ]
 
 
-CodeText = Annotated[str, _text(limits.CODE_MAX)]
-NameText = Annotated[str, _text(limits.NAME_MAX)]
-LocationText = Annotated[str, _text(limits.LOCATION_MAX)]
-PlaceText = Annotated[str, _text(limits.PLACE_MAX)]
-PoNumberText = Annotated[str, _text(limits.PO_NUMBER_MAX)]
-ActorText = Annotated[str, _text(limits.ACTOR_MAX)]
-SourceReferenceText = Annotated[str, _text(limits.SOURCE_REFERENCE_MAX)]
-SpecificationText = Annotated[str, _text(limits.SPECIFICATION_TEXT_MAX)]
+CodeText = _text(limits.CODE_MAX)
+NameText = _text(limits.NAME_MAX)
+LocationText = _text(limits.LOCATION_MAX)
+PlaceText = _text(limits.PLACE_MAX)
+PoNumberText = _text(limits.PO_NUMBER_MAX)
+ActorText = _text(limits.ACTOR_MAX)
+SourceReferenceText = _text(limits.SOURCE_REFERENCE_MAX)
+SpecificationText = _text(limits.SPECIFICATION_TEXT_MAX)
 
 
 # --- base models ----------------------------------------------------------------------

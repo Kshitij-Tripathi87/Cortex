@@ -21,3 +21,12 @@ MONEY_PRECISION = 18
 MONEY_SCALE = 2
 QUANTITY_PRECISION = 18
 QUANTITY_SCALE = 3
+
+# The largest value of a PostgreSQL INTEGER column. A milestone sequence number
+# is stored in one, and a list request may skip at most this many records.
+INTEGER_MAX = 2_147_483_647
+SEQUENCE_NO_MAX = INTEGER_MAX
+OFFSET_MAX = INTEGER_MAX
+
+# PostgreSQL text cannot hold this character, so no text of the contract may contain it.
+UNSTORABLE_CHARACTER = "\x00"

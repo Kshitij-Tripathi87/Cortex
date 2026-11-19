@@ -30,7 +30,7 @@ from typing import Any
 from uuid import UUID
 
 from psycopg.errors import UniqueViolation
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import DataError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.clock import utcnow
@@ -620,9 +620,14 @@ def _record_preview(
 
 
 def _display_name(filename: str) -> str:
-    """The file name as display metadata: last path segment, bounded. Never a path."""
-    name = filename.replace("\\", "/").rsplit("/", 1)[-1].strip() or "upload"
-    return name[: field_limits.FILENAME_MAX]
+    """The file name as display metadata: last path segment, printable, bounded.
+
+    Never a path, and never a control character: the name comes from the
+    client and is only ever shown, so anything that is not printable is dropped.
+    """
+    segment = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    name = "".join(character for character in segment if character.isprintable()).strip()
+    return (name or "upload")[: field_limits.FILENAME_MAX]
 
 
 def get_batch(
@@ -957,6 +962,20 @@ def commit_import(session: Session, workspace_id: UUID, batch_id: UUID) -> Commi
             "A database constraint rejected the batch. Nothing was committed and the batch "
             "has failed. Upload the file again.",
             code="COMMIT_CONFLICT",
+        ) from None
+    except DataError as exc:
+        # The database could not store a value that validation had accepted.
+        # Everything was rolled back. Validation is meant to make this
+        # impossible, so it is logged as an error; the caller is told what to do.
+        _log.error(
+            "The database refused a value of a validated batch",
+            extra={"batch_id": str(batch_id), "error_type": type(exc.orig).__name__},
+        )
+        _record_failure(session, workspace_id, batch_id, "COMMIT_FAILED", [])
+        raise ValidationFailedError(
+            "The database could not store a value of this batch. Nothing was committed and "
+            "the batch has failed. Correct the file and upload it again.",
+            code="COMMIT_FAILED",
         ) from None
     except Exception:
         _record_failure(session, workspace_id, batch_id, "COMMIT_FAILED", [])

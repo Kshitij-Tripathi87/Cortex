@@ -24,14 +24,26 @@ def parse_plain_decimal(text: str) -> Decimal:
 
 
 def decimal_places(value: Decimal) -> int:
-    """Number of digits after the decimal point, ignoring trailing zeros."""
-    exponent = value.normalize().as_tuple().exponent
-    return -exponent if isinstance(exponent, int) and exponent < 0 else 0
+    """Number of digits after the decimal point, ignoring trailing zeros.
+
+    Read from the digits themselves. Going through ``Decimal.normalize`` would
+    round a long number to the precision of the arithmetic context first and
+    could then miss a digit far to the right, or fail on a very large one.
+    """
+    _, digits, exponent = value.as_tuple()
+    if not isinstance(exponent, int) or exponent >= 0 or not value:
+        return 0
+    places = -exponent
+    for digit in reversed(digits):
+        if digit != 0 or places == 0:
+            break
+        places -= 1
+    return places
 
 
 def integer_digits(value: Decimal) -> int:
-    """Number of digits before the decimal point."""
-    return len(str(abs(int(value))))
+    """Number of digits before the decimal point (at least one: ``0.5`` has one)."""
+    return max(value.adjusted() + 1, 1) if value else 1
 
 
 def fixed_scale(value: Decimal, scale: int) -> str:

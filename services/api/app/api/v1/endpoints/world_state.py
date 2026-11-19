@@ -6,13 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.deps import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, PaginationDep, SessionDep, WorkspaceDep
+from app.models.limits import OFFSET_MAX
 from app.schemas.world_state import ProjectWorldState, WorkspaceWorldState, WorldStateSummary
 from app.services import world_state_service
 
 router = APIRouter(prefix="/workspaces/{workspace_id}/world-state", tags=["world state"])
 
 PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
-PageOffset = Annotated[int, Query(ge=0)]
+PageOffset = Annotated[int, Query(ge=0, le=OFFSET_MAX)]
 
 
 @router.get(
