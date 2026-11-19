@@ -1,0 +1,13 @@
+{
+    "status": "ready",
+    "checks": {
+        "database": {
+            "status": "ok",
+            "detail": "The database accepts queries."
+        },
+        "migrations": {
+            "status": "ok",
+            "detail": "The schema is at the migration head."
+        }
+    }
+}

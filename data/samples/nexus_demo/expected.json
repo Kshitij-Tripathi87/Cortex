@@ -1,0 +1,40 @@
+{
+  "as_of": "2026-11-19",
+  "workspace": {"name": "Nexus Demo Workspace", "slug": "nexus-demo"},
+  "project_code": "DC-IN-001",
+  "files": [
+    {"file": "projects.csv", "entity_type": "project", "rows": 1},
+    {"file": "suppliers.csv", "entity_type": "supplier", "rows": 8},
+    {"file": "equipment.csv", "entity_type": "equipment", "rows": 20},
+    {"file": "purchase_orders.csv", "entity_type": "purchase_order", "rows": 12},
+    {"file": "purchase_order_items.csv", "entity_type": "purchase_order_item", "rows": 19},
+    {"file": "milestones.csv", "entity_type": "milestone", "rows": 40},
+    {"file": "supplier_commitments.csv", "entity_type": "supplier_commitment", "rows": 11}
+  ],
+  "updates": [
+    {"file": "updates/supplier_commitments_revision_01.csv", "entity_type": "supplier_commitment", "rows": 1}
+  ],
+  "counts": {
+    "projects": 1,
+    "suppliers": 8,
+    "equipment": 20,
+    "purchase_orders": 12,
+    "purchase_order_items": 19,
+    "milestones": 40,
+    "milestone_plan_versions": 40,
+    "supplier_commitment_versions": 12
+  },
+  "conditions": {
+    "overdue_delivery_candidate": {"po_number": "PO-1006", "committed_delivery_date": "2026-11-10"},
+    "changed_commitment": {"po_number": "PO-1007", "first": "2026-11-28", "revised": "2026-12-06"},
+    "missing_confirmation": {"po_number": "PO-1005"},
+    "milestone_slippage": {
+      "po_number": "PO-1003",
+      "milestone_type": "FACTORY_ACCEPTANCE_TEST",
+      "sequence_no": 1,
+      "planned_date": "2026-11-10",
+      "actual_date": "2026-11-14"
+    },
+    "procurement_gap": {"equipment_code": "DG-003"}
+  }
+}

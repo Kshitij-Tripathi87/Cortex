@@ -1,0 +1,7 @@
+Equipment Code,Project Code,Equipment Name,Category,Required On-Site Date,Criticality,Vendor Notes
+EX-001,DC-EXAMPLE,Example transformer,Transformer,2027-02-01,CRITICAL,call before dispatch
+EX-002,DC-EXAMPLE,Example switchgear,Switchgear,03/04/26,HIGH,
+EX-003,DC-NOT-IMPORTED,Example generator,Generator,2027-03-01,HIGH,
+EX-004,DC-EXAMPLE,Example UPS,UPS,,MEDIUM,
+EX-004,DC-EXAMPLE,Example UPS,UPS,,MEDIUM,
+EX-005,DC-EXAMPLE,Example chiller,Reactor,2027-04-01,LOW,

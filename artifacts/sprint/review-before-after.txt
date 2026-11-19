@@ -1,0 +1,116 @@
+Eight workbooks read by the reader as it stood at gate G3 and by the final reader.
+'before' is the code of commit 27597ab with openpyxl on the standard XML parser, as it was installed
+then (the package defusedxml was not a dependency). 'after' is the final code.
+Measured once on the build machine. Times vary from run to run by a third or more on that machine;
+the memory figures are the peak resident size of the process, of which about 52 MB are the
+interpreter and the imported modules. The two scripts that produced the workbooks and the lines
+follow the results; they need tests/workbooks.py of this repository.
+
+Each line: one workbook read once in a fresh process (measure_case.py), default limits,
+address space limited to 2.5 GB. Build machine, 2 CPUs. 2026-11-19T16:42:23Z
+
+a_entities (upload of 7485 bytes)
+  before (27597ab, standard XML parser):   3.71 s | peak  726 MB | CELL_TOO_LONG, message of 45 characters
+  after  (final code)                  :   0.00 s | peak   52 MB | MALFORMED_FILE, message of 52 characters
+b_formats (upload of 9103 bytes)
+  before (27597ab, standard XML parser):  35.66 s | peak  782 MB | read, 1 data row(s): ['DC-1']
+  after  (final code)                  :   0.20 s | peak   52 MB | FILE_TOO_LARGE, message of 111 characters
+c_workbook_part (upload of 6475 bytes)
+  before (27597ab, standard XML parser):   2.44 s | peak  172 MB | read, 1 data row(s): ['DC-1']
+  after  (final code)                  :   0.19 s | peak   52 MB | FILE_TOO_LARGE, message of 111 characters
+d_attributes (upload of 2528284 bytes)
+  before (27597ab, standard XML parser):   4.33 s | peak  389 MB | read, 1 data row(s): ['DC-1']
+  after  (final code)                  :   0.01 s | peak   57 MB | FILE_TOO_LARGE, message of 132 characters
+e_blank_far_right (upload of 59530 bytes)
+  before (27597ab, standard XML parser):   7.12 s | peak   53 MB | EMPTY_FILE, message of 40 characters
+  after  (final code)                  :   0.32 s | peak   53 MB | EMPTY_FILE, message of 40 characters
+f_claimed_range (upload of 1604 bytes)
+  before (27597ab, standard XML parser):   0.00 s | peak   52 MB | read, 1 data row(s): ['DC-1']
+  after  (final code)                  :   0.01 s | peak   52 MB | read, 3 data row(s): ['DC-1', 'DC-2', 'DC-3']
+g_row_number_twice (upload of 1549 bytes)
+  before (27597ab, standard XML parser):   0.00 s | peak   52 MB | read, 2 data row(s): ['DC-1', 'DC-3']
+  after  (final code)                  :   0.00 s | peak   52 MB | MALFORMED_FILE, message of 162 characters
+h_long_names (upload of 2168 bytes)
+  before (27597ab, standard XML parser):   0.01 s | peak   53 MB | AMBIGUOUS_WORKSHEET, message of 200,072 characters
+  after  (final code)                  :   0.02 s | peak   54 MB | AMBIGUOUS_WORKSHEET, message of 158 characters
+
+--- make_cases.py: writes the workbooks (run from services/api) ---
+
+"""Write the workbooks of the before-and-after measurement to /tmp/cases."""
+import io
+import os
+import zipfile
+
+from tests.workbooks import MAIN_NS, XML_DECLARATION, entity_declaration, handmade_workbook, sheet_part, Raw
+
+os.makedirs("/tmp/cases", exist_ok=True)
+PROJECTS = sheet_part([["Project Code", "Project Name"], ["DC-1", "One"]])
+ROWS = [["Project Code", "Project Name"], ["DC-1", "One"], ["DC-2", "Two"], ["DC-3", "Three"]]
+
+
+def doc(root, body):
+    return f'{XML_DECLARATION}<{root} xmlns="{MAIN_NS}">{body}</{root}>'.encode()
+
+
+def save(name, data):
+    open(f"/tmp/cases/{name}.xlsx", "wb").write(data)
+
+
+def with_part(workbook, name, content):
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(workbook)) as src, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+        for info in src.infolist():
+            if info.filename != name:
+                dst.writestr(info, src.read(info.filename))
+        dst.writestr(name, content)
+    return out.getvalue()
+
+
+plain = handmade_workbook([("Projects", PROJECTS)])
+# a: one cell that refers two million times to an entity of 100 characters
+save("a_entities", handmade_workbook([("Projects", sheet_part([["Project Code", "Project Name"], ["DC-1", Raw("&a;" * 2_000_000)]], prolog=entity_declaration("a", "A" * 100)))]))
+# b: five megabytes of empty cell formats
+save("b_formats", with_part(plain, "xl/styles.xml", doc("styleSheet", "<cellXfs>" + "<xf/>" * 1_000_000 + "</cellXfs>")))
+# c: five megabytes of empty elements in the workbook part
+part = zipfile.ZipFile(io.BytesIO(plain)).read("xl/workbook.xml")
+save("c_workbook_part", with_part(plain, "xl/workbook.xml", part.replace(b"</workbook>", b"<extLst>" + b"<a/>" * 1_250_000 + b"</extLst></workbook>")))
+# d: one element with 1.2 million attributes, on a hidden worksheet
+attributes = " ".join(f'a{number:x}=""' for number in range(1_200_000))
+save("d_attributes", handmade_workbook([("Projects", PROJECTS), ("Attr", doc("worksheet", f"<sheetData><row {attributes}><c><v>1</v></c></row></sheetData>"))], hidden=["Attr"]))
+# e: one hundred worksheets, fifty rows each, one blank cell in the last column of each row
+blank = sheet_part({row: {16_384: " "} for row in range(1, 51)})
+save("e_blank_far_right", handmade_workbook([(f"S{number}", blank) for number in range(100)]))
+# f: a worksheet that claims the range A1:B2 and holds three data rows
+save("f_claimed_range", handmade_workbook([("Projects", sheet_part(ROWS, dimension="A1:B2"))]))
+# g: rows numbered 1, 2, 2, 3
+numbered = "".join(f'<row r="{n}"><c t="inlineStr"><is><t>{a}</t></is></c><c t="inlineStr"><is><t>{b}</t></is></c></row>' for n, (a, b) in zip((1, 2, 2, 3), ROWS))
+save("g_row_number_twice", handmade_workbook([("Projects", doc("worksheet", f"<sheetData>{numbered}</sheetData>"))]))
+# h: two data worksheets with names of 100,000 characters
+save("h_long_names", handmade_workbook([("A" * 100_000, PROJECTS), ("B" * 100_000, PROJECTS)]))
+for name in sorted(os.listdir("/tmp/cases")):
+    print(f"{name:<28} {os.path.getsize('/tmp/cases/' + name):>10,} bytes")
+
+--- measure_case.py: reads one workbook; run once per line, with PYTHONPATH set to the
+--- services/api directory of the code to measure, and OPENPYXL_DEFUSEDXML=False for 'before' ---
+
+"""Read one workbook with the reader on sys.path, in a fresh process; print what happened."""
+import resource
+import sys
+import time
+
+resource.setrlimit(resource.RLIMIT_AS, (int(2.5 * 1024**3),) * 2)
+from app.ingestion.contracts import ReaderLimits, SourceFileError  # noqa: E402
+from app.ingestion.readers import read_xlsx  # noqa: E402
+
+limits = ReaderLimits(max_rows=10_000, max_columns=100, max_cell_chars=2_000, max_uncompressed_bytes=200 * 1024 * 1024)
+data = open(sys.argv[1], "rb").read()
+started = time.perf_counter()
+try:
+    sheet = read_xlsx(data, None, limits)
+    answer = f"read, {len(sheet.rows)} data row(s): {[row.raw_data['Project Code'] for row in sheet.rows][:5]}"
+except SourceFileError as exc:
+    answer = f"{exc.code}, message of {len(exc.message):,} characters"
+except MemoryError:
+    answer = "MemoryError at the limit of 2.5 GB"
+peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+print(f"{time.perf_counter() - started:6.2f} s | peak {peak:4.0f} MB | {answer}")

@@ -1,0 +1,44 @@
+The new tests of the workbook reader, run against the code as it stood at gate G3 (commit 27597ab):
+which of them failed before anything was changed. A test that passes here pins behaviour that was
+already right. Output of pytest, reduced to the lines that name a failing test and the totals.
+Build machine. Command, from services/api:
+  uv run pytest tests/unit/test_workbook_safety.py -q -p no:cacheprovider
+
+First set (entities, worksheet probing, worksheet names), 2026-11-19T14:40:26Z:
+
+FAILED tests/unit/test_workbook_safety.py::test_workbook_xml_is_parsed_by_the_hardened_parser
+FAILED tests/unit/test_workbook_safety.py::test_a_workbook_that_declares_an_entity_is_refused[worksheet]
+FAILED tests/unit/test_workbook_safety.py::test_a_workbook_that_declares_an_entity_is_refused[shared strings]
+FAILED tests/unit/test_workbook_safety.py::test_a_workbook_that_declares_an_entity_is_refused[workbook part]
+FAILED tests/unit/test_workbook_safety.py::test_entities_cannot_multiply_the_size_of_a_workbook
+FAILED tests/unit/test_workbook_safety.py::test_the_reader_does_not_load_without_the_hardened_parser
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_is_judged_by_the_columns_that_can_be_imported
+FAILED tests/unit/test_workbook_safety.py::test_blank_cells_far_to_the_right_are_not_walked
+FAILED tests/unit/test_workbook_safety.py::test_the_name_of_the_imported_worksheet_must_fit_the_ledger
+FAILED tests/unit/test_workbook_safety.py::test_an_error_lists_a_bounded_number_of_shortened_names[None-AMBIGUOUS_WORKSHEET]
+FAILED tests/unit/test_workbook_safety.py::test_an_error_lists_a_bounded_number_of_shortened_names[Nope-WORKSHEET_NOT_FOUND]
+FAILED tests/unit/test_workbook_safety.py::test_names_in_an_error_carry_no_control_characters
+FAILED tests/unit/test_workbook_safety.py::test_two_worksheets_with_one_name_are_refused
+FAILED tests/unit/test_workbook_safety.py::test_a_request_finds_the_one_worksheet_that_differs_only_by_spaces_around_its_name
+14 failed, 5 passed in 3.50s
+
+Second set (the range a worksheet claims, the numbering of rows and cells), written a little later,
+at a moment when the changes of the first set were already in the working tree:
+
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_is_read_to_its_end_whatever_range_it_claims[A1]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_is_read_to_its_end_whatever_range_it_claims[A1:A1]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_is_read_to_its_end_whatever_range_it_claims[A1:B2]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_is_read_to_its_end_whatever_range_it_claims[B2:B3]
+FAILED tests/unit/test_workbook_safety.py::test_a_formula_below_the_claimed_range_is_still_reported
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[row number twice]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[rows out of order]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[all rows numbered 1]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[row 0]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[cell reference twice]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[cells out of order]
+FAILED tests/unit/test_workbook_safety.py::test_a_worksheet_whose_rows_or_cells_are_misnumbered_is_refused[cell of another row]
+12 failed, 24 passed in 1.43s
+
+The tests for element counts, nesting and the length of a single tag were written together with
+the scan they guard. Their failing state is shown by defects 28, 33 and 34 of
+review-defect-detection.txt, which remove the scan or one of its bounds.

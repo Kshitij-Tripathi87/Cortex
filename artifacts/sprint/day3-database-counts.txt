@@ -1,0 +1,39 @@
+Counts in PostgreSQL next to the counts the World State reports, after the run in day3-full-test-results.txt.
+Build machine, development database. Left: SELECT count(*) with psql. Right: GET .../world-state/summary over HTTP.
+
+table                           PostgreSQL count(*)  World State summary  equal
+workspaces                                        1                    -
+projects                                          1                    1  yes
+suppliers                                         8                    8  yes
+equipment                                        20                   20  yes
+purchase_orders                                  12                   12  yes
+purchase_order_items                             19                   19  yes
+milestones                                       40                   40  yes
+milestone_plan_versions                          40                   40  yes
+supplier_commitment_versions                     12                   12  yes
+ingestion_batches                                 8                    -
+ingestion_rows                                  112                    -
+
+every count the World State reports equals the count in PostgreSQL: yes
+
+Ingestion batches (entity type | file | status | rows | valid | invalid | committed | skipped | failed), oldest first:
+project | projects.csv | COMMITTED | 1 | 1 | 0 | 1 | 0 | 0
+supplier | suppliers.csv | COMMITTED | 8 | 8 | 0 | 8 | 0 | 0
+equipment | equipment.csv | COMMITTED | 20 | 20 | 0 | 20 | 0 | 0
+purchase_order | purchase_orders.csv | COMMITTED | 12 | 12 | 0 | 12 | 0 | 0
+purchase_order_item | purchase_order_items.csv | COMMITTED | 19 | 19 | 0 | 19 | 0 | 0
+milestone | milestones.csv | COMMITTED | 40 | 40 | 0 | 40 | 0 | 0
+supplier_commitment | supplier_commitments.csv | COMMITTED | 11 | 11 | 0 | 11 | 0 | 0
+supplier_commitment | supplier_commitments_revision_01.csv | COMMITTED | 1 | 1 | 0 | 1 | 0 | 0
+
+Source rows by status and outcome (status | outcome | rows):
+COMMITTED | CREATED | 112
+
+Provenance:
+source rows linked to a canonical record: 112 of 112
+plan versions that name their source row: 40 of 40
+commitment versions that name their source row: 12 of 12
+
+The whole dataset was sent three times in that run (over HTTP, over HTTP again, through the seed), and
+projects.csv twice more by hand with the curl commands of the README before these counts were taken:
+8 batches and 112 source rows, not 24 and 336.

@@ -1,0 +1,303 @@
+Migration review, revision 0001 "Initial canonical procurement schema" (Day 2, D2.2)
+
+Generated with `alembic revision --autogenerate` from the models, then read line by
+line before it was applied. What was checked:
+
+  [x] all 11 tables present: workspaces, projects, suppliers, equipment, purchase_orders,
+      purchase_order_items, milestones, milestone_plan_versions,
+      supplier_commitment_versions, ingestion_batches, ingestion_rows
+  [x] creation order satisfies every foreign key; downgrade drops in reverse order
+  [x] natural keys unique per workspace (projects.code, suppliers.supplier_code,
+      equipment.equipment_code, purchase_orders.po_number)
+  [x] composite foreign keys keep related records in one workspace and one project
+      (equipment -> projects; purchase_orders -> projects, suppliers;
+      purchase_order_items -> purchase_orders, equipment; milestones and
+      supplier_commitment_versions -> purchase_orders)
+  [x] CHECK constraints: enumerated values, quantity > 0, money >= 0, version_no > 0,
+      sequence_no > 0, currency format, actual date only on a completed milestone,
+      ledger consistency (counters, committed_at, failure_code, canonical link)
+  [x] unique (parent, version_no) on both version tables
+  [x] NUMERIC(18,2) for money and NUMERIC(18,3) for quantity; no floating-point column
+  [x] every timestamp is timestamptz; every date-only value is DATE
+  [x] JSONB for source rows, normalized rows, issues and the equipment specification
+  [x] partial unique index on (workspace_id, entity_type, file_sha256) where status <> 'FAILED'
+  [x] enumerations are text + CHECK, not native enum types: nothing to drop on downgrade
+  [x] no destructive operation; no table of the model missing
+
+Run against PostgreSQL 16.2 on the build machine:
+  upgrade head -> 12 tables (11 + alembic_version); downgrade base -> only alembic_version;
+  upgrade head again -> 12 tables; second upgrade head -> no-op; `alembic check` -> no drift.
+The same sequence is an automated test: tests/integration/test_migrations.py.
+
+Below: the SQL the migration executes (`alembic upgrade head --sql`).
+--------------------------------------------------------------------------------
+BEGIN;
+
+CREATE TABLE alembic_version (
+    version_num VARCHAR(32) NOT NULL, 
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+-- Running upgrade  -> 0001
+
+CREATE TABLE workspaces (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    name VARCHAR(160) NOT NULL, 
+    slug VARCHAR(80) NOT NULL, 
+    status VARCHAR(40) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_workspaces PRIMARY KEY (id), 
+    CONSTRAINT ck_workspaces_slug_format CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'), 
+    CONSTRAINT ck_workspaces_name_not_blank CHECK (length(btrim(name)) > 0), 
+    CONSTRAINT uq_workspaces_slug UNIQUE (slug), 
+    CONSTRAINT ck_workspaces_status CHECK (status IN ('ACTIVE', 'DISABLED'))
+);
+
+CREATE TABLE ingestion_batches (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    entity_type VARCHAR(40) NOT NULL, 
+    original_filename VARCHAR(255) NOT NULL, 
+    file_sha256 VARCHAR(64) NOT NULL, 
+    source_format VARCHAR(40) NOT NULL, 
+    file_size_bytes INTEGER NOT NULL, 
+    sheet_name VARCHAR(160), 
+    file_warnings JSONB NOT NULL, 
+    status VARCHAR(40) NOT NULL, 
+    total_rows INTEGER NOT NULL, 
+    valid_rows INTEGER NOT NULL, 
+    invalid_rows INTEGER NOT NULL, 
+    committed_rows INTEGER NOT NULL, 
+    skipped_rows INTEGER NOT NULL, 
+    failed_rows INTEGER NOT NULL, 
+    commit_summary JSONB, 
+    committed_at TIMESTAMP WITH TIME ZONE, 
+    failure_code VARCHAR(64), 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_ingestion_batches PRIMARY KEY (id), 
+    CONSTRAINT ck_ingestion_batches_committed_at_iff_committed CHECK ((status = 'COMMITTED') = (committed_at IS NOT NULL)), 
+    CONSTRAINT ck_ingestion_batches_failure_code_iff_failed CHECK ((status = 'FAILED') = (failure_code IS NOT NULL)), 
+    CONSTRAINT ck_ingestion_batches_file_sha256_format CHECK (file_sha256 ~ '^[0-9a-f]{64}$'), 
+    CONSTRAINT ck_ingestion_batches_file_warnings_is_array CHECK (jsonb_typeof(file_warnings) = 'array'), 
+    CONSTRAINT ck_ingestion_batches_file_size_positive CHECK (file_size_bytes > 0), 
+    CONSTRAINT ck_ingestion_batches_counters_not_negative CHECK (total_rows >= 0 AND valid_rows >= 0 AND invalid_rows >= 0 AND committed_rows >= 0 AND skipped_rows >= 0 AND failed_rows >= 0), 
+    CONSTRAINT ck_ingestion_batches_preview_counters_add_up CHECK (valid_rows + invalid_rows = total_rows), 
+    CONSTRAINT fk_ingestion_batches_workspace_id_workspaces FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+    CONSTRAINT ck_ingestion_batches_entity_type CHECK (entity_type IN ('project', 'supplier', 'equipment', 'purchase_order', 'purchase_order_item', 'milestone', 'supplier_commitment')), 
+    CONSTRAINT ck_ingestion_batches_source_format CHECK (source_format IN ('CSV', 'XLSX')), 
+    CONSTRAINT ck_ingestion_batches_status CHECK (status IN ('UPLOADED', 'PREVIEWED', 'COMMITTING', 'COMMITTED', 'FAILED'))
+);
+
+CREATE INDEX ix_ingestion_batches_workspace_id_created_at ON ingestion_batches (workspace_id, created_at);
+
+CREATE UNIQUE INDEX uq_ingestion_batches_active_checksum ON ingestion_batches (workspace_id, entity_type, file_sha256) WHERE status <> 'FAILED';
+
+CREATE TABLE projects (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    code VARCHAR(64) NOT NULL, 
+    name VARCHAR(200) NOT NULL, 
+    location VARCHAR(200), 
+    status VARCHAR(40) NOT NULL, 
+    target_completion_date DATE, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_projects PRIMARY KEY (id), 
+    CONSTRAINT ck_projects_code_not_blank CHECK (length(btrim(code)) > 0), 
+    CONSTRAINT ck_projects_name_not_blank CHECK (length(btrim(name)) > 0), 
+    CONSTRAINT fk_projects_workspace_id_workspaces FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+    CONSTRAINT uq_projects_workspace_id_code UNIQUE (workspace_id, code), 
+    CONSTRAINT uq_projects_workspace_id_id UNIQUE (workspace_id, id), 
+    CONSTRAINT ck_projects_status CHECK (status IN ('PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'))
+);
+
+CREATE TABLE suppliers (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    supplier_code VARCHAR(64) NOT NULL, 
+    name VARCHAR(200) NOT NULL, 
+    country VARCHAR(100), 
+    city VARCHAR(100), 
+    status VARCHAR(40) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_suppliers PRIMARY KEY (id), 
+    CONSTRAINT ck_suppliers_name_not_blank CHECK (length(btrim(name)) > 0), 
+    CONSTRAINT ck_suppliers_supplier_code_not_blank CHECK (length(btrim(supplier_code)) > 0), 
+    CONSTRAINT fk_suppliers_workspace_id_workspaces FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+    CONSTRAINT uq_suppliers_workspace_id_id UNIQUE (workspace_id, id), 
+    CONSTRAINT uq_suppliers_workspace_id_supplier_code UNIQUE (workspace_id, supplier_code), 
+    CONSTRAINT ck_suppliers_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+
+CREATE TABLE equipment (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    project_id UUID NOT NULL, 
+    equipment_code VARCHAR(64) NOT NULL, 
+    name VARCHAR(200) NOT NULL, 
+    category VARCHAR(40) NOT NULL, 
+    specification JSONB, 
+    required_on_site_date DATE, 
+    criticality VARCHAR(40) NOT NULL, 
+    procurement_status VARCHAR(40) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_equipment PRIMARY KEY (id), 
+    CONSTRAINT ck_equipment_specification_is_object CHECK (specification IS NULL OR jsonb_typeof(specification) = 'object'), 
+    CONSTRAINT ck_equipment_equipment_code_not_blank CHECK (length(btrim(equipment_code)) > 0), 
+    CONSTRAINT ck_equipment_name_not_blank CHECK (length(btrim(name)) > 0), 
+    CONSTRAINT fk_equipment_workspace_project FOREIGN KEY(workspace_id, project_id) REFERENCES projects (workspace_id, id), 
+    CONSTRAINT fk_equipment_workspace_id_workspaces FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+    CONSTRAINT uq_equipment_workspace_id_equipment_code UNIQUE (workspace_id, equipment_code), 
+    CONSTRAINT uq_equipment_workspace_id_project_id_id UNIQUE (workspace_id, project_id, id), 
+    CONSTRAINT ck_equipment_category CHECK (category IN ('TRANSFORMER', 'SWITCHGEAR', 'GENERATOR', 'UPS', 'COOLING', 'OTHER')), 
+    CONSTRAINT ck_equipment_criticality CHECK (criticality IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')), 
+    CONSTRAINT ck_equipment_procurement_status CHECK (procurement_status IN ('NOT_STARTED', 'RFQ', 'QUOTED', 'ORDERED', 'IN_PRODUCTION', 'DISPATCHED', 'DELIVERED', 'INSTALLED', 'CANCELLED'))
+);
+
+CREATE INDEX ix_equipment_workspace_id_project_id ON equipment (workspace_id, project_id);
+
+CREATE TABLE ingestion_rows (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    batch_id UUID NOT NULL, 
+    row_number INTEGER NOT NULL, 
+    raw_data JSONB NOT NULL, 
+    normalized_data JSONB NOT NULL, 
+    validation_errors JSONB NOT NULL, 
+    warnings JSONB NOT NULL, 
+    status VARCHAR(40) NOT NULL, 
+    planned_action VARCHAR(40), 
+    outcome VARCHAR(40), 
+    canonical_entity_type VARCHAR(40), 
+    canonical_entity_id UUID, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_ingestion_rows PRIMARY KEY (id), 
+    CONSTRAINT ck_ingestion_rows_canonical_entity_type_allowed CHECK (canonical_entity_type IS NULL OR canonical_entity_type IN ('project', 'supplier', 'equipment', 'purchase_order', 'purchase_order_item', 'milestone', 'supplier_commitment_version')), 
+    CONSTRAINT ck_ingestion_rows_normalized_data_is_object CHECK (jsonb_typeof(normalized_data) = 'object'), 
+    CONSTRAINT ck_ingestion_rows_raw_data_is_object CHECK (jsonb_typeof(raw_data) = 'object'), 
+    CONSTRAINT ck_ingestion_rows_validation_errors_is_array CHECK (jsonb_typeof(validation_errors) = 'array'), 
+    CONSTRAINT ck_ingestion_rows_warnings_is_array CHECK (jsonb_typeof(warnings) = 'array'), 
+    CONSTRAINT ck_ingestion_rows_committed_row_has_canonical_link CHECK (status <> 'COMMITTED' OR canonical_entity_id IS NOT NULL), 
+    CONSTRAINT ck_ingestion_rows_canonical_link_complete CHECK ((canonical_entity_type IS NULL) = (canonical_entity_id IS NULL)), 
+    CONSTRAINT ck_ingestion_rows_row_number_positive CHECK (row_number > 0), 
+    CONSTRAINT fk_ingestion_rows_batch_id_ingestion_batches FOREIGN KEY(batch_id) REFERENCES ingestion_batches (id), 
+    CONSTRAINT uq_ingestion_rows_batch_id_row_number UNIQUE (batch_id, row_number), 
+    CONSTRAINT ck_ingestion_rows_status CHECK (status IN ('VALID', 'INVALID', 'COMMITTED', 'SKIPPED', 'FAILED')), 
+    CONSTRAINT ck_ingestion_rows_planned_action CHECK (planned_action IN ('CREATE', 'UPDATE', 'NO_CHANGE')), 
+    CONSTRAINT ck_ingestion_rows_outcome CHECK (outcome IN ('CREATED', 'UPDATED', 'UNCHANGED', 'DUPLICATE_ROW', 'ROLLED_BACK', 'REJECTED'))
+);
+
+CREATE INDEX ix_ingestion_rows_batch_id_status ON ingestion_rows (batch_id, status);
+
+CREATE INDEX ix_ingestion_rows_canonical_entity ON ingestion_rows (canonical_entity_type, canonical_entity_id);
+
+CREATE TABLE purchase_orders (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    project_id UUID NOT NULL, 
+    supplier_id UUID NOT NULL, 
+    po_number VARCHAR(80) NOT NULL, 
+    issue_date DATE, 
+    currency VARCHAR(3) NOT NULL, 
+    total_value NUMERIC(18, 2), 
+    status VARCHAR(40) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_purchase_orders PRIMARY KEY (id), 
+    CONSTRAINT ck_purchase_orders_currency_format CHECK (currency ~ '^[A-Z]{3}$'), 
+    CONSTRAINT ck_purchase_orders_po_number_not_blank CHECK (length(btrim(po_number)) > 0), 
+    CONSTRAINT ck_purchase_orders_total_value_not_negative CHECK (total_value IS NULL OR total_value >= 0), 
+    CONSTRAINT fk_purchase_orders_workspace_project FOREIGN KEY(workspace_id, project_id) REFERENCES projects (workspace_id, id), 
+    CONSTRAINT fk_purchase_orders_workspace_supplier FOREIGN KEY(workspace_id, supplier_id) REFERENCES suppliers (workspace_id, id), 
+    CONSTRAINT fk_purchase_orders_workspace_id_workspaces FOREIGN KEY(workspace_id) REFERENCES workspaces (id), 
+    CONSTRAINT uq_purchase_orders_workspace_id_id UNIQUE (workspace_id, id), 
+    CONSTRAINT uq_purchase_orders_workspace_id_po_number UNIQUE (workspace_id, po_number), 
+    CONSTRAINT uq_purchase_orders_workspace_id_project_id_id UNIQUE (workspace_id, project_id, id), 
+    CONSTRAINT ck_purchase_orders_status CHECK (status IN ('DRAFT', 'ISSUED', 'ACKNOWLEDGED', 'IN_PRODUCTION', 'PARTIALLY_DELIVERED', 'DELIVERED', 'CANCELLED'))
+);
+
+CREATE INDEX ix_purchase_orders_workspace_id_project_id ON purchase_orders (workspace_id, project_id);
+
+CREATE INDEX ix_purchase_orders_workspace_id_supplier_id ON purchase_orders (workspace_id, supplier_id);
+
+CREATE TABLE milestones (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    purchase_order_id UUID NOT NULL, 
+    milestone_type VARCHAR(40) NOT NULL, 
+    sequence_no INTEGER NOT NULL, 
+    actual_date DATE, 
+    status VARCHAR(40) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_milestones PRIMARY KEY (id), 
+    CONSTRAINT ck_milestones_actual_date_requires_completed CHECK (actual_date IS NULL OR status = 'COMPLETED'), 
+    CONSTRAINT ck_milestones_sequence_no_positive CHECK (sequence_no > 0), 
+    CONSTRAINT fk_milestones_workspace_purchase_order FOREIGN KEY(workspace_id, purchase_order_id) REFERENCES purchase_orders (workspace_id, id), 
+    CONSTRAINT uq_milestones_purchase_order_id_type_sequence_no UNIQUE (purchase_order_id, milestone_type, sequence_no), 
+    CONSTRAINT ck_milestones_milestone_type CHECK (milestone_type IN ('PO_ACKNOWLEDGEMENT', 'DRAWING_SUBMISSION', 'DRAWING_APPROVAL', 'MANUFACTURING_START', 'FACTORY_ACCEPTANCE_TEST', 'DISPATCH', 'DELIVERY', 'INSTALLATION')), 
+    CONSTRAINT ck_milestones_status CHECK (status IN ('PENDING', 'COMPLETED', 'CANCELLED'))
+);
+
+CREATE INDEX ix_milestones_workspace_id_purchase_order_id ON milestones (workspace_id, purchase_order_id);
+
+CREATE TABLE purchase_order_items (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    project_id UUID NOT NULL, 
+    purchase_order_id UUID NOT NULL, 
+    equipment_id UUID NOT NULL, 
+    quantity NUMERIC(18, 3) NOT NULL, 
+    unit_price NUMERIC(18, 2), 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    CONSTRAINT pk_purchase_order_items PRIMARY KEY (id), 
+    CONSTRAINT ck_purchase_order_items_quantity_positive CHECK (quantity > 0), 
+    CONSTRAINT ck_purchase_order_items_unit_price_not_negative CHECK (unit_price IS NULL OR unit_price >= 0), 
+    CONSTRAINT fk_purchase_order_items_equipment FOREIGN KEY(workspace_id, project_id, equipment_id) REFERENCES equipment (workspace_id, project_id, id), 
+    CONSTRAINT fk_purchase_order_items_purchase_order FOREIGN KEY(workspace_id, project_id, purchase_order_id) REFERENCES purchase_orders (workspace_id, project_id, id), 
+    CONSTRAINT uq_purchase_order_items_purchase_order_id_equipment_id UNIQUE (purchase_order_id, equipment_id)
+);
+
+CREATE INDEX ix_purchase_order_items_equipment_id ON purchase_order_items (equipment_id);
+
+CREATE INDEX ix_purchase_order_items_workspace_id_project_id ON purchase_order_items (workspace_id, project_id);
+
+CREATE TABLE supplier_commitment_versions (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    workspace_id UUID NOT NULL, 
+    purchase_order_id UUID NOT NULL, 
+    version_no INTEGER NOT NULL, 
+    committed_delivery_date DATE NOT NULL, 
+    source_reference VARCHAR(200), 
+    source_ingestion_row_id UUID, 
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    recorded_by VARCHAR(120) NOT NULL, 
+    CONSTRAINT pk_supplier_commitment_versions PRIMARY KEY (id), 
+    CONSTRAINT ck_supplier_commitment_versions_version_no_positive CHECK (version_no > 0), 
+    CONSTRAINT fk_supplier_commitment_versions_source_ingestion_row_id_9c65 FOREIGN KEY(source_ingestion_row_id) REFERENCES ingestion_rows (id), 
+    CONSTRAINT fk_supplier_commitment_versions_workspace_purchase_order FOREIGN KEY(workspace_id, purchase_order_id) REFERENCES purchase_orders (workspace_id, id), 
+    CONSTRAINT uq_supplier_commitment_versions_purchase_order_id_version_no UNIQUE (purchase_order_id, version_no)
+);
+
+CREATE TABLE milestone_plan_versions (
+    id UUID DEFAULT gen_random_uuid() NOT NULL, 
+    milestone_id UUID NOT NULL, 
+    version_no INTEGER NOT NULL, 
+    planned_date DATE NOT NULL, 
+    source_ingestion_row_id UUID, 
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+    recorded_by VARCHAR(120) NOT NULL, 
+    CONSTRAINT pk_milestone_plan_versions PRIMARY KEY (id), 
+    CONSTRAINT ck_milestone_plan_versions_version_no_positive CHECK (version_no > 0), 
+    CONSTRAINT fk_milestone_plan_versions_milestone_id_milestones FOREIGN KEY(milestone_id) REFERENCES milestones (id), 
+    CONSTRAINT fk_milestone_plan_versions_source_ingestion_row_id_inge_87e5 FOREIGN KEY(source_ingestion_row_id) REFERENCES ingestion_rows (id), 
+    CONSTRAINT uq_milestone_plan_versions_milestone_id_version_no UNIQUE (milestone_id, version_no)
+);
+
+INSERT INTO alembic_version (version_num) VALUES ('0001') RETURNING alembic_version.version_num;
+
+COMMIT;
+

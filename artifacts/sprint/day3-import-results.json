@@ -1,0 +1,431 @@
+[
+  {
+    "commit": {
+      "batch_id": "5f8607fb-fa07-47fc-82c1-239ba1e4fe46",
+      "committed_at": "2026-11-19T13:32:34.219100Z",
+      "committed_rows": 1,
+      "entities": {
+        "project": {
+          "created": 1,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "project",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 1,
+      "valid_rows": 1
+    },
+    "file": "projects.csv",
+    "preview": {
+      "batch_id": "5f8607fb-fa07-47fc-82c1-239ba1e4fe46",
+      "duplicate_file": false,
+      "entity_type": "project",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "26b6c8e296e7033aa382c2294075b1a0e1f0f2ac733aa04df1e7a85d99747d61",
+      "invalid_rows": 0,
+      "original_filename": "projects.csv",
+      "planned_actions": {
+        "CREATE": 1,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 1,
+      "truncated": false,
+      "valid_rows": 1,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "700ade6d-e8c9-4a2c-992e-98962a9c01ea",
+      "committed_at": "2026-11-19T13:32:34.259405Z",
+      "committed_rows": 8,
+      "entities": {
+        "supplier": {
+          "created": 8,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "supplier",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 8,
+      "valid_rows": 8
+    },
+    "file": "suppliers.csv",
+    "preview": {
+      "batch_id": "700ade6d-e8c9-4a2c-992e-98962a9c01ea",
+      "duplicate_file": false,
+      "entity_type": "supplier",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "ebf26656b3c59e8d230ec6f226d351361ae60fd809f3bbd33f5be6711f629fc5",
+      "invalid_rows": 0,
+      "original_filename": "suppliers.csv",
+      "planned_actions": {
+        "CREATE": 8,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 8,
+      "truncated": false,
+      "valid_rows": 8,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "bfcf77e6-a3a3-43b6-8a8c-d0c7e05ff006",
+      "committed_at": "2026-11-19T13:32:34.317490Z",
+      "committed_rows": 20,
+      "entities": {
+        "equipment": {
+          "created": 20,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "equipment",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 20,
+      "valid_rows": 20
+    },
+    "file": "equipment.csv",
+    "preview": {
+      "batch_id": "bfcf77e6-a3a3-43b6-8a8c-d0c7e05ff006",
+      "duplicate_file": false,
+      "entity_type": "equipment",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "f73a64b255a7a7b7e5be4a6eb8891f6ea61f043421b80a89c2a91941706b3cd4",
+      "invalid_rows": 0,
+      "original_filename": "equipment.csv",
+      "planned_actions": {
+        "CREATE": 20,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 20,
+      "truncated": false,
+      "valid_rows": 20,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "6d9fb11c-8f01-4ef9-8180-3a545408a852",
+      "committed_at": "2026-11-19T13:32:34.376049Z",
+      "committed_rows": 12,
+      "entities": {
+        "purchase_order": {
+          "created": 12,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "purchase_order",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 12,
+      "valid_rows": 12
+    },
+    "file": "purchase_orders.csv",
+    "preview": {
+      "batch_id": "6d9fb11c-8f01-4ef9-8180-3a545408a852",
+      "duplicate_file": false,
+      "entity_type": "purchase_order",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "bad27e219336b918cc7c25f384b959b0b1f4f919125856be5e35529add84030b",
+      "invalid_rows": 0,
+      "original_filename": "purchase_orders.csv",
+      "planned_actions": {
+        "CREATE": 12,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 12,
+      "truncated": false,
+      "valid_rows": 12,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "41668ec9-e240-4da4-966f-cb41ca66f4cc",
+      "committed_at": "2026-11-19T13:32:34.462182Z",
+      "committed_rows": 19,
+      "entities": {
+        "purchase_order_item": {
+          "created": 19,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "purchase_order_item",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 19,
+      "valid_rows": 19
+    },
+    "file": "purchase_order_items.csv",
+    "preview": {
+      "batch_id": "41668ec9-e240-4da4-966f-cb41ca66f4cc",
+      "duplicate_file": false,
+      "entity_type": "purchase_order_item",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "17db4d5b255ab2f5bf17cdb94ceeeef079084d25f3d720b244bd65d1c3c66d47",
+      "invalid_rows": 0,
+      "original_filename": "purchase_order_items.csv",
+      "planned_actions": {
+        "CREATE": 19,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 19,
+      "truncated": false,
+      "valid_rows": 19,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "f36d0363-1ff1-4776-9082-2d8cbecd3ca8",
+      "committed_at": "2026-11-19T13:32:34.757781Z",
+      "committed_rows": 40,
+      "entities": {
+        "milestone": {
+          "created": 40,
+          "unchanged": 0,
+          "updated": 0
+        },
+        "milestone_plan_version": {
+          "created": 40,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "milestone",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 40,
+      "valid_rows": 40
+    },
+    "file": "milestones.csv",
+    "preview": {
+      "batch_id": "f36d0363-1ff1-4776-9082-2d8cbecd3ca8",
+      "duplicate_file": false,
+      "entity_type": "milestone",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "06153c09b596e4e0a1b8147e83922d5bac1c2e6d98e168053d626eac2ab53ec4",
+      "invalid_rows": 0,
+      "original_filename": "milestones.csv",
+      "planned_actions": {
+        "CREATE": 40,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 40,
+      "truncated": false,
+      "valid_rows": 40,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "0b648369-3269-4b27-8d51-d9e701c17c85",
+      "committed_at": "2026-11-19T13:32:34.822199Z",
+      "committed_rows": 11,
+      "entities": {
+        "supplier_commitment_version": {
+          "created": 11,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "supplier_commitment",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 11,
+      "valid_rows": 11
+    },
+    "file": "supplier_commitments.csv",
+    "preview": {
+      "batch_id": "0b648369-3269-4b27-8d51-d9e701c17c85",
+      "duplicate_file": false,
+      "entity_type": "supplier_commitment",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "acd107bf7adaf6f2ba1550d28e645f40f3b0854074352ece5d30c04c68201d2d",
+      "invalid_rows": 0,
+      "original_filename": "supplier_commitments.csv",
+      "planned_actions": {
+        "CREATE": 11,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 11,
+      "truncated": false,
+      "valid_rows": 11,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  },
+  {
+    "commit": {
+      "batch_id": "8de555d2-76ab-4ea2-85c0-1f6dcf2f1ec0",
+      "committed_at": "2026-11-19T13:32:34.851334Z",
+      "committed_rows": 1,
+      "entities": {
+        "supplier_commitment_version": {
+          "created": 1,
+          "unchanged": 0,
+          "updated": 0
+        }
+      },
+      "entity_type": "supplier_commitment",
+      "failed_rows": 0,
+      "invalid_rows": 0,
+      "replayed": false,
+      "skipped_rows": 0,
+      "status": "COMMITTED",
+      "total_rows": 1,
+      "valid_rows": 1
+    },
+    "file": "updates/supplier_commitments_revision_01.csv",
+    "preview": {
+      "batch_id": "8de555d2-76ab-4ea2-85c0-1f6dcf2f1ec0",
+      "duplicate_file": false,
+      "entity_type": "supplier_commitment",
+      "errors": [],
+      "errors_count": 0,
+      "file_sha256": "1dbfa9e60d765d7557d493b360f9409dfd6b2dc12c889b42ae7e6790f19c1559",
+      "invalid_rows": 0,
+      "original_filename": "supplier_commitments_revision_01.csv",
+      "planned_actions": {
+        "CREATE": 1,
+        "NO_CHANGE": 0,
+        "UPDATE": 0
+      },
+      "quality": {
+        "COMPLETENESS": 0,
+        "CONSISTENCY": 0,
+        "REFERENTIAL_INTEGRITY": 0,
+        "UNIQUENESS": 0,
+        "VALIDITY": 0
+      },
+      "sheet_name": null,
+      "source_format": "CSV",
+      "status": "PREVIEWED",
+      "total_rows": 1,
+      "truncated": false,
+      "valid_rows": 1,
+      "warnings": [],
+      "warnings_count": 0
+    }
+  }
+]

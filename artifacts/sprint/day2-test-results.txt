@@ -1,0 +1,77 @@
+Day 2 verification chain (make verify) on the build machine.
+Python 3.12.16, PostgreSQL 16.2 for development and test, both on 127.0.0.2 (see README.md in this folder).
+The repository path is shown as <repo>. Nothing else in the output was changed.
+
+
+=== configuration is valid ===
+APP_ENV=development, database postgresql+psycopg://nexus:***@127.0.0.2:5432/cortex_nexus
+
+=== lockfile matches pyproject.toml ===
+$ uv lock --check
+Resolved 45 packages in 5ms
+
+=== PostgreSQL 16 is reachable (development and test) ===
+development PostgreSQL 16.2, test PostgreSQL 16.2
+
+=== migrations: models match the applied schema ===
+$ uv run alembic check
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+
+=== ruff lint ===
+$ uv run ruff check <repo>
+All checks passed!
+
+=== ruff format ===
+$ uv run ruff format --check <repo>
+121 files already formatted
+
+=== mypy ===
+$ uv run mypy app
+Success: no issues found in 77 source files
+
+=== unit tests ===
+$ uv run pytest tests/unit -q
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+.........                                                                [100%]
+297 passed in 0.50s
+
+=== API tests ===
+$ uv run pytest tests/api -q
+........................................................................ [ 50%]
+......................................................................   [100%]
+142 passed in 19.48s
+
+=== integration tests ===
+$ uv run pytest tests/integration -q
+................................................................         [100%]
+64 passed in 4.01s
+
+=== OpenAPI document is up to date ===
+$ uv run python <repo>/scripts/export_openapi.py --check
+<repo>/docs/engineering/openapi.json is up to date.
+
+=== summary ===
+PASS  configuration is valid  (0.0s)
+PASS  lockfile matches pyproject.toml  (0.02s)
+PASS  PostgreSQL 16 is reachable (development and test)  (0.15s)
+PASS  migrations: models match the applied schema  (1.12s)
+PASS  ruff lint  (0.03s)
+PASS  ruff format  (0.03s)
+PASS  mypy  (0.36s)
+PASS  unit tests  (2.47s)
+PASS  API tests  (21.86s)
+PASS  integration tests  (6.33s)
+PASS  OpenAPI document is up to date  (2.06s)
+
+VERIFICATION PASSED

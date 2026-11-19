@@ -1,88 +1,96 @@
-.PHONY: help dev test lint typecheck migrate seed clean docs openapi graph
+# Cortex Nexus developer commands. One interface for every contributor and for CI.
+# Run `make help` for the list.
 
-help:
-	@echo "Cortex — Enterprise Evidence Platform"
-	@echo ""
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Targets:"
-	@echo "  dev          Start backend and frontend dev servers"
-	@echo "  dev-backend  Start backend dev server only"
-	@echo "  dev-frontend Start frontend dev server only"
-	@echo "  test         Run backend tests"
-	@echo "  test-cov     Run tests with coverage report"
-	@echo "  lint         Run Ruff linter"
-	@echo "  format       Run Ruff formatter"
-	@echo "  typecheck    Run MyPy type checker"
-	@echo "  migrate      Apply database migrations"
-	@echo "  migrate-rev  Create new migration (usage: make migrate-rev MSG=\"description\")"
-	@echo "  seed         Seed database with test data"
-	@echo "  openapi      Generate OpenAPI schema and TypeScript types"
-	@echo "  graph        Generate operational graph from evidence"
-	@echo "  clean        Remove build artifacts and caches"
-	@echo "  docs         Generate API documentation"
-	@echo "  docker-up    Start Docker Compose stack"
-	@echo "  docker-down  Stop Docker Compose stack"
-	@echo "  docker-logs  Show Docker Compose logs"
+SHELL := /bin/bash
+API_DIR := services/api
+COMPOSE := docker compose -f infra/docker-compose.yml
+UV_RUN := cd $(API_DIR) && uv run
+HOST ?= 127.0.0.1
+PORT ?= 8000
+RESET_PHRASE := destroy-local-nexus-data
 
-dev:
-	@echo "Starting backend and frontend..."
-	docker compose up
+.DEFAULT_GOAL := help
+.PHONY: help setup db-up db-down db-reset db-wait migrate migration-check lint format-check \
+	format typecheck test-unit test-api test-integration test coverage run seed smoke \
+	openapi openapi-check verify e2e
 
-dev-backend:
-	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+help: ## List the supported targets
+	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
 
-dev-frontend:
-	cd frontend && npm run dev
+setup: ## Install the locked dependencies (fails if uv.lock is out of date)
+	cd $(API_DIR) && uv sync --frozen
 
-test:
-	cd backend && pytest tests/ -v --tb=short
+db-up: ## Start the local development and test PostgreSQL and wait until both are healthy
+	$(COMPOSE) up -d --wait postgres postgres-test
 
-test-cov:
-	cd backend && pytest tests/ -v --tb=short --cov=app --cov-report=html --cov-report=term
+db-down: ## Stop the local databases; the development data volume is kept
+	$(COMPOSE) down
 
-lint:
-	cd backend && ruff check .
+db-reset: ## DESTRUCTIVE: delete the local development database volume (needs CONFIRM=...)
+	@if [ "$(CONFIRM)" != "$(RESET_PHRASE)" ]; then \
+		echo "db-reset deletes every record in the local development database."; \
+		echo "It is never run by any other target. To proceed, run:"; \
+		echo "    make db-reset CONFIRM=$(RESET_PHRASE)"; \
+		exit 1; \
+	fi
+	$(COMPOSE) down -v
 
-format:
-	cd backend && ruff format .
+db-wait: ## Wait until the development database accepts connections
+	$(UV_RUN) python ../../scripts/wait_for_db.py
 
-typecheck:
-	cd backend && mypy app
+migrate: ## Apply the Alembic migrations to the development database
+	$(UV_RUN) alembic upgrade head
 
-migrate:
-	cd backend && alembic upgrade head
+migration-check: ## Verify a single migration head, the applied revision and that models match it
+	$(UV_RUN) alembic heads
+	$(UV_RUN) alembic current
+	$(UV_RUN) alembic check
 
-migrate-rev:
-	cd backend && alembic revision --autogenerate -m "$(MSG)"
+lint: ## Ruff lint for the service and the scripts
+	$(UV_RUN) ruff check ../..
 
-seed:
-	cd backend && python scripts/seed_data.py
+format-check: ## Verify formatting without changing files
+	$(UV_RUN) ruff format --check ../..
 
-openapi:
-	cd backend && python scripts/generate_types.py
-	cd frontend && npm run generate-types
+format: ## Apply formatting and safe lint fixes
+	$(UV_RUN) ruff format ../..
+	$(UV_RUN) ruff check --fix ../..
 
-graph:
-	cd backend && python scripts/generate_graph.py
+typecheck: ## mypy (strict) over the service package
+	$(UV_RUN) mypy app
 
-clean:
-	@echo "Cleaning build artifacts..."
-	rm -rf backend/__pycache__ backend/app/__pycache__ backend/.pytest_cache backend/.ruff_cache backend/.mypy_cache
-	rm -rf backend/.venv backend/dist backend/*.egg-info
-	rm -rf frontend/node_modules frontend/.next frontend/out
-	rm -rf logs uploads data *.db *.sqlite
-	@echo "Clean complete."
+test-unit: ## Unit tests; no database needed
+	$(UV_RUN) pytest tests/unit -q
 
-docs:
-	cd backend && python scripts/generate_openapi.py
-	@echo "OpenAPI schema generated at backend/openapi.json"
+test-api: ## HTTP contract tests against the test database
+	$(UV_RUN) pytest tests/api -q
 
-docker-up:
-	docker compose up -d
+test-integration: ## Persistence and transaction tests against the test database
+	$(UV_RUN) pytest tests/integration -q
 
-docker-down:
-	docker compose down
+test: ## The full test suite
+	$(UV_RUN) pytest -q
 
-docker-logs:
-	docker compose logs -f
+coverage: ## The full test suite with a coverage report
+	$(UV_RUN) pytest -q --cov=app --cov-report=term-missing
+
+run: ## Start the API on loopback (HOST and PORT can be overridden)
+	$(UV_RUN) uvicorn app.main:app --host $(HOST) --port $(PORT)
+
+seed: ## Import the synthetic demo dataset through the preview and commit services
+	$(UV_RUN) python ../../scripts/seed_demo_data.py
+
+smoke: ## Exercise a running API over HTTP: health, contract, workspace
+	$(UV_RUN) python ../../scripts/smoke_test.py --base-url http://$(HOST):$(PORT)
+
+openapi: ## Export the OpenAPI document to docs/engineering/openapi.json
+	$(UV_RUN) python ../../scripts/export_openapi.py
+
+openapi-check: ## Fail if the committed OpenAPI document differs from the code
+	$(UV_RUN) python ../../scripts/export_openapi.py --check
+
+verify: ## The sprint verification chain; stops at the first failure
+	$(UV_RUN) python ../../scripts/verify_sprint.py
+
+e2e: ## The chain plus the end-to-end demo: import, World State, restart of API and database
+	$(UV_RUN) python ../../scripts/verify_sprint.py --e2e

@@ -1,0 +1,29 @@
+Every commit of Day 3 on its own: checks and tests at each of the thirteen commits.
+Build machine: Python 3.12.16, PostgreSQL 16.2 for the test database, on 127.0.0.2
+(see README.md in this folder for the differences from the project defaults).
+Each commit was checked out in a separate worktree. There, from services/api:
+  uv sync --frozen
+  uv run ruff check ../..              (lint)
+  uv run ruff format --check ../..     (format)
+  uv run mypy app                      (mypy)
+  uv run python ../../scripts/export_openapi.py --check   (openapi)
+  uv run pytest tests/unit -q ; uv run pytest tests/api -q ; uv run pytest tests/integration -q
+Shown: the result of the four checks and the last line pytest printed for each suite.
+The worktree was clean after each commit. The subjects of the commits are in the implementation log.
+
+commit   lint  format  mypy  openapi  unit tests             API tests              integration tests
+7720548  ok    ok      ok    ok       297 passed in 0.64s    150 passed in 21.75s   102 passed in 10.67s
+46cde61  ok    ok      ok    ok       311 passed in 0.71s    173 passed in 28.51s   102 passed in 10.64s
+bcd26d4  ok    ok      ok    ok       311 passed in 0.53s    173 passed in 28.90s   113 passed in 20.31s
+6329e8b  ok    ok      ok    ok       311 passed in 0.63s    173 passed in 30.94s   123 passed in 21.98s
+54f9a8b  ok    ok      ok    ok       335 passed in 0.61s    193 passed in 29.73s   124 passed in 22.36s
+eaaa053  ok    ok      ok    ok       335 passed in 0.59s    195 passed in 30.11s   125 passed in 24.67s
+aaa62dd  ok    ok      ok    ok       335 passed in 0.59s    195 passed in 31.34s   126 passed in 24.79s
+2ffe4b8  ok    ok      ok    ok       335 passed in 0.60s    201 passed in 33.04s   126 passed in 25.71s
+b19decf  ok    ok      ok    ok       335 passed in 0.63s    201 passed in 27.38s   126 passed in 22.62s
+2434cce  ok    ok      ok    ok       335 passed in 0.57s    224 passed in 33.57s   126 passed in 26.74s
+45b0671  ok    ok      ok    ok       335 passed in 0.60s    224 passed in 37.48s   126 passed in 25.81s
+c830e48  ok    ok      ok    ok       339 passed in 0.58s    224 passed in 36.39s   126 passed in 27.43s
+6be089d  ok    ok      ok    ok       339 passed in 0.69s    224 passed in 40.95s   126 passed in 26.00s
+
+13 of 13 commits: every check ok, no test failed.

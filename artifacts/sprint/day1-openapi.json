@@ -1,0 +1,127 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Cortex Nexus API",
+        "description": "Canonical procurement data foundation for critical-equipment projects: workspace-scoped records, import preview and commit with provenance, and a World State projection read from PostgreSQL. Local prototype.",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health/live": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Process liveness",
+                "operationId": "live_health_live_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LivenessResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Database and migration readiness",
+                "operationId": "ready_health_ready_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReadinessResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReadinessResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "LivenessResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "const": "alive",
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "title": "LivenessResponse"
+            },
+            "ReadinessCheck": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ok",
+                            "failed"
+                        ],
+                        "title": "Status"
+                    },
+                    "detail": {
+                        "type": "string",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "status",
+                    "detail"
+                ],
+                "title": "ReadinessCheck"
+            },
+            "ReadinessResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ready",
+                            "not_ready"
+                        ],
+                        "title": "Status"
+                    },
+                    "checks": {
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/ReadinessCheck"
+                        },
+                        "type": "object",
+                        "title": "Checks"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "status",
+                    "checks"
+                ],
+                "title": "ReadinessResponse"
+            }
+        }
+    }
+}

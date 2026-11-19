@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "committed_delivery_date": "2026-11-28",
+      "id": "4743c878-065a-4b90-8350-33b61044e97d",
+      "purchase_order_id": "1010c6fd-e1b6-4e67-bd0f-c29c9e489ce8",
+      "recorded_at": "2026-11-19T13:32:34.807575Z",
+      "recorded_by": "Procurement desk",
+      "source_ingestion_row_id": "821a41af-a266-4ac0-9cc3-928ce7073e79",
+      "source_reference": "PUT-AB-26-1093",
+      "version_no": 1
+    },
+    {
+      "committed_delivery_date": "2026-12-06",
+      "id": "6999e01a-5c4c-40c0-929a-7d765099dd3a",
+      "purchase_order_id": "1010c6fd-e1b6-4e67-bd0f-c29c9e489ce8",
+      "recorded_at": "2026-11-19T13:32:34.850713Z",
+      "recorded_by": "Expediting",
+      "source_ingestion_row_id": "44b50638-e8d8-49d4-bf7f-03a3d984c5d1",
+      "source_reference": "PUT-AB-26-1093-R1",
+      "version_no": 2
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "total": 2
+}

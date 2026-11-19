@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "steps": [
+    {
+      "name": "configuration is valid",
+      "passed": true,
+      "seconds": 0.0,
+      "detail": "APP_ENV=development, database postgresql+psycopg://nexus:***@127.0.0.2:5432/cortex_nexus"
+    },
+    {
+      "name": "lockfile matches pyproject.toml",
+      "passed": true,
+      "seconds": 0.02,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "PostgreSQL 16 is reachable (development and test)",
+      "passed": true,
+      "seconds": 0.19,
+      "detail": "development PostgreSQL 16.2, test PostgreSQL 16.2"
+    },
+    {
+      "name": "migrations: models match the applied schema",
+      "passed": true,
+      "seconds": 1.03,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "ruff lint",
+      "passed": true,
+      "seconds": 0.05,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "ruff format",
+      "passed": true,
+      "seconds": 0.05,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "mypy",
+      "passed": true,
+      "seconds": 0.43,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "unit tests",
+      "passed": true,
+      "seconds": 4.88,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "API tests",
+      "passed": true,
+      "seconds": 42.91,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "integration tests",
+      "passed": true,
+      "seconds": 30.61,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "OpenAPI document is up to date",
+      "passed": true,
+      "seconds": 2.28,
+      "detail": "exit code 0"
+    },
+    {
+      "name": "end to end: import, World State, restart of API and PostgreSQL, compare",
+      "passed": true,
+      "seconds": 12.67,
+      "detail": "World State identical across the restart; evidence in <evidence>/e2e"
+    }
+  ],
+  "not_run": []
+}
