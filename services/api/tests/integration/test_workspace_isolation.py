@@ -14,7 +14,12 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError, ValidationFailedError, WorkspaceNotAvailableError
+from app.core.errors import (
+    ConflictError,
+    NotFoundError,
+    ValidationFailedError,
+    WorkspaceNotAvailableError,
+)
 from app.models import Workspace
 from app.models.enums import IngestionEntityType, MilestoneType, WorkspaceStatus
 from app.repositories import (
@@ -41,6 +46,7 @@ from app.services import (
     project_service,
     purchase_order_service,
     supplier_service,
+    workspace_service,
 )
 from app.services.ingestion_service import ImportLimits, UploadedFile
 from tests import factories
@@ -320,3 +326,43 @@ def test_a_missing_or_disabled_workspace_serves_nothing(session: Session, a: Ten
         with pytest.raises(WorkspaceNotAvailableError):
             operation()
         session.rollback()
+
+
+# --- the one way a workspace comes into being --------------------------------------------
+
+
+def test_the_development_workspace_is_created_once_and_found_afterwards(session: Session) -> None:
+    workspace_id = uuid4()
+
+    created, was_created = workspace_service.ensure_development_workspace(
+        session, workspace_id, name="Local development", slug="local"
+    )
+    again, created_again = workspace_service.ensure_development_workspace(
+        session, workspace_id, name="Another name", slug="another-slug"
+    )
+
+    assert (was_created, created_again) == (True, False)
+    assert again.id == created.id == workspace_id
+    # The second call does not rename what is there.
+    assert (again.name, again.slug, again.status) == (
+        "Local development",
+        "local",
+        WorkspaceStatus.ACTIVE,
+    )
+    assert workspace_service.require_active_workspace(session, workspace_id).id == workspace_id
+
+
+def test_a_second_workspace_cannot_take_a_slug_that_is_in_use(session: Session) -> None:
+    workspace_service.ensure_development_workspace(
+        session, uuid4(), name="Local development", slug="local"
+    )
+    other_id = uuid4()
+
+    with pytest.raises(ConflictError) as failure:
+        workspace_service.ensure_development_workspace(
+            session, other_id, name="Second", slug="local"
+        )
+
+    assert failure.value.code == "DUPLICATE_NATURAL_KEY"
+    with pytest.raises(WorkspaceNotAvailableError):
+        workspace_service.get_workspace(session, other_id)

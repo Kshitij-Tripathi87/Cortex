@@ -119,6 +119,37 @@ def test_decimal_values_are_exact_end_to_end(api: Api, scene: Scene, session: Se
     assert (str(stored.quantity), str(stored.unit_price)) == ("2.125", "1234.56")
 
 
+def test_a_whole_number_may_be_sent_as_a_json_number(api: Api, scene: Scene) -> None:
+    """An integer is exact, unlike a JSON float; it is stored with the scale of its field."""
+    order = scene.order(
+        total_value=1500,
+        items=[{"equipment_id": scene.ups_1, "quantity": 3, "unit_price": 500}],
+    )
+
+    created = api.create("/purchase-orders", order)
+
+    assert created["total_value"] == "1500.00"
+    assert (created["items"][0]["quantity"], created["items"][0]["unit_price"]) == (
+        "3.000",
+        "500.00",
+    )
+    # The bounds of the field hold for a JSON number as for a string.
+    for too_large in (10**16, 10**40, 10**400):
+        error = error_of(
+            api.patch(f"/purchase-orders/{created['id']}", json={"total_value": too_large}),
+            422,
+            "VALIDATION_ERROR",
+        )
+        assert [detail["field"] for detail in error["details"]] == ["total_value"]
+    error = error_of(
+        api.patch(f"/purchase-orders/{created['id']}", json={"total_value": -1}),
+        422,
+        "VALIDATION_ERROR",
+    )
+    assert detail_codes(error) == {("total_value", "MUST_BE_NON_NEGATIVE")}
+    assert api.get(f"/purchase-orders/{created['id']}").json()["total_value"] == "1500.00"
+
+
 @pytest.mark.parametrize(
     ("item", "expected"),
     [
@@ -508,8 +539,17 @@ def test_commitment_validation_and_unknown_order(api: Api, order_id: str) -> Non
     )
     assert detail_codes(error) == {("committed_delivery_date", "INVALID_DATE")}
     # One spelling only: no timestamp, no date-time, no basic format, and no
-    # digits of another script (such a date may be of another calendar).
-    for not_a_date in (1796515200, "2026-12-06T00:00:00", "20261206", "२०२६-१२-०६"):
+    # digits of another script (such a date may be of another calendar). The
+    # right spelling of a day that does not exist is not a date either.
+    for not_a_date in (
+        1796515200,
+        "2026-12-06T00:00:00",
+        "20261206",
+        "२०२६-१२-०६",
+        "2027-02-30",
+        "2026-13-01",
+        "2026-00-10",
+    ):
         error = error_of(
             api.post(path, json={"committed_delivery_date": not_a_date}), 422, "VALIDATION_ERROR"
         )

@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.core.config import Settings
 from app.core.errors import (
@@ -64,6 +64,17 @@ def probe_app(settings: Settings) -> FastAPI:
         cause = psycopg.errors.DeadlockDetected("deadlock detected; secret row value")
         raise OperationalError("UPDATE purchase_orders SET secret", {}, cause)
 
+    def integrity(kind: str) -> None:
+        # What SQLAlchemy raises when a constraint of the database refuses a write.
+        causes = {
+            "unique": psycopg.errors.UniqueViolation("duplicate key; secret row value"),
+            "foreign-key": psycopg.errors.ForeignKeyViolation("violates fk; secret row value"),
+            "check": psycopg.errors.CheckViolation("violates check; secret row value"),
+            "not-null": psycopg.errors.NotNullViolation("null value; secret row value"),
+        }
+        raise IntegrityError("INSERT INTO suppliers secret", {}, causes[kind])
+
+    app.add_api_route("/_probe/integrity/{kind}", integrity, methods=["GET"])
     app.add_api_route("/_probe/boom", boom, methods=["GET"])
     app.add_api_route("/_probe/deadlock", deadlock, methods=["GET"])
     app.add_api_route("/_probe/conflict", conflict, methods=["GET"])
@@ -133,6 +144,34 @@ def test_a_deadlock_is_a_conflict_to_retry_not_an_outage(
         assert leaked not in response.text
     # A warning with the kind of failure; the database's own message is not logged.
     assert "secret" not in caplog.text
+
+
+@pytest.mark.parametrize("kind", ["unique", "foreign-key"])
+def test_a_constraint_met_by_two_writers_is_a_conflict(
+    probe: TestClient, caplog: pytest.LogCaptureFixture, kind: str
+) -> None:
+    """Services check keys and references first; this is the answer when two writers race."""
+    with caplog.at_level("WARNING"):
+        response = probe.get(f"/_probe/integrity/{kind}")
+
+    error = assert_envelope(response, 409, "CONFLICT")
+    assert error["details"] == []
+    for leaked in ("secret", "INSERT", "duplicate key", "violates", "Violation"):
+        assert leaked not in response.text
+    assert "secret" not in caplog.text
+
+
+@pytest.mark.parametrize("kind", ["check", "not-null"])
+def test_a_value_the_schema_forbids_is_a_defect_not_a_conflict(
+    probe: TestClient, caplog: pytest.LogCaptureFixture, kind: str
+) -> None:
+    """Invalid data got past validation. The caller cannot fix that by trying again."""
+    with caplog.at_level("ERROR", logger="app.error"):
+        response = probe.get(f"/_probe/integrity/{kind}")
+
+    assert_envelope(response, 500, "INTERNAL_ERROR")
+    assert "secret" not in response.text
+    assert [record.name for record in caplog.records if record.name == "app.error"] == ["app.error"]
 
 
 def test_a_data_route_reports_an_unreachable_database_without_internals() -> None:

@@ -293,3 +293,55 @@ def test_sources_of_an_unknown_record_and_invalid_parameters(api: Api) -> None:
     error_of(
         api.get("/ingestion/sources", params={"entity_type": "project"}), 422, "VALIDATION_ERROR"
     )
+
+
+def test_an_import_adds_to_the_specification_of_existing_equipment_and_keeps_the_rest(
+    api: Api,
+) -> None:
+    """Supplied attributes are laid over the stored ones; a blank cell changes nothing.
+
+    The record is changed between preview and commit. The commit works on the
+    record as it is then, not on what preview saw.
+    """
+    project = api.create("/projects", {"code": "DC-1", "name": "North Ridge"})
+    equipment = api.create(
+        "/equipment",
+        {
+            "project_id": project["id"],
+            "equipment_code": "UPS-1",
+            "name": "UPS module 1",
+            "category": "UPS",
+            "criticality": "HIGH",
+            "specification": {"description": "2.5 MVA", "notes": "factory test witnessed"},
+        },
+    )
+    headers = [*EQUIPMENT_HEADERS, "Manufacturer", "Model", "Description"]
+    row = ["UPS-1", "DC-1", "UPS module 1", "UPS", "", "HIGH", "Acme Power", "", ""]
+
+    batch = preview(api, "equipment", headers, [row], filename="vendor.csv")
+    assert batch["planned_actions"] == {"CREATE": 0, "UPDATE": 1, "NO_CHANGE": 0}
+    patched = api.patch(
+        f"/equipment/{equipment['id']}",
+        json={"specification": {"description": "3.0 MVA", "notes": "factory test witnessed"}},
+    )
+    assert patched.status_code == 200
+    assert commit(api, batch["batch_id"]).status_code == 200
+
+    assert api.get(f"/equipment/{equipment['id']}").json()["specification"] == {
+        "description": "3.0 MVA",  # the later change, not the value preview had seen
+        "manufacturer": "Acme Power",  # supplied by the file
+        "model": None,  # blank in the file and never recorded
+        "notes": "factory test witnessed",  # not a column of the file
+    }
+
+    # The same attributes again, in another file: nothing is left to change.
+    again = preview(
+        api,
+        "equipment",
+        headers,
+        [["UPS-1", "DC-1", "UPS module 1", "UPS", "", "HIGH", "Acme Power", "", "3.0 MVA"]],
+        filename="vendor-again.csv",
+    )
+    assert again["planned_actions"] == {"CREATE": 0, "UPDATE": 0, "NO_CHANGE": 1}
+    outcome = commit(api, again["batch_id"]).json()
+    assert (outcome["committed_rows"], outcome["skipped_rows"]) == (0, 1)

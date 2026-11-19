@@ -5,8 +5,10 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
+import psycopg
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.errors import (
@@ -31,7 +33,7 @@ from app.models.enums import (
     RowStatus,
     SupplierStatus,
 )
-from app.repositories import supplier_repository
+from app.repositories import ingestion_repository, supplier_repository
 from app.services import ingestion_service, supplier_service
 from tests import factories
 from tests.importing import (
@@ -321,6 +323,79 @@ def test_an_unexpected_failure_mid_batch_leaves_no_partial_records(
     retry = importer.preview(E.SUPPLIER, SUPPLIER_HEADERS, SUPPLIERS)  # same bytes, new batch
     assert retry.batch.id != batch.id
     importer.commit(retry.batch.id)
+    assert table_counts(session, Supplier) == {"Supplier": 4}
+
+
+def _connection_lost(*_: Any, **__: Any) -> Any:
+    """What a statement raises when PostgreSQL stops answering in the middle of a commit."""
+    cause = psycopg.OperationalError("server closed the connection unexpectedly")
+    raise OperationalError("UPDATE suppliers", {}, cause)
+
+
+def test_a_commit_that_loses_the_database_writes_nothing_and_fails_the_batch(
+    importer: Importer, session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not a deadlock: nothing says the same commit would work a moment later.
+
+    The error goes on to the caller as it is (the API answers 503). When the
+    database answers again in time, the batch is recorded as failed, so the
+    file is uploaded again rather than a half-known batch being retried.
+    """
+    preview = importer.preview(E.SUPPLIER, SUPPLIER_HEADERS, SUPPLIERS)
+    real_apply = supplier_service.apply_source_record
+    calls = 0
+
+    def lost_on_the_third_row(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        return _connection_lost() if calls == 3 else real_apply(*args, **kwargs)
+
+    monkeypatch.setattr(supplier_service, "apply_source_record", lost_on_the_third_row)
+
+    with pytest.raises(OperationalError):
+        importer.commit(preview.batch.id)
+
+    assert table_counts(session, Supplier) == {"Supplier": 0}
+    batch = importer.batch(preview.batch.id)
+    assert (batch.status, batch.failure_code) == (BatchStatus.FAILED, "COMMIT_FAILED")
+    assert (batch.committed_rows, batch.skipped_rows, batch.failed_rows) == (0, 4, 0)
+    assert {outcome for _, _, outcome in statuses(importer, batch.id)} == {"ROLLED_BACK"}
+
+
+def test_a_batch_whose_failure_cannot_be_recorded_stays_previewed_and_can_be_committed(
+    importer: Importer, session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The database is gone for the commit and for the note about it.
+
+    PREVIEWED is then still true: nothing was committed. Once the database is
+    back, the same batch is committed in full.
+    """
+    preview = importer.preview(E.SUPPLIER, SUPPLIER_HEADERS, SUPPLIERS)
+    monkeypatch.setattr(supplier_service, "apply_source_record", _connection_lost)
+    real_lock = ingestion_repository.lock_for_commit
+    locks = 0
+
+    def lost_when_recording(*args: Any, **kwargs: Any) -> Any:
+        nonlocal locks
+        locks += 1
+        # The first lock opens the commit; the second belongs to the record of its failure.
+        return real_lock(*args, **kwargs) if locks == 1 else _connection_lost()
+
+    monkeypatch.setattr(ingestion_repository, "lock_for_commit", lost_when_recording)
+
+    with pytest.raises(OperationalError):
+        importer.commit(preview.batch.id)
+
+    assert locks == 2
+    assert table_counts(session, Supplier) == {"Supplier": 0}
+    batch = importer.batch(preview.batch.id)
+    assert (batch.status, batch.failure_code) == (BatchStatus.PREVIEWED, None)
+    assert {status for _, status, _ in statuses(importer, batch.id)} == {"VALID"}
+
+    monkeypatch.undo()
+    result = importer.commit(preview.batch.id)
+
+    assert (result.replayed, result.batch.status) == (False, BatchStatus.COMMITTED)
     assert table_counts(session, Supplier) == {"Supplier": 4}
 
 

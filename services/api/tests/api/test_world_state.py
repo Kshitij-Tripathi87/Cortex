@@ -496,6 +496,36 @@ def test_warnings_are_bounded_and_counts_are_complete(
     assert quality["warnings_truncated"] is True
 
 
+def test_a_full_warning_list_still_counts_what_it_cannot_show(
+    api: Api, session: Session, workspace: Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The list fills up with the first kind of finding; the later kinds are still counted."""
+    from app.services import data_quality_service
+
+    project = factories.make_project(session, workspace, code="DC-1")
+    supplier = factories.make_supplier(session, workspace)
+    for index in range(3):
+        factories.make_equipment(session, project, equipment_code=f"EQ-{index}")
+    for index in range(2):
+        factories.make_purchase_order(session, project, supplier, po_number=f"PO-{index}")
+    monkeypatch.setattr(data_quality_service, "WARNING_LIST_LIMIT", 3)
+
+    quality = api.get("/world-state/summary").json()["data_quality"]
+
+    assert quality["warning_counts"] == {
+        "EQUIPMENT_WITHOUT_PO_LINE_ITEM": 3,
+        "PO_ACKNOWLEDGEMENT_NOT_RECORDED": 2,
+        "PO_WITHOUT_LINE_ITEMS": 2,
+        "PO_WITHOUT_SUPPLIER_COMMITMENT": 2,
+    }
+    assert [(w["code"], w["reference"]) for w in quality["warnings"]] == [
+        ("EQUIPMENT_WITHOUT_PO_LINE_ITEM", "EQ-0"),
+        ("EQUIPMENT_WITHOUT_PO_LINE_ITEM", "EQ-1"),
+        ("EQUIPMENT_WITHOUT_PO_LINE_ITEM", "EQ-2"),
+    ]
+    assert quality["warnings_truncated"] is True
+
+
 # --- properties -------------------------------------------------------------------------
 
 

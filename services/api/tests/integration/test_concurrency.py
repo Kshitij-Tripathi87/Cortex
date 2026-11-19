@@ -38,7 +38,13 @@ from app.models import (
 from app.models.enums import BatchStatus, IngestionEntityType, MilestoneType
 from app.repositories import ingestion_repository, milestone_repository, purchase_order_repository
 from app.schemas.purchase_order import CommitmentCreate
-from app.services import ingestion_service, milestone_service, purchase_order_service
+from app.schemas.supplier import SupplierCreate
+from app.services import (
+    ingestion_service,
+    milestone_service,
+    purchase_order_service,
+    supplier_service,
+)
 from app.services.ingestion_service import PreviewResult, UploadedFile
 from tests.factories import csv_bytes
 from tests.importing import (
@@ -440,6 +446,57 @@ def test_a_commit_ended_by_a_deadlock_writes_nothing_and_can_be_sent_again(
     assert (result.replayed, result.batch.committed_rows) == (False, 2)
     assert commitment_dates(session, first.id) == [(1, "2026-12-15"), (2, "2027-01-20")]
     assert commitment_dates(session, second.id) == [(1, "2026-11-28"), (2, "2027-01-21")]
+
+
+# --- natural keys: the unique key decides between two creators ---------------------------
+
+
+def _create_supplier(workspace_id: UUID, name: str) -> Callable[[Session], Supplier]:
+    payload = SupplierCreate(supplier_code="SUP-RACE", name=name)
+    return lambda own: supplier_service.create_supplier(own, workspace_id, payload)
+
+
+def test_a_record_created_while_another_writer_holds_its_key_is_a_duplicate(
+    db: Database, session: Session, workspace: Workspace
+) -> None:
+    """Both writers looked for the code and neither could see the other.
+
+    The second insert waits on the unique key until the first writer commits,
+    and is then refused by the database. The caller is told the code is taken,
+    as if the first record had been there all along.
+    """
+    with holder(db) as other:
+        other.add(Supplier(workspace_id=workspace.id, supplier_code="SUP-RACE", name="First"))
+        other.flush()
+        writer = Writer(db, _create_supplier(workspace.id, "Second")).start()
+        wait_until_blocked(db, writer.thread)
+        other.commit()
+
+    with pytest.raises(ConflictError) as failure:
+        writer.finish()
+
+    assert failure.value.code == "DUPLICATE_NATURAL_KEY"
+    assert [detail.field for detail in failure.value.details] == ["supplier_code"]
+    session.rollback()
+    assert [supplier.name for supplier in session.scalars(select(Supplier))] == ["First"]
+
+
+def test_a_record_is_created_when_the_writer_that_held_its_key_gives_up(
+    db: Database, session: Session, workspace: Workspace
+) -> None:
+    """The same wait, and the first writer rolls back: the key was never taken."""
+    with holder(db) as other:
+        other.add(Supplier(workspace_id=workspace.id, supplier_code="SUP-RACE", name="First"))
+        other.flush()
+        writer = Writer(db, _create_supplier(workspace.id, "Second")).start()
+        wait_until_blocked(db, writer.thread)
+        other.rollback()
+
+    created = writer.finish()
+
+    assert created.supplier_code == "SUP-RACE"
+    session.rollback()
+    assert [supplier.name for supplier in session.scalars(select(Supplier))] == ["Second"]
 
 
 # --- the same file, uploaded at the same moment ------------------------------------------

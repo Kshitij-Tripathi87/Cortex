@@ -5,11 +5,13 @@ from collections.abc import Iterator
 import pytest
 from alembic import command
 from alembic.script import ScriptDirectory
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.pool import NullPool
 
 from app.core.config import Settings
 from app.db.base import Base
+from app.main import create_app
 from tests.conftest import alembic_config
 
 pytestmark = pytest.mark.db
@@ -104,6 +106,41 @@ def test_downgrade_to_base_and_upgrade_again(empty_database: Engine, settings: S
 
     command.upgrade(config, "head")
     assert tables(empty_database) == EXPECTED_TABLES | {"alembic_version"}
+
+
+def _readiness(settings: Settings) -> tuple[int, dict[str, str], int]:
+    """Status of /health/ready, the outcome of each check, and the status of /health/live."""
+    with TestClient(create_app(settings)) as client:
+        ready = client.get("/health/ready")
+        live = client.get("/health/live")
+    checks = {name: check["status"] for name, check in ready.json()["checks"].items()}
+    return ready.status_code, checks, live.status_code
+
+
+def test_a_database_without_the_schema_is_reachable_and_not_ready(
+    empty_database: Engine, settings: Settings
+) -> None:
+    """PostgreSQL answers, so the database check passes; the service still cannot work."""
+    assert _readiness(settings) == (503, {"database": "ok", "migrations": "failed"}, 200)
+
+    command.upgrade(alembic_config(settings.database_url), "head")
+
+    assert _readiness(settings) == (200, {"database": "ok", "migrations": "ok"}, 200)
+
+
+def test_a_schema_at_another_revision_is_not_ready(
+    empty_database: Engine, settings: Settings
+) -> None:
+    """A revision this code does not know: a newer or an older release wrote the schema."""
+    with empty_database.begin() as connection:
+        connection.execute(text("CREATE TABLE alembic_version (version_num varchar(32) NOT NULL)"))
+        connection.execute(text("INSERT INTO alembic_version VALUES ('9999_unknown')"))
+    try:
+        assert _readiness(settings) == (503, {"database": "ok", "migrations": "failed"}, 200)
+    finally:
+        # The fixture migrates back to head, which needs a version it can find.
+        with empty_database.begin() as connection:
+            connection.execute(text("DROP TABLE alembic_version"))
 
 
 def test_the_migrated_schema_matches_the_models(empty_database: Engine, settings: Settings) -> None:
