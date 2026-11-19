@@ -19,7 +19,8 @@ instead of passing.
 The script edits source files while it runs. Each file is restored in a
 `finally` block, also when the run is interrupted; if the process is killed
 outright, `git checkout -- services/api/app` restores everything. For that
-reason it is not part of `make verify` or of CI.
+reason it is not part of `make verify`. CI runs it in a job of its own, on a
+checkout that is thrown away afterwards.
 """
 
 import argparse

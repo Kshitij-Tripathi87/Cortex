@@ -71,7 +71,8 @@ This is not an automated mutation run. The defects are chosen by hand, one
 per behaviour that matters most (row locks, workspace filters, bounds, the
 answer to a deadlock), and behaviour outside this list has no such evidence.
 The script edits source files while it runs, so it is not part of
-`make verify` or of CI.
+`make verify`. CI runs it in a job of its own, beside the main job, on a
+checkout that is thrown away.
 
 | # | Broken on purpose | Detected by | Result |
 |---|---|---|---|

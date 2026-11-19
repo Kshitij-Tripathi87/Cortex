@@ -26,7 +26,11 @@ services:
     volumes:
       - nexus_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexus -d cortex_nexus"]
+      # Over TCP on purpose. While the image initialises a new data directory
+      # it runs a temporary server that answers on the Unix socket only; a
+      # check through the socket would report "healthy" before the real
+      # server accepts connections.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U nexus -d cortex_nexus"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -44,7 +48,8 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexus -d cortex_nexus_test"]
+      # Over TCP, as above. This instance initialises on every start.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U nexus -d cortex_nexus_test"]
       interval: 2s
       timeout: 3s
       retries: 30

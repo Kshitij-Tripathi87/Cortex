@@ -16,6 +16,25 @@ any other use.
 The repository is a greenfield build. Nothing in it comes from, or depends
 on, an earlier Cortex Nexus codebase.
 
+## What v0.1 does
+
+- **Canonical records** in PostgreSQL: projects, suppliers, equipment,
+  purchase orders with line items, milestones, supplier commitments. Every
+  record belongs to a workspace and every query is scoped to it.
+- **History that is never rewritten.** A changed planned date or a changed
+  supplier commitment is a new version; the earlier ones stay.
+- **Imports in two steps.** `preview` reads a CSV or XLSX file, validates
+  every row and writes only a ledger of the source rows. `commit` writes the
+  valid rows in one transaction, or nothing. Sending the same file or the same
+  commit again changes nothing.
+- **Provenance.** Each record and each version points to the source row that
+  introduced it.
+- **The World State**: counts, records, current and earlier versions, and
+  what is not recorded, read from PostgreSQL on every request.
+
+It does not say whether anything is late or at risk. Those judgements belong
+to a later layer.
+
 ## Stack
 
 Python 3.12 · FastAPI · Pydantic 2 · SQLAlchemy 2 · Alembic · PostgreSQL 16 ·
@@ -57,23 +76,90 @@ curl -f http://127.0.0.1:8000/openapi.json    # the API contract
 Interactive API documentation is at <http://127.0.0.1:8000/docs> while
 `APP_ENV` is `development`.
 
+## The demonstration dataset
+
+`data/samples/nexus_demo/` holds a synthetic data-centre project: 8
+suppliers, 20 pieces of equipment, 12 purchase orders, 40 milestones, 11
+supplier commitments and one revised commitment. `expected.json` beside the
+files states what the World State must show after the import.
+
+Import it and check it:
+
+```bash
+make seed                # preview and commit every file through the services, then check the result
+make run                 # terminal 1
+make smoke               # terminal 2: health, API contract, workspace
+```
+
+`make seed` writes nothing to a table directly. It calls the same preview and
+commit services as the API, and it is safe to run twice.
+
+The same import over HTTP only, with the API running:
+
+```bash
+cd services/api
+uv run python ../../scripts/seed_demo_data.py --workspace-only   # the API has no route that creates a workspace
+uv run python ../../scripts/smoke_test.py --import-demo          # upload, preview, commit, send again, check
+```
+
+Or one file by hand:
+
+```bash
+WS=http://127.0.0.1:8000/api/v1/workspaces/00000000-0000-4000-8000-000000000001
+
+# Preview: validates every row and stores the source rows. No project is created yet.
+curl -s -F entity_type=project -F file=@data/samples/nexus_demo/projects.csv "$WS/ingestion/preview"
+
+# Commit the batch whose id the preview returned.
+curl -s -X POST "$WS/ingestion/<batch_id>/commit"
+
+# Read it back.
+curl -s "$WS/world-state/summary"
+curl -s "$WS/world-state"
+curl -s "$WS/world-state/projects/<project_id>?include_history=true"
+```
+
+Files are imported in the order of their references: projects, suppliers,
+equipment, purchase orders, line items, milestones, supplier commitments.
+
+## Verification
+
+```bash
+make verify              # configuration, lockfile, databases, migrations, Ruff, mypy, all tests, OpenAPI
+make e2e                 # the same, then the end-to-end demonstration
+```
+
+`make e2e` starts the API as its own process, imports the dataset over HTTP,
+sends it again, runs the seed on top, restarts the API and PostgreSQL, and
+checks that the World State is identical each time. It writes to the
+development database and restarts the database containers.
+
+`scripts/defect_detection.py` answers a different question: do the tests fail
+when the behaviour they guard is removed? It breaks the code in 26 chosen
+ways, one at a time, and expects a failing test each time
+(`docs/engineering/test-strategy.md`).
+
 ## Commands
 
-`make help` lists every target. The ones used most:
+`make help` lists every target.
 
 | Command | What it does |
 |---|---|
 | `make setup` | Install the locked dependencies |
 | `make db-up` / `make db-down` | Start / stop the local databases; the development data volume is kept |
 | `make migrate` | Apply the migrations |
+| `make migration-check` | One migration head, applied, and equal to the models |
 | `make run` | Start the API on loopback |
-| `make lint`, `make format-check`, `make typecheck` | Ruff and mypy |
+| `make lint`, `make format-check`, `make typecheck` | Ruff and mypy (strict) |
 | `make test-unit` | Tests that need no database |
 | `make test-api`, `make test-integration` | Tests against the dedicated test database |
 | `make test` | Everything |
-| `make openapi` | Export `docs/engineering/openapi.json` |
+| `make coverage` | Everything, with a coverage report |
+| `make seed` | Import the demonstration dataset through the services |
 | `make smoke` | Check a running API over HTTP |
+| `make openapi` / `make openapi-check` | Export `docs/engineering/openapi.json` / fail if it is stale |
 | `make verify` | The whole verification chain; stops at the first failure |
+| `make e2e` | The chain plus the end-to-end demonstration with restarts |
 
 `make db-reset` deletes the local development database. It is never run by
 another target and needs an explicit confirmation phrase.
@@ -81,18 +167,24 @@ another target and needs an explicit confirmation phrase.
 ## Repository layout
 
 ```text
-.github/workflows/ci.yml     clean-checkout verification
+.github/workflows/ci.yml     clean-checkout verification, end to end
 infra/docker-compose.yml     local PostgreSQL (development and test)
-scripts/                     wait_for_db, export_openapi, smoke_test, verify_sprint
+data/samples/                the demonstration dataset and validation examples
+scripts/                     wait_for_db, export_openapi, seed_demo_data, demo_checks,
+                             smoke_test, verify_sprint, defect_detection
 services/api/                the backend service
   app/core                   settings, clock, logging, errors, request context
   app/db                     declarative base, engine, sessions, readiness checks
-  app/api                    dependencies, router, endpoints
   app/models                 ORM models (the registry Alembic reads)
+  app/schemas                request and response shapes
+  app/repositories           workspace-scoped queries; they never commit
+  app/services               business rules and transactions
+  app/ingestion              reading, column mapping, normalization, row validation (no database)
+  app/api                    dependencies, router, endpoints
   alembic/                   migrations
   tests/                     unit, api, integration
 docs/architecture/           system boundaries, domain model, World State contract, ADRs
-docs/engineering/            API contract, OpenAPI document, implementation log
+docs/engineering/            API contract, OpenAPI document, test strategy, limitations, log
 artifacts/sprint/            evidence captured at each gate
 ```
 
@@ -102,10 +194,14 @@ artifacts/sprint/            evidence captured at each gate
 |---|---|
 | `AGENTS.md` | Invariants and rules for contributors and coding agents |
 | `docs/architecture/system-boundaries.md` | Layers and what each one owns |
-| `docs/architecture/domain-model.md` | Entities, fields, constraints, history and import policy |
+| `docs/architecture/domain-model.md` | Entities, fields, constraints, history, import policy, concurrent writers |
 | `docs/architecture/world-state-contract.md` | The World State responses |
 | `docs/engineering/api-contract.md` | Conventions, status codes, error codes, routes, import |
-| `docs/engineering/implementation-log.md` | What was built each day, with commands and results |
+| `docs/engineering/openapi.json` | The machine-readable contract, exported from the code |
+| `docs/engineering/test-strategy.md` | Test levels, rules, where each scenario is tested, what is not covered |
+| `docs/engineering/known-limitations.md` | What is not built, the limits of what is, the limits of the verification |
+| `docs/engineering/implementation-log.md` | What was built each day, with commands, results and gate decisions |
+| `artifacts/sprint/README.md` | The evidence files and where each was produced |
 
 ## Configuration
 
