@@ -562,6 +562,61 @@
         "title": "CommitmentRead",
         "type": "object"
       },
+      "CommitmentVersionState": {
+        "properties": {
+          "committed_delivery_date": {
+            "format": "date",
+            "title": "Committed Delivery Date",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "recorded_by": {
+            "title": "Recorded By",
+            "type": "string"
+          },
+          "source_ingestion_row_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ingestion Row Id"
+          },
+          "source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Reference"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_no",
+          "committed_delivery_date",
+          "source_reference",
+          "recorded_at",
+          "recorded_by",
+          "source_ingestion_row_id"
+        ],
+        "title": "CommitmentVersionState",
+        "type": "object"
+      },
       "Criticality": {
         "enum": [
           "CRITICAL",
@@ -702,6 +757,42 @@
           "offset"
         ],
         "title": "EquipmentListResponse",
+        "type": "object"
+      },
+      "EquipmentOrderLink": {
+        "description": "A purchase order whose line item names the equipment, with its supplier.",
+        "properties": {
+          "po_number": {
+            "title": "Po Number",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "format": "uuid",
+            "title": "Purchase Order Id",
+            "type": "string"
+          },
+          "purchase_order_item_id": {
+            "format": "uuid",
+            "title": "Purchase Order Item Id",
+            "type": "string"
+          },
+          "quantity": {
+            "decimal_places": 3,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "supplier": {
+            "$ref": "#/components/schemas/SupplierSummary"
+          }
+        },
+        "required": [
+          "purchase_order_id",
+          "po_number",
+          "purchase_order_item_id",
+          "quantity",
+          "supplier"
+        ],
+        "title": "EquipmentOrderLink",
         "type": "object"
       },
       "EquipmentRead": {
@@ -846,6 +937,116 @@
           }
         },
         "title": "EquipmentSpecification",
+        "type": "object"
+      },
+      "EquipmentState": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/EquipmentCategory"
+          },
+          "criticality": {
+            "$ref": "#/components/schemas/Criticality"
+          },
+          "equipment_code": {
+            "title": "Equipment Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "procurement_status": {
+            "$ref": "#/components/schemas/ProcurementStatus"
+          },
+          "purchase_order_count": {
+            "title": "Purchase Order Count",
+            "type": "integer"
+          },
+          "purchase_orders": {
+            "description": "Empty when no purchase order line item names the equipment. No supplier is inferred. At most the first 20; purchase_order_count is the total.",
+            "items": {
+              "$ref": "#/components/schemas/EquipmentOrderLink"
+            },
+            "title": "Purchase Orders",
+            "type": "array"
+          },
+          "required_on_site_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required On Site Date"
+          },
+          "specification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquipmentSpecification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "equipment_code",
+          "name",
+          "category",
+          "criticality",
+          "procurement_status",
+          "required_on_site_date",
+          "specification",
+          "purchase_order_count",
+          "purchase_orders"
+        ],
+        "title": "EquipmentState",
+        "type": "object"
+      },
+      "EquipmentStatePage": {
+        "description": "Equipment ordered by equipment code.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EquipmentState"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Number of items that match, across all pages.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "EquipmentStatePage",
         "type": "object"
       },
       "EquipmentUpdate": {
@@ -1071,6 +1272,81 @@
         "title": "IngestionEntityType",
         "type": "string"
       },
+      "IngestionLedgerSummary": {
+        "properties": {
+          "batches": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Ingestion batches by status.",
+            "title": "Batches",
+            "type": "object"
+          },
+          "rows": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Source rows by status.",
+            "title": "Rows",
+            "type": "object"
+          }
+        },
+        "required": [
+          "batches",
+          "rows"
+        ],
+        "title": "IngestionLedgerSummary",
+        "type": "object"
+      },
+      "LineItemState": {
+        "properties": {
+          "equipment_code": {
+            "title": "Equipment Code",
+            "type": "string"
+          },
+          "equipment_id": {
+            "format": "uuid",
+            "title": "Equipment Id",
+            "type": "string"
+          },
+          "equipment_name": {
+            "title": "Equipment Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "quantity": {
+            "decimal_places": 3,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "decimal_places": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          }
+        },
+        "required": [
+          "id",
+          "equipment_id",
+          "equipment_code",
+          "equipment_name",
+          "quantity",
+          "unit_price"
+        ],
+        "title": "LineItemState",
+        "type": "object"
+      },
       "LivenessResponse": {
         "properties": {
           "status": {
@@ -1266,6 +1542,80 @@
         "title": "MilestoneRead",
         "type": "object"
       },
+      "MilestoneState": {
+        "properties": {
+          "actual_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null until an actual completion date is recorded. Never compared to the plan.",
+            "title": "Actual Date"
+          },
+          "current_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanVersionState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The plan version with the greatest version number."
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "milestone_type": {
+            "$ref": "#/components/schemas/MilestoneType"
+          },
+          "plan_history": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlanVersionState"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null unless include_history is set; then oldest first, latest 50 versions.",
+            "title": "Plan History"
+          },
+          "plan_version_count": {
+            "title": "Plan Version Count",
+            "type": "integer"
+          },
+          "sequence_no": {
+            "title": "Sequence No",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MilestoneStatus"
+          }
+        },
+        "required": [
+          "id",
+          "milestone_type",
+          "sequence_no",
+          "status",
+          "actual_date",
+          "plan_version_count",
+          "current_plan",
+          "plan_history"
+        ],
+        "title": "MilestoneState",
+        "type": "object"
+      },
       "MilestoneStatus": {
         "enum": [
           "PENDING",
@@ -1395,6 +1745,49 @@
           "source_ingestion_row_id"
         ],
         "title": "PlanVersionRead",
+        "type": "object"
+      },
+      "PlanVersionState": {
+        "properties": {
+          "planned_date": {
+            "format": "date",
+            "title": "Planned Date",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "recorded_by": {
+            "title": "Recorded By",
+            "type": "string"
+          },
+          "source_ingestion_row_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ingestion Row Id"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_no",
+          "planned_date",
+          "recorded_at",
+          "recorded_by",
+          "source_ingestion_row_id"
+        ],
+        "title": "PlanVersionState",
         "type": "object"
       },
       "PlannedAction": {
@@ -1542,6 +1935,34 @@
         "title": "ProcurementStatus",
         "type": "string"
       },
+      "ProjectCounts": {
+        "properties": {
+          "equipment": {
+            "title": "Equipment",
+            "type": "integer"
+          },
+          "milestones": {
+            "title": "Milestones",
+            "type": "integer"
+          },
+          "purchase_order_items": {
+            "title": "Purchase Order Items",
+            "type": "integer"
+          },
+          "purchase_orders": {
+            "title": "Purchase Orders",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "equipment",
+          "purchase_orders",
+          "purchase_order_items",
+          "milestones"
+        ],
+        "title": "ProjectCounts",
+        "type": "object"
+      },
       "ProjectCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1594,6 +2015,59 @@
         "title": "ProjectCreate",
         "type": "object"
       },
+      "ProjectIdentity": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProjectStatus"
+          },
+          "target_completion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Completion Date"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "location",
+          "status",
+          "target_completion_date"
+        ],
+        "title": "ProjectIdentity",
+        "type": "object"
+      },
       "ProjectListResponse": {
         "description": "Projects ordered by code.",
         "properties": {
@@ -1628,6 +2102,99 @@
           "offset"
         ],
         "title": "ProjectListResponse",
+        "type": "object"
+      },
+      "ProjectOverview": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ProjectCounts"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProjectStatus"
+          },
+          "target_completion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Completion Date"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "location",
+          "status",
+          "target_completion_date",
+          "counts"
+        ],
+        "title": "ProjectOverview",
+        "type": "object"
+      },
+      "ProjectOverviewPage": {
+        "description": "Projects ordered by code.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectOverview"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Number of items that match, across all pages.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ProjectOverviewPage",
         "type": "object"
       },
       "ProjectRead": {
@@ -1712,6 +2279,40 @@
         "title": "ProjectStatus",
         "type": "string"
       },
+      "ProjectSummaryCounts": {
+        "properties": {
+          "equipment": {
+            "title": "Equipment",
+            "type": "integer"
+          },
+          "milestones": {
+            "title": "Milestones",
+            "type": "integer"
+          },
+          "purchase_order_items": {
+            "title": "Purchase Order Items",
+            "type": "integer"
+          },
+          "purchase_orders": {
+            "title": "Purchase Orders",
+            "type": "integer"
+          },
+          "suppliers": {
+            "description": "Distinct suppliers named on the project's purchase orders.",
+            "title": "Suppliers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "equipment",
+          "purchase_orders",
+          "purchase_order_items",
+          "milestones",
+          "suppliers"
+        ],
+        "title": "ProjectSummaryCounts",
+        "type": "object"
+      },
       "ProjectUpdate": {
         "additionalProperties": false,
         "description": "The project code is the natural key and cannot be changed.",
@@ -1766,6 +2367,46 @@
           }
         },
         "title": "ProjectUpdate",
+        "type": "object"
+      },
+      "ProjectWorldState": {
+        "properties": {
+          "data_quality": {
+            "$ref": "#/components/schemas/RecordQuality"
+          },
+          "equipment": {
+            "$ref": "#/components/schemas/EquipmentStatePage"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectIdentity"
+          },
+          "purchase_orders": {
+            "$ref": "#/components/schemas/PurchaseOrderStatePage"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ProjectSummaryCounts"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "generated_at",
+          "project",
+          "summary",
+          "equipment",
+          "purchase_orders",
+          "data_quality"
+        ],
+        "title": "ProjectWorldState",
         "type": "object"
       },
       "PurchaseOrderCreate": {
@@ -2187,6 +2828,161 @@
         "title": "PurchaseOrderRead",
         "type": "object"
       },
+      "PurchaseOrderState": {
+        "properties": {
+          "commitment_history": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CommitmentVersionState"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null unless include_history is set; then oldest first, latest 50 versions.",
+            "title": "Commitment History"
+          },
+          "commitment_version_count": {
+            "title": "Commitment Version Count",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "current_commitment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommitmentVersionState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The commitment with the greatest version number; null when none is recorded."
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "issue_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Date"
+          },
+          "line_item_count": {
+            "title": "Line Item Count",
+            "type": "integer"
+          },
+          "line_items": {
+            "description": "Ordered by equipment code; at most the first 200.",
+            "items": {
+              "$ref": "#/components/schemas/LineItemState"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "milestone_count": {
+            "title": "Milestone Count",
+            "type": "integer"
+          },
+          "milestones": {
+            "description": "Lifecycle order of the type, then sequence number; at most the first 200.",
+            "items": {
+              "$ref": "#/components/schemas/MilestoneState"
+            },
+            "title": "Milestones",
+            "type": "array"
+          },
+          "po_number": {
+            "title": "Po Number",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PurchaseOrderStatus"
+          },
+          "supplier": {
+            "$ref": "#/components/schemas/SupplierSummary"
+          },
+          "total_value": {
+            "anyOf": [
+              {
+                "decimal_places": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Value"
+          }
+        },
+        "required": [
+          "id",
+          "po_number",
+          "status",
+          "issue_date",
+          "currency",
+          "total_value",
+          "supplier",
+          "line_item_count",
+          "line_items",
+          "milestone_count",
+          "milestones",
+          "commitment_version_count",
+          "current_commitment",
+          "commitment_history"
+        ],
+        "title": "PurchaseOrderState",
+        "type": "object"
+      },
+      "PurchaseOrderStatePage": {
+        "description": "Purchase orders ordered by PO number.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderState"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Number of items that match, across all pages.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PurchaseOrderStatePage",
+        "type": "object"
+      },
       "PurchaseOrderStatus": {
         "enum": [
           "DRAFT",
@@ -2262,6 +3058,63 @@
         "title": "PurchaseOrderUpdate",
         "type": "object"
       },
+      "QualityDimension": {
+        "enum": [
+          "COMPLETENESS",
+          "VALIDITY",
+          "CONSISTENCY",
+          "UNIQUENESS",
+          "REFERENTIAL_INTEGRITY"
+        ],
+        "title": "QualityDimension",
+        "type": "string"
+      },
+      "QualityWarning": {
+        "description": "Something that is not recorded. A statement about the data, not about a party.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "dimension": {
+            "$ref": "#/components/schemas/QualityDimension"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "reference": {
+            "description": "Natural key of the record, for display.",
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimension",
+          "code",
+          "entity_type",
+          "entity_id",
+          "reference",
+          "project_id",
+          "message"
+        ],
+        "title": "QualityWarning",
+        "type": "object"
+      },
       "ReadinessCheck": {
         "properties": {
           "detail": {
@@ -2307,6 +3160,37 @@
           "checks"
         ],
         "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RecordQuality": {
+        "properties": {
+          "warning_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Complete count per warning code. Codes without occurrences are omitted.",
+            "title": "Warning Counts",
+            "type": "object"
+          },
+          "warnings": {
+            "description": "At most 100 warnings, ordered by code, then by reference.",
+            "items": {
+              "$ref": "#/components/schemas/QualityWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_truncated": {
+            "title": "Warnings Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "warning_counts",
+          "warnings",
+          "warnings_truncated"
+        ],
+        "title": "RecordQuality",
         "type": "object"
       },
       "RowIssue": {
@@ -2915,6 +3799,130 @@
         "title": "SupplierUpdate",
         "type": "object"
       },
+      "WorkspaceCounts": {
+        "description": "Number of stored rows of each kind in the workspace, whatever their status.",
+        "properties": {
+          "equipment": {
+            "title": "Equipment",
+            "type": "integer"
+          },
+          "milestone_plan_versions": {
+            "title": "Milestone Plan Versions",
+            "type": "integer"
+          },
+          "milestones": {
+            "title": "Milestones",
+            "type": "integer"
+          },
+          "projects": {
+            "title": "Projects",
+            "type": "integer"
+          },
+          "purchase_order_items": {
+            "title": "Purchase Order Items",
+            "type": "integer"
+          },
+          "purchase_orders": {
+            "title": "Purchase Orders",
+            "type": "integer"
+          },
+          "supplier_commitment_versions": {
+            "title": "Supplier Commitment Versions",
+            "type": "integer"
+          },
+          "suppliers": {
+            "title": "Suppliers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "projects",
+          "suppliers",
+          "equipment",
+          "purchase_orders",
+          "purchase_order_items",
+          "milestones",
+          "milestone_plan_versions",
+          "supplier_commitment_versions"
+        ],
+        "title": "WorkspaceCounts",
+        "type": "object"
+      },
+      "WorkspaceIdentity": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkspaceStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status"
+        ],
+        "title": "WorkspaceIdentity",
+        "type": "object"
+      },
+      "WorkspaceQuality": {
+        "properties": {
+          "ingestion": {
+            "$ref": "#/components/schemas/IngestionLedgerSummary"
+          },
+          "invalid_records": {
+            "description": "Source rows that are INVALID or FAILED.",
+            "title": "Invalid Records",
+            "type": "integer"
+          },
+          "valid_records": {
+            "description": "Source rows that are VALID, COMMITTED or SKIPPED.",
+            "title": "Valid Records",
+            "type": "integer"
+          },
+          "warning_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Complete count per warning code. Codes without occurrences are omitted.",
+            "title": "Warning Counts",
+            "type": "object"
+          },
+          "warnings": {
+            "description": "At most 100 warnings, ordered by code, then by reference.",
+            "items": {
+              "$ref": "#/components/schemas/QualityWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_truncated": {
+            "title": "Warnings Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "warning_counts",
+          "warnings",
+          "warnings_truncated",
+          "valid_records",
+          "invalid_records",
+          "ingestion"
+        ],
+        "title": "WorkspaceQuality",
+        "type": "object"
+      },
       "WorkspaceRead": {
         "properties": {
           "created_at": {
@@ -2962,6 +3970,70 @@
         ],
         "title": "WorkspaceStatus",
         "type": "string"
+      },
+      "WorkspaceWorldState": {
+        "properties": {
+          "data_quality": {
+            "$ref": "#/components/schemas/WorkspaceQuality"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "projects": {
+            "$ref": "#/components/schemas/ProjectOverviewPage"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WorkspaceCounts"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceIdentity"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "generated_at",
+          "summary",
+          "data_quality",
+          "workspace",
+          "projects"
+        ],
+        "title": "WorkspaceWorldState",
+        "type": "object"
+      },
+      "WorldStateSummary": {
+        "properties": {
+          "data_quality": {
+            "$ref": "#/components/schemas/WorkspaceQuality"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WorkspaceCounts"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "generated_at",
+          "summary",
+          "data_quality"
+        ],
+        "title": "WorldStateSummary",
+        "type": "object"
       }
     }
   },
@@ -6541,6 +7613,388 @@
         "summary": "Update a supplier",
         "tags": [
           "suppliers"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/world-state": {
+      "get": {
+        "description": "Counts, data quality and one page of projects, read from PostgreSQL on every call.",
+        "operationId": "get_workspace_world_state_api_v1_workspaces__workspace_id__world_state_get",
+        "parameters": [
+          {
+            "description": "The workspace the request acts in.",
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace the request acts in.",
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Maximum number of items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items to skip.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of items to skip.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceWorldState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The body is not valid JSON."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The record or the workspace is not available."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with existing data or with the state of the record."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The request content is invalid."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The database is not reachable."
+          }
+        },
+        "summary": "Workspace World State",
+        "tags": [
+          "world state"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/world-state/projects/{project_id}": {
+      "get": {
+        "description": "A project with its equipment, purchase orders, line items, milestones and supplier commitments. Facts only: no score, no comparison of dates, no recommendation.",
+        "operationId": "get_project_world_state_api_v1_workspaces__workspace_id__world_state_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The workspace the request acts in.",
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace the request acts in.",
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "equipment_limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Equipment Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "equipment_offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Equipment Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "po_limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Po Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "po_offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Po Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include plan and commitment version lists.",
+            "in": "query",
+            "name": "include_history",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include plan and commitment version lists.",
+              "title": "Include History",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectWorldState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The body is not valid JSON."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The record or the workspace is not available."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with existing data or with the state of the record."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The request content is invalid."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The database is not reachable."
+          }
+        },
+        "summary": "Project World State",
+        "tags": [
+          "world state"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/world-state/summary": {
+      "get": {
+        "operationId": "get_workspace_world_state_summary_api_v1_workspaces__workspace_id__world_state_summary_get",
+        "parameters": [
+          {
+            "description": "The workspace the request acts in.",
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace the request acts in.",
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStateSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The body is not valid JSON."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The record or the workspace is not available."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with existing data or with the state of the record."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The request content is invalid."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The database is not reachable."
+          }
+        },
+        "summary": "Workspace counts and data-quality summary",
+        "tags": [
+          "world state"
         ]
       }
     },

@@ -21,6 +21,8 @@ ROUTES = [
     ("GET", "/equipment"),
     ("GET", "/purchase-orders"),
     ("GET", "/ingestion/batches"),
+    ("GET", "/world-state"),
+    ("GET", "/world-state/summary"),
 ]
 
 
@@ -90,6 +92,7 @@ def test_a_disabled_workspace_can_be_inspected_and_nothing_else(
     assert inspected.status_code == 200
     assert inspected.json()["status"] == "DISABLED"
     error_of(client.get(f"{base}/projects"), 404, "WORKSPACE_NOT_AVAILABLE")
+    error_of(client.get(f"{base}/world-state"), 404, "WORKSPACE_NOT_AVAILABLE")
     error_of(
         client.post(f"{base}/projects", json={"code": "P", "name": "P"}),
         404,
@@ -123,6 +126,7 @@ def test_records_of_another_workspace_are_not_found_by_id(
         f"/purchase-orders/{order.id}/milestones",
         f"/purchase-orders/{order.id}/milestones/{milestone.id}",
         f"/purchase-orders/{order.id}/commitments",
+        f"/world-state/projects/{project.id}",
     ):
         error_of(client.get(base + path), 404, "NOT_FOUND")
 
