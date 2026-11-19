@@ -23,6 +23,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.core.errors import ConflictError
 from app.db.session import Database
 from app.models import (
     IngestionBatch,
@@ -382,6 +383,58 @@ def test_a_second_commit_waits_for_the_first_and_then_reports_its_result(
     # The waiting request found the batch uncommitted and did the work itself, once.
     assert (result.replayed, result.batch.committed_rows) == (False, 1)
     assert commitment_dates(session, order.id) == [(1, "2026-12-15"), (2, "2027-01-20")]
+
+
+# --- a deadlock: PostgreSQL ends one of the two -------------------------------------------
+
+
+def test_a_commit_ended_by_a_deadlock_writes_nothing_and_can_be_sent_again(
+    importer: Importer, session: Session, db: Database
+) -> None:
+    """Two writers, each holding a purchase order the other needs.
+
+    The import locks its purchase orders in order of their number: it takes
+    PO-1 and waits for PO-2, which the other writer holds. The other writer
+    then asks for PO-1. Neither can move; PostgreSQL ends the one that waited
+    first, which is the import.
+    """
+    import_small_dataset(importer)
+    first, second = purchase_order(session, "PO-1"), purchase_order(session, "PO-2")
+    batch_id = importer.preview(
+        E.SUPPLIER_COMMITMENT,
+        COMMITMENT_HEADERS,
+        [["PO-1", "2027-01-20", "", ""], ["PO-2", "2027-01-21", "", ""]],
+    ).batch.id
+    workspace_id = importer.workspace_id
+    session.rollback()
+
+    with holder(db) as other:
+        assert purchase_order_repository.lock_by_id(other, workspace_id, second.id) is not None
+        writer = Writer(
+            db, lambda own: ingestion_service.commit_import(own, workspace_id, batch_id)
+        ).start()
+        wait_until_blocked(db, writer.thread)  # the import holds PO-1 and waits for PO-2
+
+        # Blocks until PostgreSQL has ended the import, then gets the lock.
+        assert purchase_order_repository.lock_by_id(other, workspace_id, first.id) is not None
+
+        with pytest.raises(ConflictError) as failure:
+            writer.finish()
+        other.commit()
+
+    assert failure.value.code == "CONFLICT"
+    assert "Send the commit again" in failure.value.message
+    # Nothing of the batch was written, and the batch itself is as it was.
+    assert commitment_dates(session, first.id) == [(1, "2026-12-15")]
+    assert commitment_dates(session, second.id) == [(1, "2026-11-28")]
+    batch = importer.batch(batch_id)
+    assert (batch.status, batch.failure_code) == (BatchStatus.PREVIEWED, None)
+
+    # Sent again, with nobody in the way, it goes through.
+    result = importer.commit(batch_id)
+    assert (result.replayed, result.batch.committed_rows) == (False, 2)
+    assert commitment_dates(session, first.id) == [(1, "2026-12-15"), (2, "2027-01-20")]
+    assert commitment_dates(session, second.id) == [(1, "2026-11-28"), (2, "2027-01-21")]
 
 
 # --- the same file, uploaded at the same moment ------------------------------------------

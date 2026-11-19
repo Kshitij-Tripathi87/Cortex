@@ -282,8 +282,36 @@ async def _handle_data_error(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+_TRANSACTION_ROLLBACK_CLASS = "40"
+
+
+def ended_to_resolve_a_conflict(exc: DBAPIError) -> bool:
+    """True when PostgreSQL itself ended the transaction because of another one.
+
+    SQLSTATE class 40: a deadlock (two writers each waiting for a row the other
+    holds) or a serialization failure. The database is healthy, everything the
+    transaction did is undone, and the same request can simply be sent again.
+    """
+    sqlstate = getattr(exc.orig, "sqlstate", None) or ""
+    return sqlstate.startswith(_TRANSACTION_ROLLBACK_CLASS)
+
+
 async def _handle_database_unavailable(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DBAPIError)
+    if ended_to_resolve_a_conflict(exc):
+        # A deadlock with another writer. PostgreSQL undid this request to let
+        # the other one through; nothing is wrong with the database.
+        _log.warning(
+            "Transaction ended by PostgreSQL to resolve a conflict",
+            extra={"error_type": type(exc.orig).__name__},
+        )
+        return _respond(
+            request,
+            409,
+            "CONFLICT",
+            "The request collided with another change to the same records and was rolled "
+            "back. Nothing was written. Send it again.",
+        )
     _log.error("Database is not reachable", extra={"error_type": type(exc.orig).__name__})
     return _respond(
         request, 503, "DATABASE_UNAVAILABLE", "The database is not reachable. Try again shortly."

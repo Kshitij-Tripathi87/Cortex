@@ -30,7 +30,7 @@ from typing import Any
 from uuid import UUID
 
 from psycopg.errors import UniqueViolation
-from sqlalchemy.exc import DataError, IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.clock import utcnow
@@ -44,6 +44,7 @@ from app.core.errors import (
     NotFoundError,
     UnsupportedFileError,
     ValidationFailedError,
+    ended_to_resolve_a_conflict,
 )
 from app.db.session import transaction
 from app.ingestion import readers
@@ -962,6 +963,24 @@ def commit_import(session: Session, workspace_id: UUID, batch_id: UUID) -> Commi
             "A database constraint rejected the batch. Nothing was committed and the batch "
             "has failed. Upload the file again.",
             code="COMMIT_CONFLICT",
+        ) from None
+    except OperationalError as exc:
+        if not ended_to_resolve_a_conflict(exc):
+            # The database went away. Recorded if it can be; otherwise the batch
+            # stays PREVIEWED, which is true: nothing was committed.
+            _record_failure(session, workspace_id, batch_id, "COMMIT_FAILED", [])
+            raise
+        # A deadlock with another writer: PostgreSQL undid this commit to let
+        # the other one through. Nothing was written and what preview found
+        # still stands, so the batch stays PREVIEWED and can be committed again.
+        _log.warning(
+            "Commit rolled back by PostgreSQL to resolve a conflict",
+            extra={"batch_id": str(batch_id), "error_type": type(exc.orig).__name__},
+        )
+        raise ConflictError(
+            "The commit collided with another change to the same records and was rolled "
+            "back. Nothing was committed and the batch is unchanged. Send the commit again.",
+            code="CONFLICT",
         ) from None
     except DataError as exc:
         # The database could not store a value that validation had accepted.

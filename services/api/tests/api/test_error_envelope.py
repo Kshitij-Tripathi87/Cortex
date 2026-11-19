@@ -2,10 +2,12 @@
 
 from collections.abc import Iterator
 
+import psycopg.errors
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
 from app.core.errors import (
@@ -20,6 +22,7 @@ from app.core.errors import (
 )
 from app.main import create_app
 from tests.conftest import make_settings
+from tests.constants import DEV_WORKSPACE_ID
 
 
 class _Body(BaseModel):
@@ -56,7 +59,13 @@ def probe_app(settings: Settings) -> FastAPI:
     def echo(body: _Body) -> _Body:
         return body
 
+    def deadlock() -> None:
+        # What SQLAlchemy raises when PostgreSQL ends a transaction to break a deadlock.
+        cause = psycopg.errors.DeadlockDetected("deadlock detected; secret row value")
+        raise OperationalError("UPDATE purchase_orders SET secret", {}, cause)
+
     app.add_api_route("/_probe/boom", boom, methods=["GET"])
+    app.add_api_route("/_probe/deadlock", deadlock, methods=["GET"])
     app.add_api_route("/_probe/conflict", conflict, methods=["GET"])
     app.add_api_route("/_probe/error/{kind}", raise_error, methods=["GET"])
     app.add_api_route("/_probe/echo", echo, methods=["POST"])
@@ -111,6 +120,32 @@ def test_unexpected_error_is_logged_with_the_request_id(
     records = [record for record in caplog.records if record.name == "app.error"]
     assert len(records) == 1
     assert records[0].exc_info is not None
+
+
+def test_a_deadlock_is_a_conflict_to_retry_not_an_outage(
+    probe: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    response = probe.get("/_probe/deadlock")
+
+    error = assert_envelope(response, 409, "CONFLICT")
+    assert "Send it again" in error["message"]
+    for leaked in ("secret", "UPDATE", "deadlock detected", "DeadlockDetected"):
+        assert leaked not in response.text
+    # A warning with the kind of failure; the database's own message is not logged.
+    assert "secret" not in caplog.text
+
+
+def test_a_data_route_reports_an_unreachable_database_without_internals() -> None:
+    unreachable = "postgresql+psycopg://nexus:hunter2@127.0.0.1:1/cortex_nexus_test"
+    app = create_app(make_settings(database_url=unreachable))
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/v1/workspaces/{DEV_WORKSPACE_ID}/projects")
+
+    error = assert_envelope(response, 503, "DATABASE_UNAVAILABLE")
+    assert error["details"] == []
+    for leaked in ("127.0.0.1", "hunter2", "nexus", "psycopg", "Connection refused"):
+        assert leaked not in response.text
 
 
 def test_domain_error_with_details(probe: TestClient) -> None:
