@@ -18,3 +18,9 @@ known-third-party = ["alembic"]
 [lint.per-file-ignores]
 # Command-line tools report their results on standard output.
 "scripts/*.py" = ["T20"]
+# Migrations list DDL; a long constraint definition stays on one line.
+"services/api/alembic/versions/*.py" = ["E501"]
+# Parser tests feed the values a spreadsheet produces: naive datetimes and
+# look-alike Unicode letters are the cases under test.
+"services/api/tests/unit/test_readers.py" = ["DTZ001"]
+"services/api/tests/unit/test_normalization.py" = ["DTZ001", "RUF001"]

@@ -1,7 +1,7 @@
 """${message}
 
 Revision ID: ${up_revision}
-Revises: ${down_revision | comma,n}
+Revises: ${", ".join(down_revision) if isinstance(down_revision, (list, tuple)) else (down_revision or "(none)")}
 Create Date: ${create_date}
 """
 

@@ -7,7 +7,8 @@ The target database is, in this order:
    from Python (the test suite);
 3. ``DATABASE_URL`` from the application settings.
 
-The URL is never logged.
+The URL is never logged. A Python caller can also set
+``config.attributes["configure_logging"] = False`` to keep its own logging.
 """
 
 from logging.config import fileConfig
@@ -21,7 +22,9 @@ from app.db.base import Base
 
 config = context.config
 
-if config.config_file_name is not None:
+# Logging is configured from alembic.ini for the command line only. A caller
+# that drives Alembic from Python (the test suite) keeps its own logging.
+if config.config_file_name is not None and config.attributes.get("configure_logging", True):
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
