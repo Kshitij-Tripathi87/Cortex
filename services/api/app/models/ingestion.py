@@ -36,6 +36,10 @@ from app.models.enums import (
     SourceFormat,
 )
 
+# The unique index that makes the same bytes for the same entity type one
+# batch. The ingestion service recognises a violation of it by this name.
+ACTIVE_CHECKSUM_INDEX = "uq_ingestion_batches_active_checksum"
+
 
 def _in_list(column: str, values: type[CanonicalEntityType]) -> str:
     quoted = ", ".join(f"'{member.value}'" for member in values)
@@ -49,7 +53,7 @@ class IngestionBatch(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         # FAILED batch wrote nothing canonical and does not block a new
         # attempt with the same file.
         Index(
-            "uq_ingestion_batches_active_checksum",
+            ACTIVE_CHECKSUM_INDEX,
             "workspace_id",
             "entity_type",
             "file_sha256",

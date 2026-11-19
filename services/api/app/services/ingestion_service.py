@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -46,7 +47,13 @@ from app.core.errors import (
 )
 from app.db.session import transaction
 from app.ingestion import readers
-from app.ingestion.column_mapping import ENTITY_SPECS, decode_normalized, map_headers, map_row
+from app.ingestion.column_mapping import (
+    ENTITY_SPECS,
+    HeaderMapping,
+    decode_normalized,
+    map_headers,
+    map_row,
+)
 from app.ingestion.contracts import (
     CandidateRow,
     MappedRow,
@@ -71,7 +78,7 @@ from app.models.enums import (
 )
 from app.models.equipment import Equipment
 from app.models.field_policy import SOURCE_OWNED_FIELDS
-from app.models.ingestion import IngestionBatch, IngestionRow
+from app.models.ingestion import ACTIVE_CHECKSUM_INDEX, IngestionBatch, IngestionRow
 from app.models.milestone import Milestone
 from app.models.project import Project
 from app.models.purchase_order import PurchaseOrder
@@ -498,9 +505,46 @@ def preview_import(
     spec = ENTITY_SPECS[entity_type]
     header_mapping = map_headers(spec, sheet)
     mapped = [map_row(spec, header_mapping, row) for row in sheet.rows]
-    extra_cells = {row.row_number: row.extra_cells for row in sheet.rows}
     checksum = hashlib.sha256(upload.data).hexdigest()
 
+    def record() -> PreviewResult:
+        return _record_preview(
+            session, workspace_id, upload, entity_type, sheet, header_mapping, mapped, checksum
+        )
+
+    try:
+        return record()
+    except IntegrityError as exc:
+        if not _is_checksum_collision(exc):
+            raise
+        # Another request stored the same bytes for this entity type a moment
+        # ago. The unique index made this insert wait until that batch was
+        # committed, so it exists now: answer with it, as for any repeated upload.
+        _log.info("Concurrent upload resolved to the existing batch")
+        return record()
+
+
+def _is_checksum_collision(exc: IntegrityError) -> bool:
+    """True when the write was refused because the same file already has a batch."""
+    diagnostics = getattr(exc.orig, "diag", None)
+    return (
+        isinstance(exc.orig, UniqueViolation)
+        and getattr(diagnostics, "constraint_name", None) == ACTIVE_CHECKSUM_INDEX
+    )
+
+
+def _record_preview(
+    session: Session,
+    workspace_id: UUID,
+    upload: UploadedFile,
+    entity_type: IngestionEntityType,
+    sheet: ParsedSheet,
+    header_mapping: HeaderMapping,
+    mapped: Sequence[MappedRow],
+    checksum: str,
+) -> PreviewResult:
+    """Assess the mapped rows and write the verdict to the ledger, in one transaction."""
+    extra_cells = {row.row_number: row.extra_cells for row in sheet.rows}
     with transaction(session):
         workspace_service.require_active_workspace(session, workspace_id)
         existing = ingestion_repository.get_by_checksum(
