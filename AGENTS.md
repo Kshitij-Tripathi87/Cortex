@@ -7,6 +7,12 @@ playbook ("Three-Day Greenfield Engineering Execution Playbook", v2.0) is the
 authority these files are derived from; where they disagree, raise it with
 the lead instead of choosing.
 
+The playbook itself is not in this repository: the repository is public and
+the playbook is a planning document of the project lead. Ask the lead for it.
+Everything a change needs is restated in `docs/architecture/` and
+`docs/engineering/`, and every place where the build departs from the
+playbook is listed in `docs/engineering/implementation-log.md`.
+
 ## Invariants you must not break
 
 1. **PostgreSQL is the source of truth.** Responses are projections of stored

@@ -12,10 +12,22 @@ swallowed. The databases must already be running and migrated (`make db-up`,
 `make migrate`). The chain itself changes no data.
 
 --e2e adds the end-to-end demonstration, which does write to the development
-database: it starts the API, imports the demo dataset through the services,
-checks it over HTTP, saves the World State, stops the API, restarts
-PostgreSQL without deleting its data, starts the API again and checks that
-the World State is identical. By default PostgreSQL is restarted with
+database. It starts the API as its own process and then:
+
+    1. creates or finds the development workspace;
+    2. uploads, previews and commits every file of the demo dataset over
+       HTTP, in dependency order, the revised commitment last;
+    3. sends the whole dataset again over HTTP (nothing may change), checks
+       the World State against the dataset and against the list totals, and
+       saves it;
+    4. runs the seed, which imports the same files through the services
+       (nothing may change), and compares the World State with the saved one;
+    5. stops the API, restarts PostgreSQL without deleting its data, starts
+       the API again and compares the World State once more.
+
+Run on a database that already holds the dataset, step 2 finds every file
+committed; the proof file says which of the two happened. By default
+PostgreSQL is restarted with
 `make db-down` and `make db-up`, which removes and recreates the container and
 keeps the named volume. --db-restart-cmd replaces that command where the
 database is not run by Docker Compose.
@@ -167,6 +179,27 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _first_import_note(results_file: Path) -> str:
+    """What the HTTP import did, read from the responses it recorded."""
+    results = json.loads(results_file.read_text(encoding="utf-8"))
+    new = [
+        result
+        for result in results
+        if result["preview"].get("duplicate_file") is False
+        and result["commit"].get("replayed") is False
+    ]
+    rows = sum(result["commit"].get("committed_rows", 0) for result in new)
+    if len(new) == len(results):
+        return (
+            f"demo dataset imported over HTTP for the first time: {len(results)} files "
+            f"previewed (201) and committed, {rows} rows committed"
+        )
+    return (
+        f"demo dataset sent over HTTP: {len(new)} of {len(results)} files were new; the others "
+        "were already committed in this database and were recognised by their checksum"
+    )
+
+
 def run_e2e(host: str, db_restart_command: str, evidence_dir: Path) -> str:
     """Import, check, restart everything, check again. Writes the evidence files."""
     settings = get_settings()
@@ -185,14 +218,15 @@ def run_e2e(host: str, db_restart_command: str, evidence_dir: Path) -> str:
     started_before = _query(settings.database_url, "SELECT pg_postmaster_start_time()")
     port = _free_port(host)
     with running_api(host, port, api_log) as pid:
+        base_url = f"http://{host}:{port}"
         note(f"API started (pid {pid}) on {host}:{port}; readiness 200")
-        _run([*python, str(SCRIPTS_DIR / "seed_demo_data.py")])
-        note("demo dataset imported through the preview and commit services (seed_demo_data.py)")
+        _run([*python, str(SCRIPTS_DIR / "seed_demo_data.py"), "--workspace-only"])
+        note("development workspace created or found (seed_demo_data.py --workspace-only)")
         _run(
             [
                 *smoke,
                 "--base-url",
-                f"http://{host}:{port}",
+                base_url,
                 "--import-demo",
                 "--save-world-state",
                 str(before_file),
@@ -200,10 +234,15 @@ def run_e2e(host: str, db_restart_command: str, evidence_dir: Path) -> str:
                 str(evidence_dir),
             ]
         )
+        note(_first_import_note(evidence_dir / "day3-import-results.json"))
         note(
             "dataset sent again over HTTP: every file resolved to its batch, every commit a replay"
         )
         note(f"World State saved without generated_at: sha256 {_sha256(before_file)}")
+        _run([*python, str(SCRIPTS_DIR / "seed_demo_data.py")])
+        note("seed run through the preview and commit services: every file already committed")
+        _run([*smoke, "--base-url", base_url, "--compare-world-state", str(before_file)])
+        note("World State after the seed identical to the saved one")
     note(f"API stopped (pid {pid})")
 
     _run([], cwd=REPO_ROOT, shell_text=db_restart_command)

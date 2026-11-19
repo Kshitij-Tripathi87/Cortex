@@ -2,6 +2,7 @@
 
 Usage (from services/api):
     uv run python ../../scripts/seed_demo_data.py
+    uv run python ../../scripts/seed_demo_data.py --workspace-only
     uv run python ../../scripts/seed_demo_data.py --reset --confirm "DELETE ALL LOCAL NEXUS DATA"
 
 Every file goes through the same preview and commit services the API uses, in
@@ -12,6 +13,10 @@ their checksum and nothing is written again.
 After the import the dataset is checked against the World State, expected
 values next to actual ones. The exit code is 1 if a file cannot be imported
 completely or a check fails.
+
+--workspace-only creates or finds the development workspace and stops. The
+API has no route that creates a workspace; this is how an empty database is
+prepared for imports sent over HTTP.
 
 --reset deletes every record of the local development database first. It is
 never the default, works only when APP_ENV is development and the database is
@@ -116,6 +121,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--reset", action="store_true", help="delete all local data first")
     parser.add_argument("--confirm", help=f'required with --reset: "{RESET_PHRASE}"')
+    parser.add_argument(
+        "--workspace-only",
+        action="store_true",
+        help="create or find the development workspace and import nothing",
+    )
     arguments = parser.parse_args()
 
     settings = get_settings()
@@ -139,6 +149,8 @@ def main() -> int:
                 f"WORKSPACE {workspace.id} {workspace.slug!r} "
                 f"({'created' if created else 'already present'}, {workspace.status.value})"
             )
+            if arguments.workspace_only:
+                return 0
             limits = ImportLimits.from_settings(settings)
             for entry in [*manifest["files"], *manifest["updates"]]:
                 import_file(session, workspace.id, entry, limits)

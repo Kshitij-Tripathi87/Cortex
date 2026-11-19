@@ -397,6 +397,11 @@ def test_a_commit_ended_by_a_deadlock_writes_nothing_and_can_be_sent_again(
     PO-1 and waits for PO-2, which the other writer holds. The other writer
     then asks for PO-1. Neither can move; PostgreSQL ends the one that waited
     first, which is the import.
+
+    (The waiter that finds the cycle is ended, and each waiter looks once,
+    ``deadlock_timeout`` after it began to wait: one second by default. The
+    other writer asks for PO-1 some 20 ms after the import began to wait, so
+    it is the import that finds it.)
     """
     import_small_dataset(importer)
     first, second = purchase_order(session, "PO-1"), purchase_order(session, "PO-2")
