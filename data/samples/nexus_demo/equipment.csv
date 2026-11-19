@@ -1,0 +1,21 @@
+Equipment Code,Project Code,Equipment Name,Category,Required On-Site Date,Criticality,Procurement Status,Specification,Manufacturer,Model
+TR-001,DC-IN-001,Main power transformer 1,TRANSFORMER,2027-02-01,CRITICAL,IN_PRODUCTION,33/11 kV 25 MVA oil-filled,Halcyon Grid Transformers,HG-25M
+TR-002,DC-IN-001,Main power transformer 2,TRANSFORMER,2027-02-01,CRITICAL,IN_PRODUCTION,33/11 kV 25 MVA oil-filled,Halcyon Grid Transformers,HG-25M
+TR-003,DC-IN-001,Auxiliary transformer,TRANSFORMER,2027-02-15,HIGH,ORDERED,11/0.415 kV 2.5 MVA dry-type,Halcyon Grid Transformers,HG-2D5
+SG-001,DC-IN-001,33 kV switchgear line-up A,SWITCHGEAR,2027-01-11,CRITICAL,IN_PRODUCTION,33 kV gas-insulated 7 panels,Corvane Switchgear Works,CV-GIS-33
+SG-002,DC-IN-001,33 kV switchgear line-up B,SWITCHGEAR,2027-01-11,HIGH,IN_PRODUCTION,33 kV gas-insulated 7 panels,Corvane Switchgear Works,CV-GIS-33
+SG-003,DC-IN-001,11 kV switchgear panel,SWITCHGEAR,2027-03-01,HIGH,ORDERED,11 kV metal-clad 12 panels,Corvane Switchgear Works,CV-MC-11
+SG-004,DC-IN-001,LV main distribution board,SWITCHGEAR,2027-04-12,MEDIUM,ORDERED,415 V 6300 A form 4b,Tessaly Busway and Controls,TB-LV-63
+DG-001,DC-IN-001,Diesel generator set 1,GENERATOR,2026-11-25,CRITICAL,IN_PRODUCTION,2.5 MVA 11 kV standby,Kestrel Genset Systems,KG-2500
+DG-002,DC-IN-001,Diesel generator set 2,GENERATOR,2026-11-25,HIGH,IN_PRODUCTION,2.5 MVA 11 kV standby,Kestrel Genset Systems,KG-2500
+DG-003,DC-IN-001,Diesel generator set 3,GENERATOR,2027-01-18,CRITICAL,RFQ,2.5 MVA 11 kV standby,,
+UPS-001,DC-IN-001,UPS module A1,UPS,2026-12-15,CRITICAL,IN_PRODUCTION,500 kVA modular double-conversion,Pellam UPS Technologies,PU-500M
+UPS-002,DC-IN-001,UPS module A2,UPS,2026-12-15,HIGH,IN_PRODUCTION,500 kVA modular double-conversion,Pellam UPS Technologies,PU-500M
+UPS-003,DC-IN-001,UPS module B1,UPS,2027-02-08,HIGH,ORDERED,500 kVA modular double-conversion,Quillon Critical Power,QC-M500
+UPS-004,DC-IN-001,UPS battery cabinet set,UPS,2027-02-08,HIGH,ORDERED,Lithium-ion 10 minute autonomy,Quillon Critical Power,QC-LB10
+CH-001,DC-IN-001,Air-cooled chiller 1,COOLING,2026-10-12,HIGH,DELIVERED,1200 kW free-cooling,Brightwater Chiller Company,BW-1200F
+CH-002,DC-IN-001,Air-cooled chiller 2,COOLING,2026-10-12,HIGH,DELIVERED,1200 kW free-cooling,Brightwater Chiller Company,BW-1200F
+CH-003,DC-IN-001,Air-cooled chiller 3,COOLING,2027-01-12,MEDIUM,IN_PRODUCTION,1200 kW free-cooling,Brightwater Chiller Company,BW-1200F
+CH-004,DC-IN-001,Air-cooled chiller 4,COOLING,2027-01-12,MEDIUM,IN_PRODUCTION,1200 kW free-cooling,Brightwater Chiller Company,BW-1200F
+CH-005,DC-IN-001,Computer room air handler set,COOLING,2027-03-15,MEDIUM,ORDERED,8 units 150 kW chilled water,Marrow Creek Thermal,MC-CRAH-150
+AUX-001,DC-IN-001,Fire suppression control panel,OTHER,2027-02-22,LOW,ORDERED,Addressable 4-loop panel,Tessaly Busway and Controls,TB-FS-4L

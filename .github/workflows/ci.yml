@@ -1,5 +1,7 @@
-# Clean-checkout verification. Every command is a Makefile target, so CI and a
-# developer run the same thing.
+# Clean-checkout verification, from an empty runner to the end-to-end proof.
+# Every command is a Makefile target or a script of this repository, so CI and
+# a developer run the same thing. Nothing here talks to a service outside the
+# runner except the package index.
 name: CI
 
 on:
@@ -17,9 +19,9 @@ concurrency:
 
 jobs:
   verify:
-    name: Lint, types and unit tests
+    name: Clean checkout to end-to-end proof
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -33,8 +35,15 @@ jobs:
           enable-cache: true
           cache-dependency-glob: services/api/uv.lock
 
+      - name: Local configuration from the template
+        run: cp .env.example .env
+
       - name: Install the locked dependencies
-        run: make setup
+        run: |
+          make setup
+          # A lockfile that is out of date fails the install above; this fails
+          # if the install changed it.
+          git diff --exit-code -- services/api/uv.lock
 
       - name: Lint
         run: make lint
@@ -45,5 +54,64 @@ jobs:
       - name: Type check
         run: make typecheck
 
-      - name: Unit tests
+      - name: Unit tests (no database)
         run: make test-unit
+
+      - name: Start PostgreSQL 16 with Docker Compose (development and test)
+        run: |
+          make db-up
+          docker compose -f infra/docker-compose.yml ps
+          docker volume ls --filter name=nexus_pgdata
+
+      - name: Migrate the empty development database
+        run: |
+          make migrate
+          make migration-check
+
+      - name: API and integration tests on the test database
+        run: make test-api test-integration
+
+      - name: OpenAPI document is up to date
+        run: make openapi-check
+
+      - name: End to end, with a restart of the API and of the database container
+        # Seeds the demo dataset through the services, checks it over HTTP,
+        # removes and recreates the PostgreSQL container (the named volume is
+        # kept) and checks that the World State is identical.
+        run: |
+          cd services/api
+          uv run python ../../scripts/verify_sprint.py --e2e-only \
+            --evidence-dir ../../artifacts/tmp/e2e \
+            --summary ../../artifacts/tmp/verify-e2e.json
+
+      - name: Report the evidence
+        if: always()
+        run: |
+          annotate() {
+            # One annotation per item, readable on the run page without the log.
+            local title="$1" body
+            body=$(cat | head -c 3500 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=${title}::${body}"
+          }
+          docker compose -f infra/docker-compose.yml ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' | annotate "docker compose ps" || true
+          docker volume ls --filter name=nexus_pgdata --format '{{.Name}} ({{.Driver}})' | annotate "named volume" || true
+          if [ -f artifacts/tmp/e2e/day3-restart-proof.txt ]; then
+            annotate "restart proof" < artifacts/tmp/e2e/day3-restart-proof.txt
+          fi
+          if [ -f artifacts/tmp/verify-e2e.json ]; then
+            annotate "end-to-end summary" < artifacts/tmp/verify-e2e.json
+          fi
+          cd services/api && uv run python --version | annotate "python" || true
+
+      - name: Keep the evidence files
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sprint-evidence
+          path: artifacts/tmp/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Stop the databases (the volume is kept)
+        if: always()
+        run: make db-down

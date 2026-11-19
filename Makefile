@@ -11,8 +11,8 @@ RESET_PHRASE := destroy-local-nexus-data
 
 .DEFAULT_GOAL := help
 .PHONY: help setup db-up db-down db-reset db-wait migrate migration-check lint format-check \
-	format typecheck test-unit test-api test-integration test coverage run smoke \
-	openapi openapi-check verify
+	format typecheck test-unit test-api test-integration test coverage run seed smoke \
+	openapi openapi-check verify e2e
 
 help: ## List the supported targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -77,7 +77,10 @@ coverage: ## The full test suite with a coverage report
 run: ## Start the API on loopback (HOST and PORT can be overridden)
 	$(UV_RUN) uvicorn app.main:app --host $(HOST) --port $(PORT)
 
-smoke: ## Exercise a running API over HTTP
+seed: ## Import the synthetic demo dataset through the preview and commit services
+	$(UV_RUN) python ../../scripts/seed_demo_data.py
+
+smoke: ## Exercise a running API over HTTP: health, contract, workspace
 	$(UV_RUN) python ../../scripts/smoke_test.py --base-url http://$(HOST):$(PORT)
 
 openapi: ## Export the OpenAPI document to docs/engineering/openapi.json
@@ -88,3 +91,6 @@ openapi-check: ## Fail if the committed OpenAPI document differs from the code
 
 verify: ## The sprint verification chain; stops at the first failure
 	$(UV_RUN) python ../../scripts/verify_sprint.py
+
+e2e: ## The chain plus the end-to-end demo: import, World State, restart of API and database
+	$(UV_RUN) python ../../scripts/verify_sprint.py --e2e

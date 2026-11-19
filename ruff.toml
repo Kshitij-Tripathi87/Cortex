@@ -11,7 +11,7 @@ src = ["services/api"]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "DTZ", "T20", "PT", "RUF"]
 
 [lint.isort]
-known-first-party = ["app", "tests"]
+known-first-party = ["app", "tests", "demo_checks"]
 # services/api/alembic holds the migration scripts; `alembic` the library is third-party.
 known-third-party = ["alembic"]
 

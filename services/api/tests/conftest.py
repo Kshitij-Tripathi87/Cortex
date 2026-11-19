@@ -5,6 +5,7 @@ is built here from explicit values. Database-backed tests use the dedicated
 test database only and refuse to run against anything else.
 """
 
+import sys
 from collections.abc import Iterator
 from typing import Any
 from uuid import UUID
@@ -28,6 +29,12 @@ from app.main import create_app
 from app.models import Workspace
 from tests import factories
 from tests.constants import DEMO_AS_OF, DEV_WORKSPACE_ID
+
+# The demo dataset checks live with the command-line scripts and are shared
+# by the seed, the smoke test and the tests.
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
 DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://nexus:nexus_test@127.0.0.1:5433/cortex_nexus_test"
 
