@@ -1,0 +1,20 @@
+# One lint and format configuration for the whole repository:
+# the API service (services/api) and the command-line scripts (scripts/).
+line-length = 100
+target-version = "py312"
+src = ["services/api"]
+
+[lint]
+# E/F/W: pycodestyle and pyflakes. I: import order. UP: current syntax.
+# B: likely bugs. C4/SIM: simpler code. DTZ: no naive datetimes.
+# T20: no print() in the service. PT: pytest style. RUF: ruff's own checks.
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "DTZ", "T20", "PT", "RUF"]
+
+[lint.isort]
+known-first-party = ["app", "tests"]
+# services/api/alembic holds the migration scripts; `alembic` the library is third-party.
+known-third-party = ["alembic"]
+
+[lint.per-file-ignores]
+# Command-line tools report their results on standard output.
+"scripts/*.py" = ["T20"]

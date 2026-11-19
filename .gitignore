@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Secrets and local configuration. Only the template is committed.
+.env
+.env.*
+!.env.example
+
+# Local database files and dumps
+pgdata/
+*.dump
+*.sql.gz
+
+# Scratch output of the verification harness. The curated evidence in
+# artifacts/sprint/ is committed; anything under artifacts/tmp/ is not.
+artifacts/tmp/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+.DS_Store

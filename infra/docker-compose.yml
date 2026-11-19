@@ -1,0 +1,55 @@
+# Local PostgreSQL for Cortex Nexus. Development and test only.
+#
+# - Both databases listen on loopback only; nothing is published on other
+#   interfaces.
+# - The credentials are local placeholders that match .env.example.
+# - "postgres" keeps its data in a named volume, so it survives
+#   `docker compose down` and container restarts. Only `down -v`
+#   (make db-reset) deletes it.
+# - "postgres-test" keeps its data in memory and is empty after every start.
+#   The test suite owns it and truncates it freely.
+#
+# Image policy: PostgreSQL 16 pinned to an explicit minor release. Move to a
+# newer 16.x deliberately, in a commit of its own.
+
+name: cortex-nexus
+
+services:
+  postgres:
+    image: postgres:16.16
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_dev
+      POSTGRES_DB: cortex_nexus
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - nexus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d cortex_nexus"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: "no"
+
+  postgres-test:
+    image: postgres:16.16
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_test
+      POSTGRES_DB: cortex_nexus_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d cortex_nexus_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: "no"
+
+volumes:
+  nexus_pgdata:

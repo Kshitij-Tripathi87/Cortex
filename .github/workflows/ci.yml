@@ -1,0 +1,49 @@
+# Clean-checkout verification. Every command is a Makefile target, so CI and a
+# developer run the same thing.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "sprint/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, types and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.9"
+          enable-cache: true
+          cache-dependency-glob: services/api/uv.lock
+
+      - name: Install the locked dependencies
+        run: make setup
+
+      - name: Lint
+        run: make lint
+
+      - name: Format check
+        run: make format-check
+
+      - name: Type check
+        run: make typecheck
+
+      - name: Unit tests
+        run: make test-unit
