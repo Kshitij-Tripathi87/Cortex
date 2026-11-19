@@ -1,10 +1,32 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiClient, useAuth } from "@/lib/auth";
+import { ColumnReview } from "@/components/evidence/ColumnReview";
 import { UploadsList } from "@/components/evidence/UploadsList";
+import {
+  CLAIM_PAGE,
+  CONFLICTS_SHOWN,
+  LONG_ACTION_NOTE,
+  LONG_ACTION_TIMEOUT_MS,
+  NO_FILTERS,
+  STATE_CHOICES,
+  conflictsLine,
+  filterQuery,
+  hasFilters,
+  matching,
+  nextPageSize,
+  pageQuery,
+  reloadSize,
+  rowProblem,
+  sameFilters,
+  showingLine,
+  type ClaimFilters,
+  type ClaimStateFilter,
+  type ClaimSummary,
+} from "@/lib/nexus/claimList";
 
 type ClaimState = "pending_review" | "accepted" | "rejected" | "superseded" | "conflicted";
 
@@ -25,9 +47,20 @@ interface EvidenceClaim {
   created_at: string;
 }
 
+/** One of the values a conflict is about, as the conflict itself carries it. */
+interface ConflictValue {
+  claim_id: string;
+  row_number: number;
+  source_column: string;
+  raw_value: string;
+  claim_state: ClaimState | string;
+}
+
 interface EvidenceConflict {
   conflict_id: string;
   claim_ids: string[];
+  /** The values that disagree, in file order. */
+  claims?: ConflictValue[];
   canonical_entity: string | null;
   canonical_field: string | null;
   severity: string;
@@ -97,17 +130,24 @@ function readinessStyle(state: string): string {
 // explicit colour class would otherwise be near-white on white.
 const PAGE_SURFACE = "min-h-screen bg-slate-50 text-slate-900";
 
-/** Claims of a conflict in file order, for showing the competing values. */
-function conflictClaims(conflict: EvidenceConflict, claims: EvidenceClaim[]): EvidenceClaim[] {
-  return claims
-    .filter((claim) => conflict.claim_ids.includes(claim.claim_id))
-    .sort((left, right) => left.row_number - right.row_number);
+/**
+ * The competing values of a conflict, in file order. The conflict carries
+ * them: the table of values holds one page, which may not include them.
+ */
+function conflictClaims(conflict: EvidenceConflict): ConflictValue[] {
+  return conflict.claims ?? [];
 }
 
-function claimStateNote(claim: EvidenceClaim): string {
+function claimStateNote(claim: { claim_state: string }): string {
   return claim.claim_state === "accepted" || claim.claim_state === "pending_review"
     ? ""
     : ` (${String(claim.claim_state).replaceAll("_", " ")})`;
+}
+
+const formatCount = (value: number): string => value.toLocaleString("en-US");
+
+function sameList(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 
 function EvidenceContent() {
@@ -123,7 +163,25 @@ function EvidenceContent() {
     "operations_manager",
   ].includes(user?.role ?? "");
 
+  // One page of the values, in file order; "show more" adds the next.
   const [claims, setClaims] = useState<EvidenceClaim[]>([]);
+  // Counts of the whole batch, and of what the filters leave.
+  const [summary, setSummary] = useState<ClaimSummary | null>(null);
+  const [matchingSummary, setMatchingSummary] = useState<ClaimSummary | null>(null);
+  const [filters, setFilters] = useState<ClaimFilters>(NO_FILTERS);
+  // The filters the table and its counts were loaded with. While they differ
+  // from what is chosen, the table still answers the earlier question.
+  const [loadedFilters, setLoadedFilters] = useState<ClaimFilters>(NO_FILTERS);
+  const [columnChoices, setColumnChoices] = useState<string[]>([]);
+  const [loadingClaims, setLoadingClaims] = useState(false);
+  const [claimsError, setClaimsError] = useState<string | null>(null);
+  // What a reload of the batch asks the table for, without making the reload
+  // depend on every keystroke in a filter.
+  const filtersRef = useRef<ClaimFilters>(NO_FILTERS);
+  const shownRef = useRef(0);
+  const filtersChanged = useRef(false);
+  // The latest request for values; an answer to an earlier one is dropped.
+  const claimsRequest = useRef(0);
   const [conflicts, setConflicts] = useState<EvidenceConflict[]>([]);
   const [readiness, setReadiness] = useState<ReadinessAssessment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -142,15 +200,71 @@ function EvidenceContent() {
   const [conflictRationale, setConflictRationale] = useState("");
   const [resolvingConflict, setResolvingConflict] = useState(false);
   const [publishResult, setPublishResult] = useState<PublishResponse | null>(null);
+  // Counts the loads of the batch, so the column review reloads with it.
+  const [batchLoads, setBatchLoads] = useState(0);
+
+  const loadClaims = useCallback(
+    async (use: ClaimFilters, limit: number, offset: number) => {
+      if (!batchId || !workspaceId) return;
+      const request = ++claimsRequest.current;
+      if (rowProblem(use.row)) {
+        // Not a row: nothing is asked for, and the table says why it is empty.
+        setClaims([]);
+        setMatchingSummary(null);
+        setLoadedFilters(use);
+        setClaimsError(null);
+        setLoadingClaims(false);
+        return;
+      }
+      const path = `/sources/batches/${encodeURIComponent(batchId)}/claims`;
+      setLoadingClaims(true);
+      setClaimsError(null);
+      try {
+        const [rows, counts] = await Promise.all([
+          apiClient.get<EvidenceClaim[]>(path, { workspace_id: workspaceId, ...pageQuery(use, limit, offset) }),
+          // The next page of the same list has the same counts.
+          offset > 0
+            ? Promise.resolve(null)
+            : apiClient.get<ClaimSummary>(`${path}/summary`, { workspace_id: workspaceId, ...filterQuery(use) }),
+        ]);
+        if (request !== claimsRequest.current) return;
+        if (offset > 0) {
+          setClaims((current) => {
+            const shown = new Set(current.map((claim) => claim.claim_id));
+            return [...current, ...rows.filter((claim) => !shown.has(claim.claim_id))];
+          });
+        } else {
+          setClaims(rows);
+        }
+        if (counts) setMatchingSummary(counts);
+        setLoadedFilters(use);
+      } catch (claimsLoadError) {
+        if (request === claimsRequest.current) {
+          setClaimsError(messageFor(claimsLoadError));
+          if (offset === 0) {
+            // What these filters leave is not known: nothing is shown as if it were.
+            setClaims([]);
+            setMatchingSummary(null);
+            setLoadedFilters(use);
+          }
+        }
+      } finally {
+        if (request === claimsRequest.current) setLoadingClaims(false);
+      }
+    },
+    [batchId, workspaceId],
+  );
 
   const loadBatch = useCallback(async () => {
     if (!batchId || !workspaceId) return;
     setLoading(true);
     setError(null);
+    // The table loads beside the rest and reports its own failure.
+    const table = loadClaims(filtersRef.current, reloadSize(shownRef.current), 0);
     try {
-      const [claimRows, conflictRows, assessment] = await Promise.all([
-        apiClient.get<EvidenceClaim[]>(
-          `/sources/batches/${encodeURIComponent(batchId)}/claims`,
+      const [counts, conflictRows, assessment] = await Promise.all([
+        apiClient.get<ClaimSummary>(
+          `/sources/batches/${encodeURIComponent(batchId)}/claims/summary`,
           { workspace_id: workspaceId },
         ),
         apiClient.get<EvidenceConflict[]>(
@@ -163,15 +277,37 @@ function EvidenceContent() {
           { query: { workspace_id: workspaceId } },
         ),
       ]);
-      setClaims(claimRows);
+      setSummary(counts);
       setConflicts(conflictRows);
       setReadiness(assessment);
+      setBatchLoads((value) => value + 1);
     } catch (loadError) {
       setError(messageFor(loadError));
     } finally {
+      await table;
       setLoading(false);
     }
-  }, [batchId, workspaceId]);
+  }, [batchId, workspaceId, loadClaims]);
+
+  useEffect(() => {
+    shownRef.current = claims.length;
+  }, [claims.length]);
+
+  function changeFilters(next: ClaimFilters) {
+    filtersRef.current = next;
+    filtersChanged.current = true;
+    setFilters(next);
+  }
+
+  // A changed filter brings the first page of what it leaves, once the
+  // reviewer has stopped typing.
+  useEffect(() => {
+    if (!filtersChanged.current) return;
+    const timer = window.setTimeout(() => {
+      void loadClaims(filters, CLAIM_PAGE, 0);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [filters, loadClaims]);
 
   useEffect(() => {
     if (status === "AUTHENTICATED" && batchId && workspaceId) {
@@ -185,10 +321,14 @@ function EvidenceContent() {
     () => new Set(conflicts.filter((c) => c.status === "open" || c.status === "escalated").flatMap((c) => c.claim_ids)),
     [conflicts],
   );
-  const pendingCount = claims.filter((claim) => claim.claim_state === "pending_review").length;
-  const acceptedCount = claims.filter((claim) => claim.claim_state === "accepted").length;
-  const rejectedCount = claims.filter((claim) => claim.claim_state === "rejected").length;
   const openConflicts = conflicts.filter((conflict) => conflict.status === "open" || conflict.status === "escalated");
+  const shownConflicts = openConflicts.slice(0, CONFLICTS_SHOWN);
+  const rowNote = rowProblem(filters.row);
+  // What is said about the table is said about what it was loaded with.
+  const searching = !sameFilters(filters, loadedFilters);
+  const filtered = hasFilters(loadedFilters);
+  const matchingTotal = matching(matchingSummary, loadedFilters.state);
+  const moreValues = searching || rowNote ? 0 : nextPageSize(claims.length, matchingTotal);
   const canPublish =
     !!readiness &&
     (readiness.state === "ready" || readiness.state === "ready_with_assumptions") &&
@@ -206,11 +346,13 @@ function EvidenceContent() {
       const response = await apiClient.post<PrepareResponse>(
         `/sources/batches/${encodeURIComponent(batchId)}/compile`,
         undefined,
-        { query: { workspace_id: workspaceId } },
+        { query: { workspace_id: workspaceId }, timeoutMs: LONG_ACTION_TIMEOUT_MS },
       );
       setNotice(
-        `Prepared batch: ${response.claims_created} new claims, ${response.conflicts_detected} new conflicts. Readiness: ${response.readiness.replaceAll("_", " ")}.`,
+        `Prepared batch: ${formatCount(response.claims_created)} new claims, ${formatCount(response.conflicts_detected)} new conflicts. Readiness: ${response.readiness.replaceAll("_", " ")}.`,
       );
+      // Done: the page is only being read again from here on.
+      setPreparing(false);
       await loadBatch();
     } catch (prepareError) {
       setError(messageFor(prepareError));
@@ -243,7 +385,7 @@ function EvidenceContent() {
             ? { canonical_entity: canonicalEntity, canonical_field: canonicalField }
             : {}),
         },
-        { query: { workspace_id: workspaceId } },
+        { query: { workspace_id: workspaceId }, timeoutMs: LONG_ACTION_TIMEOUT_MS },
       );
       setNotice(`Claim ${decision} and audit recorded.`);
       setSelectedClaim(null);
@@ -274,7 +416,7 @@ function EvidenceContent() {
           action: conflictAction,
           rationale: conflictRationale.trim(),
         },
-        { query: { workspace_id: workspaceId } },
+        { query: { workspace_id: workspaceId }, timeoutMs: LONG_ACTION_TIMEOUT_MS },
       );
       setNotice(`Conflict decision recorded: ${conflictAction}.`);
       setSelectedConflict(null);
@@ -297,13 +439,15 @@ function EvidenceContent() {
       const published = await apiClient.post<PublishResponse>(
         `/graph/batches/${encodeURIComponent(batchId)}/compile`,
         undefined,
-        { query: { workspace_id: workspaceId } },
+        { query: { workspace_id: workspaceId }, timeoutMs: LONG_ACTION_TIMEOUT_MS },
       );
       if (!published.integrity_passed) {
         throw new Error("The graph integrity check did not pass. The batch was not accepted as published.");
       }
       setPublishResult(published);
       setNotice("Batch published to the canonical graph and persisted with an integrity-checked snapshot.");
+      // Done: the page is only being read again from here on.
+      setPublishing(false);
       await loadBatch();
     } catch (publishError) {
       setError(messageFor(publishError));
@@ -368,10 +512,13 @@ function EvidenceContent() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* `border-solid` is needed on a button: the site-wide reset in
+                globals.css (`button { border: 0 }`) sets the border style to
+                none, so `border` alone draws nothing. */}
             <button
               onClick={() => void loadBatch()}
               disabled={loading}
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+              className="rounded border border-solid border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
             >
               Refresh
             </button>
@@ -386,18 +533,23 @@ function EvidenceContent() {
           </div>
         </header>
 
-        {error && <div role="alert" className="mb-4 border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
-        {notice && <div role="status" className="mb-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
+        {error && <div role="alert" className="mb-4 break-words border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
+        {notice && <div role="status" className="mb-4 break-words border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
+        {(preparing || publishing) && (
+          <p aria-live="polite" className="mb-4 border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" data-testid="evidence-working">
+            {preparing ? "Preparing the claims of this upload." : "Publishing this upload."} {LONG_ACTION_NOTE}
+          </p>
+        )}
 
         <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
           {[
-            ["Claims", String(claims.length)],
-            ["Pending", String(pendingCount)],
-            ["Accepted", String(acceptedCount)],
-            ["Rejected", String(rejectedCount)],
-            ["Open conflicts", String(openConflicts.length)],
+            ["Claims", summary ? formatCount(summary.total) : "—"],
+            ["Pending", summary ? formatCount(summary.pending_review) : "—"],
+            ["Accepted", summary ? formatCount(summary.accepted) : "—"],
+            ["Rejected", summary ? formatCount(summary.rejected) : "—"],
+            ["Open conflicts", formatCount(openConflicts.length)],
           ].map(([label, value]) => (
-            <div key={label} className="border border-slate-200 bg-white p-4">
+            <div key={label} className="border border-slate-200 bg-white p-4" data-testid="evidence-count">
               <p className="text-xs text-slate-500">{label}</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{value}</p>
             </div>
@@ -419,15 +571,15 @@ function EvidenceContent() {
           <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
             <div>
               <p className="text-xs text-slate-500">Blocking conflicts</p>
-              <p className="mt-1 text-lg font-semibold text-slate-950">{readiness?.blocking_conflict_count ?? "—"}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-950">{readiness ? formatCount(readiness.blocking_conflict_count) : "—"}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Pending claims</p>
-              <p className="mt-1 text-lg font-semibold text-slate-950">{readiness?.pending_claim_count ?? "—"}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-950">{readiness ? formatCount(readiness.pending_claim_count) : "—"}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Accepted claims</p>
-              <p className="mt-1 text-lg font-semibold text-slate-950">{readiness?.accepted_claim_count ?? "—"}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-950">{readiness ? formatCount(readiness.accepted_claim_count) : "—"}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
@@ -449,9 +601,9 @@ function EvidenceContent() {
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Published snapshot</p>
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div><p className="text-xs text-slate-500">Version</p><p className="font-semibold">{publishResult.version}</p></div>
-              <div><p className="text-xs text-slate-500">Nodes</p><p className="font-semibold">{publishResult.node_count}</p></div>
-              <div><p className="text-xs text-slate-500">Edges</p><p className="font-semibold">{publishResult.edge_count}</p></div>
-              <div><p className="text-xs text-slate-500">Provenance links</p><p className="font-semibold">{publishResult.provenance_link_count}</p></div>
+              <div><p className="text-xs text-slate-500">Nodes</p><p className="font-semibold">{formatCount(publishResult.node_count)}</p></div>
+              <div><p className="text-xs text-slate-500">Edges</p><p className="font-semibold">{formatCount(publishResult.edge_count)}</p></div>
+              <div><p className="text-xs text-slate-500">Provenance links</p><p className="font-semibold">{formatCount(publishResult.provenance_link_count)}</p></div>
             </div>
             <p className="mt-3 break-all font-mono text-[11px] text-slate-500">SHA-256: {publishResult.snapshot_hash}</p>
             <Link href="/nexus/world" className="mt-4 inline-flex rounded bg-slate-900 px-4 py-2 text-sm text-white">
@@ -460,17 +612,102 @@ function EvidenceContent() {
           </section>
         )}
 
+        {summary !== null && summary.total > 0 && (
+          <ColumnReview
+            batchId={batchId}
+            workspaceId={workspaceId}
+            canReview={canReview}
+            refreshKey={batchLoads}
+            onColumns={(columns) => setColumnChoices((current) => (sameList(current, columns) ? current : columns))}
+            onDecided={(message) => {
+              setNotice(message);
+              void loadBatch();
+              // The notice and the publish button are at the top of the page.
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        )}
+
         {/* `grid-cols-1` lets the single narrow-screen column shrink to the
             screen, so the wide claims table scrolls inside its own box. */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
           <section className="border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-4">
               <h2 className="font-semibold text-slate-950">Extracted claims</h2>
-              <p className="mt-1 text-xs text-slate-500">Each cell of the file (one row, one column) is a claim. Only accepted cells are published. Decisions are recorded with reviewer identity and rationale.</p>
+              <p className="mt-1 text-xs text-slate-500">Each cell of the file (one row, one column) is a claim. Only accepted cells are published. Whole columns are decided above; this table is for a single value that needs its own decision. Decisions are recorded with reviewer identity and rationale.</p>
             </div>
-            {loading ? (
-              <div className="p-8 text-center text-sm text-slate-500">Loading claims…</div>
-            ) : claims.length === 0 ? (
+            {summary !== null && summary.total > 0 && (
+              // Narrowing the table: a file can hold far more values than a
+              // page shows, and a reviewer comes here for particular ones.
+              <div className="border-b border-slate-200 p-4" data-testid="claims-filters">
+                <div className="flex flex-wrap items-end gap-3 text-xs text-slate-600">
+                  <label className="flex flex-col gap-1">
+                    Show
+                    <select
+                      value={filters.state}
+                      onChange={(event) => changeFilters({ ...filters, state: event.target.value as ClaimStateFilter })}
+                      className="border border-slate-300 bg-white p-2 text-sm text-slate-900"
+                      data-testid="claims-filter-state"
+                    >
+                      {STATE_CHOICES.map((choice) => (
+                        <option key={choice.value} value={choice.value}>{choice.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-1">
+                    Column
+                    <select
+                      value={filters.column}
+                      onChange={(event) => changeFilters({ ...filters, column: event.target.value })}
+                      className="max-w-[14rem] border border-slate-300 bg-white p-2 text-sm text-slate-900"
+                      data-testid="claims-filter-column"
+                    >
+                      <option value="">All columns</option>
+                      {columnChoices.map((column) => (
+                        <option key={column} value={column}>{column}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    Row
+                    <input
+                      value={filters.row}
+                      onChange={(event) => changeFilters({ ...filters, row: event.target.value })}
+                      inputMode="numeric"
+                      maxLength={9}
+                      placeholder="Any"
+                      className="w-20 border border-slate-300 bg-white p-2 text-sm text-slate-900"
+                      data-testid="claims-filter-row"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    Value contains
+                    <input
+                      value={filters.value}
+                      onChange={(event) => changeFilters({ ...filters, value: event.target.value })}
+                      maxLength={200}
+                      placeholder="Any"
+                      className="w-40 border border-slate-300 bg-white p-2 text-sm text-slate-900"
+                      data-testid="claims-filter-value"
+                    />
+                  </label>
+                  {hasFilters(filters) && (
+                    <button
+                      type="button"
+                      onClick={() => changeFilters(NO_FILTERS)}
+                      className="rounded border border-solid border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                      data-testid="claims-filter-clear"
+                    >
+                      Show all values
+                    </button>
+                  )}
+                </div>
+                {rowNote && <p role="alert" className="mt-2 text-xs text-rose-700" data-testid="claims-filter-problem">{rowNote}</p>}
+              </div>
+            )}
+            {summary === null ? (
+              <div className="p-8 text-center text-sm text-slate-500">{loading ? "Loading claims…" : "The claims could not be loaded."}</div>
+            ) : summary.total === 0 ? (
               <div className="p-8 text-center">
                 <p className="text-sm text-slate-600">No claims have been prepared for this batch.</p>
                 <button onClick={() => void prepareClaims()} disabled={preparing || !canReview} className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">
@@ -478,8 +715,17 @@ function EvidenceContent() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+              <>
+              {claimsError && (
+                <div role="alert" className="break-words border-b border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" data-testid="claims-error">
+                  The values could not be loaded: {claimsError}{" "}
+                  <button type="button" onClick={() => void loadClaims(filters, reloadSize(claims.length), 0)} className="ml-1 underline">
+                    Retry
+                  </button>
+                </div>
+              )}
+              <div className={`overflow-x-auto ${loadingClaims || searching ? "opacity-60" : ""}`} aria-busy={loadingClaims || searching}>
+                <table className="w-full text-left text-sm" data-testid="claims-table">
                   <thead className="bg-slate-50 text-xs text-slate-500">
                     <tr>
                       <th className="px-4 py-3">Source column</th>
@@ -531,6 +777,29 @@ function EvidenceContent() {
                   </tbody>
                 </table>
               </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
+                <p className="text-xs text-slate-600" data-testid="claims-showing">
+                  {rowNote
+                    ? "Nothing was searched for."
+                    : searching || (loadingClaims && claims.length === 0)
+                      ? "Searching…"
+                      : claimsError && matchingTotal === null
+                        ? "The values are not shown: they could not be loaded."
+                        : showingLine(claims.length, matchingTotal, filtered)}
+                </p>
+                {moreValues > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void loadClaims(loadedFilters, moreValues, claims.length)}
+                    disabled={loadingClaims}
+                    className="rounded border border-solid border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+                    data-testid="claims-more"
+                  >
+                    {loadingClaims ? "Loading…" : `Show ${formatCount(moreValues)} more`}
+                  </button>
+                )}
+              </div>
+              </>
             )}
           </section>
 
@@ -543,17 +812,22 @@ function EvidenceContent() {
               <p className="p-5 text-sm text-slate-500">No open conflicts for this batch.</p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {openConflicts.map((conflict) => (
+                {conflictsLine(shownConflicts.length, openConflicts.length) && (
+                  <p className="p-4 text-xs text-slate-600" data-testid="conflicts-more">
+                    {conflictsLine(shownConflicts.length, openConflicts.length)}
+                  </p>
+                )}
+                {shownConflicts.map((conflict) => (
                   <div key={conflict.conflict_id} className="p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-slate-900">{conflict.canonical_entity ?? "Unknown entity"} · {conflict.canonical_field ?? "Unmapped field"}</p>
+                      <p className="min-w-0 break-words text-sm font-medium text-slate-900">{conflict.canonical_entity ?? "Unknown entity"} · {conflict.canonical_field ?? "Unmapped field"}</p>
                       <span className={`rounded px-2 py-1 text-[10px] ${conflict.blocking ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
                         {conflict.status === "escalated" ? "Escalated" : conflict.blocking ? "Blocking" : conflict.severity}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-600">{conflict.explanation}</p>
-                    <ul className="mt-2 space-y-1 text-xs text-slate-700" data-testid="conflict-values">
-                      {conflictClaims(conflict, claims).map((claim) => (
+                    <p className="mt-2 break-words text-xs text-slate-600">{conflict.explanation}</p>
+                    <ul className="mt-2 space-y-1 break-words text-xs text-slate-700" data-testid="conflict-values">
+                      {conflictClaims(conflict).map((claim) => (
                         <li key={claim.claim_id}>
                           <span className="text-slate-500">Row {claim.row_number}:</span>{" "}
                           <span className="font-mono">{claim.raw_value}</span>
@@ -563,7 +837,7 @@ function EvidenceContent() {
                     </ul>
                     <p className="mt-2 text-[11px] text-slate-500">{conflict.claim_ids.length} claims involved</p>
                     <button
-                      onClick={() => { setSelectedConflict(conflict); setConflictClaimId(conflictClaims(conflict, claims).find((claim) => claim.claim_state === "accepted" || claim.claim_state === "pending_review")?.claim_id ?? ""); setConflictAction("approved"); setConflictRationale(""); }}
+                      onClick={() => { setSelectedConflict(conflict); setConflictClaimId(conflictClaims(conflict).find((claim) => claim.claim_state === "accepted" || claim.claim_state === "pending_review")?.claim_id ?? ""); setConflictAction("approved"); setConflictRationale(""); }}
                       disabled={!canReview}
                       className="mt-3 text-xs font-semibold text-blue-700 hover:underline disabled:opacity-40"
                     >
@@ -623,8 +897,8 @@ function EvidenceContent() {
                 <textarea id="claim-rationale" value={claimRationale} onChange={(event) => setClaimRationale(event.target.value)} rows={3} minLength={3} maxLength={2000} className="w-full border border-slate-300 p-3 text-sm" placeholder="Explain why this source mapping/value is accepted or rejected." />
               </div>
               <div className="flex flex-wrap justify-end gap-2">
-                <button onClick={() => setSelectedClaim(null)} className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700">Cancel</button>
-                <button onClick={() => void submitClaimReview("rejected")} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded border border-rose-300 px-3 py-2 text-sm text-rose-700 disabled:opacity-40">
+                <button onClick={() => setSelectedClaim(null)} className="rounded border border-solid border-slate-300 px-3 py-2 text-sm text-slate-700">Cancel</button>
+                <button onClick={() => void submitClaimReview("rejected")} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded border border-solid border-rose-300 px-3 py-2 text-sm text-rose-700 disabled:opacity-40">
                   Reject claim
                 </button>
                 <button onClick={() => void submitClaimReview("accepted")} disabled={reviewingClaim || claimRationale.trim().length < 3} className="rounded bg-emerald-700 px-3 py-2 text-sm text-white disabled:opacity-40">
@@ -661,7 +935,7 @@ function EvidenceContent() {
                   <label htmlFor="conflict-claim" className="mb-1 block text-xs font-medium text-slate-700">Claim</label>
                   <select id="conflict-claim" value={conflictClaimId} onChange={(event) => setConflictClaimId(event.target.value)} className="w-full border border-slate-300 p-2 text-sm">
                     {conflictAction === "rejected" && <option value="">Reject all claims in this conflict</option>}
-                    {conflictClaims(selectedConflict, claims)
+                    {conflictClaims(selectedConflict)
                       .filter((claim) => claim.claim_state === "accepted" || claim.claim_state === "pending_review")
                       .map((claim) => (
                         <option key={claim.claim_id} value={claim.claim_id}>Row {claim.row_number} · {claim.source_column}: {claim.raw_value}</option>
@@ -674,7 +948,7 @@ function EvidenceContent() {
                 <textarea id="conflict-rationale" value={conflictRationale} onChange={(event) => setConflictRationale(event.target.value)} rows={3} minLength={3} maxLength={2000} className="w-full border border-slate-300 p-3 text-sm" placeholder="Explain the decision or escalation." />
               </div>
               <div className="flex justify-end gap-2">
-                <button onClick={() => setSelectedConflict(null)} className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700">Cancel</button>
+                <button onClick={() => setSelectedConflict(null)} className="rounded border border-solid border-slate-300 px-3 py-2 text-sm text-slate-700">Cancel</button>
                 <button onClick={() => void submitConflictResolution()} disabled={resolvingConflict || conflictRationale.trim().length < 3} className="rounded bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-40">
                   {resolvingConflict ? "Recording…" : "Record decision"}
                 </button>

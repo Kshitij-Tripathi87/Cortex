@@ -63,5 +63,19 @@ jobs:
           cd ../frontend && npm ci
       - name: Generate and verify OpenAPI types
         run: |
-          cd backend && python -m scripts.generate_types
-          git diff --exit-code -- backend/openapi.json frontend/src/types/openapi.json frontend/src/types/api.ts
+          # The generator runs in backend/; the comparison runs from the
+          # repository root, where the paths below exist. It used to run in
+          # backend/ as well, matched no file and could not fail, so the
+          # committed types drifted from the API without anyone being told.
+          (cd backend && python -m scripts.generate_types)
+          files="backend/openapi.json frontend/src/types/openapi.json frontend/src/types/api.ts"
+          for file in $files; do
+            test -f "$file" || { echo "::error::$file is missing: the comparison would pass on nothing"; exit 1; }
+          done
+          if ! git diff --exit-code --stat -- $files; then
+            # The first changed lines go into the annotation, so the cause is
+            # readable on the pull request without opening the log.
+            changed=$(git diff --unified=0 -- $files | grep -E '^[+-][^+-]' | head -20 | cut -c1-200 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' || true)
+            echo "::error title=Generated API types are out of date::Run 'python -m scripts.generate_types' in backend/ and commit the three files.%0A${changed}"
+            exit 1
+          fi

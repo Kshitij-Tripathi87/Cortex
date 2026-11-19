@@ -271,7 +271,7 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await waiting.getByRole('link', { name: 'Review: more_suppliers.csv' }).click();
     await expect(page).toHaveURL(new RegExp(`/evidence\\?batch_id=${waitingId}$`));
     await expect(page.getByRole('heading', { name: 'Evidence review' })).toBeVisible();
-    await expect(page.locator('tbody tr')).toHaveCount(3);
+    await expect(page.getByTestId('claims-table').locator('tbody tr')).toHaveCount(3);
     await page.getByTestId('evidence-all-uploads').click();
     await expect(page).toHaveURL(/\/evidence$/);
     await expect(page.getByTestId('upload-row')).toHaveCount(2);
@@ -279,7 +279,7 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     // On a phone the review table scrolls inside its own box; the page keeps the width of the screen.
     await page.setViewportSize(PHONE);
     await page.goto(`${BASE_URL}/evidence?batch_id=${waitingId}`);
-    await expect(page.locator('tbody tr')).toHaveCount(3);
+    await expect(page.getByTestId('claims-table').locator('tbody tr')).toHaveCount(3);
     await expectFitsTheScreen(page, 'the review page');
     await page.goto(`${BASE_URL}/evidence`);
     await expect(page.getByTestId('upload-row')).toHaveCount(2);
@@ -297,7 +297,7 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
     await expect(page.getByTestId('uploads-empty')).toHaveCount(0);
   });
 
-  test('uploaded source file is accepted and its evidence can be prepared', async ({ page, request }) => {
+  test('a file is uploaded, reviewed by column and published without leaving the site', async ({ page, request }) => {
     const serverErrors: string[] = [];
     page.on('response', (response) => {
       if (response.status() >= 500) {
@@ -305,7 +305,7 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
       }
     });
 
-    await createLoggedInSession(page, request, 'intake');
+    const account = await createLoggedInSession(page, request, 'intake');
     await page.goto(`${BASE_URL}/upload`);
     await page.locator('#source-system').selectOption('erp');
     await page.locator('#source-file').setInputFiles({
@@ -331,13 +331,200 @@ test.describe('Upload → Evidence → Conflict → Readiness → Audit path', (
 
     await page.getByRole('button', { name: 'Prepare claims' }).first().click();
     await expect(page.getByText(/Prepared batch: 6 new claims/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('tbody tr')).toHaveCount(6);
+    const cells = page.getByTestId('claims-table').locator('tbody tr');
+    await expect(cells).toHaveCount(6);
 
     // The page requests a readiness assessment on every load, so reopening it
     // must keep working (the second assessment used to fail with HTTP 500).
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Readiness gate' })).toBeVisible();
-    await expect(page.locator('tbody tr')).toHaveCount(6);
+    await expect(cells).toHaveCount(6);
+
+    const headline = page.getByTestId('column-review-headline');
+    const standing = page.getByTestId('column-review-standing');
+    const reason = page.getByTestId('column-review-reason');
+    const acceptAll = page.getByTestId('column-review-accept-all');
+    const notice = page.getByRole('status');
+    const publish = page.getByRole('button', { name: 'Publish to World State' });
+
+    await test.step('the file is reviewed by column, not cell by cell', async () => {
+      // The page says what the rows are; nobody types "Supplier" into a dialog.
+      await expect(headline).toHaveText(
+        'Each row of suppliers.csv is a supplier, recognised from the column supplier_id.',
+      );
+      const columns = page.getByTestId('column-review-row');
+      await expect(columns).toHaveCount(3);
+      await expect(columns.nth(0)).toContainText('supplier_id');
+      await expect(columns.nth(0)).toContainText('S-1, S-2');
+      await expect(columns.nth(0)).toContainText('identifies each supplier');
+      await expect(columns.nth(1)).toContainText('Acme Metals, Borealis Plastics');
+      await expect(standing).toHaveText('6 values wait for a decision.');
+      await expect(publish).toBeDisabled();
+
+      // A decision is recorded with its reason, so it needs one.
+      await acceptAll.click();
+      await expect(page.getByTestId('column-review-error')).toHaveText('Give the reason for the decision first.');
+      await expect(standing).toHaveText('6 values wait for a decision.');
+      await reason.fill('Checked against the supplier master.');
+
+      // One column is left out; everything else is accepted in one decision.
+      await page.getByRole('button', { name: 'Reject the column country' }).click();
+      await expect(notice).toHaveText(
+        '2 values in the column country of suppliers.csv rejected, recorded with your reason.',
+      );
+      await expect(acceptAll).toHaveText('Accept all 4 waiting values');
+      await acceptAll.click();
+      await expect(notice).toHaveText('4 values in 2 columns of suppliers.csv accepted, recorded with your reason.');
+      await expect(standing).toHaveText('Every value is decided: 4 values accepted, 2 values rejected.');
+    });
+
+    await test.step('and published', async () => {
+      await publish.click();
+      await expect(page.getByText('Published snapshot')).toBeVisible({ timeout: 15_000 });
+      await page.getByRole('link', { name: 'Inspect World State' }).click();
+      await expect(page).toHaveURL(/\/nexus\/world/);
+      await expect(page.getByText('Acme Metals').first()).toBeVisible();
+      await expect(page.getByText('Borealis Plastics').first()).toBeVisible();
+    });
+
+    await test.step('a file whose column names say nothing is told what its rows are', async () => {
+      const batchId = await publishSupplierFile(
+        request,
+        account,
+        'lieferanten.csv',
+        'Lieferant Nr,Firma,Land\nL-1,Nordwind Metall,DE\nL-2,Sundsvall Plast,SE\n',
+        { publish: false },
+      );
+      await page.goto(`${BASE_URL}/evidence?batch_id=${batchId}`);
+      await expect(headline).toContainText('The column names of lieferanten.csv do not say what each row is.');
+      await reason.fill('Supplier list from the Hamburg office.');
+      await acceptAll.click();
+      await expect(page.getByTestId('column-review-error')).toHaveText('Choose what each row of this file is.');
+
+      await page.getByTestId('column-review-kind').selectOption('Supplier');
+      await acceptAll.click();
+      await expect(page.getByTestId('column-review-error')).toHaveText(
+        'Choose the column that identifies each supplier.',
+      );
+      await page.getByTestId('column-review-key').selectOption('Lieferant Nr');
+      await page.getByLabel('Field name for Firma').fill('supplier_name');
+      await acceptAll.click();
+      await expect(notice).toHaveText('6 values in 3 columns of lieferanten.csv accepted, recorded with your reason.');
+      await expect(headline).toHaveText(
+        'Each row of lieferanten.csv is a supplier, identified by the column Lieferant Nr.',
+      );
+
+      await publish.click();
+      await expect(page.getByText('Published snapshot')).toBeVisible({ timeout: 15_000 });
+      await page.goto(`${BASE_URL}/nexus/world`);
+      await expect(page.getByText('Nordwind Metall').first()).toBeVisible();
+      await expect(page.getByText('Acme Metals').first()).toBeVisible();
+    });
+
+    await test.step('a file of several hundred rows is read a page at a time and published', async () => {
+      // 400 suppliers of three values each: 1,200 values. The page used to
+      // draw a table row for every value of a file, and publishing linked
+      // every record to every value (here 480,000 links).
+      const rows = Array.from({ length: 400 }, (_, index) => {
+        const number = index + 1;
+        return `B-${number},Bulk Supplier ${number},${number % 2 ? 'DE' : 'SE'}`;
+      });
+      const batchId = await publishSupplierFile(
+        request,
+        account,
+        'bulk_suppliers.csv',
+        `supplier_id,supplier_name,country\n${rows.join('\n')}\n`,
+        { publish: false },
+      );
+      await page.goto(`${BASE_URL}/evidence?batch_id=${batchId}`);
+
+      // The counts are of the whole file; the table draws one page of it.
+      const counts = page.getByTestId('evidence-count');
+      const showing = page.getByTestId('claims-showing');
+      await expect(counts.filter({ hasText: 'Claims' })).toContainText('1,200');
+      await expect(counts.filter({ hasText: 'Pending' })).toContainText('1,200');
+      await expect(showing).toHaveText('Showing 100 of 1,200 values, in file order.');
+      await expect(cells).toHaveCount(100);
+      await expect(cells.first()).toContainText('B-1');
+      await page.getByTestId('claims-more').click();
+      await expect(showing).toHaveText('Showing 200 of 1,200 values, in file order.');
+      await expect(cells).toHaveCount(200);
+
+      // A particular row or value is found without paging to it.
+      await page.getByTestId('claims-filter-row').fill('377');
+      await expect(showing).toHaveText('All 3 values that match are shown.');
+      await expect(cells).toHaveCount(3);
+      await expect(cells.nth(1)).toContainText('Bulk Supplier 377');
+      await page.getByTestId('claims-filter-row').fill('');
+      await page.getByTestId('claims-filter-column').selectOption('supplier_name');
+      await page.getByTestId('claims-filter-value').fill('supplier 39');
+      // Bulk Supplier 39 and 390 to 399.
+      await expect(showing).toHaveText('All 11 values that match are shown.');
+      await page.getByTestId('claims-filter-row').fill('row');
+      await expect(page.getByTestId('claims-filter-problem')).toHaveText(
+        'A row is a whole number from 1, as in the file.',
+      );
+      await page.getByTestId('claims-filter-clear').click();
+      await expect(showing).toHaveText('Showing 100 of 1,200 values, in file order.');
+
+      // While a search is on its way, the line under the table does not go on
+      // describing the list before it ("100 of 1,200" was not what was asked).
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      const searchFor = (text: string) => (url: URL) =>
+        url.pathname.endsWith('/claims') && url.searchParams.get('value') === text;
+      await page.route(searchFor('B-399'), async (route) => {
+        await held;
+        await route.continue();
+      });
+      await page.getByTestId('claims-filter-value').fill('B-399');
+      await expect(showing).toHaveText('Searching…');
+      await expect(page.getByTestId('claims-more')).toHaveCount(0);
+      release();
+      await expect(showing).toHaveText('The 1 value that matches is shown.');
+      await expect(cells).toHaveCount(1);
+      await page.unroute(searchFor('B-399'));
+      await page.getByTestId('claims-filter-clear').click();
+      await expect(showing).toHaveText('Showing 100 of 1,200 values, in file order.');
+
+      // A read of the values that fails says so and shows no values as if
+      // they were the answer; the counts and the columns stay, and Retry works.
+      const rowSeven = (url: URL) =>
+        url.pathname.endsWith('/claims') && url.searchParams.get('row_number') === '7';
+      await page.route(rowSeven, (route) => route.abort('failed'));
+      await page.getByTestId('claims-filter-row').fill('7');
+      await expect(page.getByTestId('claims-error')).toContainText(
+        'The values could not be loaded: Network request failed',
+      );
+      await expect(showing).toHaveText('The values are not shown: they could not be loaded.');
+      await expect(cells).toHaveCount(0);
+      await expect(counts.filter({ hasText: 'Claims' })).toContainText('1,200');
+      await expect(page.getByTestId('column-review-row')).toHaveCount(3);
+      await page.unroute(rowSeven);
+      await page.getByTestId('claims-error').getByRole('button', { name: 'Retry' }).click();
+      await expect(showing).toHaveText('All 3 values that match are shown.');
+      await expect(page.getByTestId('claims-error')).toHaveCount(0);
+      await page.getByTestId('claims-filter-clear').click();
+      await expect(showing).toHaveText('Showing 100 of 1,200 values, in file order.');
+
+      // One decision for the whole file; the table then shows what was decided.
+      await reason.fill('Supplier list for the Hamburg plant.');
+      await acceptAll.click();
+      await expect(notice).toHaveText(
+        '1,200 values in 3 columns of bulk_suppliers.csv accepted, recorded with your reason.',
+      );
+      await expect(counts.filter({ hasText: 'Accepted' })).toContainText('1,200');
+      await page.getByTestId('claims-filter-state').selectOption('pending_review');
+      await expect(showing).toHaveText('No value matches.');
+      await expect(cells).toHaveCount(0);
+
+      await publish.click();
+      const snapshot = page.getByText('Published snapshot').locator('..');
+      await expect(snapshot).toBeVisible({ timeout: 15_000 });
+      // 400 records, each linked to its own three cells.
+      await expect(snapshot.getByText('Nodes').locator('..')).toContainText('400');
+      await expect(snapshot.getByText('Provenance links').locator('..')).toContainText('1,200');
+    });
 
     expect(serverErrors).toEqual([]);
   });
@@ -650,6 +837,15 @@ test.describe('Phone layout', () => {
       'supplier_id,supplier_name,country\nS-200,Castor Bearings,JP\n',
       { publish: false },
     );
+    // A file name and a column name are single words with nowhere to wrap,
+    // and the review page puts both into sentences.
+    const longNames = await publishSupplierFile(
+      request,
+      account,
+      'lieferanten_stammdaten_export_werk_hamburg_2026_11_14.csv',
+      'Lieferantennummer_laut_Stammdatenblatt,Firmenbezeichnung_vollstaendig\nL-1,Nordwind Metall\n',
+      { publish: false },
+    );
     await recordDecisionAwaitingApproval(request, account);
 
     const pages: Array<[string, (page: Page) => Promise<void>]> = [
@@ -662,8 +858,16 @@ test.describe('Phone layout', () => {
         await expect(p.getByTestId('operations-audit-count')).not.toHaveText('0 events');
         await expect(p.getByTestId('operations-models')).toBeVisible();
       }],
-      ['/evidence', async (p) => { await expect(p.getByTestId('upload-row')).toHaveCount(2); }],
-      [`/evidence?batch_id=${waiting}`, async (p) => { await expect(p.getByText('Castor Bearings').first()).toBeVisible(); }],
+      ['/evidence', async (p) => { await expect(p.getByTestId('upload-row')).toHaveCount(3); }],
+      [`/evidence?batch_id=${waiting}`, async (p) => {
+        await expect(p.getByText('Castor Bearings').first()).toBeVisible();
+        await expect(p.getByTestId('column-review-row')).toHaveCount(3);
+      }],
+      [`/evidence?batch_id=${longNames}`, async (p) => {
+        await expect(p.getByTestId('column-review-headline')).toContainText('do not say what each row is');
+        await expect(p.getByTestId('column-review-key')).toBeVisible();
+        await expect(p.getByTestId('column-review-row')).toHaveCount(2);
+      }],
       ['/nexus/decision-room', async (p) => { await expect(p.getByTestId('decision-option')).toHaveCount(2); }],
       ['/app', async (p) => { await expect(p.getByTestId('app-user-email')).toHaveText(account.email); }],
     ];

@@ -8,7 +8,8 @@ Given a batch of approved evidence claims, the compiler:
    upsert_node GraphWriteEvent.
 4. For each foreign-key column: emits an upsert_edge GraphWriteEvent, with
    a stub target node created if the referenced entity hasn't been compiled yet.
-5. Seeds ProvenanceLink rows linking every node/edge to the source claims.
+5. Seeds ProvenanceLink rows linking every node/edge to the accepted claims of
+   the source rows that state it.
 6. Seals an immutable hash-chained snapshot (see snapshots.py).
 
 Determinism contract: the same approved evidence + the same source bytes
@@ -397,6 +398,18 @@ async def compile_evidence_to_graph(
             for claim in file_claims
             if claim.row_number >= 1
         }
+        # What supports what. A claim about one cell supports what is read
+        # from its row; a claim about a whole column supports every row.
+        # Linking each record to every claim of the file, as was done while
+        # all claims were whole columns, is rows x rows x columns links once
+        # claims are cells: 720,000 for 300 rows of eight columns.
+        column_claim_ids = sorted(claim.claim_id for claim in file_claims if claim.row_number < 1)
+        cell_claim_ids: dict[tuple[int, str], list[str]] = {}
+        for claim in file_claims:
+            if claim.row_number >= 1:
+                cell_claim_ids.setdefault((claim.row_number, claim.source_column), []).append(
+                    claim.claim_id
+                )
         cell_review = False
         sample_rows: list[dict[str, Any]]
         if storage is not None:
@@ -442,6 +455,24 @@ async def compile_evidence_to_graph(
                 }
                 if not raw_row:
                     continue
+                # The claims behind each field of this row, under the name the
+                # field is published with.
+                by_field: dict[str, list[str]] = {}
+                for column in raw_row:
+                    by_field.setdefault(
+                        _mapped_source_field(str(column), entity_type, field_mappings), []
+                    ).extend(cell_claim_ids.get((row_number, column), ()))
+                field_evidence: dict[str, list[str]] | None = by_field
+                row_evidence = [
+                    *column_claim_ids,
+                    *(claim_id for claim_ids in by_field.values() for claim_id in claim_ids),
+                ]
+            else:
+                # Rows that cannot be matched to single cells: every claim of
+                # the file is a whole column, or the rows were rebuilt from
+                # profile samples (local runs without the stored file).
+                field_evidence = None
+                row_evidence = file_claim_ids
             row = _canonicalize_source_row(raw_row, entity_type, field_mappings)
             entity_id = row.get(pk_column, "").strip()
             if not entity_id:
@@ -461,7 +492,7 @@ async def compile_evidence_to_graph(
                 attributes["_facility_type"] = _normalize_facility_type(entity_type)
 
             key = (resolved_type, entity_id)
-            node_provenance.setdefault(key, set()).update(file_claim_ids)
+            node_provenance.setdefault(key, set()).update(row_evidence)
             pending_node = node_writes.get(key)
             if pending_node is None:
                 node_keys.add(key)
@@ -474,7 +505,7 @@ async def compile_evidence_to_graph(
                         "entity_id": entity_id,
                         "attributes": attributes,
                     },
-                    provenance_claim_ids=file_claim_ids[:],
+                    provenance_claim_ids=row_evidence[:],
                 )
                 writes.append(pending_node)
                 node_writes[key] = pending_node
@@ -497,9 +528,18 @@ async def compile_evidence_to_graph(
                 if target_type in FACILITY_ENTITY_TYPES:
                     target_resolved = "Facility"
 
+                if field_evidence is None:
+                    named_by = stated_by = file_claim_ids
+                else:
+                    # The record referred to rests on the cell that names it;
+                    # the relationship on that cell and the one that
+                    # identifies the record of this row.
+                    named_by = [*column_claim_ids, *field_evidence.get(col_name, ())]
+                    stated_by = [*named_by, *field_evidence.get(pk_column, ())]
+
                 # Create stub node for target if not seen
                 target_key = (target_resolved, target_id)
-                node_provenance.setdefault(target_key, set()).update(file_claim_ids)
+                node_provenance.setdefault(target_key, set()).update(named_by)
                 if target_key not in node_keys:
                     node_keys.add(target_key)
                     stub_attrs: dict[str, Any] = {}
@@ -515,7 +555,7 @@ async def compile_evidence_to_graph(
                             "attributes": stub_attrs,
                             "_stub": True,
                         },
-                        provenance_claim_ids=file_claim_ids[:],
+                        provenance_claim_ids=named_by[:],
                     )
                     writes.append(stub_node)
                     node_writes[target_key] = stub_node
@@ -525,7 +565,7 @@ async def compile_evidence_to_graph(
                 target_node_key = f"{target_resolved}:{target_id}"
                 edge_key = (source_node_key, target_node_key, rel, col_name)
                 edge_provenance.setdefault((source_node_key, target_node_key, rel), set()).update(
-                    file_claim_ids
+                    stated_by
                 )
                 if edge_key in edge_keys:
                     continue
@@ -544,7 +584,7 @@ async def compile_evidence_to_graph(
                             "relationship_type": rel,
                             "attributes": {"source_column": col_name},
                         },
-                        provenance_claim_ids=file_claim_ids[:],
+                        provenance_claim_ids=stated_by[:],
                     )
                 )
 

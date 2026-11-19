@@ -123,6 +123,48 @@ for the data states.
    reported as not loaded instead of as "no events recorded". Model health
    lists one line per kind of prediction instead of thirty rows of `null`,
    and the API no longer reports an accuracy nobody measured.
+10. **`/evidence` reviews an upload by column and reads its values a page
+    at a time (2026-11-19).** Review was one dialog per cell, with the kind
+    of record and the field typed by hand: 2,400 decisions for a file of 300
+    suppliers and eight columns. The page also read and drew every value of
+    the upload; with 3,000 rows that was 24,000 table rows, and the browser
+    tab crashed.
+    - **By column.** One row per column says what the column is to the
+      record (identifies it, links it to another record, or is a field),
+      shows three of its values and how many wait. One reason and one click
+      decide a column or the whole file (`GET` and `POST
+      /sources/batches/{id}/columns`). The kind of record comes from the
+      column names; a file whose names say nothing asks for the kind and for
+      the column that identifies each row. Rows that disagree about one
+      record are still found after the decision and block publishing.
+    - **By page.** The table of values shows 100 at a time ("Show 100
+      more") and can be narrowed to a state, a column, a row or a text. The
+      counts above the page come from `GET …/claims/summary`, not from the
+      rows on screen. The first 25 open conflicts are drawn, each with the
+      values that compete, and a line says how many more there are.
+    - **States.** While a filter is being searched for, the line under the
+      table says "Searching…" instead of describing the list before it. A
+      read of the values that fails says so, shows no values as if they were
+      the answer, and offers a retry; the counts and the columns stay.
+      Upload, prepare, decide and publish wait up to 180 seconds; prepare,
+      a column decision and publish say meanwhile that a large file can
+      take a minute (the default wait of 15 seconds reported a failure for
+      work the server went on to finish).
+    - **Size.** One file holds at most 250,000 values (rows times columns);
+      a larger one is refused when it is prepared, with its size and the
+      advice to split it. Measured on a 2-CPU machine with eight columns:
+      with 3,000 rows the page draws 100 table rows in 0.3 to 0.4 s; at
+      30,000 rows (240,000 values) any page of values is read in under
+      0.5 s, and preparing, accepting and publishing take 30 to 40 s each.
+    - **Names that cannot wrap.** A file or column name is one word with
+      nowhere to wrap. In the sentences of this page a long one
+      (`lieferanten_mit_einem_sehr_langen_dateinamen_2026_11.csv`) made the
+      page 447 px wide on a 390 px screen; those sentences now break inside
+      the name. Bordered buttons on this page carry
+      `border-solid`: the button reset in `globals.css` (`border: 0`) sets
+      the border style to none, so on a button `border` alone draws nothing.
+      That reset is unchanged, so bordered buttons on other pages are still
+      drawn without their border.
 
 ## Required follow-ups (Phase 2 → Phase 15)
 
@@ -138,10 +180,14 @@ for the data states.
 The matrix is enforced by the Playwright specs in `frontend/tests/`:
 - `auth-e2e.spec.ts`: sign-up, sign-in, guards, and that retired
   `/workspace` addresses land on the working cockpit
-- `critical-path-e2e.spec.ts`: upload, review, publish, ask; the list of
-  uploads; the Command Center figures against the uploaded rows and the
-  Ask box, for an empty workspace and for a failed read; every `/nexus` page at
-  390 px (navigation above the page, nothing to scroll sideways)
+- `critical-path-e2e.spec.ts`: upload, review by column, publish, ask (a
+  file whose column names say nothing; a file of 400 rows read a page at a
+  time, searched, and published; a search under way and a failed read of
+  the values); the list of uploads; the Command Center figures against the
+  uploaded rows and the Ask box, for an empty workspace and for a failed
+  read; every `/nexus` page at 390 px (navigation above the page, nothing
+  to scroll sideways), and the review page of an upload whose file and
+  column names cannot wrap
 - `decision-room-e2e.spec.ts`: task review (roles, signed-out state,
   redirect from the retired address)
 - `realtime-e2e.spec.ts`: live-data paths

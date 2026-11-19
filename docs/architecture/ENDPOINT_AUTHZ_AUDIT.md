@@ -204,3 +204,23 @@ All 29 legacy debt routes have been gated with AST-verifiable authorization help
   handler references an authorization helper; it cannot tell whether the
   workspace a handler acts on is the caller's. Treat a GATED verdict as
   necessary, not sufficient.
+- **Review by column, 2026-11-19.** Three routes were added to
+  `sources.py`: `GET /batches/{batch_id}/columns`,
+  `GET /batches/{batch_id}/claims/summary` and
+  `POST /batches/{batch_id}/columns/review`. All three are GATED: each calls
+  `require_workspace_access` and then loads the batch for that workspace, so
+  a batch of another workspace answers 404. The deciding route also requires
+  one of the reviewer roles that the per-value route requires
+  (`_require_claim_reviewer`: admin, operator, system_admin, workspace_admin,
+  operations_manager) and writes one audit event,
+  `evidence.columns.reviewed`. Verified in `tests/test_review_by_column.py`
+  (`test_only_a_reviewer_of_the_workspace_decides`,
+  `test_a_batch_of_another_workspace_is_not_found`) and
+  `tests/test_claims_read_by_page.py`
+  (`test_the_values_of_another_workspace_are_not_counted_or_listed`,
+  `test_a_viewer_can_read_the_counts_and_a_page`).
+- **The counts in "Summary" are those of 2026-08-28.** They were not
+  recomputed. On 2026-11-19 the scan in `tests/test_endpoint_authz_audit.py`
+  finds 305 routes: 283 gated and 22 ungated, all 22 on paths the test lists
+  as public (`PUBLIC_PATHS`, 6 paths) or as pinned debt (`KNOWN_DEBT`, 15
+  paths).

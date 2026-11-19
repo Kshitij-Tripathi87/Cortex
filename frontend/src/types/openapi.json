@@ -493,7 +493,7 @@
           "sources"
         ],
         "summary": "List Claims",
-        "description": "List evidence claims for a batch (workspace-scoped).",
+        "description": "List evidence claims for a batch (workspace-scoped), in file order.\n\nA claim is one cell, so a file of 3,000 rows and eight columns has 24,000.\nWith ``limit`` the list is read a page at a time, and it can be narrowed\nto a state, a file, a column, a row or a text the value contains. Without\n``limit`` every claim is returned, as before. The order is file, row,\nthen the order the cells were read in, and it does not change when a\nclaim is decided.",
         "operationId": "list_claims_api_v1_sources_batches__batch_id__claims_get",
         "parameters": [
           {
@@ -513,6 +513,120 @@
               "type": "string",
               "title": "Workspace Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 500,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "claim_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Claim State"
+            }
+          },
+          {
+            "name": "source_file_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source File Id"
+            }
+          },
+          {
+            "name": "source_column",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Column"
+            }
+          },
+          {
+            "name": "row_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Row Number"
+            }
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            }
           }
         ],
         "responses": {
@@ -526,6 +640,126 @@
                     "$ref": "#/components/schemas/ClaimResponse"
                   },
                   "title": "Response List Claims Api V1 Sources Batches  Batch Id  Claims Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/batches/{batch_id}/claims/summary": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Summarize Claims",
+        "description": "How many values of a batch wait, were accepted, rejected or withdrawn.\n\nCounted in the database, so the figures of a large batch do not need its\nclaims to be read. The filters are those of the list, so a page can say\nhow many values it is a part of.",
+        "operationId": "summarize_claims_api_v1_sources_batches__batch_id__claims_summary_get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "source_file_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source File Id"
+            }
+          },
+          {
+            "name": "source_column",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Column"
+            }
+          },
+          {
+            "name": "row_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Row Number"
+            }
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimSummaryResponse"
                 }
               }
             }
@@ -597,6 +831,136 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/batches/{batch_id}/columns": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List Review Columns",
+        "description": "The columns of a batch's files: what each means and how many values wait.\n\nA reviewer decides what a column means, not each of its cells. This is\nthe view for that decision: the kind of record each row describes, the\nfield every column is published under, which column identifies the record\nand which ones link it to another. ``entity`` shows the columns as they\nwould be named for that kind of record; it is used only for a file whose\ncolumn names do not say what its rows are.",
+        "operationId": "list_review_columns_api_v1_sources_batches__batch_id__columns_get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "entity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/batches/{batch_id}/columns/review": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Review Columns Endpoint",
+        "description": "Record one audited decision for every waiting value of whole columns.\n\nReviewing a file cell by cell is one decision per value. Here the\nreviewer accepts or rejects columns, or the whole file, in one decision\nwith one rationale. Values that belong to an open conflict are left to\nthe conflict; accepted values are compared with each other afterwards,\nso two rows that disagree about one record still block publishing.",
+        "operationId": "review_columns_endpoint_api_v1_sources_batches__batch_id__columns_review_post",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColumnDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnDecisionResponse"
                 }
               }
             }
@@ -11074,6 +11438,40 @@
         ],
         "title": "ClaimReviewRequest"
       },
+      "ClaimSummaryResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pending_review": {
+            "type": "integer",
+            "title": "Pending Review"
+          },
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "superseded": {
+            "type": "integer",
+            "title": "Superseded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "pending_review",
+          "accepted",
+          "rejected",
+          "superseded"
+        ],
+        "title": "ClaimSummaryResponse",
+        "description": "How many values of a batch are in each state.\n\n``total`` counts every value that matches the filters; the named states\nadd up to it unless a value is in a state that has no field here."
+      },
       "CloseLoopRequest": {
         "properties": {
           "workspace_id": {
@@ -11112,6 +11510,179 @@
           "operator_decision"
         ],
         "title": "CloseLoopRequest"
+      },
+      "ColumnDecisionRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Decision"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Rationale"
+          },
+          "source_file_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Source File Id"
+          },
+          "source_columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Columns"
+          },
+          "canonical_entity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Entity"
+          },
+          "canonical_fields": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "rationale",
+          "source_file_id"
+        ],
+        "title": "ColumnDecisionRequest",
+        "description": "One decision for whole columns of one file."
+      },
+      "ColumnDecisionResponse": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "source_file_id": {
+            "type": "string",
+            "title": "Source File Id"
+          },
+          "canonical_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Entity"
+          },
+          "columns": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Columns"
+          },
+          "claims_decided": {
+            "type": "integer",
+            "title": "Claims Decided"
+          },
+          "claims_left_in_conflict": {
+            "type": "integer",
+            "title": "Claims Left In Conflict"
+          },
+          "conflicts_detected": {
+            "type": "integer",
+            "title": "Conflicts Detected"
+          },
+          "readiness": {
+            "type": "string",
+            "title": "Readiness"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "source_file_id",
+          "canonical_entity",
+          "columns",
+          "claims_decided",
+          "claims_left_in_conflict",
+          "conflicts_detected",
+          "readiness",
+          "explanation"
+        ],
+        "title": "ColumnDecisionResponse"
+      },
+      "ColumnReviewResponse": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewFile"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "record_kinds": {
+            "items": {
+              "$ref": "#/components/schemas/RecordKind"
+            },
+            "type": "array",
+            "title": "Record Kinds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "files",
+          "record_kinds"
+        ],
+        "title": "ColumnReviewResponse"
       },
       "CompilationResponse": {
         "properties": {
@@ -11234,6 +11805,40 @@
         ],
         "title": "ConfigureCanaryRequest"
       },
+      "ConflictClaim": {
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "title": "Claim Id"
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "source_column": {
+            "type": "string",
+            "title": "Source Column"
+          },
+          "raw_value": {
+            "type": "string",
+            "title": "Raw Value"
+          },
+          "claim_state": {
+            "type": "string",
+            "title": "Claim State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_id",
+          "row_number",
+          "source_column",
+          "raw_value",
+          "claim_state"
+        ],
+        "title": "ConflictClaim",
+        "description": "One of the competing values of a conflict."
+      },
       "ConflictResponse": {
         "properties": {
           "conflict_id": {
@@ -11284,6 +11889,13 @@
           "explanation": {
             "type": "string",
             "title": "Explanation"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictClaim"
+            },
+            "type": "array",
+            "title": "Claims"
           }
         },
         "type": "object",
@@ -17118,6 +17730,25 @@
         "title": "RecommendationTradeOffResponse",
         "description": "A trade-off for a recommendation."
       },
+      "RecordKind": {
+        "properties": {
+          "entity": {
+            "type": "string",
+            "title": "Entity"
+          },
+          "key_field": {
+            "type": "string",
+            "title": "Key Field"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity",
+          "key_field"
+        ],
+        "title": "RecordKind",
+        "description": "A kind of record a file can hold, and the field that identifies one."
+      },
       "RelationshipEdge": {
         "properties": {
           "edge_id": {
@@ -17386,6 +18017,174 @@
         ],
         "title": "ResolveRequest",
         "description": "Payload for conflict resolution.\n\n``rationale`` must be non-empty \u2014 humans must record a reason. ``action``\nis constrained to the known resolution verbs; anything else is a 422."
+      },
+      "ReviewColumn": {
+        "properties": {
+          "source_column": {
+            "type": "string",
+            "title": "Source Column"
+          },
+          "canonical_field": {
+            "type": "string",
+            "title": "Canonical Field"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "links_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links To"
+          },
+          "examples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Examples"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "superseded": {
+            "type": "integer",
+            "title": "Superseded"
+          },
+          "in_conflict": {
+            "type": "integer",
+            "title": "In Conflict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_column",
+          "canonical_field",
+          "role",
+          "links_to",
+          "examples",
+          "pending",
+          "accepted",
+          "rejected",
+          "superseded",
+          "in_conflict"
+        ],
+        "title": "ReviewColumn",
+        "description": "One column of an uploaded file, as it stands."
+      },
+      "ReviewFile": {
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "title": "File Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity"
+          },
+          "entity_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Source"
+          },
+          "key_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Field"
+          },
+          "key_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Column"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewColumn"
+            },
+            "type": "array",
+            "title": "Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_id",
+          "name",
+          "rows",
+          "entity",
+          "entity_source",
+          "key_field",
+          "key_column",
+          "problem",
+          "columns"
+        ],
+        "title": "ReviewFile",
+        "description": "A file of a batch: what its rows are and how each column is published."
       },
       "RiskInferenceRequest": {
         "properties": {

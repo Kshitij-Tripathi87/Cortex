@@ -263,9 +263,40 @@ export interface paths {
         };
         /**
          * List Claims
-         * @description List evidence claims for a batch (workspace-scoped).
+         * @description List evidence claims for a batch (workspace-scoped), in file order.
+         *
+         *     A claim is one cell, so a file of 3,000 rows and eight columns has 24,000.
+         *     With ``limit`` the list is read a page at a time, and it can be narrowed
+         *     to a state, a file, a column, a row or a text the value contains. Without
+         *     ``limit`` every claim is returned, as before. The order is file, row,
+         *     then the order the cells were read in, and it does not change when a
+         *     claim is decided.
          */
         get: operations["list_claims_api_v1_sources_batches__batch_id__claims_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/batches/{batch_id}/claims/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize Claims
+         * @description How many values of a batch wait, were accepted, rejected or withdrawn.
+         *
+         *     Counted in the database, so the figures of a large batch do not need its
+         *     claims to be read. The filters are those of the list, so a page can say
+         *     how many values it is a part of.
+         */
+        get: operations["summarize_claims_api_v1_sources_batches__batch_id__claims_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -288,6 +319,59 @@ export interface paths {
          * @description Record an explicit, audited human decision for a pending source claim.
          */
         post: operations["review_claim_endpoint_api_v1_sources_batches__batch_id__claims__claim_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/batches/{batch_id}/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Review Columns
+         * @description The columns of a batch's files: what each means and how many values wait.
+         *
+         *     A reviewer decides what a column means, not each of its cells. This is
+         *     the view for that decision: the kind of record each row describes, the
+         *     field every column is published under, which column identifies the record
+         *     and which ones link it to another. ``entity`` shows the columns as they
+         *     would be named for that kind of record; it is used only for a file whose
+         *     column names do not say what its rows are.
+         */
+        get: operations["list_review_columns_api_v1_sources_batches__batch_id__columns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/batches/{batch_id}/columns/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Columns Endpoint
+         * @description Record one audited decision for every waiting value of whole columns.
+         *
+         *     Reviewing a file cell by cell is one decision per value. Here the
+         *     reviewer accepts or rejects columns, or the whole file, in one decision
+         *     with one rationale. Values that belong to an open conflict are left to
+         *     the conflict; accepted values are compared with each other afterwards,
+         *     so two rows that disagree about one record still block publishing.
+         */
+        post: operations["review_columns_endpoint_api_v1_sources_batches__batch_id__columns_review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4291,6 +4375,25 @@ export interface components {
             /** Entity Key */
             entity_key?: string | null;
         };
+        /**
+         * ClaimSummaryResponse
+         * @description How many values of a batch are in each state.
+         *
+         *     ``total`` counts every value that matches the filters; the named states
+         *     add up to it unless a value is in a state that has no field here.
+         */
+        ClaimSummaryResponse: {
+            /** Total */
+            total: number;
+            /** Pending Review */
+            pending_review: number;
+            /** Accepted */
+            accepted: number;
+            /** Rejected */
+            rejected: number;
+            /** Superseded */
+            superseded: number;
+        };
         /** CloseLoopRequest */
         CloseLoopRequest: {
             /** Workspace Id */
@@ -4304,6 +4407,61 @@ export interface components {
             operator_decision: components["schemas"]["OperatorDecision"];
             /** Actual Outcome Revenue Saved Usd */
             actual_outcome_revenue_saved_usd?: number | null;
+        };
+        /**
+         * ColumnDecisionRequest
+         * @description One decision for whole columns of one file.
+         */
+        ColumnDecisionRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accepted" | "rejected";
+            /** Rationale */
+            rationale: string;
+            /** Source File Id */
+            source_file_id: string;
+            /** Source Columns */
+            source_columns?: string[] | null;
+            /** Canonical Entity */
+            canonical_entity?: string | null;
+            /** Canonical Fields */
+            canonical_fields?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** ColumnDecisionResponse */
+        ColumnDecisionResponse: {
+            /** Decision */
+            decision: string;
+            /** Source File Id */
+            source_file_id: string;
+            /** Canonical Entity */
+            canonical_entity: string | null;
+            /** Columns */
+            columns: {
+                [key: string]: string | null;
+            };
+            /** Claims Decided */
+            claims_decided: number;
+            /** Claims Left In Conflict */
+            claims_left_in_conflict: number;
+            /** Conflicts Detected */
+            conflicts_detected: number;
+            /** Readiness */
+            readiness: string;
+            /** Explanation */
+            explanation: string;
+        };
+        /** ColumnReviewResponse */
+        ColumnReviewResponse: {
+            /** Batch Id */
+            batch_id: string;
+            /** Files */
+            files: components["schemas"]["ReviewFile"][];
+            /** Record Kinds */
+            record_kinds: components["schemas"]["RecordKind"][];
         };
         /** CompilationResponse */
         CompilationResponse: {
@@ -4355,6 +4513,22 @@ export interface components {
             /** Workspace Id */
             workspace_id: string;
         };
+        /**
+         * ConflictClaim
+         * @description One of the competing values of a conflict.
+         */
+        ConflictClaim: {
+            /** Claim Id */
+            claim_id: string;
+            /** Row Number */
+            row_number: number;
+            /** Source Column */
+            source_column: string;
+            /** Raw Value */
+            raw_value: string;
+            /** Claim State */
+            claim_state: string;
+        };
         /** ConflictResponse */
         ConflictResponse: {
             /** Conflict Id */
@@ -4373,6 +4547,8 @@ export interface components {
             status: string;
             /** Explanation */
             explanation: string;
+            /** Claims */
+            claims?: components["schemas"]["ConflictClaim"][];
         };
         /** ContactRequestBody */
         ContactRequestBody: {
@@ -6726,6 +6902,16 @@ export interface components {
             quantified_loss?: number | null;
         };
         /**
+         * RecordKind
+         * @description A kind of record a file can hold, and the field that identifies one.
+         */
+        RecordKind: {
+            /** Entity */
+            entity: string;
+            /** Key Field */
+            key_field: string;
+        };
+        /**
          * RelationshipEdge
          * @description A typed, directed edge from one entity to another.
          *
@@ -6840,6 +7026,56 @@ export interface components {
             action: "approved" | "rejected" | "suppressed" | "escalated";
             /** Rationale */
             rationale: string;
+        };
+        /**
+         * ReviewColumn
+         * @description One column of an uploaded file, as it stands.
+         */
+        ReviewColumn: {
+            /** Source Column */
+            source_column: string;
+            /** Canonical Field */
+            canonical_field: string;
+            /** Role */
+            role: string;
+            /** Links To */
+            links_to: string | null;
+            /** Examples */
+            examples: string[];
+            /** Pending */
+            pending: number;
+            /** Accepted */
+            accepted: number;
+            /** Rejected */
+            rejected: number;
+            /** Superseded */
+            superseded: number;
+            /** In Conflict */
+            in_conflict: number;
+        };
+        /**
+         * ReviewFile
+         * @description A file of a batch: what its rows are and how each column is published.
+         */
+        ReviewFile: {
+            /** File Id */
+            file_id: string;
+            /** Name */
+            name: string;
+            /** Rows */
+            rows: number | null;
+            /** Entity */
+            entity: string | null;
+            /** Entity Source */
+            entity_source: string | null;
+            /** Key Field */
+            key_field: string | null;
+            /** Key Column */
+            key_column: string | null;
+            /** Problem */
+            problem: string | null;
+            /** Columns */
+            columns: components["schemas"]["ReviewColumn"][];
         };
         /** RiskInferenceRequest */
         RiskInferenceRequest: {
@@ -8492,6 +8728,13 @@ export interface operations {
         parameters: {
             query: {
                 workspace_id: string;
+                limit?: number | null;
+                offset?: number;
+                claim_state?: string | null;
+                source_file_id?: string | null;
+                source_column?: string | null;
+                row_number?: number | null;
+                value?: string | null;
             };
             header?: never;
             path: {
@@ -8508,6 +8751,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClaimResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summarize_claims_api_v1_sources_batches__batch_id__claims_summary_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                source_file_id?: string | null;
+                source_column?: string | null;
+                row_number?: number | null;
+                value?: string | null;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimSummaryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8546,6 +8826,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClaimResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_review_columns_api_v1_sources_batches__batch_id__columns_get: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                entity?: string | null;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColumnReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_columns_endpoint_api_v1_sources_batches__batch_id__columns_review_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColumnDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColumnDecisionResponse"];
                 };
             };
             /** @description Validation Error */

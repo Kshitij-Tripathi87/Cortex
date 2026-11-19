@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { apiClient, useAuth } from "@/lib/auth";
+import { LONG_ACTION_TIMEOUT_MS } from "@/lib/nexus/claimList";
 
 interface SourceUploadResponse {
   batch_id: string;
@@ -44,9 +45,14 @@ export default function UploadPage() {
     try {
       // apiClient supplies the authenticated Bearer token and preserves the
       // browser-generated multipart boundary for FastAPI's UploadFile parser.
+      // An upload is as slow as the connection it travels over. The fifteen
+      // seconds an ordinary request gets are not enough for a few megabytes
+      // on a slow line (2 MB at 1 Mbit/s take sixteen), and the page would
+      // report a failure for an upload that was still arriving.
       const response = await apiClient.post<SourceUploadResponse>(
         "/sources/upload",
         formData,
+        { timeoutMs: LONG_ACTION_TIMEOUT_MS },
       );
       setResult(response);
     } catch (uploadError) {

@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +38,19 @@ class ClaimExtractionResult:
 class ConflictDetectionResult:
     conflicts_detected: int
     blocking_conflicts: int
+
+
+# The most values (cells) of one file that are kept as claims.
+MAX_CLAIMS_PER_FILE = 250_000
+
+
+class SourceClaimLimitError(ValueError):
+    """A file holds more values than one upload can be reviewed as."""
+
+    def __init__(self, values: int, limit: int = MAX_CLAIMS_PER_FILE) -> None:
+        super().__init__(f"SOURCE_CLAIM_LIMIT_EXCEEDED: {values} values, limit {limit}")
+        self.values = values
+        self.limit = limit
 
 
 @dataclass(frozen=True)
@@ -87,6 +100,22 @@ async def extract_claims(
             claim.requires_review = False
 
     profile_by_name = {profile.column_name: profile for profile in profiles}
+    # Counted before anything is stored: a file over the limit is refused
+    # whole, with its size, instead of failing a quarter of a million claims in.
+    values = sum(
+        1
+        for raw_row in raw_rows
+        for column_name, raw_value in raw_row.items()
+        if column_name in profile_by_name and raw_value is not None and str(raw_value).strip()
+    )
+    if values > MAX_CLAIMS_PER_FILE:
+        raise SourceClaimLimitError(values, MAX_CLAIMS_PER_FILE)
+    # What each row describes, by the rule publishing applies to the same
+    # column names. When it is known, every column has the field publishing
+    # would give it, so accepting a claim as suggested publishes the file as
+    # it reads. When it is not, the profiler's guess for the column stands and
+    # a reviewer has to say what the rows are.
+    row_entity = infer_entity_type([str(profile.column_name) for profile in profiles])
     created = 0
     review_count = 0
     for row_number, raw_row in enumerate(raw_rows, start=1):
@@ -96,10 +125,17 @@ async def extract_claims(
             profile = profile_by_name.get(column_name)
             if profile is None or raw_value is None or not str(raw_value).strip():
                 continue
-            confidence = float(profile.mapping_confidence or 0.0)
-            needs_review = (
-                profile.requires_review or not profile.recommended_mapping or confidence < 0.90
-            )
+            if row_entity is not None:
+                # Fixed by the registries, not guessed: nothing to be unsure of.
+                suggested_field: str | None = canonical_column_name(column_name, row_entity)
+                confidence = 1.0
+                needs_review = False
+            else:
+                suggested_field = profile.recommended_mapping
+                confidence = float(profile.mapping_confidence or 0.0)
+                needs_review = (
+                    profile.requires_review or not profile.recommended_mapping or confidence < 0.90
+                )
             db.add(
                 EvidenceClaim(
                     claim_id=uuid7(),
@@ -108,8 +144,8 @@ async def extract_claims(
                     batch_id=batch_id,
                     row_number=row_number,
                     source_column=column_name,
-                    canonical_entity=None,
-                    canonical_field=profile.recommended_mapping,
+                    canonical_entity=row_entity,
+                    canonical_field=suggested_field,
                     raw_value=str(raw_value),
                     normalized_value=str(raw_value).strip(),
                     confidence=confidence,
@@ -127,14 +163,13 @@ async def extract_claims(
                         "row_sha256": row_hash,
                         "entity_key": None,
                         "mapping_is_suggestion": True,
+                        "mapping_source": "row_entity" if row_entity else "column_profile",
                     },
                     requires_review=needs_review,
                 )
             )
             created += 1
             review_count += int(needs_review)
-            if created > 250_000:
-                raise ValueError("SOURCE_CLAIM_LIMIT_EXCEEDED")
 
     await db.flush()
     return ClaimExtractionResult(
@@ -316,21 +351,21 @@ async def compute_readiness(
     blocking_count = sum(1 for c in conflicts if c.blocking)
     open_count = len(conflicts)
 
-    # Count claims
-    claim_stmt = (
-        select(EvidenceClaim)
+    # Count claims in the database. A claim is one cell of a file, so a batch
+    # can hold a quarter of a million of them, and this runs every time the
+    # review page is opened and after every decision.
+    count_result = await db.execute(
+        select(EvidenceClaim.claim_state, func.count(EvidenceClaim.claim_id))
         .where(EvidenceClaim.workspace_id == workspace_id)
         .where(EvidenceClaim.batch_id == batch_id)
-        .where(
-            EvidenceClaim.claim_state.notin_(
-                [ClaimState.SUPERSEDED.value, ClaimState.REJECTED.value]
-            )
-        )
+        .group_by(EvidenceClaim.claim_state)
     )
-    claim_result = await db.execute(claim_stmt)
-    claims = list(claim_result.scalars().all())
-    accepted_count = sum(1 for c in claims if c.claim_state == ClaimState.ACCEPTED.value)
-    pending_count = sum(1 for c in claims if c.claim_state == ClaimState.PENDING_REVIEW.value)
+    counts = {str(state): int(count) for state, count in count_result.all()}
+    accepted_count = counts.get(ClaimState.ACCEPTED.value, 0)
+    pending_count = counts.get(ClaimState.PENDING_REVIEW.value, 0)
+    # Rejected claims do not hold a batch back; they are counted so that the
+    # sentence below does not call them accepted.
+    rejected_count = counts.get(ClaimState.REJECTED.value, 0)
 
     assumptions: list[str] = []
     explanation = ""
@@ -338,22 +373,48 @@ async def compute_readiness(
     if blocking_count > 0:
         state = ReadinessState.BLOCKED.value
         explanation = (
-            f"Batch blocked by {blocking_count} blocking conflict(s). Resolve conflicts to proceed."
+            f"Batch blocked by {blocking_count:,} blocking conflict(s). "
+            "Resolve conflicts to proceed."
         )
     elif pending_count > 0 or open_count > 0:
         state = ReadinessState.REVIEW_REQUIRED.value
-        explanation = f"{pending_count} claims and {open_count} conflicts require review."
+        explanation = f"{pending_count:,} claims and {open_count:,} conflicts require review."
     else:
-        low_confidence = [c for c in claims if c.confidence < 1.0]
+        # Claims that would be published on less than full confidence. The
+        # first five, oldest first, are named; more than that is not shown.
+        low_result = await db.execute(
+            select(EvidenceClaim)
+            .where(EvidenceClaim.workspace_id == workspace_id)
+            .where(EvidenceClaim.batch_id == batch_id)
+            .where(
+                EvidenceClaim.claim_state.notin_(
+                    [ClaimState.SUPERSEDED.value, ClaimState.REJECTED.value]
+                )
+            )
+            .where(EvidenceClaim.confidence < 1.0)
+            .order_by(EvidenceClaim.claim_id)
+            .limit(5)
+        )
+        low_confidence = list(low_result.scalars().all())
         if low_confidence:
             state = ReadinessState.READY_WITH_ASSUMPTIONS.value
             assumptions = [
-                f"Claim {c.claim_id[:8]} has confidence {c.confidence}" for c in low_confidence[:5]
+                f"Claim {c.claim_id[:8]} has confidence {c.confidence}" for c in low_confidence
             ]
             explanation = "Ready with assumptions based on lower-confidence claims."
         else:
             state = ReadinessState.READY.value
-            explanation = "All claims accepted, no conflicts. Batch is ready for downstream use."
+            if rejected_count == 0:
+                explanation = (
+                    "All claims accepted, no conflicts. Batch is ready for downstream use."
+                )
+            elif accepted_count == 0:
+                explanation = "Every claim was rejected, so nothing of this batch can be published."
+            else:
+                explanation = (
+                    f"{accepted_count:,} claims accepted and {rejected_count:,} rejected, "
+                    "no conflicts. The accepted claims are ready for downstream use."
+                )
 
     return ReadinessResult(
         state=state,
