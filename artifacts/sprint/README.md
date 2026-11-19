@@ -13,6 +13,12 @@ The Day 3 files name the code they were produced on by the Git tree hashes
 of `services/api`, `scripts` and `data`. Commits that change only documents,
 the workflow or this folder leave those hashes as they are.
 
+The `day3-*` files are the record of gate G3 and are kept as they were
+produced then. After the gate the workbook reader was changed and tests were
+added (`docs/engineering/implementation-log.md`, "After gate G3"). The
+`review-*` files belong to that work; two of them repeat the verification
+of the gate on the final code, and name its tree hashes.
+
 ## Where the evidence was produced
 
 Two environments.
@@ -55,6 +61,12 @@ named volume and the container restart are exercised.
 | `day3-defect-detection.txt` | G3 | `scripts/defect_detection.py`: 26 deliberate defects, each detected by a failing test |
 | `day3-commit-validation.txt` | G3 | Checks and tests at each of the thirteen commits of Day 3. Put together from one run per commit |
 | `day3-known-limitations.md` | G3 | Copy of `docs/engineering/known-limitations.md` as it stood at the gate |
+| `review-tests-before-the-fix.txt` | after G3 | The new tests of the workbook reader run against the code of the gate: which failed before anything was changed |
+| `review-before-after.txt` | after G3 | Eight workbooks read by the reader of the gate and by the final reader: time, memory and what each answered; with the two scripts that produced the figures |
+| `review-real-workbooks.txt` | after G3 | 36 workbooks written by Excel and LibreOffice, read with the service's reader and compared with an independent reading |
+| `review-full-test-results.txt` | after G3 | The verification chain and the end-to-end demonstration on the final code, from an empty migrated database: 786 tests, import over HTTP, repeat, seed, restart, compare |
+| `review-verify-summary.json` | after G3 | The same run as a list of steps with their results |
+| `review-defect-detection.txt` | after G3 | `scripts/defect_detection.py` on the final code: 37 deliberate defects, each detected by a failing test |
 
 The results of the CI runs are not files in this folder. They are recorded
 in `docs/engineering/implementation-log.md`, under "Continuous integration",

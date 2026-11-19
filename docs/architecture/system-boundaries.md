@@ -50,7 +50,7 @@ recommendation exists in this release.
 | Domain services | Invariants, references, the field update policy, the transaction boundary | Parse files, know about HTTP |
 | Repositories | Queries, always scoped to a workspace | Commit, decide policy, build responses |
 | ORM models | Tables, keys, unique / check / foreign-key constraints | Call anything |
-| Readers | Turn bounded CSV/XLSX bytes into rows; never execute cell content | Write to the database |
+| Readers | Turn bounded CSV/XLSX bytes into rows; never execute cell content; weigh the XML of a workbook before opening it, and refuse one that declares entities or misnumbers its rows | Write to the database; believe the range a worksheet claims |
 | Column mapping | Map a source header to a canonical field through a fixed table | Guess; use a language model |
 | Normalization | Parse dates, decimals, enums and text strictly | Default an unknown value |
 | Row validation | Field, uniqueness, reference and consistency checks against a snapshot it is given | Read or write the database itself |

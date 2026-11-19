@@ -39,6 +39,7 @@ UNSTORABLE = "tests/api/test_unstorable_values.py"
 ISOLATION = "tests/api/test_workspace_isolation_http.py"
 NORMALIZATION = "tests/unit/test_normalization.py"
 LIFECYCLE = "tests/integration/test_import_preview_commit.py"
+WORKBOOKS = "tests/unit/test_workbook_safety.py"
 
 _SUMMARY = re.compile(r"(\d+) failed")
 
@@ -267,6 +268,87 @@ DEFECTS: tuple[Defect, ...] = (
         "select(func.count()).select_from(model).where(model.workspace_id == workspace_id)",
         "select(func.count()).select_from(model)",
         (ISOLATION,),
+    ),
+    Defect(
+        "a worksheet is read only as far as the range it claims",
+        "app/ingestion/readers.py",
+        "    values_sheet.reset_dimensions()\n    formulas_sheet.reset_dimensions()\n",
+        "",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "a workbook is opened before its XML is weighed",
+        "app/ingestion/readers.py",
+        "            scan_parts(\n"
+        "                archive,\n"
+        "                [entry.filename for entry in entries],\n"
+        "                cell_elements=content_budget(limits, _scanned_rows(limits)),\n"
+        "            )\n",
+        "            pass\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "the reader loads without the hardened XML parser",
+        "app/ingestion/readers.py",
+        "if not DEFUSEDXML:\n",
+        "if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "a worksheet is probed across every column it has",
+        "app/ingestion/readers.py",
+        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS, max_col=limits.max_columns + 1)\n",
+        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS)\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "two rows of a worksheet may carry the same number",
+        "app/ingestion/workbook_scan.py",
+        "        if number <= self._row_number or number > SHEET_MAX_ROW:\n",
+        "        if number > SHEET_MAX_ROW:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "two cells of a row may carry the same reference",
+        "app/ingestion/workbook_scan.py",
+        " or column <= self._column or column > SHEET_MAX_COLUMN:\n",
+        " or column > SHEET_MAX_COLUMN:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "formats and structure of a workbook are not counted",
+        "app/ingestion/workbook_scan.py",
+        "            if self._structure > MAX_STRUCTURE_ELEMENTS:\n",
+        "            if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "a single tag or text of any length is handed to the parser",
+        "app/ingestion/workbook_scan.py",
+        "                parser.ParseFile(_BoundedRuns(part))\n",
+        "                parser.ParseFile(part)\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "an error message quotes every worksheet name in full",
+        "app/ingestion/readers.py",
+        "        if len(printable) > SHEET_NAME_SHOWN_CHARS:\n",
+        "        if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "a worksheet name of any length is passed on to the ledger",
+        "app/ingestion/readers.py",
+        "    if len(selected) > SHEET_NAME_MAX:\n",
+        "    if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "two worksheets of a workbook may share a name",
+        "app/ingestion/readers.py",
+        "    if len(set(available)) != len(available):\n",
+        "    if False:\n",
+        (WORKBOOKS,),
     ),
 )
 

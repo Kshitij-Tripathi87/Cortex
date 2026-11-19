@@ -26,6 +26,7 @@ One stack, fixed for the sprint.
 | Driver | psycopg 3 (`psycopg[binary]`) | Maintained PostgreSQL driver |
 | Uploads | python-multipart | Required by FastAPI for multipart forms |
 | Spreadsheets | openpyxl | XLSX reading without executing formulas or macros |
+| XML of spreadsheets | defusedxml | openpyxl parses with it when it is installed and refuses a workbook that declares entities; without it the standard parser fills them in. The reader module does not load when openpyxl is not using it |
 | Server | uvicorn | Runs the ASGI application; used by every documented command |
 | Packaging | uv, `uv.lock` | Reproducible resolution; `uv sync --frozen` in CI |
 | Tests | pytest, httpx2 | Unit, API, integration and end-to-end tests |

@@ -89,9 +89,10 @@ Codes are stable. Messages may be reworded.
 | `ROW_SHAPE_MISMATCH` | A row has more cells than the header | Correct the row |
 | `FORMULA_WITHOUT_CACHED_VALUE` | A spreadsheet cell holds a formula without a stored result | Save the workbook with calculated values, or enter the value |
 | `UNSUPPORTED_FILE` | Not CSV or XLSX (415) | Save as CSV or XLSX |
-| `FILE_TOO_LARGE` | Larger than the upload limit (413) | Split the file |
+| `FILE_TOO_LARGE` | Larger than the upload limit; or a workbook that is too large once uncompressed, holds more cells in one worksheet than a full import, more formatting and structure than can be read, or a single value or tag of more than one megabyte (413) | Split the file. For a workbook: copy the worksheet to import into a workbook of its own |
 | `EMPTY_FILE`, `MISSING_HEADER`, `DUPLICATE_HEADER`, `INVALID_ENCODING`, `MALFORMED_FILE`, `ROW_LIMIT_EXCEEDED`, `COLUMN_LIMIT_EXCEEDED`, `CELL_TOO_LONG` | The file cannot be read as a bounded table (422) | Correct the file |
-| `AMBIGUOUS_WORKSHEET`, `WORKSHEET_NOT_FOUND` | The workbook has several data sheets and none was named, or the named one is absent | Send `sheet_name` |
+| `MALFORMED_FILE` for a workbook | Besides a damaged archive: a part that declares a document type or entities, rows or cells that are not numbered in ascending order, two worksheets with one name, or a worksheet to import whose name is longer than 160 characters (422). The reader refuses these rather than read a part of the worksheet | Open the workbook in a spreadsheet program and save it again; rename the worksheet |
+| `AMBIGUOUS_WORKSHEET`, `WORKSHEET_NOT_FOUND` | The workbook has several data sheets and none was named, or the named one is absent (422). A name is matched exactly, and otherwise with the spaces around it ignored if that fits one worksheet only. The message quotes at most ten names, each shortened to 40 characters | Send `sheet_name` |
 | `DUPLICATE_FILE` | The same workbook was already submitted for this entity type with another worksheet (409) | Use the existing batch, or save the worksheet as its own file |
 | `REQUEST_TOO_LARGE` | A request body other than an upload is larger than 1 MB (413) | Send less in one request |
 | `BATCH_NOT_COMMITTABLE` | The batch is not `PREVIEWED` (409) | Preview a new or corrected file |

@@ -46,6 +46,15 @@ specific assertion of the contracts, not when a route answers 200.
   reports that writer as waiting for a lock (`pg_stat_activity`). Only then is
   the lock released. Without the lock in the code the writer never waits and
   the test fails every time.
+- **A workbook is also tested as bytes, not only as a spreadsheet.** A
+  spreadsheet library writes only what a spreadsheet program would write.
+  The reader must also refuse what such a program never writes: XML that
+  declares entities, a megabyte of empty cell formats, a worksheet that
+  states a smaller range than it holds, two rows with one number.
+  `tests/workbooks.py` builds such archives part by part, and
+  `tests/unit/test_workbook_safety.py` reads them. Its first test reads a
+  hand-written workbook that is in order, so that a refusal in the others is
+  known to come from the content and not from the way the archive was made.
 
 ## Tests that were shown to fail without the behaviour
 
@@ -53,7 +62,7 @@ A test that cannot fail proves nothing. Each line below is a defect that is
 put into the code on purpose, one at a time; the tests named are run, and the
 file is restored.
 
-`scripts/defect_detection.py` holds defects 1 to 26 and runs them in one go:
+`scripts/defect_detection.py` holds defects 1 to 37 and runs them in one go:
 
 ```bash
 cd services/api
@@ -62,9 +71,12 @@ uv run python ../../scripts/defect_detection.py
 
 It reports `DETECTED` only when the tests ran and at least one failed, and it
 ends with exit code 1 when a defect leaves every test green or when the text
-it replaces is no longer in the code. The run on the final code of the sprint
-is recorded in `artifacts/sprint/day3-defect-detection.txt`: 26 of 26
-detected. Defect 27 was checked by hand.
+it replaces is no longer in the code. The run at gate G3 is recorded in
+`artifacts/sprint/day3-defect-detection.txt` (26 of 26 detected), the run on
+the final code in `artifacts/sprint/review-defect-detection.txt` (37 of 37).
+Defects 27 to 37 guard the workbook reader and were added with the review
+after the gate. One more defect, in the last line of the table, was checked
+by hand.
 
 This is not an automated mutation run. The defects are chosen by hand, one
 per behaviour that matters most (row locks, workspace filters, bounds, the
@@ -101,7 +113,18 @@ checkout that is thrown away.
 | 24 | Batch lock for commit ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
 | 25 | Equipment list ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
 | 26 | World State counts ignore the workspace | `test_workspace_isolation_http.py` | 1 failed |
-| 27 | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
+| 27 | A worksheet is read only as far as the range it claims | `test_workbook_safety.py` | 5 failed |
+| 28 | A workbook is opened before its XML is weighed | `test_workbook_safety.py` | 23 failed |
+| 29 | The reader loads without the hardened XML parser | `test_workbook_safety.py` | 1 failed |
+| 30 | A worksheet is probed across every column it has | `test_workbook_safety.py` | 2 failed |
+| 31 | Two rows of a worksheet may carry the same number | `test_workbook_safety.py` | 4 failed |
+| 32 | Two cells of a row may carry the same reference | `test_workbook_safety.py` | 2 failed |
+| 33 | Formats and structure of a workbook are not counted | `test_workbook_safety.py` | 3 failed |
+| 34 | A single tag or text of any length is handed to the parser | `test_workbook_safety.py` | 4 failed |
+| 35 | An error message quotes every worksheet name in full | `test_workbook_safety.py` | 2 failed |
+| 36 | A worksheet name of any length is passed on to the ledger | `test_workbook_safety.py` | 1 failed |
+| 37 | Two worksheets of a workbook may share a name | `test_workbook_safety.py` | 1 failed |
+| by hand | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
 
 One test was found **not** to prove what its name suggests.
 `test_two_batches_that_touch_the_same_order_allocate_distinct_versions`
@@ -157,6 +180,13 @@ evidence for the lock is defect 2.
   import and another writer, and it relies on PostgreSQL's default
   `deadlock_timeout`.
 - A real spreadsheet produced by Excel or a supplier portal: workbooks in the
-  tests are written by openpyxl.
+  tests are written by openpyxl or by hand. `scripts/compare_workbooks.py`
+  reads a directory of real workbooks with the service's reader and compares
+  each worksheet with an independent reading; it was run once over 36
+  workbooks written by Excel and LibreOffice (`known-limitations.md`, V-05)
+  and is not part of the suite, because those files are not in the repository.
+- The cost of reading a workbook. The tests show that a workbook asking for
+  too much is refused; how long the largest accepted workbook takes was
+  measured once (`known-limitations.md`, L-10 and L-35) and is not asserted.
 - Authentication and authorisation, which do not exist in this release.
 - Docker Compose on a developer machine other than the CI runner.

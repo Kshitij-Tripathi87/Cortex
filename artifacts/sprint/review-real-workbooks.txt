@@ -1,0 +1,51 @@
+Workbooks written by spreadsheet programs, read with the service's reader and compared with an
+independent reading (openpyxl in its ordinary in-memory mode).
+The files: the 36 .xlsx files in pandas/tests/io/data/excel of github.com/pandas-dev/pandas at commit
+264b9d8f97 (2026-11-18T19:00:24Z), written by Microsoft Excel 12 to 16 (Windows and Macintosh) and
+LibreOffice 4.2 to 7.3. They are test data of that project, not procurement data, and are not part
+of this repository. Run once, on the final code, on the build machine. Command, from services/api:
+  uv run python ../../scripts/compare_workbooks.py <directory with the files>
+Each line: file, the program named in the file's properties, and for each worksheet either
+'identical' with the number of data rows, or the reason the reader refused it. EMPTY_FILE,
+MISSING_HEADER and DUPLICATE_HEADER are refusals of a layout the reader does not accept (a title
+above the header, index columns without a name, a repeated header); they are not differences.
+The output is unchanged.
+
+blank.xlsx                           Microsoft Excel 14.0300                    'Sheet1': refused, EMPTY_FILE; 'Sheet2': refused, EMPTY_FILE; 'Sheet3': refused, EMPTY_FILE
+blank_with_header.xlsx               Microsoft Excel 14.0300                    'Sheet1': refused, EMPTY_FILE; 'Sheet2': refused, EMPTY_FILE; 'Sheet3': refused, EMPTY_FILE
+chartsheet.xlsx                      Microsoft Excel 16.0300                    'Sheet1': identical, 101 data row(s)
+df_empty.xlsx                        LibreOffice/6.3.4.2.0$Linux_X86_64 Libre   'Sheet1': refused, MISSING_HEADER
+df_equals.xlsx                       LibreOffice/6.3.4.2.0$Linux_X86_64 Libre   'Sheet1': refused, MISSING_HEADER
+df_header_oob.xlsx                   LibreOffice/6.4.7.2$Linux_X86_64 LibreOf   'Sheet1': refused, EMPTY_FILE
+df_mangle_dup_col_dtypes.xlsx        LibreOffice/6.4.7.2$Linux_X86_64 LibreOf   'Sheet1': refused, DUPLICATE_HEADER
+dimension_large.xlsx                 LibreOffice/6.4.6.2$Linux_X86_64 LibreOf   'Sheet1': refused, MISSING_HEADER
+dimension_missing.xlsx               LibreOffice/6.4.6.2$Linux_X86_64 LibreOf   'Sheet1': refused, MISSING_HEADER
+dimension_small.xlsx                 LibreOffice/6.4.6.2$Linux_X86_64 LibreOf   'Sheet1': refused, MISSING_HEADER
+empty_trailing_rows.xlsx             LibreOffice/6.4.6.2$Linux_X86_64 LibreOf   'Sheet1': refused, MISSING_HEADER
+empty_with_blank_row.xlsx            LibreOffice/6.4.6.2$Linux_X86_64 LibreOf   'Sheet1': refused, EMPTY_FILE
+ints_spelled_with_decimals.xlsx      unknown program                            'Sheet1': identical, 10 data row(s)
+multiindex_no_index_names.xlsx       LibreOffice/7.3.4.2$Linux_X86_64 LibreOf   'Tabelle1': refused, MISSING_HEADER
+one_col_blank_line.xlsx              Microsoft Excel 16.0300                    'Sheet1': identical, 3 data row(s)
+test1.xlsx                           Microsoft Macintosh Excel 16.0300          'Sheet1': refused, MISSING_HEADER; 'Sheet2': refused, MISSING_HEADER; 'Sheet3': refused, EMPTY_FILE; 'Sheet4': refused, MISSING_HEADER
+test2.xlsx                           Microsoft Excel 15.0300                    'Sheet1': identical, 1 data row(s)
+test3.xlsx                           Microsoft Excel 15.0300                    'Sheet1': identical, 1 data row(s)
+test4.xlsx                           Microsoft Macintosh Excel 16.0300          'Sheet1': identical, 5 data row(s)
+test5.xlsx                           Microsoft Macintosh Excel 16.0300          'Sheet1': identical, 5 data row(s)
+test_converters.xlsx                 LibreOffice/4.2.6.3$Linux_X86_64 LibreOf   'Sheet1': identical, 5 data row(s)
+test_datetime_mi.xlsx                Microsoft Excel 16.0300                    '#34748': refused, DUPLICATE_HEADER
+test_decimal.xlsx                    Microsoft Excel 16.0300                    'test_decimal': identical, 4 data row(s)
+test_index_name_pre17.xlsx           Microsoft Excel 15.0300                    'single_names': refused, MISSING_HEADER; 'single_no_names': refused, MISSING_HEADER; 'multi_no_names': refused, MISSING_HEADER; 'multi_names': refused, MISSING_HEADER
+test_multisheet.xlsx                 Microsoft Macintosh Excel 16.0300          'Charlie': identical, 6 data row(s); 'Alpha': identical, 6 data row(s); 'Beta': identical, 6 data row(s)
+test_none_type.xlsx                  LibreOffice/7.3.7.2$Linux_X86_64 LibreOf   'Sheet1': identical, 7 data row(s)
+test_spaces.xlsx                     Microsoft Macintosh Excel 16.0300          'Sheet1': identical, 5 data row(s)
+test_squeeze.xlsx                    Microsoft Macintosh Excel 16.0300          'two_columns': identical, 3 data row(s); 'one_column': identical, 3 data row(s)
+test_types.xlsx                      Microsoft Macintosh Excel 16.0300          'Sheet1': identical, 5 data row(s)
+testdateoverflow.xlsx                Microsoft Excel 12.0000                    'Arkusz1': identical, 3 data row(s); 'Arkusz2': refused, EMPTY_FILE; 'Arkusz3': refused, EMPTY_FILE
+testdtype.xlsx                       Microsoft Excel 16.0300                    'Sheet1': identical, 4 data row(s)
+testmultiindex.xlsx                  Microsoft Excel 16.0300                    'single_column_name': identical, 4 data row(s); 'mi_column': refused, MISSING_HEADER; 'mi_index': refused, MISSING_HEADER; 'both': refused, MISSING_HEADER; 'mi_column_name': refused, MISSING_HEADER; 'name_with_int': refused, MISSING_HEADER; 'mi_index_name': identical, 4 data row(s); 'mi_index_blank_after_name': identical, 4 data row(s); 'both_name': refused, MISSING_HEADER; 'both_name_blank_after_mi_name': refused, MISSING_HEADER; 'both_name_multiple_blanks': refused, MISSING_HEADER; 'both_name_skiprows': refused, MISSING_HEADER; 'index_col_none': refused, DUPLICATE_HEADER; 'mi_column_empty_rows': identical, 3 data row(s)
+testskiprows.xlsx                    Microsoft Excel 15.0300                    'skiprows_list': identical, 4 data row(s)
+times_1900.xlsx                      Microsoft Excel 15.0300                    'Sheet1': identical, 11 data row(s)
+times_1904.xlsx                      Microsoft Excel 15.0300                    'Sheet1': identical, 11 data row(s)
+trailing_blanks.xlsx                 Microsoft Excel 16.0300                    'Sheet1': identical, 3 data row(s)
+
+36 workbook(s); 27 worksheet(s) identical cell by cell; 0 problem(s)

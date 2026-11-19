@@ -496,6 +496,10 @@ API to it.
   tests and the end-to-end demonstration on PostgreSQL 16.16.
 - Blockers: none.
 - Deferred items: none.
+- After the gate had been decided, defects were found in the workbook reader
+  and corrected. None of the 18 checks concerns them, and the gate was not
+  decided again; they are recorded under "After gate G3" below. The counts in
+  this table are those of the gate.
 
 ### End-of-day review
 
@@ -601,10 +605,130 @@ text only the first job saves it.
 
 ### Later runs
 
-The commits after `dd33ca5` change documents and the workflow file only; the
-Git tree hashes of `services/api`, `scripts` and `data` are those named in
-the evidence files. Each commit has its own run on the pull request page.
-The step "Explain a failure" has never run, because no run has failed.
+`27597ab` changes documents and the workflow file only; the Git tree hashes
+of `services/api`, `scripts` and `data` are those named in the `day3-*`
+evidence files. The commits after it change the workbook reader, the tests
+and the defect script ("After gate G3" below). Each commit has its own run
+on the pull request page; the run of `2221f42`, the first with the changed
+reader, passed both jobs. The step "Explain a failure" has never run,
+because no run has failed.
+
+## After gate G3: what no test had reached
+
+### Why
+
+With the gate decided and the CI run green, the Makefile targets were run
+once more by hand. `make coverage` reported 97 % (3,973 statements, 71 not
+run). The lines not run were read one by one. Those that a caller can reach
+were tried against a running API on the test database, with requests and
+files written for the purpose.
+
+Most of them did what they should, and now have a test. The workbook reader
+did not.
+
+### Found and corrected in the workbook reader
+
+Every item was reproduced before the code was changed.
+`artifacts/sprint/review-tests-before-the-fix.txt` lists the new tests that
+failed on the code of the gate, and `review-before-after.txt` holds the
+figures below.
+
+| # | Finding on the code of the gate | Now |
+|---|---|---|
+| 1 | **A worksheet was read only as far as the range it claims.** A worksheet that states the range `A1:B2` and holds three data rows was imported as one row, without a warning. openpyxl stops at the last row of the stated range when it streams a worksheet, and some programs state `A1` whatever the worksheet holds | The stated range is discarded before the rows are read. All three rows are read |
+| 2 | **Misnumbered rows and cells were left out without a word.** With rows numbered 1, 2, 2, 3 the reader returned the first and the last data row. A row that comes late in the file was dropped; of two cells with one reference the later one won | `MALFORMED_FILE`: rows and cells must be numbered in ascending order |
+| 3 | **Entities declared by a workbook were filled in.** The package that makes openpyxl refuse them, defusedxml, was not installed. An upload of 7,485 bytes made the reader build 200 MB of text: 3.7 s and 726 MB before it answered `CELL_TOO_LONG` | defusedxml is a locked dependency and the reader module does not load without it. A part that declares a document type is refused before the workbook is opened: `MALFORMED_FILE`, at once |
+| 4 | **A few kilobytes of XML became hundreds of megabytes of objects.** Five megabytes of empty cell formats (an upload of 9,103 bytes) took 35.7 s and 782 MB, and the file was then read as if nothing had happened. The same size of empty elements in the workbook part: 2.4 s and 172 MB. One element with 1.2 million attributes: 4.3 s and 389 MB | Every part is read once as a stream before the workbook is opened, and counted (`app/ingestion/workbook_scan.py`). All three are refused with `FILE_TOO_LARGE` within 0.2 s |
+| 5 | A worksheet was probed for data across all 16,384 columns. One hundred worksheets with a blank cell far to the right: 7.1 s | Probed within the columns that can be imported: 0.3 s |
+| 6 | An error listed every worksheet name in full. Two names of 100,000 characters gave a message of 200,072 characters | At most ten names of 40 characters: 158 characters |
+| 7 | A worksheet name longer than the 160 characters of the ledger column was answered by the general safety net: 422 "a value cannot be stored" and an error line in the log | `MALFORMED_FILE`, naming the limit |
+| 8 | Of two worksheets with the same name the first was read, silently | `MALFORMED_FILE` |
+| 9 | A worksheet whose name has spaces around it could not be requested by name | A name is matched exactly, and otherwise with the spaces ignored if that fits one worksheet only |
+| 10 | Links to other workbooks were parsed when a workbook was opened | Not read |
+
+Items 1 and 2 are losses of data: a file was accepted and a part of it was
+imported. They contradict what this release is for, and they would not have
+shown in any response. Items 3 and 4 let one small upload hold the service
+for most of a minute and take most of a gigabyte. The playbook asks, in its
+file upload safeguards, to reject malformed or suspicious workbooks safely
+and not to decompress unbounded workbook contents. At the gate that was true
+of the archive and not of the XML inside it.
+
+Decisions taken with these changes:
+
+| Decision | Why |
+|---|---|
+| A workbook whose rows or cells are misnumbered is refused, not repaired | Which of two rows with one number is meant cannot be known. No spreadsheet program writes such a file |
+| The checks apply to every worksheet of a workbook, not only the one imported | openpyxl opens every worksheet. A worksheet that is not imported can cost as much as one that is (L-36) |
+| The budget for cells is that of a full import: every row the reader scans times every column it accepts, four elements a cell | What cannot be imported is not opened. A larger neighbouring worksheet is refused with a message that says what to do |
+| Formats, names and other structure: 250,000 elements a part | A spreadsheet program allows 65,490 cell formats; with their child elements that stays below the bound |
+| A document type is refused even without an entity | No part of a workbook has one, and it can also give attributes default values |
+| The reader module raises on import when openpyxl is not using defusedxml | openpyxl falls back to the standard parser silently. A service that cannot read workbooks safely should not start |
+
+### Branches that did what they should, and now have a test
+
+| Behaviour | Test |
+|---|---|
+| A record created while another writer holds its natural key waits, and is then a duplicate; when that writer gives up, it is created | `test_concurrency.py`, two held-lock tests |
+| A constraint refused by the database: unique and foreign key are a 409, CHECK and NOT NULL a logged 500 | `test_error_envelope.py`, `test_service_support.py` |
+| A commit that loses the database writes nothing and fails the batch; when even that cannot be recorded the batch stays `PREVIEWED` and can be committed afterwards | `test_import_preview_commit.py` |
+| Readiness on a database without the schema, and on a schema of another revision: 503, with the database check passing | `test_migrations.py` |
+| An import adds to the specification of existing equipment and keeps the rest, also when the record was changed between preview and commit | `test_ingestion_commit.py` |
+| Cells beyond the header are kept with the row they invalidate | `test_ingestion_preview.py` |
+| A full warning list still counts the findings it cannot show | `test_world_state.py` |
+| A day that does not exist is not a date; a whole number sent as a JSON number is held to the bounds of its field | `test_purchase_orders.py` |
+| The development workspace is created once; a slug cannot be taken twice | `test_workspace_isolation.py` |
+| The reader branches for a damaged part, too many parts, data below blank rows, time and duration cells, files of separators only | `test_readers.py` |
+
+### Workbooks written by real programs
+
+Every workbook in the tests is written by openpyxl or by hand. To see
+whether the stricter reader refuses what real programs write, 36 workbooks
+written by Microsoft Excel and LibreOffice were read once with
+`scripts/compare_workbooks.py` (`review-real-workbooks.txt`). The 27
+worksheets the reader accepts were identical, cell by cell, to an
+independent reading. The others were refused for their layout (a title above
+the header, a column without a name, a repeated header), none for the new
+checks. One of the files states a range smaller than its content: read by
+openpyxl alone it gives one row of one column instead of five rows of three.
+
+The files are the test data of the pandas project. They are not in this
+repository and they are not procurement data.
+
+### Commits
+
+| Commit | Content |
+|---|---|
+| `2221f42` | The workbook reader: the ten items above, `app/ingestion/workbook_scan.py`, defusedxml, `tests/unit/test_workbook_safety.py`, `tests/workbooks.py` |
+| `bb25faa` | Tests for the branches that did what they should |
+| the commit that holds this text | Defects 27 to 37 of `scripts/defect_detection.py`, `scripts/compare_workbooks.py`, the documents and the `review-*` evidence |
+
+The figures in the message of `2221f42` are from an earlier run of the same
+measurements; the ones in this section are those of `review-before-after.txt`.
+
+### Verification of the final code
+
+| Check | Result | Evidence |
+|---|---|---|
+| Verification chain and end-to-end demonstration, from an empty migrated database | Exit code 0, 12 of 12 steps. 414 unit, 238 API and 134 integration tests (689 at the gate). End to end as at the gate: 53, 28 and twice 42 checks; the World State identical across the restart | `review-full-test-results.txt`, `review-verify-summary.json` |
+| Deliberate defects | 37 of 37 detected; the files were put back | `review-defect-detection.txt` |
+| CI | The run of `2221f42` passed both jobs. The run of the commit that holds this text cannot be recorded in it; its result is in the description of the pull request | Pull request page |
+
+The coverage report was not read a second time.
+
+### What this leaves
+
+- A workbook built for the purpose can still cost about as much as the
+  largest workbook that can be imported: about a minute and 300 MB on the
+  build machine (L-35). There is no limit on uploads read at once.
+- A workbook is refused as a whole for one worksheet that cannot be read
+  (L-36).
+- Reading a large workbook is slow: 41 to 59 s at both limits (L-10). It is
+  read twice, once for values and once for formulas.
+- The review was done by the contributor who wrote the code (V-03), on the
+  workbooks that contributor could think of. It began by chance, with a
+  coverage report read after the gate. The gates of the playbook did not ask
+  for it.
 
 ## Work-package status board
 
@@ -619,6 +743,7 @@ The step "Explain a failure" has never run, because no run has failed.
 | D3.5–D3.6 World State | PASS | `46cde61` | Gate G3, checks 11 and 12 |
 | D3.7–D3.8 Dataset, seed, end-to-end | PASS | `bcd26d4`, `aaa62dd`, `b19decf` | Gate G3, checks 13 to 17 |
 | D3.9 Release record | PASS | `45b0671`, `6be089d`, `dd33ca5`, and the commit that records the CI run | Gate G3, check 18 |
+| After the gate: workbook reader and missing tests | Done | `2221f42`, `bb25faa`, and the commit that records them | "After gate G3"; `review-*` evidence |
 
 Owner of every task: the one contributor. Blockers: none.
 
@@ -631,7 +756,8 @@ The full list, with what is not built at all, is
 |---|---|---|---|
 | L-01 | No authentication or authorisation; one configured workspace; loopback only | Blocks any use beyond a developer machine | Before any exposure |
 | L-05 | No deployment: TLS, secrets, backup, monitoring, rate limits | Blocks production | A production-readiness phase |
-| L-10 | Preview and commit are synchronous; commit writes row by row | P2 | When imports grow beyond a few thousand rows: batched writes, a job runner |
+| L-10 | Preview and commit are synchronous; commit writes row by row; a workbook at both limits takes 41 to 59 s to preview | P2 | When imports grow beyond a few thousand rows: batched writes, a job runner |
+| L-35 | A workbook built for the purpose can still cost about a minute and 300 MB; uploads are not limited in number | P2 | Before the upload route faces anyone but its operator: the reader in a process of its own, with a memory and a time limit |
 | L-11 | A commit locks every record its rows refer to; a deadlock is answered 409 and must be sent again by the client | P2 | With L-10 |
 | L-30 | Two files that create the same new records at the same moment: one fails and must be uploaded again | P2 | With L-10 |
 | L-12, L-13 | CSV must be UTF-8 and comma-separated; dates must be `YYYY-MM-DD` or a spreadsheet date cell | P2 | Per-import settings, when a real source needs them |

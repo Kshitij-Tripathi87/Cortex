@@ -141,10 +141,16 @@ checks that the World State is identical each time. It writes to the
 development database and restarts the database containers.
 
 `scripts/defect_detection.py` answers a different question: do the tests fail
-when the behaviour they guard is removed? It breaks the code in 26 chosen
+when the behaviour they guard is removed? It breaks the code in 37 chosen
 ways, one at a time, and expects a failing test each time
 (`docs/engineering/test-strategy.md`). It edits source files while it runs
 and puts each one back; run it on a clean working tree.
+
+`scripts/compare_workbooks.py <directory>` is for workbooks from real
+sources. It reads every `.xlsx` file in a directory with the service's
+reader and compares each worksheet, cell by cell, with an independent
+reading. It imports nothing and needs no database. Run it over the first
+files a source system delivers, before importing them.
 
 ## Commands
 
