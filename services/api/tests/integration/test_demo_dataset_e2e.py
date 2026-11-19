@@ -9,6 +9,9 @@ No record is inserted by the test. Everything the World State shows came in
 through POST .../ingestion/preview and POST .../ingestion/{batch}/commit.
 """
 
+import csv
+import re
+from datetime import date
 from typing import Any
 
 import pytest
@@ -16,6 +19,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 import demo_checks
+from app.db.base import Base
+from app.db.session import Database
 from app.models import (
     Equipment,
     IngestionBatch,
@@ -28,8 +33,10 @@ from app.models import (
     Supplier,
     SupplierCommitmentVersion,
 )
+from tests import factories
 from tests.conftest import Api
 from tests.constants import DEMO_AS_OF
+from tests.factories import xlsx_bytes
 
 pytestmark = pytest.mark.db
 
@@ -254,3 +261,96 @@ def test_files_out_of_order_are_refused_row_by_row_and_nothing_is_made_up(
     assert {error["code"] for error in preview["errors"]} == {"REFERENCE_NOT_FOUND"}
     assert set(database_counts(session).values()) == {0}
     assert api.post(f"/ingestion/{preview['batch_id']}/commit").status_code == 409
+
+
+# --- the same dataset as an Excel workbook ---------------------------------------------
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+NUMBER_COLUMNS = {"Quantity", "Unit Price", "Total Value", "Sequence No"}
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def spreadsheet_cell(header: str, value: str) -> Any:
+    """The CSV text as a spreadsheet user's file holds it: typed, not text."""
+    if value == "":
+        return None
+    if ISO_DATE.fullmatch(value):
+        return date.fromisoformat(value)
+    if header in NUMBER_COLUMNS:
+        return int(value) if value.isdigit() else float(value)
+    return value
+
+
+def dataset_as_workbook(entries: list[dict[str, Any]]) -> tuple[bytes, dict[str, str]]:
+    """One workbook with a worksheet per dataset file, and the sheet name of each file."""
+    sheets: dict[str, list[list[Any]]] = {}
+    sheet_of: dict[str, str] = {}
+    for entry in entries:
+        path = demo_checks.DATASET_DIR / entry["file"]
+        with path.open(encoding="utf-8", newline="") as handle:
+            headers, *rows = list(csv.reader(handle))
+        name = path.stem.replace("_", " ").title()[:31]  # Excel's limit for a sheet name
+        sheets[name] = [headers, *[list(map(spreadsheet_cell, headers, row)) for row in rows]]
+        sheet_of[entry["file"]] = name
+    return xlsx_bytes(sheets), sheet_of
+
+
+def without_identity(value: Any) -> Any:
+    """A World State without what differs between two imports of the same facts:
+    generated ids, timestamps, and the file name in "recorded by an import"."""
+    if isinstance(value, dict):
+        return {
+            key: "import" if isinstance(item, str) and item.startswith("import:") else item
+            for key, item in ((key, without_identity(item)) for key, item in value.items())
+            if key != "id" and not key.endswith(("_id", "_at"))
+        }
+    if isinstance(value, (list, tuple)):
+        return [without_identity(item) for item in value]
+    return value
+
+
+def test_the_dataset_as_a_workbook_with_typed_cells_gives_the_same_world_state(
+    api: Api, session: Session, db: Database
+) -> None:
+    """Dates as date cells and numbers as numeric cells, one worksheet per entity type.
+
+    Imported sheet by sheet, the workbook must leave exactly the facts the CSV
+    files leave: same records, same dates, and money to the last decimal.
+    """
+    entries = [*MANIFEST["files"], *MANIFEST["updates"]]
+    for entry in entries:
+        import_file(api, entry)
+    from_csv = without_identity(world_state(api))
+    assert "42250000.00" in str(from_csv)  # a price, exact
+    assert "generated_at" not in str(from_csv)
+
+    # Start again from an empty workspace.
+    session.rollback()
+    with db.engine.begin() as connection:
+        for table in reversed(Base.metadata.sorted_tables):
+            connection.execute(text(f'DELETE FROM "{table.name}"'))
+    with db.session() as fresh:
+        factories.make_workspace(fresh)
+
+    # The revision is a second commitment file: it gets a workbook of its own.
+    for group in (MANIFEST["files"], MANIFEST["updates"]):
+        workbook, sheet_of = dataset_as_workbook(group)
+        for entry in group:
+            preview = api.post(
+                "/ingestion/preview",
+                files={"file": ("nexus_demo.xlsx", workbook, XLSX)},
+                data={"entity_type": entry["entity_type"], "sheet_name": sheet_of[entry["file"]]},
+            )
+            assert preview.status_code == 201, preview.text
+            body = preview.json()
+            assert (body["source_format"], body["sheet_name"]) == ("XLSX", sheet_of[entry["file"]])
+            assert (body["valid_rows"], body["invalid_rows"]) == (entry["rows"], 0), body["errors"]
+            commit = api.post(f"/ingestion/{body['batch_id']}/commit")
+            assert commit.status_code == 200, commit.text
+            assert commit.json()["committed_rows"] == entry["rows"]
+
+    summary, project = world_state(api)
+    checks = demo_checks.check_demo_world_state(MANIFEST, summary, project)
+    assert [check.line() for check in checks if not check.passed] == []
+    assert without_identity((summary, project)) == from_csv
+    assert database_counts(session) == MANIFEST["counts"]
