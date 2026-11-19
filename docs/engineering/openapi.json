@@ -343,6 +343,81 @@
         "title": "CanonicalEntityType",
         "type": "string"
       },
+      "CommitResponse": {
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "committed_at": {
+            "format": "date-time",
+            "title": "Committed At",
+            "type": "string"
+          },
+          "committed_rows": {
+            "description": "Rows that created or changed a canonical record.",
+            "title": "Committed Rows",
+            "type": "integer"
+          },
+          "entities": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EntityCounts"
+            },
+            "description": "Canonical records touched, by kind of record.",
+            "title": "Entities",
+            "type": "object"
+          },
+          "entity_type": {
+            "$ref": "#/components/schemas/IngestionEntityType"
+          },
+          "failed_rows": {
+            "title": "Failed Rows",
+            "type": "integer"
+          },
+          "invalid_rows": {
+            "title": "Invalid Rows",
+            "type": "integer"
+          },
+          "replayed": {
+            "description": "True when the batch was already committed and nothing was written now.",
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "skipped_rows": {
+            "description": "Valid rows that changed nothing: already up to date, or a repeated row.",
+            "title": "Skipped Rows",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BatchStatus"
+          },
+          "total_rows": {
+            "title": "Total Rows",
+            "type": "integer"
+          },
+          "valid_rows": {
+            "title": "Valid Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_id",
+          "status",
+          "entity_type",
+          "replayed",
+          "total_rows",
+          "valid_rows",
+          "invalid_rows",
+          "committed_rows",
+          "skipped_rows",
+          "failed_rows",
+          "entities",
+          "committed_at"
+        ],
+        "title": "CommitResponse",
+        "type": "object"
+      },
       "CommitmentCreate": {
         "additionalProperties": false,
         "properties": {
@@ -496,6 +571,27 @@
         ],
         "title": "Criticality",
         "type": "string"
+      },
+      "EntityCounts": {
+        "properties": {
+          "created": {
+            "default": 0,
+            "title": "Created",
+            "type": "integer"
+          },
+          "unchanged": {
+            "default": 0,
+            "title": "Unchanged",
+            "type": "integer"
+          },
+          "updated": {
+            "default": 0,
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "title": "EntityCounts",
+        "type": "object"
       },
       "EquipmentCategory": {
         "enum": [
@@ -4053,6 +4149,112 @@
           }
         },
         "summary": "Retrieve a batch and its row outcomes",
+        "tags": [
+          "ingestion"
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspace_id}/ingestion/{batch_id}/commit": {
+      "post": {
+        "description": "All valid rows are applied in one transaction, or none. Committing a batch that is already committed returns the recorded result and writes nothing.",
+        "operationId": "commit_import_api_v1_workspaces__workspace_id__ingestion__batch_id__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The workspace the request acts in.",
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "description": "The workspace the request acts in.",
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The body is not valid JSON."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The record or the workspace is not available."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict with existing data or with the state of the record."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The request content is invalid."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The database is not reachable."
+          }
+        },
+        "summary": "Commit the valid rows of a previewed batch",
         "tags": [
           "ingestion"
         ]

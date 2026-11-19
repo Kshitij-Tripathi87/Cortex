@@ -1,10 +1,21 @@
-"""Import lifecycle: preview and (in a later step) commit.
+"""Import lifecycle: preview and commit.
 
 Preview reads an upload, maps and validates every row against the canonical
 data as it is now, and writes the result to the ingestion ledger: one batch,
-one row per source row. It writes nothing else. Projects, suppliers,
-equipment, purchase orders, line items, milestones and commitments are
-untouched by a preview, whatever the file contains.
+one row per source row. It writes nothing else.
+
+Commit is the only path from the ledger to canonical records. It locks the
+batch, checks every valid row again against the database as it is at that
+moment, and applies all of them in one transaction, or none. Each applied row
+is linked to the record it produced. A committed batch is never applied
+twice: asking again returns the recorded result.
+
+    PREVIEWED --lock--> COMMITTING --+--> COMMITTED   (one transaction)
+                                     +--> FAILED      (rolled back, then recorded)
+
+COMMITTING exists only inside the commit transaction. Other sessions never
+see it: until the transaction ends they wait on the batch row lock, and then
+they see COMMITTED or, after a rollback, PREVIEWED followed by FAILED.
 
 The pure work (reading, mapping, normalizing, validating) is done by
 app/ingestion. This module supplies the database view those functions need
@@ -18,20 +29,24 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.clock import utcnow
 from app.core.config import Settings
 from app.core.errors import (
     ConflictError,
     DomainError,
+    ErrorDetail,
     FileTooLargeError,
+    InvalidStateError,
     NotFoundError,
     UnsupportedFileError,
     ValidationFailedError,
 )
 from app.db.session import transaction
 from app.ingestion import readers
-from app.ingestion.column_mapping import ENTITY_SPECS, map_headers, map_row
+from app.ingestion.column_mapping import ENTITY_SPECS, decode_normalized, map_headers, map_row
 from app.ingestion.contracts import (
     CandidateRow,
     MappedRow,
@@ -50,6 +65,7 @@ from app.models.enums import (
     BatchStatus,
     IngestionEntityType,
     PlannedAction,
+    RowOutcome,
     RowStatus,
     SourceFormat,
 )
@@ -70,9 +86,16 @@ from app.repositories import (
     purchase_order_repository,
     supplier_repository,
 )
-from app.services import workspace_service
+from app.services import (
+    equipment_service,
+    milestone_service,
+    project_service,
+    purchase_order_service,
+    supplier_service,
+    workspace_service,
+)
 from app.services.data_quality_service import count_by_dimension
-from app.services.results import Page
+from app.services.results import Applied, Page
 
 _log = logging.getLogger("app.ingestion")
 
@@ -85,6 +108,12 @@ EXTRA_CELLS_KEY = "__cells_beyond_header__"
 
 # An XLSX file is a compressed archive; its content may be this many times larger.
 UNCOMPRESSED_FACTOR = 10
+
+# How many failing rows a COMMIT_CONFLICT response lists; all are in the batch detail.
+COMMIT_FAILURE_DETAIL_LIMIT = 100
+
+# Marks a finding that was made at commit time, on a row that was valid at preview.
+COMMIT_STAGE = "commit"
 
 _FILE_ERROR_STATUS: Mapping[str, type[DomainError]] = {
     "UNSUPPORTED_FILE": UnsupportedFileError,
@@ -139,6 +168,21 @@ class PreviewResult:
     warnings_count: int
     quality: Mapping[str, int]
     truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CommitResult:
+    batch: IngestionBatch
+    # True when the batch was already committed and nothing was written now.
+    replayed: bool
+
+
+class _CommitRejected(Exception):
+    """Rows that were valid at preview are not valid against the database as it is now."""
+
+    def __init__(self, failures: Sequence[RowAssessment]) -> None:
+        super().__init__(f"{len(failures)} row(s) failed revalidation")
+        self.failures = tuple(failures)
 
 
 @dataclass(frozen=True, slots=True)
@@ -593,3 +637,283 @@ def list_sources(
         limit=limit,
         offset=offset,
     )
+
+
+# --- commit ---------------------------------------------------------------------------
+
+
+def _source_label(batch: IngestionBatch) -> str:
+    """Who recorded a version that came from this batch."""
+    return f"import:{batch.original_filename}"[: field_limits.ACTOR_MAX]
+
+
+def _apply_row(
+    session: Session,
+    workspace_id: UUID,
+    batch: IngestionBatch,
+    row: IngestionRow,
+    assessment: RowAssessment,
+    loaded: LoadedRecords,
+) -> Applied:
+    """Hand one validated row to the service that owns its entity."""
+    values = assessment.resolved
+    entity_type = batch.entity_type
+
+    if entity_type is IngestionEntityType.PROJECT:
+        return project_service.apply_source_record(
+            session, workspace_id, existing=loaded.projects.get(values["code"]), values=values
+        )
+    if entity_type is IngestionEntityType.SUPPLIER:
+        return supplier_service.apply_source_record(
+            session,
+            workspace_id,
+            existing=loaded.suppliers.get(values["supplier_code"]),
+            values=values,
+        )
+    if entity_type is IngestionEntityType.EQUIPMENT:
+        return equipment_service.apply_source_record(
+            session,
+            workspace_id,
+            existing=loaded.equipment.get(values["equipment_code"]),
+            values=values,
+        )
+    if entity_type is IngestionEntityType.PURCHASE_ORDER:
+        return purchase_order_service.apply_source_record(
+            session,
+            workspace_id,
+            existing=loaded.purchase_orders.get(values["po_number"]),
+            values=values,
+        )
+
+    # The remaining kinds hang off a purchase order that validation resolved.
+    purchase_order = loaded.purchase_orders[values["po_number"]]
+    if entity_type is IngestionEntityType.PURCHASE_ORDER_ITEM:
+        return purchase_order_service.apply_item_record(
+            session,
+            existing=loaded.line_items.get((values["po_number"], values["equipment_code"])),
+            purchase_order=purchase_order,
+            equipment=loaded.equipment[values["equipment_code"]],
+            values=values,
+        )
+    if entity_type is IngestionEntityType.MILESTONE:
+        key = (values["po_number"], str(values["milestone_type"]), int(values["sequence_no"]))
+        return milestone_service.apply_source_record(
+            session,
+            existing=loaded.milestones.get(key),
+            purchase_order=purchase_order,
+            values=values,
+            recorded_by=_source_label(batch),
+            source_row_id=row.id,
+        )
+    return purchase_order_service.apply_commitment_record(
+        session,
+        purchase_order=purchase_order,
+        values=values,
+        recorded_by=_source_label(batch),
+        source_row_id=row.id,
+    )
+
+
+# A milestone row may also append a plan version; that is counted under this key.
+PLAN_VERSION_KEY = "milestone_plan_version"
+
+_OUTCOME_KEY: Mapping[RowOutcome, str] = {
+    RowOutcome.CREATED: "created",
+    RowOutcome.UPDATED: "updated",
+    RowOutcome.UNCHANGED: "unchanged",
+}
+
+
+def _apply_all(
+    session: Session,
+    workspace_id: UUID,
+    batch: IngestionBatch,
+    rows: Sequence[IngestionRow],
+    assessments: Sequence[RowAssessment],
+    loaded: LoadedRecords,
+) -> dict[str, dict[str, int]]:
+    """Apply every eligible row, link it to its record and tally what happened."""
+    entities: dict[str, dict[str, int]] = {}
+    applied_by_row: dict[int, Applied] = {}
+
+    def tally(kind: str, key: str, amount: int = 1) -> None:
+        counts = entities.setdefault(kind, {"created": 0, "updated": 0, "unchanged": 0})
+        counts[key] += amount
+
+    for row, assessment in zip(rows, assessments, strict=True):
+        if assessment.duplicate_of is not None:
+            # An exact repeat of an earlier row: nothing to apply, same record.
+            first = applied_by_row[assessment.duplicate_of]
+            row.status = RowStatus.SKIPPED
+            row.outcome = RowOutcome.DUPLICATE_ROW
+            row.canonical_entity_type = first.entity_type.value
+            row.canonical_entity_id = first.entity_id
+            continue
+
+        applied = _apply_row(session, workspace_id, batch, row, assessment, loaded)
+        applied_by_row[row.row_number] = applied
+        row.canonical_entity_type = applied.entity_type.value
+        row.canonical_entity_id = applied.entity_id
+        row.outcome = applied.outcome
+        row.status = (
+            RowStatus.SKIPPED if applied.outcome is RowOutcome.UNCHANGED else RowStatus.COMMITTED
+        )
+        tally(applied.entity_type.value, _OUTCOME_KEY[applied.outcome])
+        if batch.entity_type is IngestionEntityType.MILESTONE and applied.versions_created:
+            tally(PLAN_VERSION_KEY, "created", applied.versions_created)
+    return entities
+
+
+def _record_failure(
+    session: Session,
+    workspace_id: UUID,
+    batch_id: UUID,
+    failure_code: str,
+    failures: Sequence[RowAssessment],
+) -> None:
+    """After a rolled-back commit, record why, in a transaction of its own.
+
+    The canonical writes are already gone. This marks the batch FAILED, the
+    rows that were rejected, and the rows that were valid but went down with
+    the batch. If the batch was finished by someone else in the meantime, it
+    is left alone.
+    """
+    try:
+        with transaction(session):
+            batch = ingestion_repository.lock_for_commit(session, workspace_id, batch_id)
+            if batch is None or batch.status is not BatchStatus.PREVIEWED:
+                return
+            rejected = {assessment.row_number: assessment for assessment in failures}
+            rows = ingestion_repository.list_rows(session, batch.id, [RowStatus.VALID])
+            for row in rows:
+                assessment = rejected.get(row.row_number)
+                if assessment is None:
+                    row.status = RowStatus.SKIPPED
+                    row.outcome = RowOutcome.ROLLED_BACK
+                    continue
+                row.status = RowStatus.FAILED
+                row.outcome = RowOutcome.REJECTED
+                row.validation_errors = [
+                    *row.validation_errors,
+                    *({**issue.as_json(), "stage": COMMIT_STAGE} for issue in assessment.errors),
+                ]
+            batch.status = BatchStatus.FAILED
+            batch.failure_code = failure_code
+            batch.failed_rows = len(rejected)
+            batch.skipped_rows = len(rows) - len(rejected)
+            batch.committed_rows = 0
+    except SQLAlchemyError:
+        # The database is not answering. The batch stays PREVIEWED, which is
+        # true: nothing was committed, and it can be committed again.
+        _log.exception("Could not record the failure of batch %s", batch_id)
+        session.rollback()
+
+
+def _commit_conflict(failures: Sequence[RowAssessment]) -> ConflictError:
+    details = [
+        ErrorDetail(
+            code=issue.code,
+            message=issue.message,
+            row_number=assessment.row_number,
+            column=issue.column,
+        )
+        for assessment in failures
+        for issue in assessment.errors
+    ]
+    return ConflictError(
+        "Rows that were valid at preview are no longer valid. Nothing was committed and the "
+        "batch has failed. Fix the cause and upload the file again.",
+        code="COMMIT_CONFLICT",
+        details=details[:COMMIT_FAILURE_DETAIL_LIMIT],
+    )
+
+
+def commit_import(session: Session, workspace_id: UUID, batch_id: UUID) -> CommitResult:
+    """Apply the valid rows of a previewed batch to the canonical records, all or none.
+
+    * The batch row is locked first; a concurrent request for the same batch
+      waits and then finds it committed.
+    * Every valid row is assessed again against the records as they are now,
+      which are locked while it happens. A row that no longer holds fails the
+      whole batch: nothing is written and the batch becomes FAILED.
+    * Rows, links, counters and the COMMITTED state are written in the same
+      transaction as the canonical records.
+    """
+    try:
+        with transaction(session):
+            workspace_service.require_active_workspace(session, workspace_id)
+            batch = ingestion_repository.lock_for_commit(session, workspace_id, batch_id)
+            if batch is None:
+                raise NotFoundError("The ingestion batch was not found.")
+            if batch.status is BatchStatus.COMMITTED:
+                return CommitResult(batch=batch, replayed=True)
+            if batch.status is not BatchStatus.PREVIEWED:
+                raise InvalidStateError(
+                    f"The batch is {batch.status.value} and cannot be committed. "
+                    "Preview a new or corrected file.",
+                    code="BATCH_NOT_COMMITTABLE",
+                )
+
+            rows = ingestion_repository.list_rows(session, batch.id, [RowStatus.VALID])
+            if not rows:
+                raise InvalidStateError(
+                    "The batch has no valid row to commit. Correct the file or its "
+                    "dependencies and preview it again.",
+                    code="BATCH_NOT_COMMITTABLE",
+                )
+            batch.status = BatchStatus.COMMITTING
+            session.flush()
+
+            spec = ENTITY_SPECS[batch.entity_type]
+            candidates = [
+                CandidateRow(row.row_number, decode_normalized(spec, row.normalized_data))
+                for row in rows
+            ]
+            # What preview saw may have changed. The records are read again,
+            # locked, and every row is judged against them once more.
+            loaded = load_records(
+                session, workspace_id, batch.entity_type, candidates, for_update=True
+            )
+            assessments = assess_rows(batch.entity_type, candidates, loaded.snapshot())
+            failures = [assessment for assessment in assessments if assessment.has_errors]
+            if failures:
+                raise _CommitRejected(failures)
+
+            entities = _apply_all(session, workspace_id, batch, rows, assessments, loaded)
+
+            batch.committed_rows = sum(1 for row in rows if row.status is RowStatus.COMMITTED)
+            batch.skipped_rows = sum(1 for row in rows if row.status is RowStatus.SKIPPED)
+            batch.failed_rows = 0
+            batch.commit_summary = {"entities": entities}
+            batch.committed_at = utcnow()
+            batch.status = BatchStatus.COMMITTED
+            session.flush()
+
+            _log.info(
+                "Import committed",
+                extra={
+                    "batch_id": str(batch.id),
+                    "entity_type": batch.entity_type.value,
+                    "committed_rows": batch.committed_rows,
+                    "skipped_rows": batch.skipped_rows,
+                },
+            )
+            return CommitResult(batch=batch, replayed=False)
+    except _CommitRejected as rejected:
+        _record_failure(session, workspace_id, batch_id, "COMMIT_CONFLICT", rejected.failures)
+        raise _commit_conflict(rejected.failures) from None
+    except DomainError:
+        # Not found, not committable, workspace not available: nothing was attempted.
+        raise
+    except IntegrityError:
+        # A constraint refused a write, for example because another import
+        # created the same record a moment earlier. Everything was rolled back.
+        _record_failure(session, workspace_id, batch_id, "COMMIT_CONFLICT", [])
+        raise ConflictError(
+            "A database constraint rejected the batch. Nothing was committed and the batch "
+            "has failed. Upload the file again.",
+            code="COMMIT_CONFLICT",
+        ) from None
+    except Exception:
+        _record_failure(session, workspace_id, batch_id, "COMMIT_FAILED", [])
+        raise

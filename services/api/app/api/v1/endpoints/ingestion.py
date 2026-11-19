@@ -19,6 +19,8 @@ from app.schemas.ingestion import (
     BatchDetailResponse,
     BatchListResponse,
     BatchRead,
+    CommitResponse,
+    EntityCounts,
     PreviewResponse,
     RowIssue,
     RowListResponse,
@@ -213,4 +215,34 @@ def get_batch(
             limit=detail.rows.limit,
             offset=detail.rows.offset,
         ),
+    )
+
+
+@router.post(
+    "/{batch_id}/commit",
+    response_model=CommitResponse,
+    summary="Commit the valid rows of a previewed batch",
+    description=(
+        "All valid rows are applied in one transaction, or none. Committing a batch that "
+        "is already committed returns the recorded result and writes nothing."
+    ),
+)
+def commit_import(workspace: WorkspaceDep, session: SessionDep, batch_id: UUID) -> CommitResponse:
+    result = ingestion_service.commit_import(session, workspace.workspace_id, batch_id)
+    batch = result.batch
+    assert batch.committed_at is not None
+    recorded = (batch.commit_summary or {}).get("entities", {})
+    return CommitResponse(
+        batch_id=batch.id,
+        status=batch.status,
+        entity_type=batch.entity_type,
+        replayed=result.replayed,
+        total_rows=batch.total_rows,
+        valid_rows=batch.valid_rows,
+        invalid_rows=batch.invalid_rows,
+        committed_rows=batch.committed_rows,
+        skipped_rows=batch.skipped_rows,
+        failed_rows=batch.failed_rows,
+        entities={kind: EntityCounts(**counts) for kind, counts in recorded.items()},
+        committed_at=batch.committed_at,
     )
