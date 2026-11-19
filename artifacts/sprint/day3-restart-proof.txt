@@ -18,5 +18,5 @@ Written by scripts/verify_sprint.py during the run recorded in day3-full-test-re
 Build machine: Python 3.12.16, PostgreSQL 16.2 for development and test, both on 127.0.0.2
 (see README.md in this folder for the differences from the project defaults).
 The restart is of the local PostgreSQL daemon with its data directory kept, not of a container:
-that machine has no Docker. The container restart with the named volume runs in CI; its result
-is in docs/engineering/implementation-log.md under "Continuous integration".
+that machine has no Docker. The container restart with the named volume runs in CI; the result
+of its first run is in docs/engineering/implementation-log.md under "Continuous integration".

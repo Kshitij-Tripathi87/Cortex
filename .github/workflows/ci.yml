@@ -183,6 +183,9 @@ jobs:
           version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: services/api/uv.lock
+          # The other job saves this cache. Two jobs that save the same key at
+          # the same moment leave a warning on the run.
+          save-cache: false
 
       - name: Local configuration from the template
         run: |

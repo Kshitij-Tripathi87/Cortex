@@ -79,7 +79,7 @@ codebase.
 | `curl /health/ready` with PostgreSQL stopped | 503; liveness still 200 | `day1-health-ready-db-stopped.txt` |
 | `curl /openapi.json` | 200, OpenAPI 3.1.0 | `day1-openapi.json` |
 | `make verify` | 11 of 11 steps pass; 72 tests | `day1-test-results.txt` |
-| `docker compose -f infra/docker-compose.yml up -d` | NOT RUN on the build machine (no Docker) | CI, see Day 3 |
+| `docker compose -f infra/docker-compose.yml up -d` | NOT RUN on the build machine (no Docker) | CI, see "Continuous integration" |
 
 ### Found and fixed on the way
 
@@ -103,7 +103,7 @@ codebase.
 | Python pinned to 3.12 | PASS |
 | `pyproject.toml` and `uv.lock` committed | PASS |
 | Clean `uv sync --frozen` succeeds | PASS |
-| PostgreSQL starts with a healthy named volume | NOT RUN locally (needs Docker); PostgreSQL 16 itself: PASS |
+| PostgreSQL starts with a healthy named volume | NOT RUN locally (needs Docker); PostgreSQL 16 itself: PASS. In CI: PASS (run 44539765258) |
 | API imports and starts without circular imports | PASS |
 | `/health/live` works | PASS |
 | `/health/ready` verifies PostgreSQL | PASS |
@@ -111,11 +111,13 @@ codebase.
 | Error envelope and request id are wired | PASS |
 | Alembic imports metadata deterministically | PASS |
 | Ruff and bootstrap tests pass | PASS |
-| CI workflow committed | PASS (committed; first run happens on the pull request) |
+| CI workflow committed | PASS. Its first run, on the pull request, passed (run 44539765258) |
 | Architecture, domain and stack decisions written | PASS |
 | This log records evidence and blockers | PASS |
 
-- Status: **PASS**, with one line carried to CI (Compose and the named volume).
+- Status: **PASS**, with one line carried to CI (Compose and the named
+  volume). That line passed in the CI run recorded under "Continuous
+  integration".
 - Blockers: none.
 - Deferred items: none.
 
@@ -327,7 +329,8 @@ a test in the repository.
 | `45b0671` | 12:59 | test: show that the tests fail when the behaviour is removed |
 | `c830e48` | 13:02 | fix(dates): a date takes the digits 0 to 9 only, stated in the code |
 | `6be089d` | 13:30 | docs,ci: README for the finished v0.1; CI reports test totals and runs defect detection |
-| the commit that holds this text | | docs(engineering): Day 3 record, gate G3 and evidence |
+| `dd33ca5` | 14:03 | docs(engineering): Day 3 record, gate G3 and evidence |
+| the commit that holds this text | | docs(engineering): the first CI run; gate G3 decided |
 
 **How this history was made.** The session that built Day 3 was interrupted
 once, with the commit path, the World State and the dataset written and not
@@ -358,7 +361,8 @@ pass (`day3-commit-validation.txt`).
 - `README.md`, `AGENTS.md`, `Makefile`, `.github/workflows/ci.yml`, `infra/docker-compose.yml`
 - `docs/`: `known-limitations.md`, `test-strategy.md` (new); `domain-model.md`, `api-contract.md`, `openapi.json` (updated)
 
-The commit that holds this text adds the Day 3 evidence files and this record.
+`dd33ca5` adds the Day 3 evidence files and this record. The commit after it
+records the first CI run and changes one line of the workflow.
 
 ### Commands executed
 
@@ -380,7 +384,7 @@ All on the build machine, on the code identified in the header of
 | `uv run python ../../scripts/defect_detection.py` | 26 of 26 deliberate defects detected | `day3-defect-detection.txt` |
 | The `curl` commands of the README against the running API | Preview 200 (file already known), commit 200 (`replayed: true`), the three World State routes 200 | — |
 | Lint, format check, mypy, OpenAPI check and the three suites at each of the 13 commits | All pass | `day3-commit-validation.txt` |
-| `make db-up`, `make e2e` with Docker Compose | NOT RUN on the build machine (no Docker) | CI, below |
+| `make db-up`, `make e2e` with Docker Compose | NOT RUN on the build machine (no Docker). In CI: pass | "Continuous integration" below |
 
 ### Found and fixed on the way
 
@@ -474,7 +478,7 @@ All are in `docs/architecture/domain-model.md`,
 | 13 | The demo dataset imports through the public application flow | PASS | End-to-end run over HTTP on an empty database: `day3-import-results.json`, `day3-full-test-results.txt` |
 | 14 | All five data conditions are represented and queryable | PASS | `test_all_five_conditions_are_represented_and_queryable`; the dataset checks of the end-to-end run |
 | 15 | Repeating the seed or the import changes no count and appends no version | PASS | `test_repeating_the_whole_import_changes_no_count_and_appends_no_version`, `test_no_table_is_touched_by_a_full_replay`; end-to-end run, three passes |
-| 16 | Data survives a restart of the API and of the database container, volume retained | PASS on the build machine for the API and the PostgreSQL server, data directory kept. The container and the named volume: NOT RUN locally, left to CI | `day3-restart-proof.txt`; "Continuous integration" below |
+| 16 | Data survives a restart of the API and of the database container, volume retained | PASS in CI: the container was removed and created again, the named volume kept, the World State identical. On the build machine the same for a restarted server without a container | CI run 44539765258, "Continuous integration" below; `day3-restart-proof.txt` |
 | 17 | Critical unit, API, integration and end-to-end tests pass | PASS | 339 unit, 224 API, 126 integration; 165 end-to-end checks; `day3-full-test-results.txt` |
 | 18 | OpenAPI export, test report, sample World State and known-gap list are committed | PASS | `docs/engineering/openapi.json`, `day3-full-test-results.txt`, `day3-world-state.json`, `day3-known-limitations.md` |
 
@@ -487,8 +491,9 @@ script inserts a canonical record, and
 `test_preview_then_commit_is_the_only_way_a_file_becomes_records` holds the
 API to it.
 
-- Status: **PASS on the build machine for 17 of 18 checks. Check 16 passes
-  there for a restarted server and waits for CI for the container.**
+- Status: **PASS.** 17 of the 18 checks are shown on the build machine;
+  check 16 needs Docker and is shown by the CI run. The CI run repeats the
+  tests and the end-to-end demonstration on PostgreSQL 16.16.
 - Blockers: none.
 - Deferred items: none.
 
@@ -511,8 +516,6 @@ API to it.
      import and another writer.
    - Behaviour under load: no load test was run. Timings were taken once.
    - A file produced by Excel or by a supplier system.
-   - Docker Compose, the named volume and the container restart, until CI
-     has run.
 4. **Which contract changed and why?** The API contract gained the code
    `COMMIT_FAILED`, bounds on `offset` and `sequence_no`, and the answers to
    a simultaneous upload and to a deadlock: each closes a case that was
@@ -523,8 +526,8 @@ API to it.
    on writers at the same time.
 5. **Is the branch runnable from a clean environment?** From an empty
    database on the build machine, yes: that is the run recorded above.
-   From a clean clone with Docker: that is what the CI workflow does, and
-   it has not run yet.
+   From a clean clone with Docker, yes: that is what the CI workflow does,
+   and its first run passed.
 6. **Was a file ownership or transaction boundary bypassed?** No. Checked
    again on the final code with `grep`: no `commit` or `rollback` in
    `app/repositories`, no query in `app/api`, no HTTP type in `app/services`,
@@ -542,7 +545,8 @@ API to it.
    contract and a dataset to start from. Authentication (L-01) comes before
    any use beyond a developer machine.
 10. **What can be shown without narration?** `make e2e` is one command and
-    prints every check. The `day3-*` files hold its output.
+    prints every check. The `day3-*` files hold its output. The CI run shows
+    the same from a clean checkout, on its own page.
 
 ## Continuous integration
 
@@ -560,9 +564,47 @@ API to it.
 Both jobs publish their results as annotations on the run and keep the
 output files as artifacts for 30 days.
 
-No run exists at the time of this commit: the workflow starts when the pull
-request is opened. The result is recorded here by the commit that follows
-the first run.
+### The first run
+
+Run 44539765258, on pull request 26, commit `dd33ca5`, started 2026-11-19
+14:04 UTC on `ubuntu-24.04`. Both jobs passed at the first attempt. The
+figures below are read from the annotations of that run.
+
+**Clean checkout to end-to-end proof** (1 min 41 s), Python 3.12.16:
+
+| Step | Result |
+|---|---|
+| Install from the lockfile | Pass; the lockfile was not changed by the install |
+| Lint, format check, mypy | Pass |
+| Unit tests | 339 passed |
+| `make db-up` | `postgres:16.16` twice, both healthy, published on `127.0.0.1` only; named volume `cortex-nexus_nexus_pgdata`. The server reports PostgreSQL 16.16 |
+| `make migrate`, `make migration-check` | Pass |
+| API tests | 224 passed |
+| Integration tests | 126 passed |
+| OpenAPI check | Pass |
+| End to end: first import | On the empty database, 8 files previewed (201) and committed over HTTP; 112 rows |
+| End to end: repeat and seed | Every file resolved to its batch, every commit a replay; the seed found every file committed |
+| End to end: restart | PostgreSQL restarted with `make db-down && make db-up`; its start time moved from 14:04:45 to 14:05:37 |
+| End to end: compare | World State identical before and after the restart (SHA-256 `1207ec1f…16004` both times) |
+
+**Tests fail when the behaviour is removed** (3 min 21 s): the unchanged code
+passed (235 tests); 26 of 26 deliberate defects were detected; every file
+was put back.
+
+This run is the evidence for what the build machine could not show: the
+Compose file, the health check, the named volume, the restart of the
+container, and the pinned PostgreSQL 16.16.
+
+One warning appeared in the run: both jobs tried to save the same dependency
+cache, and one reported that it could not. Since the commit that holds this
+text only the first job saves it.
+
+### Later runs
+
+The commits after `dd33ca5` change documents and the workflow file only; the
+Git tree hashes of `services/api`, `scripts` and `data` are those named in
+the evidence files. Each commit has its own run on the pull request page.
+The step "Explain a failure" has never run, because no run has failed.
 
 ## Work-package status board
 
@@ -576,7 +618,7 @@ the first run.
 | D3.1–D3.4 Commit, idempotency, provenance | PASS | `7720548`, `6329e8b`, `54f9a8b`, `eaaa053` | Gate G3, checks 1 to 10 |
 | D3.5–D3.6 World State | PASS | `46cde61` | Gate G3, checks 11 and 12 |
 | D3.7–D3.8 Dataset, seed, end-to-end | PASS | `bcd26d4`, `aaa62dd`, `b19decf` | Gate G3, checks 13 to 17 |
-| D3.9 Release record | PASS | `45b0671`, `6be089d`, the commit that holds this text | Gate G3, check 18 |
+| D3.9 Release record | PASS | `45b0671`, `6be089d`, `dd33ca5`, and the commit that records the CI run | Gate G3, check 18 |
 
 Owner of every task: the one contributor. Blockers: none.
 

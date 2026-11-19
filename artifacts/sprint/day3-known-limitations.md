@@ -54,8 +54,8 @@ no P0 or P1 defect is open.
 
 | ID | Limitation | Detail |
 |---|---|---|
-| V-01 | Docker Compose was never run on the machine the code was written on | That machine has no Docker. The Compose file, the named volume and the container restart are exercised by the CI workflow; `docs/engineering/implementation-log.md` records the run |
-| V-02 | Local evidence was produced on PostgreSQL 16.2 started from binaries, on `127.0.0.2` | The Compose file pins 16.16 on `127.0.0.1`; CI uses that. See `artifacts/sprint/README.md` |
+| V-01 | Docker Compose was never run on the machine the code was written on | That machine has no Docker. The Compose file, the named volume and the container restart are exercised by the CI workflow only, on a GitHub runner; `docs/engineering/implementation-log.md` records the first run, which passed. Nobody has run `make db-up` on a developer machine |
+| V-02 | Local evidence was produced on PostgreSQL 16.2 started from binaries, on `127.0.0.2` | The Compose file pins 16.16 on `127.0.0.1`; CI uses that, and the tests and the end-to-end demonstration pass there too. See `artifacts/sprint/README.md` |
 | V-03 | One contributor, working the three lanes in sequence | No independent review took place. The tests were written by the author of the code |
 | V-04 | No load test, no long-running soak | Concurrency is tested with held row locks (the writer under test is seen waiting in `pg_stat_activity`) and with races of up to six simultaneous writers. The timings in L-10 were taken once by hand |
 | V-05 | No file produced by a real source system was imported | The dataset is synthetic. It is imported as CSV and, in one test, as an Excel workbook with typed date and number cells, but every workbook in the tests is written by openpyxl, not by Excel or a supplier portal |
