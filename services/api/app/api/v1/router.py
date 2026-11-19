@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     equipment,
+    ingestion,
     milestones,
     projects,
     purchase_orders,
@@ -23,3 +24,4 @@ api_router.include_router(suppliers.router)
 api_router.include_router(equipment.router)
 api_router.include_router(purchase_orders.router)
 api_router.include_router(milestones.router)
+api_router.include_router(ingestion.router)
