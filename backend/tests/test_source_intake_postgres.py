@@ -214,3 +214,240 @@ async def test_source_intake_path_persists_on_postgresql(
     assert stored["readiness_assessments"] == 2
     assert batch is not None
     assert batch.created_at.tzinfo is not None  # read back as TIMESTAMP WITH TIME ZONE
+
+
+async def test_a_column_decision_persists_on_postgresql(
+    intake: tuple[AsyncClient, str],
+    intake_sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    """One request decides every waiting value of a file (row locks, JSON updates)."""
+    client, workspace_id = intake
+    query = {"workspace_id": workspace_id}
+    upload = await client.post(
+        "/api/v1/sources/upload",
+        data={"workspace_id": workspace_id, "source_system_hint": "erp"},
+        files={"file": ("suppliers.csv", SUPPLIERS_CSV, "text/csv")},
+    )
+    assert upload.status_code == 200, upload.text
+    batch_id, file_id = upload.json()["batch_id"], upload.json()["file_id"]
+    prepared = await client.post(f"/api/v1/sources/batches/{batch_id}/compile", params=query)
+    assert prepared.status_code == 200, prepared.text
+
+    columns = await client.get(f"/api/v1/sources/batches/{batch_id}/columns", params=query)
+    assert columns.status_code == 200, columns.text
+    (file,) = columns.json()["files"]
+    assert (file["entity"], file["key_column"]) == ("Supplier", "supplier_id")
+    assert {column["source_column"]: column["pending"] for column in file["columns"]} == {
+        "supplier_id": 2,
+        "supplier_name": 2,
+        "country": 2,
+    }
+
+    decision = {
+        "decision": "accepted",
+        "rationale": "Checked against the supplier master.",
+        "source_file_id": file_id,
+    }
+    decided = await client.post(
+        f"/api/v1/sources/batches/{batch_id}/columns/review", params=query, json=decision
+    )
+    assert decided.status_code == 200, decided.text
+    assert decided.json()["claims_decided"] == 6
+    # The two rows describe supplier S-1 with a different name and country.
+    assert decided.json()["conflicts_detected"] == 2
+    assert decided.json()["readiness"] == "blocked"
+
+    again = await client.post(
+        f"/api/v1/sources/batches/{batch_id}/columns/review", params=query, json=decision
+    )
+    assert again.status_code == 409, again.text
+
+    async with intake_sessions() as session:
+        claims = (
+            await session.scalars(select(EvidenceClaim).where(EvidenceClaim.batch_id == batch_id))
+        ).all()
+        conflicts = (
+            await session.scalars(
+                select(EvidenceConflict).where(EvidenceConflict.batch_id == batch_id)
+            )
+        ).all()
+        events = (
+            await session.scalars(
+                select(AuditEvent)
+                .where(AuditEvent.workspace_id == workspace_id)
+                .where(AuditEvent.event_type == "evidence.columns.reviewed")
+            )
+        ).all()
+
+    assert len(claims) == 6
+    assert {claim.claim_state for claim in claims} == {"accepted"}
+    assert {claim.canonical_entity for claim in claims} == {"Supplier"}
+    assert {claim.provenance["entity_key"] for claim in claims} == {"S-1"}
+    assert {claim.provenance["human_mapping_review"]["scope"] for claim in claims} == {"column"}
+    assert {conflict.canonical_field for conflict in conflicts} == {"supplier_name", "country"}
+    assert len(events) == 1
+    assert events[0].payload["claims_decided"] == 6
+    assert events[0].payload["conflicts_detected"] == 2
+
+
+async def test_values_are_read_by_page_and_counted_on_postgresql(
+    intake: tuple[AsyncClient, str],
+) -> None:
+    """The page, its filters, the counts and the values of a conflict.
+
+    PostgreSQL returns rows that were changed in another place than before
+    unless the order is stated, and its ``LIKE`` needs the escape the text
+    search relies on; the in-memory test database shows neither.
+    """
+    client, workspace_id = intake
+    query = {"workspace_id": workspace_id}
+    content = (
+        b"supplier_id,supplier_name,discount\n"
+        b"S-1,Acme Metals,5%\n"
+        b"S-2,Nordic_Seals,15\n"
+        b"S-3,Kyoto Bearings,50\n"
+        b"S-1,Acme Metals GmbH,5%\n"
+    )
+    upload = await client.post(
+        "/api/v1/sources/upload",
+        data={"workspace_id": workspace_id, "source_system_hint": "erp"},
+        files={"file": ("suppliers.csv", content, "text/csv")},
+    )
+    assert upload.status_code == 200, upload.text
+    batch_id, file_id = upload.json()["batch_id"], upload.json()["file_id"]
+    prepared = await client.post(f"/api/v1/sources/batches/{batch_id}/compile", params=query)
+    assert prepared.status_code == 200, prepared.text
+    claims_path = f"/api/v1/sources/batches/{batch_id}/claims"
+
+    file_order = [
+        (row, column)
+        for row in (1, 2, 3, 4)
+        for column in ("supplier_id", "supplier_name", "discount")
+    ]
+    before = await client.get(claims_path, params=query)
+    assert before.status_code == 200, before.text
+    assert [(c["row_number"], c["source_column"]) for c in before.json()] == file_order
+
+    # Decide the middle of the file first, then the rest: rows are rewritten
+    # in an order that is not the order of the file. The list is read after
+    # each decision: after both, the rewritten rows can happen to lie in file
+    # order again.
+    for columns in (["supplier_name"], ["supplier_id", "discount"]):
+        decided = await client.post(
+            f"/api/v1/sources/batches/{batch_id}/columns/review",
+            params=query,
+            json={
+                "decision": "accepted",
+                "rationale": "Checked against the supplier master.",
+                "source_file_id": file_id,
+                "source_columns": columns,
+            },
+        )
+        assert decided.status_code == 200, decided.text
+        after = await client.get(claims_path, params=query)
+        assert [c["claim_id"] for c in after.json()] == [c["claim_id"] for c in before.json()]
+    pages = []
+    for offset in (0, 5, 10):
+        page = await client.get(claims_path, params={**query, "limit": 5, "offset": offset})
+        assert page.status_code == 200, page.text
+        pages.extend(page.json())
+    assert [(c["row_number"], c["source_column"]) for c in pages] == file_order
+
+    async def values(**filters: object) -> list[str]:
+        response = await client.get(claims_path, params={**query, "limit": 500, **filters})
+        assert response.status_code == 200, response.text
+        return [str(claim["raw_value"]) for claim in response.json()]
+
+    assert await values(value="%") == ["5%", "5%"]
+    assert await values(value="nordic_") == ["Nordic_Seals"]
+    assert await values(value="ACME", row_number=4) == ["Acme Metals GmbH"]
+    assert await values(source_column="discount", claim_state="accepted") == [
+        "5%",
+        "15",
+        "50",
+        "5%",
+    ]
+
+    summary = await client.get(f"{claims_path}/summary", params=query)
+    assert summary.status_code == 200, summary.text
+    assert summary.json() == {
+        "total": 12,
+        "pending_review": 0,
+        "accepted": 12,
+        "rejected": 0,
+        "superseded": 0,
+    }
+    narrowed = await client.get(f"{claims_path}/summary", params={**query, "value": "acme"})
+    assert narrowed.json()["total"] == 2
+
+    # Rows 1 and 4 name supplier S-1 differently.
+    conflicts = await client.get(f"/api/v1/sources/batches/{batch_id}/conflicts", params=query)
+    assert conflicts.status_code == 200, conflicts.text
+    (conflict,) = conflicts.json()
+    assert conflict["canonical_field"] == "supplier_name"
+    assert [(c["row_number"], c["raw_value"], c["claim_state"]) for c in conflict["claims"]] == [
+        (1, "Acme Metals", "accepted"),
+        (4, "Acme Metals GmbH", "accepted"),
+    ]
+
+
+async def test_values_stay_in_file_order_while_a_file_is_decided_on_postgresql(
+    intake: tuple[AsyncClient, str],
+) -> None:
+    """The list and its pages are in file order, whatever was decided in between.
+
+    PostgreSQL writes a changed row to another place, and a query that does
+    not state its order returns rows as they lie. Deciding one column moves a
+    third of the values of a file. The file here fills several pages of the
+    table, so the moved values cannot stay between their neighbours; with
+    four rows, the same check passed every other run without the ORDER BY.
+    """
+    client, workspace_id = intake
+    query = {"workspace_id": workspace_id}
+    rows = 60
+    columns = ("supplier_id", "supplier_name", "country")
+    content = "supplier_id,supplier_name,country\n" + "".join(
+        f"S-{number},Supplier {number} Works,DE\n" for number in range(1, rows + 1)
+    )
+    upload = await client.post(
+        "/api/v1/sources/upload",
+        data={"workspace_id": workspace_id, "source_system_hint": "erp"},
+        files={"file": ("suppliers.csv", content.encode(), "text/csv")},
+    )
+    assert upload.status_code == 200, upload.text
+    batch_id, file_id = upload.json()["batch_id"], upload.json()["file_id"]
+    prepared = await client.post(f"/api/v1/sources/batches/{batch_id}/compile", params=query)
+    assert prepared.status_code == 200, prepared.text
+    claims_path = f"/api/v1/sources/batches/{batch_id}/claims"
+
+    async def listed(**page: int) -> list[dict[str, Any]]:
+        response = await client.get(claims_path, params={**query, **page})
+        assert response.status_code == 200, response.text
+        return list(response.json())
+
+    before = await listed()
+    assert [(c["row_number"], c["source_column"]) for c in before] == [
+        (row, column) for row in range(1, rows + 1) for column in columns
+    ]
+    in_file_order = [c["claim_id"] for c in before]
+
+    # The middle column first, then the first; the last one stays waiting.
+    for decided_columns in (["supplier_name"], ["supplier_id"]):
+        decided = await client.post(
+            f"/api/v1/sources/batches/{batch_id}/columns/review",
+            params=query,
+            json={
+                "decision": "accepted",
+                "rationale": "Checked against the supplier master.",
+                "source_file_id": file_id,
+                "source_columns": decided_columns,
+            },
+        )
+        assert decided.status_code == 200, decided.text
+        assert decided.json()["claims_decided"] == rows
+
+        assert [c["claim_id"] for c in await listed()] == in_file_order
+        paged: list[dict[str, Any]] = []
+        for offset in range(0, rows * len(columns), 50):
+            paged.extend(await listed(limit=50, offset=offset))
+        assert [c["claim_id"] for c in paged] == in_file_order
