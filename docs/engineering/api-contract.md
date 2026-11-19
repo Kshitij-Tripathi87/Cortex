@@ -13,12 +13,12 @@ CI fails when it is stale. The World State responses are specified in
 | Bind | `127.0.0.1` only |
 | Workspace | Every resource path starts with `/api/v1/workspaces/{workspace_id}`. Only the configured development workspace is served |
 | Identifiers | UUID strings |
-| Dates | `YYYY-MM-DD`. Nothing else is accepted |
+| Dates | `YYYY-MM-DD`, written with the digits 0 to 9. Nothing else is accepted: no timestamp, no date-time, no other calendar |
 | Timestamps | ISO 8601 in UTC with `Z` |
-| Decimals | JSON **strings** with a fixed scale: money `"1234.56"`, quantity `"2.000"`. Requests may send a string or an integer; a JSON float is rejected, because it cannot carry every decimal exactly |
+| Decimals | JSON **strings** with a fixed scale: money `"1234.56"`, quantity `"2.000"`. Requests may send a string or an integer; a JSON float is rejected, because it cannot carry every decimal exactly. A value with more digits than the field holds is rejected, never rounded |
 | Lists | `{"items": [...], "total": n, "limit": n, "offset": n}`; `limit` 1–200, default 50; `offset` 0–2,147,483,647; a fixed, documented order |
 | Text | Trimmed; empty text is rejected; bounded in length. The NUL character is rejected (`INVALID_VALUE`): the database cannot store it |
-| Whole numbers | A milestone `sequence_no` is 1–2,147,483,647 |
+| Whole numbers | A milestone `sequence_no` is a JSON number from 1 to 2,147,483,647. `"1"`, `1.0` and `true` are rejected |
 | Partial update | `PATCH` changes only the fields that are present. Unknown fields, natural keys included, are rejected |
 | Request id | `X-Request-ID` is returned on every response. A well-formed id sent by the caller (8–128 characters of letters, digits, `.`, `_`, `-`) is kept; otherwise one is generated |
 

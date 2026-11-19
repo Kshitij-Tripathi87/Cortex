@@ -21,7 +21,8 @@ from pydantic_core import PydanticCustomError
 from app.core.decimals import DecimalFormatError, fixed_scale, parse_plain_decimal
 from app.models import limits
 
-_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# The digits 0-9 only, as in the import normalization: see the note there.
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$", re.ASCII)
 _CURRENCY = re.compile(r"^[A-Z]{3}$")
 
 

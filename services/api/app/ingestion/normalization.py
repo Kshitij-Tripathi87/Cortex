@@ -32,8 +32,12 @@ from app.models.enums import (
 BYTE_ORDER_MARK = "\N{ZERO WIDTH NO-BREAK SPACE}"
 
 _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
-_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_ISO_MIDNIGHT = re.compile(r"^(\d{4}-\d{2}-\d{2})[T ]00:00(:00(\.0+)?)?$")
+# Dates are matched with the digits 0-9 only (re.ASCII). A date written in the
+# digits of another script is often a date of another calendar (Thai ๒๕๖๙ is
+# 2026), and the calendar is never guessed. Numbers have no such doubt: there a
+# digit of any script is the digit it is.
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$", re.ASCII)
+_ISO_MIDNIGHT = re.compile(r"^(\d{4}-\d{2}-\d{2})[T ]00:00(:00(\.0+)?)?$", re.ASCII)
 _WHOLE_NUMBER = re.compile(r"^[+-]?\d+$")
 _CURRENCY = re.compile(r"^[A-Z]{3}$")
 

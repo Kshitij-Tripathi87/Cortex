@@ -20,8 +20,12 @@ no P0 or P1 defect is open.
 
 | ID | Limitation | Severity | Detail |
 |---|---|---|---|
-| L-10 | Preview and commit are synchronous and hold the request | P2 | Bounded by `MAX_UPLOAD_SIZE_MB` (20) and `MAX_IMPORT_ROWS` (10,000). Larger imports need a job runner |
-| L-11 | A commit locks every record its rows refer to | P2 | Two imports that touch the same records run one after the other. If they take locks in an order that deadlocks, PostgreSQL ends one; that batch fails cleanly and the file can be submitted again |
+| L-10 | Preview and commit are synchronous and hold the request; commit writes row by row | P2 | Bounded by `MAX_UPLOAD_SIZE_MB` (20) and `MAX_IMPORT_ROWS` (10,000). Measured once on the build machine (2 CPUs), not asserted by a test: a file of 5,000 equipment rows previews in 1.8 s and commits in 8.5 s; 5,000 line items 2.5 s and 11.3 s; 8,000 milestones 3.7 s and 26.2 s. A client with a shorter timeout sees no answer although the commit completes; sending the commit again returns the stored result. Larger imports need batched writes and a job runner |
+| L-11 | A commit locks every record its rows refer to | P2 | Two imports that touch the same records run one after the other. An import takes its locks in one fixed order (record type, then natural key), which is meant to keep two imports from deadlocking each other; that is reasoned from the design and not shown by a test. A writer that takes locks in another order can still deadlock with an import. PostgreSQL then ends one transaction after `deadlock_timeout` (1 s by default). The commit answers 409 `CONFLICT`, nothing is written, the batch stays `PREVIEWED`, and the same commit request can be sent again. The API does not retry by itself |
+| L-30 | Two files that create the same new records, committed at the same moment | P2 | One commits. The other meets the unique key, answers 409 `COMMIT_CONFLICT` and its batch is `FAILED` with nothing written. Uploading that file again validates it against the records that now exist |
+| L-31 | Whole numbers and offsets end at 2,147,483,647 | P3 | `sequence_no` and every `offset`. Larger values are refused (422, or `INVALID_INTEGER` on an import row), never truncated |
+| L-32 | Text cannot contain the NUL character | P3 | PostgreSQL text cannot hold it. JSON requests are refused with 422 on the field; a CSV with NUL bytes is refused as a file (415) |
+| L-33 | Digits of other scripts are read in numbers and refused in dates | P3 | `१२३.४५` is stored as `123.45`. A date such as `२०२६-११-१९` is `INVALID_DATE`, because a date written in another script may be of another calendar and the calendar is never guessed |
 | L-12 | CSV must be UTF-8 and comma-separated | P2 | Semicolon-separated or other encodings are rejected with a clear error, not guessed |
 | L-13 | Dates must be `YYYY-MM-DD` or a spreadsheet date cell | P2 | No per-import locale. `03/04/26` is an error on purpose |
 | L-14 | Currency is checked for its shape (three letters), not against the ISO 4217 list | P3 | `XYZ` is accepted |
@@ -48,6 +52,8 @@ no P0 or P1 defect is open.
 | V-01 | Docker Compose was never run on the machine the code was written on | That machine has no Docker. The Compose file, the named volume and the container restart are exercised by the CI workflow; `docs/engineering/implementation-log.md` records the run |
 | V-02 | Local evidence was produced on PostgreSQL 16.2 started from binaries, on `127.0.0.2` | The Compose file pins 16.16 on `127.0.0.1`; CI uses that. See `artifacts/sprint/README.md` |
 | V-03 | One contributor, working the three lanes in sequence | No independent review took place. The tests were written by the author of the code |
-| V-04 | No load test, no long-running soak | Concurrency is tested with up to four simultaneous commits |
-| V-05 | No file produced by a real source system was imported | The dataset is synthetic; XLSX files in the tests are written by openpyxl |
+| V-04 | No load test, no long-running soak | Concurrency is tested with held row locks (the writer under test is seen waiting in `pg_stat_activity`) and with races of up to six simultaneous writers. The timings in L-10 were taken once by hand |
+| V-07 | One deadlock is tested, and it depends on a default | The test builds a deadlock between an import and one other writer and relies on PostgreSQL's default `deadlock_timeout` of one second |
+| V-08 | Tests were shown to fail for 27 chosen defects, not for all behaviour | `scripts/defect_detection.py` removes one behaviour at a time and expects a failing test. Behaviour outside that list has ordinary tests only; no mutation tool was run |
+| V-05 | No file produced by a real source system was imported | The dataset is synthetic. It is imported as CSV and, in one test, as an Excel workbook with typed date and number cells, but every workbook in the tests is written by openpyxl, not by Excel or a supplier portal |
 | V-06 | Coverage is not measured in CI | `make coverage` exists; the gates are scenario tests, not a percentage |

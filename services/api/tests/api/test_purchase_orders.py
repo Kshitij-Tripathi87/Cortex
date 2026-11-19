@@ -507,6 +507,14 @@ def test_commitment_validation_and_unknown_order(api: Api, order_id: str) -> Non
         api.post(path, json={"committed_delivery_date": "06/12/2026"}), 422, "VALIDATION_ERROR"
     )
     assert detail_codes(error) == {("committed_delivery_date", "INVALID_DATE")}
+    # One spelling only: no timestamp, no date-time, no basic format, and no
+    # digits of another script (such a date may be of another calendar).
+    for not_a_date in (1796515200, "2026-12-06T00:00:00", "20261206", "२०२६-१२-०६"):
+        error = error_of(
+            api.post(path, json={"committed_delivery_date": not_a_date}), 422, "VALIDATION_ERROR"
+        )
+        assert detail_codes(error) == {("committed_delivery_date", "INVALID_DATE")}
+    assert api.get(path).json()["total"] == 0
     error_of(api.post(path, json={}), 422, "VALIDATION_ERROR")
     error_of(
         api.post(

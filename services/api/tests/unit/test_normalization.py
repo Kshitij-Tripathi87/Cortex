@@ -230,6 +230,15 @@ def test_digits_of_another_script_are_the_digits_they_are() -> None:
     assert parse_integer("１２", maximum=INTEGER_MAX) == 12
 
 
+@pytest.mark.parametrize("value", ["२०२६-११-१९", "２０２６-１１-１９", "๒๕๖๙-๑๑-๑๙", "2026-11-१९"])
+def test_a_date_in_the_digits_of_another_script_is_not_read(value: str) -> None:
+    # Unlike a number, such a date may belong to another calendar: the Thai
+    # year ๒๕๖๙ is 2026. The calendar is never guessed.
+    with pytest.raises(NormalizationError) as error:
+        parse_date(value)
+    assert error.value.code == "INVALID_DATE"
+
+
 # --- integers and currency ------------------------------------------------------------
 
 
