@@ -40,6 +40,7 @@ ISOLATION = "tests/api/test_workspace_isolation_http.py"
 NORMALIZATION = "tests/unit/test_normalization.py"
 LIFECYCLE = "tests/integration/test_import_preview_commit.py"
 WORKBOOKS = "tests/unit/test_workbook_safety.py"
+IMPORT_ADMISSION = "tests/unit/test_import_concurrency.py"
 
 _SUMMARY = re.compile(r"(\d+) failed")
 
@@ -277,12 +278,15 @@ DEFECTS: tuple[Defect, ...] = (
         (WORKBOOKS,),
     ),
     Defect(
-        "a workbook is opened before its XML is weighed",
+        "workbook-level XML is not checked before openpyxl materializes it",
         "app/ingestion/readers.py",
         "            scan_parts(\n"
         "                archive,\n"
-        "                [entry.filename for entry in entries],\n"
+        "                global_xml_parts,\n"
         "                cell_elements=content_budget(limits, _scanned_rows(limits)),\n"
+        "                max_rows=_scanned_rows(limits),\n"
+        "                max_shared_string_items=limits.max_shared_string_items,\n"
+        "                max_shared_string_chars=limits.max_shared_string_chars,\n"
         "            )\n",
         "            pass\n",
         (WORKBOOKS,),
@@ -349,6 +353,60 @@ DEFECTS: tuple[Defect, ...] = (
         "    if len(set(available)) != len(available):\n",
         "    if False:\n",
         (WORKBOOKS,),
+    ),
+
+    Defect(
+        "shared-string count is not bounded before openpyxl loads it",
+        "app/ingestion/workbook_scan.py",
+        "            if self._shared_string_items > self._max_shared_string_items:\n",
+        "            if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "aggregate shared-string text is not bounded before materialization",
+        "app/ingestion/workbook_scan.py",
+        "            if self._shared_string_chars > self._max_shared_string_chars:\n",
+        "            if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "a selected worksheet can exceed the physical row scan limit",
+        "app/ingestion/workbook_scan.py",
+        "        if number > self._max_rows:\n",
+        "        if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "unselected worksheet XML is scanned with the selected worksheet",
+        "app/ingestion/readers.py",
+        "            global_xml_parts = [\n"
+        "                name for name in (\n"
+        "                    CONTENT_TYPES_PART,\n"
+        "                    \"_rels/.rels\",\n"
+        "                    WORKBOOK_PART,\n"
+        "                    \"xl/_rels/workbook.xml.rels\",\n"
+        "                    \"xl/styles.xml\",\n"
+        "                    \"xl/sharedStrings.xml\",\n"
+        "                    \"xl/theme/theme1.xml\",\n"
+        "                )\n"
+        "                if name in names\n"
+        "            ]",
+        "            global_xml_parts = [name for name in names if name.lower().endswith((\".xml\", \".rels\"))]",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "formula locations from the bounded scan are ignored",
+        "app/ingestion/readers.py",
+        "                formula_bitmap.contains(position, column) if formula_bitmap is not None else False",
+        "                False",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "the import admission limit is removed",
+        "app/api/import_concurrency.py",
+        "        if not self._slots.acquire(blocking=False):",
+        "        if False:",
+        (IMPORT_ADMISSION,),
     ),
 )
 
