@@ -340,6 +340,7 @@ def test_a_worksheet_is_read_to_its_end_whatever_range_it_claims(claimed: str | 
         (4, "DC-3"),
     ]
 
+
 def test_selected_sheet_row_numbers_are_bounded_before_iteration() -> None:
     """A million-row worksheet is refused at the first row outside the scan window."""
     oversized = sheet_part({1: {1: "Project Code", 2: "Project Name"}, 1_102: {1: "DC-1"}})
