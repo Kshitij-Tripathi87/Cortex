@@ -397,7 +397,7 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "formula locations from the bounded scan are ignored",
         "app/ingestion/readers.py",
-        "                formula_bitmap.contains(position, column) if formula_bitmap is not None "
+        "                formula_bitmap.contains(row_number, column) if formula_bitmap is not None "
         "                else False",
         "                False",
         (WORKBOOKS,),
