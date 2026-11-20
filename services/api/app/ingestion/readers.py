@@ -235,7 +235,8 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> set[st
                     "FILE_TOO_LARGE", "The workbook is too large once uncompressed."
                 )
             worksheet_parts = {
-                name for name in names
+                name
+                for name in names
                 if name.startswith("xl/worksheets/") and name.lower().endswith(".xml")
             }
             # openpyxl materializes global parts while opening the workbook.
@@ -244,7 +245,8 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> set[st
             # a normal XLSX read. Other worksheets, drawings, custom XML and
             # metadata not used by this ingestion path are deliberately ignored.
             global_xml_parts = [
-                name for name in (
+                name
+                for name in (
                     CONTENT_TYPES_PART,
                     "_rels/.rels",
                     WORKBOOK_PART,
