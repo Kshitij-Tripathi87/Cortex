@@ -40,6 +40,7 @@ ISOLATION = "tests/api/test_workspace_isolation_http.py"
 NORMALIZATION = "tests/unit/test_normalization.py"
 LIFECYCLE = "tests/integration/test_import_preview_commit.py"
 WORKBOOKS = "tests/unit/test_workbook_safety.py"
+READERS = "tests/unit/test_readers.py"
 IMPORT_ADMISSION = "tests/unit/test_import_concurrency.py"
 
 _SUMMARY = re.compile(r"(\d+) failed")
@@ -299,11 +300,11 @@ DEFECTS: tuple[Defect, ...] = (
         (WORKBOOKS,),
     ),
     Defect(
-        "a worksheet is probed across every column it has",
+        "an over-wide worksheet row is silently truncated",
         "app/ingestion/readers.py",
-        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS, max_col=limits.max_columns + 1)\n",
-        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS)\n",
-        (WORKBOOKS,),
+        '    bounds = {"max_col": limits.max_columns + 1}\n',
+        '    bounds = {"max_col": limits.max_columns}\n',
+        (READERS,),
     ),
     Defect(
         "two rows of a worksheet may carry the same number",
