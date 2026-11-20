@@ -83,8 +83,11 @@ one load instead of two, a workbook of 10,000 rows and 20 columns is read in
 columns with ten text columns in 13.8 s at 170 MB (`main`: 20.8 s, 179 MB).
 The reader alone, one reading each.
 
-The review, with the files, the figures and the scripts to repeat them, is
-REVIEW_LOCATION.
+The review, with the files, the figures and the scripts to repeat them, is a
+comment on the pull request:
+<https://github.com/Kshitij-Tripathi87/Cortex/pull/28#issuecomment-7036510094>.
+It was written by a coding agent that did not write PR #28 and that built
+the reader the PR changes. It does not satisfy condition 1.
 
 **PR #27** ("Harden XLSX ingestion resource limits and reader isolation",
 `fix/xlsx-resource-admission`) is an earlier attempt at the same work. It is
