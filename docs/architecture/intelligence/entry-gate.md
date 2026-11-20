@@ -11,7 +11,7 @@ documents of this folder (tasks T-A-01 to T-A-03).
 
 | # | Condition (plan §0.2) | State | Evidence |
 |---|---|---|---|
-| 1 | PR #28 has an independent human review by someone other than its author | **Not met** | PR #28 is open at `5e2def7` with no review. The automatic review that was requested did not run (the reviewing service answered that its usage limit was reached). An agent review exists (below); it is not a human review |
+| 1 | PR #28 has an independent human review by someone other than its author | **Not met** | PR #28 is open at `5e2def7` with no review. An automatic code review did not run: the service answered on the pull request that its usage limit was reached. An agent review exists (below); it is not a human review |
 | 2 | Every review finding is resolved, or accepted by the lead with a reason | **Not met** | The agent review has four blocking findings and four more to settle. None is resolved |
 | 3 | PR #28 is merged and `main` is green after the merge | **Not met** | Not merged. `main` itself is green at `3fe1d1c` (CI run #279, both jobs) |
 | 4 | The release-gate items of PR #28 are signed off or carried as accepted limitations | **Not met** | Its body lists four open items. One of them, the re-measurement, is done (below) |
