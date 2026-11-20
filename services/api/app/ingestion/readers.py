@@ -373,7 +373,7 @@ def _xlsx_records(
         formula_flags: list[bool] = []
         for column, value_cell in enumerate(value_row, start=1):
             is_formula = (
-                formula_bitmap.contains(position, column) if formula_bitmap is not None else False
+                formula_bitmap.contains(row_number, column) if formula_bitmap is not None else False
             )
             cells.append(_json_cell(value_cell.value))
             formula_flags.append(is_formula)
