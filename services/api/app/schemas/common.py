@@ -201,7 +201,6 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
         404: "The record or the workspace is not available.",
         409: "Conflict with existing data or with the state of the record.",
         422: "The request content is invalid.",
-        429: "The XLSX reader is occupied. Retry the request shortly.",
         500: "Unexpected failure.",
         503: "The database is not reachable.",
     }.items()
