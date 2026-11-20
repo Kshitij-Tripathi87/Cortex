@@ -382,17 +382,17 @@ DEFECTS: tuple[Defect, ...] = (
         "            global_xml_parts = [\n"
         "                name for name in (\n"
         "                    CONTENT_TYPES_PART,\n"
-        "                    \"_rels/.rels\",\n"
+        '                    "_rels/.rels",\n'
         "                    WORKBOOK_PART,\n"
-        "                    \"xl/_rels/workbook.xml.rels\",\n"
-        "                    \"xl/styles.xml\",\n"
-        "                    \"xl/sharedStrings.xml\",\n"
-        "                    \"xl/theme/theme1.xml\",\n"
+        '                    "xl/_rels/workbook.xml.rels",\n'
+        '                    "xl/styles.xml",\n'
+        '                    "xl/sharedStrings.xml",\n'
+        '                    "xl/theme/theme1.xml",\n'
         "                )\n"
         "                if name in names\n"
         "            ]",
         "            global_xml_parts = [name for name in names if name.lower().endswith("
-        "                (\".xml\", \".rels\"))]",
+        '                (".xml", ".rels"))]',
         (WORKBOOKS,),
     ),
     Defect(
