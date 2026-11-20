@@ -58,12 +58,8 @@ def test_second_import_is_rejected_before_the_route_runs() -> None:
             await send({"type": "http.response.start", "status": 204, "headers": []})
             await send({"type": "http.response.body", "body": b""})
 
-        app = ImportConcurrencyMiddleware(
-            route, max_concurrent_imports=1, api_prefix="/api/v1"
-        )
-        first_messages, first_run = _invoke(
-            app, _scope("/api/v1/workspaces/123/ingestion/preview")
-        )
+        app = ImportConcurrencyMiddleware(route, max_concurrent_imports=1, api_prefix="/api/v1")
+        first_messages, first_run = _invoke(app, _scope("/api/v1/workspaces/123/ingestion/preview"))
         first = asyncio.create_task(first_run())
         await asyncio.wait_for(entered.wait(), timeout=1)
 
@@ -95,9 +91,7 @@ def test_non_import_requests_do_not_consume_import_slots() -> None:
             await send({"type": "http.response.start", "status": 204, "headers": []})
             await send({"type": "http.response.body", "body": b""})
 
-        app = ImportConcurrencyMiddleware(
-            route, max_concurrent_imports=1, api_prefix="/api/v1"
-        )
+        app = ImportConcurrencyMiddleware(route, max_concurrent_imports=1, api_prefix="/api/v1")
         for _ in range(2):
             _, run = _invoke(app, _scope("/api/v1/health/ready", method="GET"))
             await run()
