@@ -766,3 +766,66 @@ The full list, with what is not built at all, is
 | L-19 | Nothing can be deleted or archived | P2 | With a retention policy (L-23, L-24) |
 | V-03 | One contributor; no independent review | — | Review of the pull request |
 | V-05 | No file from a real source system was imported | — | First pilot data |
+
+## XLSX resource-isolation follow-up (after PR #26)
+
+Status: implementation is on branch `fix/xlsx-resource-admission`; automated CI and
+independent review are pending. Do not treat the controls below as release-verified
+until the pull-request checks pass and the resulting evidence is recorded.
+
+### Defects investigated
+
+- A very small workbook could declare millions of shared-string items and force
+  OpenPyXL to materialise a large Python object graph. The worksheet-cell element
+  budget did not bound this workbook-global table tightly enough.
+- Full XML validation ran against every worksheet, even when the import named one
+  worksheet. Corrupt or oversized sibling worksheets could veto otherwise valid data.
+- `read_xlsx` opened the same workbook twice, once for cached values and once for
+  formula metadata, multiplying parsing time and memory.
+- XLSX previews had no admission control, so concurrent requests could hold several
+  large workbook object graphs in the same API process.
+- The selected worksheet's sparse physical row numbers were not checked against the
+  configured scan ceiling before OpenPyXL iterated the source.
+
+### Implementation changes in the hardening branch
+
+1. `app/ingestion/workbook_scan.py` now has independent limits for shared-string
+   item count (100,000) and aggregate text characters (8,000,000). It also captures
+   formula-cell coordinates in the same streaming scan, applies the physical row
+   ceiling to the selected worksheet, and provides a bounded 50-row worksheet probe.
+2. `app/ingestion/readers.py` resolves worksheet names through the workbook
+   relationships using `defusedxml`, scans workbook-global parts separately from
+   worksheet XML, opens only the selected worksheet, and uses one OpenPyXL reader
+   pass for cached values plus formula flags. The declared worksheet dimensions are
+   not trusted; iteration is restricted to the selected worksheet's permitted columns.
+3. `app/ingestion/reader_admission.py` adds a non-blocking one-slot semaphore per
+   API process. `ingestion_service.py` uses it for XLSX parsing only. A busy slot is
+   returned as `429 XLSX_READER_BUSY`; CSV preview behavior is unchanged.
+4. The OpenAPI and API contract document the retryable 429 response.
+5. Regression tests now cover the shared-string count and text budgets, malformed
+   and oversized unselected worksheets, sparse row overflow, one OpenPyXL load,
+   and retryable XLSX reader admission.
+6. `scripts/defect_detection.py` now includes mutations for the new guards and
+   retargets the old dimension workaround to the custom read-only worksheet override.
+
+### Verification still required
+
+- Run `make lint format-check typecheck test-unit test-api test-integration openapi-check`.
+- Run `make verify` and `make e2e` against PostgreSQL 16.16 through Docker Compose.
+- Run the defect detector and confirm all 43 mutations are detected, with source
+  files restored after every mutation.
+- Benchmark representative 1k, 5k and 10k-by-100 workbooks; compare peak RSS and
+  wall time against the historical 41–59 second maximum-workbook measurement.
+- Run concurrent XLSX preview tests and confirm one request succeeds while another
+  receives 429, then succeeds after the slot is released.
+- Review the pull request independently. The contributor who wrote the patch must
+  not count self-review as the independent review.
+- Run `make db-up`, migration, and restart checks on at least one developer machine.
+
+### Boundaries not solved by this follow-up
+
+The semaphore is process-local. Multiple API workers multiply the number of
+simultaneous parses. It does not impose a hard memory or wall-clock limit on one
+parse, nor does it provide a deployment-wide queue. The upload route remains local
+and operator-only until a dedicated, resource-limited reader worker, authentication,
+deployment-wide admission control, and independent review are in place.
