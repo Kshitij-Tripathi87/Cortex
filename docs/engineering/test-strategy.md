@@ -75,7 +75,8 @@ it replaces is no longer in the code. The pre-hardening run is recorded in
 `artifacts/sprint/review-defect-detection.txt` (37 of 37 detected). This phase
 adds six mutations for shared-string count, aggregate shared text, physical
 row limits, unselected-sheet isolation, formula-cell provenance and import
-admission. The updated run must detect 43 of 43 before the phase passes.
+admission. CI run #275 passed the unchanged baseline (380 selected tests),
+detected all 43 of 43 mutations, and passed the file-restoration check.
 
 This is not an automated mutation run. The defects are chosen by hand, one
 per behaviour that matters most (row locks, workspace filters, bounds, the
@@ -112,23 +113,23 @@ checkout that is thrown away.
 | 24 | Batch lock for commit ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
 | 25 | Equipment list ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
 | 26 | World State counts ignore the workspace | `test_workspace_isolation_http.py` | 1 failed |
-| 27 | A worksheet is read only as far as the range it claims | `test_workbook_safety.py` | 5 failed |
-| 28 | Workbook-level XML is not checked before openpyxl materializes it | `test_workbook_safety.py` | Pending CI |
-| 29 | The reader loads without the hardened XML parser | `test_workbook_safety.py` | 1 failed |
-| 30 | A worksheet is probed across every column it has | `test_workbook_safety.py` | 2 failed |
-| 31 | Two rows of a worksheet may carry the same number | `test_workbook_safety.py` | 4 failed |
-| 32 | Two cells of a row may carry the same reference | `test_workbook_safety.py` | 2 failed |
-| 33 | Formats and structure of a workbook are not counted | `test_workbook_safety.py` | 3 failed |
-| 34 | A single tag or text of any length is handed to the parser | `test_workbook_safety.py` | 4 failed |
-| 35 | An error message quotes every worksheet name in full | `test_workbook_safety.py` | 2 failed |
-| 36 | A worksheet name of any length is passed on to the ledger | `test_workbook_safety.py` | 1 failed |
-| 37 | Two worksheets of a workbook may share a name | `test_workbook_safety.py` | 1 failed |
-| 38 | Shared-string count is not bounded before openpyxl loads it | `test_workbook_safety.py` | Pending CI |
-| 39 | Aggregate shared-string text is not bounded before materialization | `test_workbook_safety.py` | Pending CI |
-| 40 | A selected worksheet can exceed the physical row scan limit | `test_workbook_safety.py` | Pending CI |
-| 41 | Unselected worksheet XML is scanned with the selected worksheet | `test_workbook_safety.py` | Pending CI |
-| 42 | Formula locations from the bounded scan are ignored | `test_workbook_safety.py` | Pending CI |
-| 43 | The import admission limit is removed | `test_import_concurrency.py` | Pending CI |
+| 27 | A worksheet is read only as far as the range it claims | `test_workbook_safety.py` | 5 failed; detected in CI #275 |
+| 28 | Workbook-level XML is not checked before openpyxl materializes it | `test_workbook_safety.py` | 6 failed; detected in CI #275 |
+| 29 | The reader loads without the hardened XML parser | `test_workbook_safety.py` | 1 failed; detected in CI #275 |
+| 30 | An over-wide worksheet row is silently truncated | `test_readers.py::test_xlsx_row_and_column_limits` | 1 failed; detected in CI #275 |
+| 31 | Two rows of a worksheet may carry the same number | `test_workbook_safety.py` | 4 failed; detected in CI #275 |
+| 32 | Two cells of a row may carry the same reference | `test_workbook_safety.py` | 2 failed; detected in CI #275 |
+| 33 | Formats and structure of a workbook are not counted | `test_workbook_safety.py` | 3 failed; detected in CI #275 |
+| 34 | A single tag or text of any length is handed to the parser | `test_workbook_safety.py` | 4 failed; detected in CI #275 |
+| 35 | An error message quotes every worksheet name in full | `test_workbook_safety.py` | 2 failed; detected in CI #275 |
+| 36 | A worksheet name of any length is passed on to the ledger | `test_workbook_safety.py` | 1 failed; detected in CI #275 |
+| 37 | Two worksheets of a workbook may share a name | `test_workbook_safety.py` | 1 failed; detected in CI #275 |
+| 38 | Shared-string count is not bounded before openpyxl loads it | `test_workbook_safety.py` | 1 failed; detected in CI #275 |
+| 39 | Aggregate shared-string text is not bounded before materialization | `test_workbook_safety.py` | 1 failed; detected in CI #275 |
+| 40 | A selected worksheet can exceed the physical row scan limit | `test_workbook_safety.py::test_selected_sheet_row_numbers_are_bounded_before_iteration` | 1 failed; detected in CI #275 |
+| 41 | Unselected worksheet XML is scanned with the selected worksheet | `test_workbook_safety.py` | 2 failed; detected in CI #275 |
+| 42 | Formula locations from the bounded scan are ignored | `test_workbook_safety.py` | 2 failed; detected in CI #275 |
+| 43 | The import admission limit is removed | `test_import_concurrency.py` | 1 failed; detected in CI #275 |
 | by hand | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
 
 One test was found **not** to prove what its name suggests.
