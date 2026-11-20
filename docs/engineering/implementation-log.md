@@ -767,9 +767,18 @@ duplicate openpyxl workbook loads, and unbounded simultaneous preview requests.
 
 ### Verification status
 
-**Not yet verified.** The branch is pushed as PR #28. The existing 786-test baseline belongs to the merged pre-hardening commit and must not be attributed to this branch. This section will be updated only after PR CI reports the exact unit/API/integration counts, OpenAPI check, end-to-end restart proof and mutation-detection result.
+**CI verified on commit `2163a84215d8f14af283ca6f40b02b65b77346f5` (workflow run #275).** Both GitHub Actions jobs passed:
 
-The local execution environment used for this work did not have Docker or a usable network clone. The Docker Compose developer-machine check therefore remains outstanding; GitHub Actions is the available PostgreSQL 16.16 / Docker verification environment.
+- Ruff lint, Ruff format check and strict mypy type-check.
+- **428 unit tests, 238 API tests and 134 integration tests passed** (800 total).
+- OpenAPI snapshot check passed.
+- Docker Compose used PostgreSQL 16.16 for both development and test databases.
+- End-to-end import/replay/restart proof passed: eight files previewed and committed (112 rows); sending the same dataset again was an idempotent replay; the API and PostgreSQL were restarted; World State SHA-256 remained identical before and after restart: `bb2384e1e97d344d6ecfc5ac66cbbe15fb6550b707d32f7022b45572175326e4`.
+- The unchanged mutation baseline passed **380 selected tests**. **43 of 43 deliberate defects were detected**, including all six new XLSX/admission mutations. The post-run restoration check passed.
+
+The exact run evidence is attached to GitHub Actions run #275. The 786-test result from the pre-hardening PR #26 baseline is separate historical evidence; the current hardening branch's verified total is 800.
+
+Still outstanding: independent human review, repeat wall-time/peak-memory measurements for the previously crafted workbooks and the 10,000 × 100 full-limit workbook, and a developer-machine `make db-up` run. CI's clean-checkout Compose run does not prove that local developer-machine setup.
 
 ### Residual safety boundary
 
