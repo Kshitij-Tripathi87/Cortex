@@ -256,9 +256,7 @@ class _WorksheetPart:
     state: str
 
 
-def _worksheet_parts(
-    archive: zipfile.ZipFile, names: set[str]
-) -> tuple[_WorksheetPart, ...]:
+def _worksheet_parts(archive: zipfile.ZipFile, names: set[str]) -> tuple[_WorksheetPart, ...]:
     """Resolve worksheet names to safe package-relative XML paths."""
     workbook_info = archive.getinfo(WORKBOOK_PART)
     relationships_info = archive.getinfo(WORKBOOK_RELS_PART)
@@ -456,7 +454,6 @@ def _names_for_message(names: list[str]) -> str:
     return text
 
 
-
 def _xlsx_records(
     values_sheet: Any, formula_cells: frozenset[tuple[int, int]], limits: ReaderLimits
 ) -> Iterator[_Record]:
@@ -479,6 +476,8 @@ def _xlsx_records(
             cells.append(_json_cell(value_cell.value))
             formula_flags.append(coordinate in formula_cells)
         yield row_number, cells, formula_flags
+
+
 def _json_cell(value: Any) -> JSONScalar:
     """A spreadsheet value as a JSON-safe scalar. Dates become ISO text."""
     if value is None or isinstance(value, (bool, int, str)):
