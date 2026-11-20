@@ -267,10 +267,21 @@ class _PartScan:
     """Streaming counts and spreadsheet coordinates for one XML part."""
 
     __slots__ = (
-        "_cell_budget", "_cell_coordinates", "_cell_depth", "_column",
-        "_container_depth", "_content", "_depth", "_formula_cells", "_max_rows",
-        "_root", "_row_depth", "_row_number", "_shared_string_chars",
-        "_shared_string_items", "_structure",
+        "_cell_budget",
+        "_cell_coordinates",
+        "_cell_depth",
+        "_column",
+        "_container_depth",
+        "_content",
+        "_depth",
+        "_formula_cells",
+        "_max_rows",
+        "_root",
+        "_row_depth",
+        "_row_number",
+        "_shared_string_chars",
+        "_shared_string_items",
+        "_structure",
     )
 
     def __init__(self, cell_budget: int, *, max_rows: int | None = None) -> None:
