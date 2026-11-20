@@ -273,7 +273,8 @@ DEFECTS: tuple[Defect, ...] = (
         "a worksheet is read only as far as the range it claims",
         "app/ingestion/readers.py",
         "    def _get_size(self) -> None:\n"
-        "        # The selected sheet has been scanned separately; iteration is explicitly bounded.\n"
+        "        # The selected sheet has been scanned separately; "
+        "iteration is explicitly bounded.\n"
         "        self._min_column = self._min_row = self._max_column = self._max_row = None\n",
         "",
         (WORKBOOKS,),
