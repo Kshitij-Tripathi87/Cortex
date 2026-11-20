@@ -32,13 +32,14 @@ CI fails when it is stale. The World State responses are specified in
 | 404 | The record or route does not exist, or the record is not in the verified workspace |
 | 409 | Natural-key conflict; a batch that is not in a committable state; a commit whose preconditions no longer hold; a request that PostgreSQL rolled back to resolve a deadlock with another writer (send it again) |
 | 413 | The upload is larger than `MAX_UPLOAD_SIZE_MB` |
+| 429 | The process-local XLSX reader slot is occupied; retry shortly. CSV previews are not subject to this XLSX-only gate |
 | 415 | The upload is not a CSV or XLSX file |
 | 422 | The request is well formed and its content is invalid: a field, a reference, a value the database cannot store, or a file that cannot be read as a table |
 | 500 | Unexpected failure: generic message, request id, details only in the log |
 | 503 | The database is not reachable |
 
 A record of another workspace is answered exactly like a record that does not
-exist. 202 is not used: preview and commit are synchronous.
+exist. 202 is not used: preview and commit are synchronous. In v0.1, XLSX parsing is admitted one at a time per API process; a concurrent XLSX preview receives 429 `XLSX_READER_BUSY` rather than queueing another in-memory workbook.
 
 ## Error envelope
 

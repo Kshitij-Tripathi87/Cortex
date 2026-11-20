@@ -36,6 +36,10 @@ UPLOAD_ERRORS = {
     **ERROR_RESPONSES,
     413: {"model": ErrorResponse, "description": "The upload exceeds the size limit."},
     415: {"model": ErrorResponse, "description": "The upload is not a CSV or XLSX file."},
+    429: {
+        "model": ErrorResponse,
+        "description": "The XLSX reader is occupied. Retry the request shortly.",
+    },
 }
 
 

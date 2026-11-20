@@ -124,6 +124,12 @@ checkout that is thrown away.
 | 35 | An error message quotes every worksheet name in full | `test_workbook_safety.py` | 2 failed |
 | 36 | A worksheet name of any length is passed on to the ledger | `test_workbook_safety.py` | 1 failed |
 | 37 | Two worksheets of a workbook may share a name | `test_workbook_safety.py` | 1 failed |
+| 38 | Shared-string item count is not independently bounded | `test_workbook_safety.py` | 1 failed |
+| 39 | Aggregate shared-string text is not independently bounded | `test_workbook_safety.py` | 1 failed |
+| 40 | An unselected worksheet is included in the full scan | `test_workbook_safety.py` | 2 fail |
+| 41 | Concurrent XLSX preview bypasses the reader admission slot | `test_ingestion_preview.py` | 1 failed |
+| 42 | Selected worksheet has no physical row-number ceiling | `test_workbook_safety.py` | 1 failed |
+| 43 | Formula coordinates are not captured in the selected-sheet scan | `test_workbook_safety.py` | 1 failed |
 | by hand | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
 
 One test was found **not** to prove what its name suggests.
@@ -147,11 +153,11 @@ evidence for the lock is defect 2.
 | First, revised and replayed milestone plan | same files |
 | Provenance of a version | `tests/integration/test_history_provenance.py` |
 | CSV BOM, duplicate headers, blank rows, encoding, limits | `tests/unit/test_readers.py` |
-| XLSX sheet selection, ambiguity, formulas, malformed and oversized workbooks | `tests/unit/test_readers.py` |
+| XLSX sheet selection, ambiguity, formulas, malformed and oversized workbooks, selected-sheet isolation and shared-string resource limits | `tests/unit/test_workbook_safety.py` |
 | Aliases, unknown columns, alias collisions | `tests/unit/test_column_mapping.py` |
 | Ambiguous dates, exact decimals, enum aliases | `tests/unit/test_normalization.py` |
 | Required fields, references, duplicates, currency | `tests/unit/test_row_validation.py` |
-| Preview writes the ledger and no canonical record | `tests/api/test_ingestion_preview.py` |
+| Preview writes the ledger and no canonical record; XLSX parsing returns 429 when the process-local slot is occupied and becomes available again after release | `tests/api/test_ingestion_preview.py` |
 | Duplicate checksum, missing dependency | `tests/api/test_ingestion_preview.py`, `tests/integration/test_import_preview_commit.py` |
 | Commit of the valid subset | `tests/integration/test_import_preview_commit.py`, `tests/api/test_ingestion_commit.py` |
 | Reference drift between preview and commit | same files |

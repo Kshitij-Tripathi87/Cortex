@@ -9,6 +9,7 @@ from httpx2 import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ingestion.reader_admission import xlsx_reader_slot
 from app.main import create_app
 from app.models import (
     Equipment,
@@ -121,6 +122,18 @@ def test_unsupported_file_returns_415(
 
     error_of(response, 415, "UNSUPPORTED_FILE")
     assert counts(session, IngestionBatch, Project) == {"IngestionBatch": 0, "Project": 0}
+
+
+def test_xlsx_preview_is_rejected_while_the_reader_slot_is_occupied(api: Api) -> None:
+    workbook = xlsx_bytes({"Projects": [["Project Code", "Project Name"], ["DC-LOCK", "Locked"]]})
+
+    with xlsx_reader_slot():
+        busy = upload(api, workbook, "project", filename="projects.xlsx", content_type=XLSX)
+
+    error_of(busy, 429, "XLSX_READER_BUSY")
+    accepted = upload(api, workbook, "project", filename="projects.xlsx", content_type=XLSX)
+    assert accepted.status_code == 201
+    assert accepted.json()["valid_rows"] == 1
 
 
 def test_content_that_contradicts_the_extension_returns_415(api: Api) -> None:
