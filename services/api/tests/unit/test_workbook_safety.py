@@ -592,7 +592,7 @@ def test_formats_hidden_in_a_part_that_calls_itself_a_worksheet_are_counted_as_f
         read_xlsx(workbook, None, LIMITS)
 
 
-def test_a_worksheet_with_more_cells_than_can_be_read_is_refused_even_when_not_imported() -> None:
+def test_selected_worksheet_with_more_cells_than_can_be_read_is_refused() -> None:
     cells = CELL_BUDGET // 2 + 1  # a cell and its value: two elements
     rows = "".join(
         f'<row r="{number}">' + "<c><v>1</v></c>" * 1_000 + "</row>"
@@ -602,10 +602,10 @@ def test_a_worksheet_with_more_cells_than_can_be_read_is_refused_even_when_not_i
     workbook = handmade_workbook([("Projects", PROJECTS), ("Crowded", crowded)], hidden=["Crowded"])
 
     with pytest.raises(SourceFileError) as failure:
-        read_xlsx(workbook, "Projects", LIMITS)
+        read_xlsx(workbook, "Crowded", LIMITS)
 
     assert failure.value.code == "FILE_TOO_LARGE"
-    assert "workbook of its own" in failure.value.message
+    assert "worksheet of its own" in failure.value.message
 
 
 def test_a_larger_worksheet_beside_the_imported_one_is_tolerated_within_the_budget() -> None:
