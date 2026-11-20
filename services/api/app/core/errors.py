@@ -128,6 +128,7 @@ class FileTooLargeError(DomainError):
     status_code = 413
     default_code = "FILE_TOO_LARGE"
 
+
 class XlsxReaderBusyError(DomainError):
     """The single in-process XLSX parsing slot is occupied; retry later."""
 
