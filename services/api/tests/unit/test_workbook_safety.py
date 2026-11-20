@@ -341,10 +341,17 @@ def test_a_worksheet_is_read_to_its_end_whatever_range_it_claims(claimed: str | 
     ]
 
 
-def test_selected_sheet_row_numbers_are_bounded_before_iteration() -> None:
-    """A million-row worksheet is refused at the first row outside the scan window."""
+def test_selected_sheet_row_numbers_are_bounded_before_iteration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The XML row cap fires before the openpyxl iterator is asked for any rows."""
     oversized = sheet_part({1: {1: "Project Code", 2: "Project Name"}, 1_102: {1: "DC-1"}})
     workbook = handmade_workbook([("Projects", oversized)])
+
+    def unexpected_iteration(*args: object, **kwargs: object) -> object:
+        pytest.fail("openpyxl row iteration started before the XML row cap rejected the sheet")
+
+    monkeypatch.setattr(readers, "_xlsx_records", unexpected_iteration)
 
     with refused("ROW_LIMIT_EXCEEDED"):
         read_xlsx(workbook, "Projects", LIMITS)
