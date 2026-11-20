@@ -409,6 +409,23 @@ def test_cached_formula_values_are_preserved_without_a_second_workbook_load() ->
     assert any(issue.code == "FORMULA_CACHED_VALUE_USED" for issue in sheet.warnings)
 
 
+def test_openpyxl_loads_the_workbook_only_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Formula locations come from the bounded XML scan, not a second workbook."""
+    original = readers.load_workbook
+    calls = 0
+
+    def counted(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(readers, "load_workbook", counted)
+
+    read_xlsx(handmade_workbook([("Projects", PROJECTS)]), None, LIMITS)
+
+    assert calls == 1
+
+
 def _numbered(rows: list[tuple[int | None, list[tuple[str | None, str]]]]) -> bytes:
     """A worksheet part with exactly the row numbers and cell references given."""
     body = ""
