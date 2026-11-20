@@ -339,7 +339,7 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet name of any length is passed on to the ledger",
         "app/ingestion/readers.py",
-        "    if len(selected) > SHEET_NAME_MAX:\n",
+        "    if len(selected.name) > SHEET_NAME_MAX:\n",
         "    if False:\n",
         (WORKBOOKS,),
     ),
