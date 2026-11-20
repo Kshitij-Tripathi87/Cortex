@@ -101,7 +101,6 @@ def _too_many_rows() -> SourceFileError:
     return SourceFileError(
         "ROW_LIMIT_EXCEEDED",
         "The selected worksheet extends beyond the row scan limit. "
-"
         "Remove trailing rows or split the file.",
     )
 
