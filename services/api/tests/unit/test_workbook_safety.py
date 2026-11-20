@@ -352,9 +352,7 @@ def test_selected_sheet_row_numbers_are_bounded_before_iteration() -> None:
 def test_unselected_worksheet_content_does_not_refuse_the_selected_sheet() -> None:
     """Bad or huge data on another sheet is not parsed by this import."""
     oversized_other_sheet = sheet_part({1_048_576: {1: "unused"}})
-    workbook = handmade_workbook(
-        [("Projects", PROJECTS), ("Archive", oversized_other_sheet)]
-    )
+    workbook = handmade_workbook([("Projects", PROJECTS), ("Archive", oversized_other_sheet)])
 
     sheet = read_xlsx(workbook, "Projects", LIMITS)
 
@@ -364,17 +362,13 @@ def test_unselected_worksheet_content_does_not_refuse_the_selected_sheet() -> No
 
 def test_hidden_unselected_worksheet_does_not_extend_reader_work() -> None:
     hidden = sheet_part({1_048_576: {1: "unused"}})
-    workbook = handmade_workbook(
-        [("Projects", PROJECTS), ("Archive", hidden)], hidden=("Archive",)
-    )
+    workbook = handmade_workbook([("Projects", PROJECTS), ("Archive", hidden)], hidden=("Archive",))
 
     assert read_xlsx(workbook, None, LIMITS).sheet_name == "Projects"
 
 
 def test_multiple_visible_sheets_require_an_explicit_selection() -> None:
-    workbook = handmade_workbook(
-        [("Empty", sheet_part([])), ("Projects", PROJECTS)]
-    )
+    workbook = handmade_workbook([("Empty", sheet_part([])), ("Projects", PROJECTS)])
 
     with refused("AMBIGUOUS_WORKSHEET"):
         read_xlsx(workbook, None, LIMITS)
