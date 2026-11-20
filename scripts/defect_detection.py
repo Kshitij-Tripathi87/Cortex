@@ -391,7 +391,8 @@ DEFECTS: tuple[Defect, ...] = (
         "                self._formula_cells.add(self._cell_coordinates)\n",
         "                pass\n",
         (WORKBOOKS,),
-    ),)
+    ),
+)
 
 
 def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
