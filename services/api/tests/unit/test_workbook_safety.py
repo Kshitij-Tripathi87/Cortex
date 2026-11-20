@@ -404,6 +404,28 @@ def test_cached_formula_values_are_preserved_without_a_second_workbook_load() ->
     assert any(issue.code == "FORMULA_CACHED_VALUE_USED" for issue in sheet.warnings)
 
 
+def test_formula_xml_scan_sets_the_expected_bitmap_bit() -> None:
+    part = sheet_part([["Project Code", "Budget"], ["DC-1", "10"]]).replace(
+        b'<c r="B2" t="inlineStr"><is><t xml:space="preserve">10</t></is></c>',
+        b'<c r="B2"><f>6*7</f><v>42</v></c>',
+    )
+    workbook = handmade_workbook([("Projects", part)])
+    with zipfile.ZipFile(io.BytesIO(workbook)) as archive:
+        bitmap = workbook_scan.scan_parts(
+            archive,
+            ["xl/worksheets/sheet1.xml"],
+            cell_elements=CELL_BUDGET,
+            max_rows=LIMITS.max_rows + readers.BLANK_ROW_ALLOWANCE + 1,
+            max_shared_string_items=LIMITS.max_shared_string_items,
+            max_shared_string_chars=LIMITS.max_shared_string_chars,
+            formula_part="xl/worksheets/sheet1.xml",
+            formula_columns=LIMITS.max_columns + 1,
+        )
+
+    assert bitmap is not None
+    assert bitmap.contains(2, 2)
+
+
 def test_openpyxl_loads_the_workbook_only_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """Formula locations come from the bounded XML scan, not a second workbook."""
     original = readers.load_workbook
