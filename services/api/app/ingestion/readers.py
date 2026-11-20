@@ -174,7 +174,7 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
                 "The selected worksheet is not stored in a supported workbook location.",
             )
         with zipfile.ZipFile(io.BytesIO(file_bytes)) as archive:
-            scan_parts(
+            formula_bitmap = scan_parts(
                 archive,
                 [sheet_path],
                 cell_elements=content_budget(limits, _scanned_rows(limits)),
