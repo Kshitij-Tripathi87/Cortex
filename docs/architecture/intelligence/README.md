@@ -43,7 +43,7 @@ contract.
 | Read the plan, `AGENTS.md`, the architecture and engineering documents, the models, migration `0001`, the services and repositories behind the World State and the ingestion ledger | The mapping |
 | Migrated a PostgreSQL 16.2 database to revision `0001` and read `information_schema.columns` | Every column, type and nullability in the mapping agrees with the ORM models |
 | Compared the inputs between `main` and the head of PR #28 | No difference in models, migrations, schemas, repositories, the World State service or the demo data |
-| Derived by hand what the five rules report for the demo dataset as of 2026-11-19 | Mapping §5 |
+| Derived by hand what the five rules report for the demo dataset as of 2026-11-19, then confirmed it with one SQL query per rule on a seeded database | Mapping §5: six findings both ways |
 | Ran the checks of `AGENTS.md` on `main` | Lint, format, mypy and the OpenAPI snapshot pass; 414 unit, 238 API, 134 integration tests |
 | Repeated the verification of PR #28 at its head and read crafted workbooks with both readers | `entry-gate.md` |
 

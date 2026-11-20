@@ -230,7 +230,8 @@ M8                         T-F-06                     release gate
   item; `DRAFT`, `CANCELLED` and `DELIVERED` purchase order; cancelled
   equipment; delivery complete on this purchase order suppresses, on another
   one does not; two purchase orders for one equipment give two keys; the
-  line item and every commitment version are in the evidence.
+  line item and the commitment versions are in the evidence, earlier ones
+  within the bound of §7.4.
 - **Acceptance.** As T-C-01.
 
 ### T-C-05 R5 critical equipment without purchase order

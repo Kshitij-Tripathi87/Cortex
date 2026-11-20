@@ -245,9 +245,12 @@ Each row is a point where the plan had to be made exact. "Decision" refers to
 
 Derived by hand from `data/samples/nexus_demo/` (with the revision file) as of
 `2026-11-19`, the reference date of the dataset, under the values proposed in
-`policy-v1.md`. It is an illustration for review. It becomes a fixture only
-when task T-F-01 has reviewed it, and no test may be written from this table
-alone.
+`policy-v1.md`, and then confirmed with one SQL query per rule, written from
+`finding-contract.md` §4, on a database seeded by `scripts/seed_demo_data.py`.
+Both ways give the same six findings and no diagnostic. The queries were a
+check and are not in the repository. The table is an illustration for
+review. It becomes a fixture only when task T-F-01 has reviewed it, and no
+test may be written from this table alone.
 
 | Rule | Reported | Why |
 |---|---|---|
