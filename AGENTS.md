@@ -13,6 +13,13 @@ Everything a change needs is restated in `docs/architecture/` and
 `docs/engineering/`, and every place where the build departs from the
 playbook is listed in `docs/engineering/implementation-log.md`.
 
+The next phase, the Procurement Intelligence Engine v0.2, has a plan and
+contracts of its own: `docs/architecture/procurement-intelligence-engine-plan.md`
+and `docs/architecture/intelligence/`. It is gated: read
+`docs/architecture/intelligence/entry-gate.md` before writing any code for
+it. Until that gate has passed and the contracts are signed, the phase
+consists of documents only, and every rule below describes v0.1 as it is.
+
 ## Invariants you must not break
 
 1. **PostgreSQL is the source of truth.** Responses are projections of stored
