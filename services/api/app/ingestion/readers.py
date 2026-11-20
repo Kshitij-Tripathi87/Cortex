@@ -165,7 +165,7 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
         ) from None
     try:
-        name = _select_sheet(values, sheet_name, limits)
+        name = _select_sheet(values, sheet_name)
         selected = values[name]
         sheet_path = str(getattr(selected, "_worksheet_path", "")).lstrip("/")
         if not sheet_path.startswith("xl/worksheets/") or sheet_path not in worksheet_parts:
@@ -282,7 +282,7 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> set[st
     return worksheet_parts
 
 
-def _select_sheet(workbook: Any, requested: str | None, limits: ReaderLimits) -> str:
+def _select_sheet(workbook: Any, requested: str | None) -> str:
     """Choose the named worksheet, or the only visible worksheet.
 
     A workbook with several visible sheets requires an explicit selection;
