@@ -40,7 +40,7 @@ from app.ingestion.contracts import (
     warning,
 )
 from app.ingestion.normalization import BYTE_ORDER_MARK, is_blank, normalize_header
-from app.ingestion.workbook_scan import content_budget, scan_parts
+from app.ingestion.workbook_scan import FormulaBitmap, content_budget, scan_parts
 from app.models.enums import SourceFormat
 from app.models.limits import SHEET_NAME_MAX
 
@@ -160,7 +160,6 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
     worksheet_parts = _check_workbook_container(file_bytes, limits)
     try:
         values = _open_workbook(file_bytes, data_only=True)
-        formulas = _open_workbook(file_bytes, data_only=False)
     except Exception:
         raise SourceFileError(
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
@@ -182,8 +181,12 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
                 max_rows=_scanned_rows(limits),
                 max_shared_string_items=limits.max_shared_string_items,
                 max_shared_string_chars=limits.max_shared_string_chars,
+                formula_part=sheet_path,
+                formula_columns=limits.max_columns + 1,
             )
-        records = _xlsx_records(selected, formulas[name], limits)
+        # Formula locations come from the bounded XML scan. We open the
+        # workbook once in data_only mode so cached results are preserved.
+        records = _xlsx_records(selected, formula_bitmap, limits)
         sheet = _build_sheet(records, SourceFormat.XLSX, name, limits)
     except SourceFileError:
         raise
@@ -193,7 +196,6 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
         ) from None
     finally:
         values.close()
-        formulas.close()
     return sheet
 
 
@@ -336,18 +338,16 @@ def _names_for_message(names: list[str]) -> str:
 
 
 def _xlsx_records(
-    values_sheet: Any, formulas_sheet: Any, limits: ReaderLimits
+    values_sheet: Any, formula_bitmap: FormulaBitmap | None, limits: ReaderLimits
 ) -> Iterator[_Record]:
     max_scanned = _scanned_rows(limits)
     # The range a worksheet claims to use is a hint, and some programs write
     # "A1" whatever the worksheet holds. The library would stop at the last
     # row claimed; without the claim it reads the rows that are there.
     values_sheet.reset_dimensions()
-    formulas_sheet.reset_dimensions()
     # One column beyond the limit is read so that an over-wide sheet is noticed.
     bounds = {"max_col": limits.max_columns + 1}
-    paired = zip(values_sheet.iter_rows(**bounds), formulas_sheet.iter_rows(**bounds), strict=False)
-    for position, (value_row, formula_row) in enumerate(paired, start=1):
+    for position, value_row in enumerate(values_sheet.iter_rows(**bounds), start=1):
         if position > max_scanned:
             raise SourceFileError(
                 "ROW_LIMIT_EXCEEDED",
@@ -358,9 +358,9 @@ def _xlsx_records(
         )
         cells: list[JSONScalar] = []
         formula_flags: list[bool] = []
-        for value_cell, formula_cell in zip(value_row, formula_row, strict=False):
-            is_formula = getattr(formula_cell, "data_type", None) == "f" or (
-                isinstance(formula_cell.value, str) and formula_cell.value.startswith("=")
+        for column, value_cell in enumerate(value_row, start=1):
+            is_formula = (
+                formula_bitmap.contains(position, column) if formula_bitmap is not None else False
             )
             cells.append(_json_cell(value_cell.value))
             formula_flags.append(is_formula)
