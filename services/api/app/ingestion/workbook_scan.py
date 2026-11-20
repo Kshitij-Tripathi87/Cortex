@@ -173,9 +173,9 @@ def scan_parts(
             with archive.open(name) as part:
                 parser.ParseFile(_BoundedRuns(part))
         except expat.ExpatError:
-            # Not XML, or XML that breaks off. What came before the break was
-            # within every budget, and the library will fail on the rest.
-            continue
+            # Only XML and relationship parts are passed to this scanner.
+            # A broken part must not be treated as an unscanned safe part.
+            raise _unreadable() from None
         except (SourceFileError, zipfile.BadZipFile):
             raise
         except Exception:
@@ -377,7 +377,8 @@ class _PartScan:
 
     def _mark_formula(self) -> None:
         """Set one bit; avoids loading a second openpyxl workbook for formula flags."""
-        if self._cell_column > self._formula_columns:
+        bits = self._formula_bits
+        if bits is None or self._cell_column > self._formula_columns:
             return
         offset = (self._cell_row - 1) * self._formula_columns + (self._cell_column - 1)
-        self._formula_bits[offset >> 3] |= 1 << (offset & 7)
+        bits[offset >> 3] |= 1 << (offset & 7)
