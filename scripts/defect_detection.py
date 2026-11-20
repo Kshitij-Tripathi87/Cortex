@@ -274,8 +274,8 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet is read only as far as the range it claims",
         "app/ingestion/readers.py",
-        "    values_sheet.reset_dimensions()\n    formulas_sheet.reset_dimensions()\n",
-        "",
+        "    values_sheet.reset_dimensions()\n",
+        "        pass\n",
         (WORKBOOKS,),
     ),
     Defect(
@@ -379,27 +379,14 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "unselected worksheet XML is scanned with the selected worksheet",
         "app/ingestion/readers.py",
-        "            global_xml_parts = [\n"
-        "                name for name in (\n"
-        "                    CONTENT_TYPES_PART,\n"
-        '                    "_rels/.rels",\n'
-        "                    WORKBOOK_PART,\n"
-        '                    "xl/_rels/workbook.xml.rels",\n'
-        '                    "xl/styles.xml",\n'
-        '                    "xl/sharedStrings.xml",\n'
-        '                    "xl/theme/theme1.xml",\n'
-        "                )\n"
-        "                if name in names\n"
-        "            ]",
-        "            global_xml_parts = [name for name in names if name.lower().endswith("
-        '                (".xml", ".rels"))]',
+        "                [sheet_path],\n",
+        "                sorted(worksheet_parts),\n",
         (WORKBOOKS,),
     ),
     Defect(
         "formula locations from the bounded scan are ignored",
         "app/ingestion/readers.py",
-        "                formula_bitmap.contains(row_number, column) if formula_bitmap is not None "
-        "                else False",
+        "                formula_bitmap.contains(row_number, column) if formula_bitmap is not None else False\n",
         "                False",
         (WORKBOOKS,),
     ),
