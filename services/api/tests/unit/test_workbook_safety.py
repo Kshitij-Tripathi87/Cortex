@@ -603,7 +603,9 @@ def test_shared_string_item_count_has_an_independent_limit(monkeypatch: pytest.M
         read_xlsx(workbook, "Projects", LIMITS)
 
 
-def test_shared_string_character_total_has_an_independent_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_shared_string_character_total_has_an_independent_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(workbook_scan, "MAX_SHARED_STRING_CHARS", 8)
     shared = shared_strings_part(["Project Code", "Project Name", "DC-1", "One"])
     workbook = handmade_workbook(
