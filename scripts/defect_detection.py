@@ -392,7 +392,6 @@ DEFECTS: tuple[Defect, ...] = (
         "                if name in names\n"
         "            ]",
         "            global_xml_parts = [name for name in names if name.lower().endswith("
-"
         "                (\".xml\", \".rels\"))]",
         (WORKBOOKS,),
     ),
@@ -400,7 +399,6 @@ DEFECTS: tuple[Defect, ...] = (
         "formula locations from the bounded scan are ignored",
         "app/ingestion/readers.py",
         "                formula_bitmap.contains(position, column) if formula_bitmap is not None "
-"
         "                else False",
         "                False",
         (WORKBOOKS,),
