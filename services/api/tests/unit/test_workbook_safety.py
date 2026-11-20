@@ -392,7 +392,7 @@ def test_a_formula_below_the_claimed_range_is_still_reported() -> None:
     assert sheet.rows[1].raw_data["Budget"] is None
 
 
-def test_cached_formula_values_are_preserved_without_a_second_workbook_load() -> None:
+def test_cached_formula_values_are_preserved_and_warned_without_a_second_load() -> None:
     part = sheet_part([["Project Code", "Budget"], ["DC-1", "10"]]).replace(
         b'<c r="B2" t="inlineStr"><is><t xml:space="preserve">10</t></is></c>',
         b'<c r="B2"><f>6*7</f><v>42</v></c>',
@@ -400,7 +400,9 @@ def test_cached_formula_values_are_preserved_without_a_second_workbook_load() ->
     sheet = read_xlsx(handmade_workbook([("Projects", part)]), None, LIMITS)
 
     assert sheet.rows[0].raw_data["Budget"] == 42
-    assert sheet.rows[0].formula_cells == ("Budget",)
+    # formula_cells records formulas without cached values; cached formulas are
+    # preserved as data and reported through the sheet warning.
+    assert sheet.rows[0].formula_cells == ()
     assert any(issue.code == "FORMULA_CACHED_VALUE_USED" for issue in sheet.warnings)
 
 
