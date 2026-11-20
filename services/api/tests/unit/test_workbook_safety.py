@@ -397,6 +397,18 @@ def test_a_formula_below_the_claimed_range_is_still_reported() -> None:
     assert sheet.rows[1].raw_data["Budget"] is None
 
 
+def test_cached_formula_values_are_preserved_without_a_second_workbook_load() -> None:
+    part = sheet_part([["Project Code", "Budget"], ["DC-1", "10"]]).replace(
+        b'<c r="B2" t="inlineStr"><is><t xml:space="preserve">10</t></is></c>',
+        b'<c r="B2"><f>6*7</f><v>42</v></c>',
+    )
+    sheet = read_xlsx(handmade_workbook([("Projects", part)]), None, LIMITS)
+
+    assert sheet.rows[0].raw_data["Budget"] == 42
+    assert sheet.rows[0].formula_cells == ("Budget",)
+    assert any(issue.code == "FORMULA_CACHED_VALUE_USED" for issue in sheet.warnings)
+
+
 def _numbered(rows: list[tuple[int | None, list[tuple[str | None, str]]]]) -> bytes:
     """A worksheet part with exactly the row numbers and cell references given."""
     body = ""
