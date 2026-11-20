@@ -44,10 +44,12 @@ from app.core.errors import (
     NotFoundError,
     UnsupportedFileError,
     ValidationFailedError,
+    XlsxReaderBusyError,
     ended_to_resolve_a_conflict,
 )
 from app.db.session import transaction
 from app.ingestion import readers
+from app.ingestion.reader_admission import xlsx_reader_slot
 from app.ingestion.column_mapping import (
     ENTITY_SPECS,
     HeaderMapping,
@@ -126,6 +128,7 @@ COMMIT_STAGE = "commit"
 _FILE_ERROR_STATUS: Mapping[str, type[DomainError]] = {
     "UNSUPPORTED_FILE": UnsupportedFileError,
     "FILE_TOO_LARGE": FileTooLargeError,
+    "XLSX_READER_BUSY": XlsxReaderBusyError,
 }
 
 
@@ -295,7 +298,8 @@ def _parse(upload: UploadedFile, sheet_name: str | None, limits: ImportLimits) -
         source_format = readers.detect_file_format(upload.filename, upload.content_type)
         if source_format is SourceFormat.CSV:
             return readers.read_csv(upload.data, limits.reader_limits())
-        return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())
+        with xlsx_reader_slot():
+            return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())
     except SourceFileError as exc:
         raise _file_error(exc) from None
 
