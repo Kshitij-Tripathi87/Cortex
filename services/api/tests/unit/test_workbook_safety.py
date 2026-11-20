@@ -207,7 +207,7 @@ def test_blank_cells_far_to_the_right_are_not_walked() -> None:
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr("app.ingestion.readers.is_blank", counting)
-        sheet = read_xlsx(workbook, None, LIMITS)
+        sheet = read_xlsx(workbook, "Projects", LIMITS)
 
     assert sheet.sheet_name == "Projects"
     # Twenty worksheets of fifty rows, eleven columns each at most; not 16,384.
@@ -537,7 +537,7 @@ def test_rows_and_cells_the_format_does_not_allow_are_refused(rows: str) -> None
     ).encode()
 
     with refused("MALFORMED_FILE"):
-        read_xlsx(handmade_workbook([("Projects", PROJECTS), ("Odd", part)]), "Projects", LIMITS)
+        read_xlsx(handmade_workbook([("Projects", PROJECTS), ("Odd", part)]), "Odd", LIMITS)
 
 
 # --- more objects than bytes ------------------------------------------------------------
@@ -617,7 +617,7 @@ def test_selected_worksheet_with_more_cells_than_can_be_read_is_refused() -> Non
         read_xlsx(workbook, "Crowded", LIMITS)
 
     assert failure.value.code == "FILE_TOO_LARGE"
-    assert "worksheet of its own" in failure.value.message
+    assert "workbook of its own" in failure.value.message
 
 
 def test_a_larger_worksheet_beside_the_imported_one_is_tolerated_within_the_budget() -> None:
@@ -739,7 +739,7 @@ def test_a_workbook_at_the_limits_is_within_every_budget() -> None:
 )
 def test_a_single_tag_or_text_of_more_than_a_megabyte_is_refused(part: object) -> None:
     assert callable(part)
-    workbook = handmade_workbook([("Projects", PROJECTS), ("Long", part())], hidden=["Long"])
+    workbook = handmade_workbook([("Projects", part())])
 
     with pytest.raises(SourceFileError) as failure:
         read_xlsx(workbook, "Projects", LIMITS)
