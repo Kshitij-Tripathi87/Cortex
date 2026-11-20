@@ -21,14 +21,19 @@ worksheet and say nothing about the rest.
 import csv
 import io
 import math
+import posixpath
 import zipfile
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import PurePosixPath
 from typing import Any
 
-from openpyxl import DEFUSEDXML, load_workbook
+from defusedxml import ElementTree as SafeET
+from openpyxl import DEFUSEDXML
+from openpyxl.reader.excel import ExcelReader
+from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 
 from app.ingestion.contracts import (
     JSONScalar,
@@ -40,7 +45,7 @@ from app.ingestion.contracts import (
     warning,
 )
 from app.ingestion.normalization import BYTE_ORDER_MARK, is_blank, normalize_header
-from app.ingestion.workbook_scan import content_budget, scan_parts
+from app.ingestion.workbook_scan import content_budget, probe_sheet_has_data, scan_parts
 from app.models.enums import SourceFormat
 from app.models.limits import SHEET_NAME_MAX
 
@@ -76,8 +81,10 @@ GENERIC_MEDIA_TYPES = frozenset({"application/octet-stream", "binary/octet-strea
 
 ZIP_SIGNATURE = b"PK\x03\x04"
 WORKBOOK_PART = "xl/workbook.xml"
+WORKBOOK_RELS_PART = "xl/_rels/workbook.xml.rels"
 CONTENT_TYPES_PART = "[Content_Types].xml"
 MAX_ARCHIVE_ENTRIES = 5_000
+MAX_METADATA_PART_BYTES = 4 * 1024 * 1024
 
 # A worksheet may carry formatted but empty rows below its data. This many are
 # scanned beyond the row limit before the sheet is refused.
@@ -152,78 +159,205 @@ def _csv_records(text: str, limits: ReaderLimits) -> Iterator[_Record]:
 
 
 def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -> ParsedSheet:
-    """Parse one worksheet of an .xlsx workbook.
+    """Read one selected worksheet after bounded package and worksheet scans.
 
-    Stored values are read; formulas are never evaluated. A formula cell
-    without a stored result is reported, not computed.
+    Workbook-global XML is weighed first. When no name is supplied, a
+    bounded XML probe identifies candidate visible worksheets without asking
+    openpyxl to parse their dimensions. Only the selected worksheet is then
+    fully checked and materialised. Formula coordinates are collected during
+    that scan, so openpyxl needs only one read-only workbook load.
     """
-    _check_workbook_container(file_bytes, limits)
+    worksheets = _check_workbook_container(file_bytes, limits)
     try:
-        values = _open_workbook(file_bytes, data_only=True)
-        formulas = _open_workbook(file_bytes, data_only=False)
-    except Exception:
-        # openpyxl fails in many ways on a damaged workbook, and defusedxml
-        # fails on one that declares entities; all of them mean the same to
-        # the caller.
-        raise SourceFileError(
-            "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
-        ) from None
-    try:
-        name = _select_sheet(values, sheet_name, limits)
-        records = _xlsx_records(values[name], formulas[name], limits)
-        sheet = _build_sheet(records, SourceFormat.XLSX, name, limits)
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as archive:
+            selected = _select_sheet(archive, worksheets, sheet_name, limits)
+            scanned = scan_parts(
+                archive,
+                [selected.path],
+                cell_elements=content_budget(limits, _scanned_rows(limits)),
+                max_rows=_scanned_rows(limits),
+            )
+            formula_cells = scanned.get(selected.path, frozenset())
     except SourceFileError:
         raise
     except Exception:
         raise SourceFileError(
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
         ) from None
-    finally:
-        values.close()
-        formulas.close()
-    return sheet
+
+    try:
+        workbook = _open_workbook(file_bytes, data_only=True, selected_path=selected.path)
+        try:
+            records = _xlsx_records(workbook[selected.name], formula_cells, limits)
+            return _build_sheet(records, SourceFormat.XLSX, selected.name, limits)
+        finally:
+            workbook.close()
+    except SourceFileError:
+        raise
+    except Exception:
+        raise SourceFileError(
+            "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
+        ) from None
 
 
-def _open_workbook(file_bytes: bytes, *, data_only: bool) -> Any:
-    """The workbook for streaming, row by row. Links to other workbooks are not read."""
-    return load_workbook(
-        io.BytesIO(file_bytes), read_only=True, data_only=data_only, keep_links=False
+class _BoundedReadOnlyWorksheet(ReadOnlyWorksheet):
+    """Read-only worksheet that never trusts or scans declared dimensions."""
+
+    def _get_size(self) -> None:
+        # The selected sheet has been scanned separately; iteration is explicitly bounded.
+        self._min_column = self._min_row = self._max_column = self._max_row = None
+
+
+class _SelectedSheetReader(ExcelReader):
+    """Openpyxl reader that constructs only the worksheet selected by our scan."""
+
+    def __init__(self, filename: Any, *, selected_path: str, **kwargs: Any) -> None:
+        super().__init__(filename, **kwargs)
+        self._selected_path = selected_path
+
+    def read_worksheets(self) -> None:
+        for sheet, relationship in self.parser.find_sheets():
+            if relationship.target != self._selected_path or "chartsheet" in relationship.Type:
+                continue
+            if relationship.target not in self.valid_files:
+                raise ValueError("The selected worksheet part is missing.")
+            worksheet = _BoundedReadOnlyWorksheet(
+                self.wb, sheet.name, relationship.target, self.shared_strings
+            )
+            worksheet.sheet_state = sheet.state
+            self.wb._sheets.append(worksheet)
+
+
+def _open_workbook(file_bytes: bytes, *, data_only: bool, selected_path: str) -> Any:
+    """Open one pre-validated worksheet; external workbook links are not read."""
+    reader = _SelectedSheetReader(
+        io.BytesIO(file_bytes),
+        selected_path=selected_path,
+        read_only=True,
+        data_only=data_only,
+        keep_links=False,
     )
-
-
+    reader.read()
+    if not reader.wb.worksheets:
+        reader.wb.close()
+        raise ValueError("The selected worksheet was not found.")
+    return reader.wb
 def _scanned_rows(limits: ReaderLimits) -> int:
     """Rows of a worksheet that are looked at before it is refused as too long."""
     return limits.max_rows + BLANK_ROW_ALLOWANCE + 1
 
 
-def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> None:
-    """Refuse anything that is not a plain, reasonably sized .xlsx archive."""
+@dataclass(frozen=True, slots=True)
+class _WorksheetPart:
+    name: str
+    path: str
+    state: str
+
+
+def _worksheet_parts(
+    archive: zipfile.ZipFile, names: set[str]
+) -> tuple[_WorksheetPart, ...]:
+    """Resolve worksheet names to safe package-relative XML paths."""
+    workbook_info = archive.getinfo(WORKBOOK_PART)
+    relationships_info = archive.getinfo(WORKBOOK_RELS_PART)
+    if max(workbook_info.file_size, relationships_info.file_size) > MAX_METADATA_PART_BYTES:
+        raise SourceFileError("FILE_TOO_LARGE", "Workbook metadata is too large to read safely.")
+    workbook_root = SafeET.fromstring(archive.read(WORKBOOK_PART))
+    relationships_root = SafeET.fromstring(archive.read(WORKBOOK_RELS_PART))
+    by_id: dict[str, Any] = {}
+    for relation in relationships_root.iter():
+        if relation.tag.rsplit("}", 1)[-1] != "Relationship":
+            continue
+        identifier = relation.attrib.get("Id")
+        if not identifier or identifier in by_id:
+            raise SourceFileError(
+                "MALFORMED_FILE", "The workbook relationships are invalid. Save it again as .xlsx."
+            )
+        by_id[identifier] = relation
+    relationship_id = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+    sheets: list[_WorksheetPart] = []
+    seen_paths: set[str] = set()
+    for element in workbook_root.iter():
+        if element.tag.rsplit("}", 1)[-1] != "sheet":
+            continue
+        relation = by_id.get(element.attrib.get(relationship_id, ""))
+        if relation is None:
+            raise SourceFileError(
+                "MALFORMED_FILE", "A worksheet relationship is missing. Save it again as .xlsx."
+            )
+        if not relation.attrib.get("Type", "").endswith("/worksheet"):
+            continue
+        target = relation.attrib.get("Target", "")
+        if not target or relation.attrib.get("TargetMode") == "External" or "\\" in target:
+            raise SourceFileError(
+                "MALFORMED_FILE", "A worksheet path is invalid. Save the workbook again as .xlsx."
+            )
+        path = (
+            posixpath.normpath(target.lstrip("/"))
+            if target.startswith("/")
+            else posixpath.normpath(posixpath.join("xl", target))
+        )
+        if path in {".", ".."} or path.startswith("../") or path not in names:
+            raise SourceFileError(
+                "MALFORMED_FILE", "A worksheet path is outside the workbook package."
+            )
+        if path in seen_paths:
+            raise SourceFileError(
+                "MALFORMED_FILE", "Two worksheet names refer to the same package part."
+            )
+        seen_paths.add(path)
+        sheets.append(
+            _WorksheetPart(
+                name=element.attrib.get("name", ""),
+                path=path,
+                state=element.attrib.get("state", "visible"),
+            )
+        )
+    return tuple(sheets)
+
+
+def _check_workbook_container(
+    file_bytes: bytes, limits: ReaderLimits
+) -> tuple[_WorksheetPart, ...]:
+    """Check ZIP bounds and scan package-global parts, leaving sheets for selection."""
     not_a_workbook = SourceFileError(
         "UNSUPPORTED_FILE", "The file is not an .xlsx workbook. Save it as .xlsx or .csv."
     )
     if not file_bytes.startswith(ZIP_SIGNATURE):
-        # Old binary .xls, text files and anything else that is not a ZIP.
         raise not_a_workbook
     try:
         with zipfile.ZipFile(io.BytesIO(file_bytes)) as archive:
             entries = archive.infolist()
-            names = {entry.filename for entry in entries}
-            if WORKBOOK_PART not in names or CONTENT_TYPES_PART not in names:
+            names_in_order = [entry.filename for entry in entries]
+            names = set(names_in_order)
+            required = {WORKBOOK_PART, WORKBOOK_RELS_PART, CONTENT_TYPES_PART}
+            if not required.issubset(names):
                 raise not_a_workbook
             if len(entries) > MAX_ARCHIVE_ENTRIES:
                 raise SourceFileError("MALFORMED_FILE", "The workbook has too many parts.")
-            # Declared sizes are checked before anything is decompressed.
+            if len(names_in_order) != len(names):
+                raise SourceFileError("MALFORMED_FILE", "The workbook repeats a ZIP package part.")
             if sum(entry.file_size for entry in entries) > limits.max_uncompressed_bytes:
-                raise SourceFileError(
-                    "FILE_TOO_LARGE", "The workbook is too large once uncompressed."
-                )
+                raise SourceFileError("FILE_TOO_LARGE", "The workbook is too large once uncompressed.")
+            for metadata_name in required:
+                if archive.getinfo(metadata_name).file_size > MAX_METADATA_PART_BYTES:
+                    raise SourceFileError("FILE_TOO_LARGE", "Workbook metadata is too large to read safely.")
             content_types = archive.read(CONTENT_TYPES_PART).decode("utf-8", errors="replace")
+            worksheets = _worksheet_parts(archive, names)
+            worksheet_paths = {sheet.path for sheet in worksheets}
+            package_parts = [name for name in names_in_order if name not in worksheet_paths]
             scan_parts(
                 archive,
-                [entry.filename for entry in entries],
+                package_parts,
                 cell_elements=content_budget(limits, _scanned_rows(limits)),
             )
+    except SourceFileError:
+        raise
     except zipfile.BadZipFile:
+        raise SourceFileError(
+            "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
+        ) from None
+    except Exception:
         raise SourceFileError(
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
         ) from None
@@ -233,48 +367,57 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> None:
             "UNSUPPORTED_FILE",
             "Macro-enabled and binary workbooks are not accepted. Save the file as .xlsx.",
         )
-
-
-def _select_sheet(workbook: Any, requested: str | None, limits: ReaderLimits) -> str:
-    """The worksheet to read: the named one, or the only one that holds data.
-
-    The names come from the workbook and are whatever its author wrote: any
-    length, any character, even the same name twice. They are compared, the
-    chosen one is stored, and an error quotes a few of them in a short form.
-    """
-    available = [str(sheet.title) for sheet in workbook.worksheets]
+    return worksheets
+def _select_sheet(
+    archive: zipfile.ZipFile,
+    worksheets: tuple[_WorksheetPart, ...],
+    requested: str | None,
+    limits: ReaderLimits,
+) -> _WorksheetPart:
+    """Choose a named worksheet or the only visible worksheet with data in its first fifty rows."""
+    available = [sheet.name for sheet in worksheets]
     if len(set(available)) != len(available):
-        # No spreadsheet program writes this, and a name would no longer say
-        # which worksheet is meant.
         raise SourceFileError(
             "MALFORMED_FILE", "Two worksheets of the workbook have the same name."
         )
     if requested is not None:
-        selected = _named_sheet(available, requested)
+        selected_name = _named_sheet(available, requested)
+        selected = next(sheet for sheet in worksheets if sheet.name == selected_name)
     else:
-        candidates = [
-            str(sheet.title)
-            for sheet in workbook.worksheets
-            if sheet.sheet_state == "visible" and _sheet_has_data(sheet, limits)
-        ]
+        candidates: list[_WorksheetPart] = []
+        probe_errors: list[SourceFileError] = []
+        for sheet in worksheets:
+            if sheet.state != "visible":
+                continue
+            try:
+                has_data = probe_sheet_has_data(
+                    archive,
+                    sheet.path,
+                    max_rows=SHEET_PROBE_ROWS,
+                    max_columns=limits.max_columns + 1,
+                )
+            except SourceFileError as exc:
+                probe_errors.append(exc)
+                continue
+            if has_data:
+                candidates.append(sheet)
         if not candidates:
+            if probe_errors:
+                raise probe_errors[0]
             raise SourceFileError("EMPTY_FILE", "The workbook has no worksheet with data.")
         if len(candidates) > 1:
             raise SourceFileError(
                 "AMBIGUOUS_WORKSHEET",
                 "Several worksheets hold data. Name the one to import with sheet_name: "
-                + _names_for_message(candidates),
+                + _names_for_message([sheet.name for sheet in candidates]),
             )
         selected = candidates[0]
-    if len(selected) > SHEET_NAME_MAX:
-        # The name is recorded with the batch. Spreadsheet programs stop at 31.
+    if len(selected.name) > SHEET_NAME_MAX:
         raise SourceFileError(
             "MALFORMED_FILE",
             f"The name of the worksheet is longer than {SHEET_NAME_MAX} characters. Rename it.",
         )
     return selected
-
-
 def _named_sheet(available: list[str], requested: str) -> str:
     """The worksheet with exactly this name, or the only one equal to it once trimmed."""
     if requested in available:
@@ -315,37 +458,25 @@ def _sheet_has_data(sheet: Any, limits: ReaderLimits) -> bool:
 
 
 def _xlsx_records(
-    values_sheet: Any, formulas_sheet: Any, limits: ReaderLimits
+    values_sheet: Any, formula_cells: frozenset[tuple[int, int]], limits: ReaderLimits
 ) -> Iterator[_Record]:
     max_scanned = _scanned_rows(limits)
-    # The range a worksheet claims to use is a hint, and some programs write
-    # "A1" whatever the worksheet holds. The library would stop at the last
-    # row claimed; without the claim it reads the rows that are there.
     values_sheet.reset_dimensions()
-    formulas_sheet.reset_dimensions()
-    # One column beyond the limit is read so that an over-wide sheet is noticed.
-    bounds = {"max_col": limits.max_columns + 1}
-    paired = zip(values_sheet.iter_rows(**bounds), formulas_sheet.iter_rows(**bounds), strict=False)
-    for position, (value_row, formula_row) in enumerate(paired, start=1):
-        if position > max_scanned:
-            raise SourceFileError(
-                "ROW_LIMIT_EXCEEDED",
-                f"The worksheet has more than {limits.max_rows} rows. Split the file.",
-            )
+    rows = values_sheet.iter_rows(max_row=max_scanned, max_col=limits.max_columns + 1)
+    for position, value_row in enumerate(rows, start=1):
         row_number = next(
             (cell.row for cell in value_row if getattr(cell, "row", None) is not None), position
         )
         cells: list[JSONScalar] = []
         formula_flags: list[bool] = []
-        for value_cell, formula_cell in zip(value_row, formula_row, strict=False):
-            is_formula = getattr(formula_cell, "data_type", None) == "f" or (
-                isinstance(formula_cell.value, str) and formula_cell.value.startswith("=")
+        for value_cell in value_row:
+            coordinate = (
+                getattr(value_cell, "row", 0),
+                getattr(value_cell, "column", 0),
             )
             cells.append(_json_cell(value_cell.value))
-            formula_flags.append(is_formula)
+            formula_flags.append(coordinate in formula_cells)
         yield row_number, cells, formula_flags
-
-
 def _json_cell(value: Any) -> JSONScalar:
     """A spreadsheet value as a JSON-safe scalar. Dates become ISO text."""
     if value is None or isinstance(value, (bool, int, str)):
