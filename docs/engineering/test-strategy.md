@@ -62,7 +62,7 @@ A test that cannot fail proves nothing. Each line below is a defect that is
 put into the code on purpose, one at a time; the tests named are run, and the
 file is restored.
 
-`scripts/defect_detection.py` holds defects 1 to 37 and runs them in one go:
+`scripts/defect_detection.py` holds defects 1 to 43 and runs them in one go:
 
 ```bash
 cd services/api
@@ -71,12 +71,11 @@ uv run python ../../scripts/defect_detection.py
 
 It reports `DETECTED` only when the tests ran and at least one failed, and it
 ends with exit code 1 when a defect leaves every test green or when the text
-it replaces is no longer in the code. The run at gate G3 is recorded in
-`artifacts/sprint/day3-defect-detection.txt` (26 of 26 detected), the run on
-the final code in `artifacts/sprint/review-defect-detection.txt` (37 of 37).
-Defects 27 to 37 guard the workbook reader and were added with the review
-after the gate. One more defect, in the last line of the table, was checked
-by hand.
+it replaces is no longer in the code. The pre-hardening run is recorded in
+`artifacts/sprint/review-defect-detection.txt` (37 of 37 detected). This phase
+adds six mutations for shared-string count, aggregate shared text, physical
+row limits, unselected-sheet isolation, formula-cell provenance and import
+admission. The updated run must detect 43 of 43 before the phase passes.
 
 This is not an automated mutation run. The defects are chosen by hand, one
 per behaviour that matters most (row locks, workspace filters, bounds, the
@@ -114,7 +113,7 @@ checkout that is thrown away.
 | 25 | Equipment list ignores the workspace | `test_workspace_isolation_http.py` | 1 failed |
 | 26 | World State counts ignore the workspace | `test_workspace_isolation_http.py` | 1 failed |
 | 27 | A worksheet is read only as far as the range it claims | `test_workbook_safety.py` | 5 failed |
-| 28 | A workbook is opened before its XML is weighed | `test_workbook_safety.py` | 23 failed |
+| 28 | Workbook-level XML is not checked before openpyxl materializes it | `test_workbook_safety.py` | Pending CI |
 | 29 | The reader loads without the hardened XML parser | `test_workbook_safety.py` | 1 failed |
 | 30 | A worksheet is probed across every column it has | `test_workbook_safety.py` | 2 failed |
 | 31 | Two rows of a worksheet may carry the same number | `test_workbook_safety.py` | 4 failed |
@@ -124,6 +123,12 @@ checkout that is thrown away.
 | 35 | An error message quotes every worksheet name in full | `test_workbook_safety.py` | 2 failed |
 | 36 | A worksheet name of any length is passed on to the ledger | `test_workbook_safety.py` | 1 failed |
 | 37 | Two worksheets of a workbook may share a name | `test_workbook_safety.py` | 1 failed |
+| 38 | Shared-string count is not bounded before openpyxl loads it | `test_workbook_safety.py` | Pending CI |
+| 39 | Aggregate shared-string text is not bounded before materialization | `test_workbook_safety.py` | Pending CI |
+| 40 | A selected worksheet can exceed the physical row scan limit | `test_workbook_safety.py` | Pending CI |
+| 41 | Unselected worksheet XML is scanned with the selected worksheet | `test_workbook_safety.py` | Pending CI |
+| 42 | Formula locations from the bounded scan are ignored | `test_workbook_safety.py` | Pending CI |
+| 43 | The import admission limit is removed | `test_import_concurrency.py` | Pending CI |
 | by hand | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
 
 One test was found **not** to prove what its name suggests.
@@ -186,7 +191,22 @@ evidence for the lock is defect 2.
   workbooks written by Excel and LibreOffice (`known-limitations.md`, V-05)
   and is not part of the suite, because those files are not in the repository.
 - The cost of reading a workbook. The tests show that a workbook asking for
-  too much is refused; how long the largest accepted workbook takes was
-  measured once (`known-limitations.md`, L-10 and L-35) and is not asserted.
+  too much is refused; the new single-load implementation's latency and peak
+  memory are not yet benchmarked. The pre-hardening timing is recorded in
+  `known-limitations.md`, L-10.
 - Authentication and authorisation, which do not exist in this release.
 - Docker Compose on a developer machine other than the CI runner.
+
+
+## XLSX hardening cases added after PR #26
+
+- Shared-string item count is bounded before openpyxl materializes the table.
+- Aggregate decoded shared-string text has an independent limit.
+- The selected worksheet's physical row numbering is bounded before iteration.
+- A large, malformed or hidden unselected worksheet is not parsed when another sheet is selected.
+- A workbook with several visible sheets requires explicit selection; the reader does not probe tabs to infer intent.
+- Formula coordinates are captured during the bounded XML scan while cached values are read from one `data_only=True` workbook.
+- Import admission is tested at the ASGI boundary: the second simultaneous import gets a 429 before the route/parser runs.
+- A separate test asserts that openpyxl is invoked exactly once per workbook preview.
+
+The performance claim remains open until the same full-limit benchmark is rerun against this branch.
