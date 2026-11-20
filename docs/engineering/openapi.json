@@ -138,18 +138,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -318,7 +318,7 @@
                 "type": "null"
               }
             ],
-            "description": "Worksheet to read. Required when a workbook has several sheets with data.",
+            "description": "Worksheet to read. Required when a workbook has several visible worksheets.",
             "title": "Sheet Name"
           }
         },
@@ -470,18 +470,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -734,18 +734,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -1024,18 +1024,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -1399,8 +1399,8 @@
           },
           "sequence_no": {
             "default": 1,
-            "exclusiveMinimum": 0.0,
-            "maximum": 2147483647.0,
+            "exclusiveMinimum": 0,
+            "maximum": 2147483647,
             "title": "Sequence No",
             "type": "integer"
           },
@@ -1434,18 +1434,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -2080,18 +2080,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -2173,18 +2173,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -2720,18 +2720,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -2959,18 +2959,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -3249,18 +3249,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -3417,18 +3417,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -3611,18 +3611,18 @@
             "type": "array"
           },
           "limit": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset",
             "type": "integer"
           },
           "total": {
             "description": "Number of items that match, across all pages.",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Total",
             "type": "integer"
           }
@@ -4912,6 +4912,16 @@
               }
             },
             "description": "The request content is invalid."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The import capacity limit has been reached."
           },
           "500": {
             "content": {

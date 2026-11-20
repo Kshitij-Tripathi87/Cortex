@@ -10,6 +10,7 @@ database, so the same commit always produces the same bytes.
 """
 
 import argparse
+import difflib
 import json
 import sys
 from pathlib import Path
@@ -19,6 +20,17 @@ from app.core.config import REPO_ROOT, Settings
 from app.main import create_app
 
 DEFAULT_OUTPUT = REPO_ROOT / "docs" / "engineering" / "openapi.json"
+
+
+def _stable_numbers(value: object) -> object:
+    """Serialize integral JSON floats as integers for stable OpenAPI diffs."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, list):
+        return [_stable_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _stable_numbers(item) for key, item in value.items()}
+    return value
 
 
 def render() -> str:
@@ -32,7 +44,7 @@ def render() -> str:
         log_level="WARNING",
         nexus_dev_workspace_id=UUID("00000000-0000-4000-8000-000000000001"),
     )
-    document = create_app(settings).openapi()
+    document = _stable_numbers(create_app(settings).openapi())
     return json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
@@ -59,6 +71,15 @@ def main() -> int:
             f"{output} {reason}. Run `make openapi` and commit the result.",
             file=sys.stderr,
         )
+        if current is not None:
+            diff = difflib.unified_diff(
+                current.splitlines(),
+                rendered.splitlines(),
+                fromfile=str(output),
+                tofile="generated OpenAPI",
+                lineterm="",
+            )
+            print("\\n".join(diff), file=sys.stderr)
         return 1
 
     output.parent.mkdir(parents=True, exist_ok=True)

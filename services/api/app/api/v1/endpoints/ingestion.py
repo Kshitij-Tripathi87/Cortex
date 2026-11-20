@@ -36,6 +36,7 @@ UPLOAD_ERRORS = {
     **ERROR_RESPONSES,
     413: {"model": ErrorResponse, "description": "The upload exceeds the size limit."},
     415: {"model": ErrorResponse, "description": "The upload is not a CSV or XLSX file."},
+    429: {"model": ErrorResponse, "description": "The import capacity limit has been reached."},
 }
 
 
@@ -75,7 +76,9 @@ def preview_import(
         str | None,
         Form(
             max_length=SHEET_NAME_MAX,
-            description="Worksheet to read. Required when a workbook has several sheets with data.",
+            description=(
+                "Worksheet to read. Required when a workbook has several visible worksheets."
+            ),
         ),
     ] = None,
 ) -> PreviewResponse:

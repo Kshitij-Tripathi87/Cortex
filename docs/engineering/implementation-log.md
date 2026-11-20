@@ -730,6 +730,64 @@ The coverage report was not read a second time.
   coverage report read after the gate. The gates of the playbook did not ask
   for it.
 
+## After PR #26: XLSX resource and admission hardening
+
+### Baseline and scope
+
+The hardening work starts from the merged v0.1 commit `2bb280978d23d532eac50b753fe1cec6371810b2`.
+The earlier codebase at `757101a` is not part of this phase. The defects already
+fixed before PR #26 remain protected by the existing workbook-safety suite.
+
+This phase addresses the remaining reported risks: expensive shared-string
+materialization, unselected worksheet scanning, sparse physical row numbers,
+duplicate openpyxl workbook loads, and unbounded simultaneous preview requests.
+
+### Implementation on `fix/xlsx-resource-guards`
+
+| Change | Files | Intended invariant |
+|---|---|---|
+| Shared-string limits | `app/ingestion/contracts.py`, `app/ingestion/workbook_scan.py`, `app/services/ingestion_service.py` | Refuse over 250,000 shared strings or 8,000,000 decoded text characters before openpyxl materializes the table |
+| Package preflight | `app/ingestion/readers.py`, `app/ingestion/workbook_scan.py` | Scan bounded workbook-level XML before loading the workbook |
+| Selected-sheet scan | `app/ingestion/readers.py` | Scan only the selected worksheet; never walk all tabs to infer which sheet contains data |
+| Physical row envelope | `app/ingestion/workbook_scan.py` | Refuse selected worksheet row numbers beyond the scan envelope before row iteration |
+| Single workbook load | `app/ingestion/readers.py`, `app/ingestion/workbook_scan.py` | Read cached values once with `data_only=True`; keep formula-cell provenance in a compact bitmap from the XML scan |
+| Import admission | `app/api/import_concurrency.py`, `app/core/config.py`, `app/main.py` | Admit at most one synchronous import preview per API process by default; otherwise return 429 before body parsing |
+| Contract and evidence | `docs/engineering/api-contract.md`, `docs/engineering/openapi.json`, `docs/engineering/known-limitations.md`, `docs/engineering/test-strategy.md` | Document behavior, residual risks and verification requirements |
+
+### Regression coverage added
+
+- Independent tests for shared-string item and aggregate text caps.
+- A selected-sheet physical row limit test.
+- Tests proving that hidden and unselected worksheet XML is not inspected.
+- A multi-visible-sheet explicit selection test.
+- A cached-formula result and formula-warning test.
+- A test that openpyxl is loaded exactly once per workbook.
+- An ASGI admission test proving the second concurrent import receives 429 and never reaches the route.
+- Six additional deliberate mutations, taking the hand-selected mutation suite from 37 to 43.
+
+### Verification status
+
+**CI verified on commit `2163a84215d8f14af283ca6f40b02b65b77346f5` (workflow run #275).** Both GitHub Actions jobs passed:
+
+- Ruff lint, Ruff format check and strict mypy type-check.
+- **428 unit tests, 238 API tests and 134 integration tests passed** (800 total).
+- OpenAPI snapshot check passed.
+- Docker Compose used PostgreSQL 16.16 for both development and test databases.
+- End-to-end import/replay/restart proof passed: eight files previewed and committed (112 rows); sending the same dataset again was an idempotent replay; the API and PostgreSQL were restarted; World State SHA-256 remained identical before and after restart: `bb2384e1e97d344d6ecfc5ac66cbbe15fb6550b707d32f7022b45572175326e4`.
+- The unchanged mutation baseline passed **380 selected tests**. **43 of 43 deliberate defects were detected**, including all six new XLSX/admission mutations. The post-run restoration check passed.
+
+The exact run evidence is attached to GitHub Actions run #275. The 786-test result from the pre-hardening PR #26 baseline is separate historical evidence; the current hardening branch's verified total is 800.
+
+Still outstanding: independent human review, repeat wall-time/peak-memory measurements for the previously crafted workbooks and the 10,000 × 100 full-limit workbook, and a developer-machine `make db-up` run. CI's clean-checkout Compose run does not prove that local developer-machine setup.
+
+### Residual safety boundary
+
+The new admission semaphore is process-local, and XLSX parsing still happens inside the API process. This is not a substitute for an isolated import worker with enforced memory and wall-clock limits. Do not expose this synchronous import route to untrusted uploads until that isolation is implemented and load-tested. The 41–59 second pre-hardening timing is retained as historical evidence; no post-change timing claim is made until the same benchmark is rerun.
+
+### Next phase gate
+
+Do not begin the Intelligence Engine until this hardening branch passes CI and receives independent review. After that gate, build deterministic procurement findings with source-row and history references. The first findings are overdue delivery, missing acknowledgement, milestone slippage, revised commitment versus required-on-site date, and critical equipment without a purchase order. LLM agent reasoning and external action execution remain later phases.
+
 ## Work-package status board
 
 | Task | Status | Commits | Evidence |

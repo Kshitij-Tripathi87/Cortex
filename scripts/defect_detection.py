@@ -40,6 +40,8 @@ ISOLATION = "tests/api/test_workspace_isolation_http.py"
 NORMALIZATION = "tests/unit/test_normalization.py"
 LIFECYCLE = "tests/integration/test_import_preview_commit.py"
 WORKBOOKS = "tests/unit/test_workbook_safety.py"
+READERS = "tests/unit/test_readers.py"
+IMPORT_ADMISSION = "tests/unit/test_import_concurrency.py"
 
 _SUMMARY = re.compile(r"(\d+) failed")
 
@@ -272,17 +274,20 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet is read only as far as the range it claims",
         "app/ingestion/readers.py",
-        "    values_sheet.reset_dimensions()\n    formulas_sheet.reset_dimensions()\n",
-        "",
+        "    values_sheet.reset_dimensions()\n",
+        "    pass\n",
         (WORKBOOKS,),
     ),
     Defect(
-        "a workbook is opened before its XML is weighed",
+        "workbook-level XML is not checked before openpyxl materializes it",
         "app/ingestion/readers.py",
         "            scan_parts(\n"
         "                archive,\n"
-        "                [entry.filename for entry in entries],\n"
+        "                global_xml_parts,\n"
         "                cell_elements=content_budget(limits, _scanned_rows(limits)),\n"
+        "                max_rows=_scanned_rows(limits),\n"
+        "                max_shared_string_items=limits.max_shared_string_items,\n"
+        "                max_shared_string_chars=limits.max_shared_string_chars,\n"
         "            )\n",
         "            pass\n",
         (WORKBOOKS,),
@@ -295,11 +300,11 @@ DEFECTS: tuple[Defect, ...] = (
         (WORKBOOKS,),
     ),
     Defect(
-        "a worksheet is probed across every column it has",
+        "an over-wide worksheet row is silently truncated",
         "app/ingestion/readers.py",
-        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS, max_col=limits.max_columns + 1)\n",
-        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS)\n",
-        (WORKBOOKS,),
+        '    bounds = {"max_col": limits.max_columns + 1}\n',
+        '    bounds = {"max_col": limits.max_columns}\n',
+        (READERS,),
     ),
     Defect(
         "two rows of a worksheet may carry the same number",
@@ -350,10 +355,53 @@ DEFECTS: tuple[Defect, ...] = (
         "    if False:\n",
         (WORKBOOKS,),
     ),
+    Defect(
+        "shared-string count is not bounded before openpyxl loads it",
+        "app/ingestion/workbook_scan.py",
+        "            if self._shared_string_items > self._max_shared_string_items:\n",
+        "            if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "aggregate shared-string text is not bounded before materialization",
+        "app/ingestion/workbook_scan.py",
+        "            if self._shared_string_chars > self._max_shared_string_chars:\n",
+        "            if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "a selected worksheet can exceed the physical row scan limit",
+        "app/ingestion/workbook_scan.py",
+        "        if number > self._max_rows:\n",
+        "        if False:\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "unselected worksheet XML is scanned with the selected worksheet",
+        "app/ingestion/readers.py",
+        "                [sheet_path],\n",
+        "                sorted(worksheet_parts),\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "formula locations from the bounded scan are ignored",
+        "app/ingestion/readers.py",
+        "                formula_bitmap.contains(row_number, column) "
+        "if formula_bitmap is not None else False\n",
+        "                False",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "the import admission limit is removed",
+        "app/api/import_concurrency.py",
+        "        if not self._slots.acquire(blocking=False):",
+        "        if False:",
+        (IMPORT_ADMISSION,),
+    ),
 )
 
 
-def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
+def run_tests(tests: tuple[str, ...]) -> tuple[int, str, str]:
     """Exit code and last output line of pytest for the given files."""
     # A bytecode cache of its own: bytecode compiled from a broken file must
     # never be found again once the file is restored.
@@ -367,7 +415,10 @@ def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
             check=False,
         )
     lines = [line for line in completed.stdout.splitlines() if line.strip()]
-    return completed.returncode, lines[-1] if lines else "(no output)"
+    detail = "\\n".join(completed.stdout.splitlines()[-80:])
+    if completed.stderr:
+        detail += "\\nSTDERR:\\n" + "\\n".join(completed.stderr.splitlines()[-40:])
+    return completed.returncode, lines[-1] if lines else "(no output)", detail
 
 
 def check(number: int, defect: Defect) -> bool:
@@ -382,7 +433,7 @@ def check(number: int, defect: Defect) -> bool:
         return False
     try:
         path.write_text(original.replace(defect.old, defect.new), encoding="utf-8")
-        exit_code, summary = run_tests(defect.tests)
+        exit_code, summary, _ = run_tests(defect.tests)
     finally:
         path.write_text(original, encoding="utf-8")
     # pytest exits with 1 when tests ran and some failed. Any other code means
@@ -401,10 +452,13 @@ def main() -> int:
     )
     arguments = parser.parse_args()
 
-    baseline_code, baseline = run_tests(tuple(sorted({t for d in DEFECTS for t in d.tests})))
+    baseline_code, baseline, baseline_detail = run_tests(
+        tuple(sorted({t for d in DEFECTS for t in d.tests}))
+    )
     print(f"00  unchanged code: {baseline.strip('= ')}")
     if baseline_code != 0:
         print("The tests do not pass on the unchanged code; nothing can be concluded.")
+        print(baseline_detail)
         return 1
 
     chosen = [

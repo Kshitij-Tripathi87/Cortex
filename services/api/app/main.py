@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.body_limit import BodySizeLimitMiddleware
+from app.api.import_concurrency import ImportConcurrencyMiddleware
 from app.api.v1.endpoints import health
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
@@ -73,6 +74,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # and is on every response, including a body-size rejection.
     application.add_middleware(
         BodySizeLimitMiddleware, max_upload_bytes=settings.max_upload_size_bytes
+    )
+    application.add_middleware(
+        ImportConcurrencyMiddleware,
+        max_concurrent_imports=settings.max_concurrent_imports,
+        api_prefix=settings.api_v1_prefix,
     )
     application.add_middleware(RequestContextMiddleware)
     register_exception_handlers(application)
