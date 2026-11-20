@@ -420,11 +420,10 @@ def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
     lines = output.splitlines()
     # Keep a concise summary on successful mutations, but expose the failure
     # context for a broken baseline instead of reporting only its final count.
-    result = (
-        "\\n".join(lines[-80:])
-        if completed.returncode
-        else (lines[-1] if lines else "(no output)")
-    )
+    if completed.returncode:
+        result = "\\n".join(lines[-80:])
+    else:
+        result = lines[-1] if lines else "(no output)"
     return completed.returncode, result
 
 
