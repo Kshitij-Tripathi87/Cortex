@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     max_import_rows: int = Field(default=10_000, gt=0, le=1_000_000)
     max_import_columns: int = Field(default=100, gt=0, le=1_000)
     max_import_cell_chars: int = Field(default=2_000, gt=0, le=32_767)
+    # Synchronous XLSX parsing is CPU and memory intensive. This semaphore is
+    # process-local; multi-worker deployments need a shared job queue instead.
+    max_concurrent_imports: int = Field(default=1, ge=1, le=4)
 
     # The single workspace this process serves. This is a development
     # stand-in for authentication, not authentication.
