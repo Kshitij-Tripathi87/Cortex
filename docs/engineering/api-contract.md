@@ -34,6 +34,7 @@ CI fails when it is stale. The World State responses are specified in
 | 413 | The upload is larger than `MAX_UPLOAD_SIZE_MB` |
 | 415 | The upload is not a CSV or XLSX file |
 | 422 | The request is well formed and its content is invalid: a field, a reference, a value the database cannot store, or a file that cannot be read as a table |
+| 429 | The process-local import slot limit is reached; retry after the `Retry-After` response header |
 | 500 | Unexpected failure: generic message, request id, details only in the log |
 | 503 | The database is not reachable |
 
@@ -89,12 +90,13 @@ Codes are stable. Messages may be reworded.
 | `ROW_SHAPE_MISMATCH` | A row has more cells than the header | Correct the row |
 | `FORMULA_WITHOUT_CACHED_VALUE` | A spreadsheet cell holds a formula without a stored result | Save the workbook with calculated values, or enter the value |
 | `UNSUPPORTED_FILE` | Not CSV or XLSX (415) | Save as CSV or XLSX |
-| `FILE_TOO_LARGE` | Larger than the upload limit; or a workbook that is too large once uncompressed, holds more cells in one worksheet than a full import, more formatting and structure than can be read, or a single value or tag of more than one megabyte (413) | Split the file. For a workbook: copy the worksheet to import into a workbook of its own |
-| `EMPTY_FILE`, `MISSING_HEADER`, `DUPLICATE_HEADER`, `INVALID_ENCODING`, `MALFORMED_FILE`, `ROW_LIMIT_EXCEEDED`, `COLUMN_LIMIT_EXCEEDED`, `CELL_TOO_LONG` | The file cannot be read as a bounded table (422) | Correct the file |
+| `FILE_TOO_LARGE` | Larger than the upload limit; or a workbook that is too large once uncompressed, holds too many shared strings or too much shared text, more cells in the selected worksheet than can be read, more formatting and structure than can be read, or a single value or tag of more than one megabyte (413) | Split the file. For a workbook: copy the selected worksheet and required data into a new workbook |
+| `EMPTY_FILE`, `MISSING_HEADER`, `DUPLICATE_HEADER`, `INVALID_ENCODING`, `MALFORMED_FILE`, `ROW_LIMIT_EXCEEDED`, `COLUMN_LIMIT_EXCEEDED`, `CELL_TOO_LONG` | The file cannot be read as a bounded table (422). Row limits are checked against the selected worksheet only; unrelated worksheets are not parsed | Correct the file |
 | `MALFORMED_FILE` for a workbook | Besides a damaged archive: a part that declares a document type or entities, rows or cells that are not numbered in ascending order, two worksheets with one name, or a worksheet to import whose name is longer than 160 characters (422). The reader refuses these rather than read a part of the worksheet | Open the workbook in a spreadsheet program and save it again; rename the worksheet |
-| `AMBIGUOUS_WORKSHEET`, `WORKSHEET_NOT_FOUND` | The workbook has several data sheets and none was named, or the named one is absent (422). A name is matched exactly, and otherwise with the spaces around it ignored if that fits one worksheet only. The message quotes at most ten names, each shortened to 40 characters | Send `sheet_name` |
+| `AMBIGUOUS_WORKSHEET`, `WORKSHEET_NOT_FOUND` | The workbook has several visible worksheets and none was named, or the named one is absent (422). When multiple visible sheets exist, the caller must explicitly select the sheet. A name is matched exactly, and otherwise with the spaces around it ignored if that fits one worksheet only. The message quotes at most ten names, each shortened to 40 characters | Send `sheet_name` |
 | `DUPLICATE_FILE` | The same workbook was already submitted for this entity type with another worksheet (409) | Use the existing batch, or save the worksheet as its own file |
 | `REQUEST_TOO_LARGE` | A request body other than an upload is larger than 1 MB (413) | Send less in one request |
+| `IMPORT_CAPACITY_EXCEEDED` | The configured number of synchronous import previews is already running in this API process (429) | Wait for `Retry-After` seconds and retry |
 | `BATCH_NOT_COMMITTABLE` | The batch is not `PREVIEWED` (409) | Preview a new or corrected file |
 | `COMMIT_CONFLICT` | A row that was valid at preview is no longer valid; nothing was committed and the batch is `FAILED` (409) | Fix the cause and upload the file again |
 | `COMMIT_FAILED` | The database could not store a value of a validated batch; nothing was committed and the batch is `FAILED` (422). Validation is meant to make this impossible; it is logged as an error | Correct the file and upload it again |
@@ -282,3 +284,12 @@ segment is kept, without control characters.
 Projects, suppliers, equipment, purchase orders, line items, milestones,
 supplier commitments. A reference must exist as a committed record; a row of
 another previewed batch does not count.
+
+
+## Workbook selection and admission control
+
+* If a workbook has exactly one visible worksheet, it is selected automatically.
+* If it has more than one visible worksheet, the request must supply `sheet_name`. The service does not probe other sheets to guess which one contains data.
+* The reader preflights the package metadata, styles and shared-string table before opening the workbook, then scans only the selected worksheet. Unselected and hidden worksheet XML is not parsed for import limits.
+* Shared-string count and aggregate decoded text have independent caps. A selected worksheet is refused as soon as its physical row numbering exceeds the scan envelope.
+* The API admits at most `MAX_CONCURRENT_IMPORTS` preview requests per process (default 1). A rejected request receives HTTP 429 and `Retry-After: 2`. This semaphore is process-local; multi-worker or multi-instance deployments require shared admission control or a job queue.
