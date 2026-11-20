@@ -578,11 +578,13 @@ def test_shared_text_with_more_entries_than_can_be_read_is_refused() -> None:
 
 
 def test_a_misnumbered_unselected_worksheet_does_not_block_the_selected_sheet() -> None:
-    malformed = _numbered([
-        HEADER,
-        (2, [("A2", "DC-1")]),
-        (2, [("A2", "duplicate row")]),
-    ])
+    malformed = _numbered(
+        [
+            HEADER,
+            (2, [("A2", "DC-1")]),
+            (2, [("A2", "duplicate row")]),
+        ]
+    )
     workbook = handmade_workbook([("Projects", PROJECTS), ("Broken", malformed)])
 
     sheet = read_xlsx(workbook, "Projects", LIMITS)
