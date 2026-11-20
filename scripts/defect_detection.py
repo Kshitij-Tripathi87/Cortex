@@ -414,8 +414,14 @@ def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
             text=True,
             check=False,
         )
-    lines = [line for line in completed.stdout.splitlines() if line.strip()]
-    return completed.returncode, lines[-1] if lines else "(no output)"
+    output = "\n".join(
+        line for line in (completed.stdout + "\n" + completed.stderr).splitlines() if line.strip()
+    )
+    lines = output.splitlines()
+    # Keep a concise summary on successful mutations, but expose the failure
+    # context for a broken baseline instead of reporting only its final count.
+    result = "\n".join(lines[-80:]) if completed.returncode else (lines[-1] if lines else "(no output)")
+    return completed.returncode, result
 
 
 def check(number: int, defect: Defect) -> bool:
@@ -452,7 +458,7 @@ def main() -> int:
     baseline_code, baseline = run_tests(tuple(sorted({t for d in DEFECTS for t in d.tests})))
     print(f"00  unchanged code: {baseline.strip('= ')}")
     if baseline_code != 0:
-        print("The tests do not pass on the unchanged code; nothing can be concluded.")
+        print("The tests do not pass on the unchanged code; nothing can be concluded.\n" + baseline)
         return 1
 
     chosen = [
