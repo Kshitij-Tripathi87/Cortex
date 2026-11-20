@@ -354,7 +354,6 @@ DEFECTS: tuple[Defect, ...] = (
         "    if False:\n",
         (WORKBOOKS,),
     ),
-
     Defect(
         "shared-string count is not bounded before openpyxl loads it",
         "app/ingestion/workbook_scan.py",
@@ -413,7 +412,7 @@ DEFECTS: tuple[Defect, ...] = (
 )
 
 
-def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
+def run_tests(tests: tuple[str, ...]) -> tuple[int, str, str]:
     """Exit code and last output line of pytest for the given files."""
     # A bytecode cache of its own: bytecode compiled from a broken file must
     # never be found again once the file is restored.
@@ -427,7 +426,10 @@ def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
             check=False,
         )
     lines = [line for line in completed.stdout.splitlines() if line.strip()]
-    return completed.returncode, lines[-1] if lines else "(no output)"
+    detail = "\\n".join(completed.stdout.splitlines()[-80:])
+    if completed.stderr:
+        detail += "\\nSTDERR:\\n" + "\\n".join(completed.stderr.splitlines()[-40:])
+    return completed.returncode, lines[-1] if lines else "(no output)", detail
 
 
 def check(number: int, defect: Defect) -> bool:
@@ -442,7 +444,7 @@ def check(number: int, defect: Defect) -> bool:
         return False
     try:
         path.write_text(original.replace(defect.old, defect.new), encoding="utf-8")
-        exit_code, summary = run_tests(defect.tests)
+        exit_code, summary, _ = run_tests(defect.tests)
     finally:
         path.write_text(original, encoding="utf-8")
     # pytest exits with 1 when tests ran and some failed. Any other code means
@@ -461,10 +463,13 @@ def main() -> int:
     )
     arguments = parser.parse_args()
 
-    baseline_code, baseline = run_tests(tuple(sorted({t for d in DEFECTS for t in d.tests})))
+    baseline_code, baseline, baseline_detail = run_tests(
+        tuple(sorted({t for d in DEFECTS for t in d.tests}))
+    )
     print(f"00  unchanged code: {baseline.strip('= ')}")
     if baseline_code != 0:
         print("The tests do not pass on the unchanged code; nothing can be concluded.")
+        print(baseline_detail)
         return 1
 
     chosen = [
