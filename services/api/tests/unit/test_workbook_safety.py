@@ -183,16 +183,12 @@ def test_the_reader_does_not_load_without_the_hardened_parser() -> None:
 # --- the width of a worksheet -----------------------------------------------------------
 
 
-def test_a_worksheet_is_judged_by_the_columns_that_can_be_imported() -> None:
-    """A lone cell in column 5,000 does not make its worksheet a candidate.
-
-    Looking for it would mean walking every empty cell on the way, on every
-    worksheet of the workbook.
-    """
+def test_an_explicitly_selected_sheet_is_read_without_probing_other_sheets() -> None:
+    """Selecting a sheet never probes all of its neighbours to guess the user's intent."""
     far_away = sheet_part({1: {5_000: "something"}})
     workbook = handmade_workbook([("Far", far_away), ("Projects", PROJECTS)])
 
-    assert read_xlsx(workbook, None, LIMITS).sheet_name == "Projects"
+    assert read_xlsx(workbook, "Projects", LIMITS).sheet_name == "Projects"
 
 
 def test_blank_cells_far_to_the_right_are_not_walked() -> None:
@@ -237,7 +233,7 @@ def test_the_name_of_the_imported_worksheet_must_fit_the_ledger() -> None:
 def test_a_long_name_of_a_worksheet_that_is_not_imported_does_not_matter() -> None:
     workbook = handmade_workbook([("X" * 5_000, sheet_part([])), ("Projects", PROJECTS)])
 
-    assert read_xlsx(workbook, None, LIMITS).sheet_name == "Projects"
+    assert read_xlsx(workbook, "Projects", LIMITS).sheet_name == "Projects"
 
 
 @pytest.mark.parametrize(
@@ -343,6 +339,47 @@ def test_a_worksheet_is_read_to_its_end_whatever_range_it_claims(claimed: str | 
         (3, "DC-2"),
         (4, "DC-3"),
     ]
+
+def test_selected_sheet_row_numbers_are_bounded_before_iteration() -> None:
+    """A million-row worksheet is refused at the first row outside the scan window."""
+    oversized = sheet_part({1: {1: "Project Code", 2: "Project Name"}, 1_102: {1: "DC-1"}})
+    workbook = handmade_workbook([("Projects", oversized)])
+
+    with refused("ROW_LIMIT_EXCEEDED"):
+        read_xlsx(workbook, "Projects", LIMITS)
+
+
+def test_unselected_worksheet_content_does_not_refuse_the_selected_sheet() -> None:
+    """Bad or huge data on another sheet is not parsed by this import."""
+    oversized_other_sheet = sheet_part({1_048_576: {1: "unused"}})
+    workbook = handmade_workbook(
+        [("Projects", PROJECTS), ("Archive", oversized_other_sheet)]
+    )
+
+    sheet = read_xlsx(workbook, "Projects", LIMITS)
+
+    assert sheet.sheet_name == "Projects"
+    assert [row.raw_data["Project Code"] for row in sheet.rows] == ["DC-1"]
+
+
+def test_hidden_unselected_worksheet_does_not_extend_reader_work() -> None:
+    hidden = sheet_part({1_048_576: {1: "unused"}})
+    workbook = handmade_workbook(
+        [("Projects", PROJECTS), ("Archive", hidden)], hidden=("Archive",)
+    )
+
+    assert read_xlsx(workbook, None, LIMITS).sheet_name == "Projects"
+
+
+def test_multiple_visible_sheets_require_an_explicit_selection() -> None:
+    workbook = handmade_workbook(
+        [("Empty", sheet_part([])), ("Projects", PROJECTS)]
+    )
+
+    with refused("AMBIGUOUS_WORKSHEET"):
+        read_xlsx(workbook, None, LIMITS)
+
+    assert read_xlsx(workbook, "Projects", LIMITS).sheet_name == "Projects"
 
 
 def test_a_formula_below_the_claimed_range_is_still_reported() -> None:
@@ -576,6 +613,44 @@ def test_shared_text_with_more_entries_than_can_be_read_is_refused() -> None:
 
     with refused("FILE_TOO_LARGE"):
         read_xlsx(workbook, None, LIMITS)
+
+
+def test_shared_string_entry_count_has_a_separate_tight_budget() -> None:
+    shared = shared_strings_part(["Project Code", "Project Name", "P1", "Unused"])
+    workbook = handmade_workbook(
+        [("Projects", sheet_part([[Shared(0), Shared(1)], [Shared(2), Shared(2)]]))],
+        shared_strings=shared,
+    )
+    limits = ReaderLimits(
+        max_rows=100,
+        max_columns=10,
+        max_cell_chars=50,
+        max_uncompressed_bytes=5_000_000,
+        max_shared_string_items=3,
+    )
+
+    with refused("FILE_TOO_LARGE"):
+        read_xlsx(workbook, "Projects", limits)
+
+
+def test_shared_string_total_text_has_a_separate_budget() -> None:
+    values = ["Project Code", "Project Name", "P1", "twenty characters...."]
+    shared = shared_strings_part(values)
+    workbook = handmade_workbook(
+        [("Projects", sheet_part([[Shared(0), Shared(1)], [Shared(2), Shared(2)]]))],
+        shared_strings=shared,
+    )
+    limits = ReaderLimits(
+        max_rows=100,
+        max_columns=10,
+        max_cell_chars=50,
+        max_uncompressed_bytes=5_000_000,
+        max_shared_string_items=20,
+        max_shared_string_chars=40,
+    )
+
+    with refused("FILE_TOO_LARGE"):
+        read_xlsx(workbook, "Projects", limits)
 
 
 def test_a_part_nested_deeper_than_any_program_writes_is_refused() -> None:
