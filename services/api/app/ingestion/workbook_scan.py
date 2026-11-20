@@ -40,6 +40,7 @@ _ROW = f"{MAIN_NS}{_SEPARATOR}row"
 _CELL = f"{MAIN_NS}{_SEPARATOR}c"
 _SHARED_STRINGS = f"{MAIN_NS}{_SEPARATOR}sst"
 _STRING_ITEM = f"{MAIN_NS}{_SEPARATOR}si"
+_TEXT = f"{MAIN_NS}{_SEPARATOR}t"
 
 # The largest worksheet the file format describes.
 SHEET_MAX_ROW = 1_048_576
@@ -94,6 +95,21 @@ def _unreadable() -> SourceFileError:
     return SourceFileError("MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx.")
 
 
+def _too_many_rows() -> SourceFileError:
+    return SourceFileError(
+        "ROW_LIMIT_EXCEEDED",
+        "The selected worksheet extends beyond the row scan limit. Remove trailing rows or split the file.",
+    )
+
+
+def _too_many_shared_strings() -> SourceFileError:
+    return SourceFileError(
+        "FILE_TOO_LARGE",
+        "The workbook has too many shared strings or too much shared text to read safely. "
+        "Copy the data into a new workbook.",
+    )
+
+
 def content_budget(limits: ReaderLimits, scanned_rows: int) -> int:
     """How many elements the cells of one part may be made of.
 
@@ -103,13 +119,27 @@ def content_budget(limits: ReaderLimits, scanned_rows: int) -> int:
     return ELEMENTS_PER_CELL * scanned_rows * (limits.max_columns + 1) + scanned_rows
 
 
-def scan_parts(archive: zipfile.ZipFile, names: Iterable[str], *, cell_elements: int) -> None:
-    """Refuse the archive if one of its XML parts asks for too much or is misnumbered."""
+def scan_parts(
+    archive: zipfile.ZipFile,
+    names: Iterable[str],
+    *,
+    cell_elements: int,
+    max_rows: int,
+    max_shared_string_items: int,
+    max_shared_string_chars: int,
+) -> None:
+    """Refuse selected XML parts that exceed parser budgets or misnumber cells."""
     for name in names:
-        scan = _PartScan(cell_elements)
+        scan = _PartScan(
+            cell_elements,
+            max_rows=max_rows,
+            max_shared_string_items=max_shared_string_items,
+            max_shared_string_chars=max_shared_string_chars,
+        )
         parser = expat.ParserCreate(namespace_separator=_SEPARATOR)
         parser.StartElementHandler = scan.start
         parser.EndElementHandler = scan.end
+        parser.CharacterDataHandler = scan.characters
         parser.StartDoctypeDeclHandler = scan.document_type
         parser.EntityDeclHandler = scan.document_type
         try:
@@ -169,10 +199,29 @@ class _PartScan:
         "_row_depth",
         "_row_number",
         "_structure",
+        "_max_rows",
+        "_max_shared_string_items",
+        "_max_shared_string_chars",
+        "_shared_string_items",
+        "_shared_string_chars",
+        "_text_depth",
     )
 
-    def __init__(self, cell_budget: int) -> None:
+    def __init__(
+        self,
+        cell_budget: int,
+        *,
+        max_rows: int,
+        max_shared_string_items: int,
+        max_shared_string_chars: int,
+    ) -> None:
         self._cell_budget = cell_budget
+        self._max_rows = max_rows
+        self._max_shared_string_items = max_shared_string_items
+        self._max_shared_string_chars = max_shared_string_chars
+        self._shared_string_items = 0
+        self._shared_string_chars = 0
+        self._text_depth = 0
         self._depth = 0
         self._root = ""
         # Depth of the element whose descendants are cells or shared texts; 0 outside.
@@ -195,13 +244,17 @@ class _PartScan:
         elif depth > MAX_DEPTH:
             raise _unreadable()
 
-        # The cells of a worksheet stand in its sheetData element; the shared
-        # texts are the si elements of the text table. Nothing else is given
-        # the budget for cells, whatever the part is called: the library reads
-        # formats and names from any part that stands where it expects them.
+        # The cells of a worksheet stand in its sheetData element; shared
+        # strings are counted separately because openpyxl materializes the
+        # entire table even when most entries are never referenced.
         at_top = depth == 2 and not self._container_depth
         if at_top and name == _STRING_ITEM and self._root == _SHARED_STRINGS:
+            self._shared_string_items += 1
+            if self._shared_string_items > self._max_shared_string_items:
+                raise _too_many_shared_strings()
             self._container_depth = depth  # the entry itself is content
+        if self._root == _SHARED_STRINGS and name == _TEXT:
+            self._text_depth = depth
         if self._container_depth:
             self._content += 1
             if self._content > self._cell_budget:
@@ -214,17 +267,27 @@ class _PartScan:
                 self._container_depth = depth  # what follows inside is content
 
         # Rows and cells are numbered the way the library numbers them,
-        # wherever in the part they stand: that is where it looks for them.
-        if self._row_depth:
-            if depth == self._row_depth + 1:
-                self._cell(name, attributes)
+        # wherever in a worksheet part they stand.
+        if self._root == _WORKSHEET:
+            if self._row_depth:
+                if depth == self._row_depth + 1:
+                    self._cell(name, attributes)
+                elif name == _ROW:
+                    raise _misnumbered()  # a row inside a row
             elif name == _ROW:
-                raise _misnumbered()  # a row inside a row
-        elif name == _ROW:
-            self._row(attributes, depth)
+                self._row(attributes, depth)
+
+    def characters(self, value: str) -> None:
+        """Count decoded text in shared-string entries before openpyxl builds them."""
+        if self._text_depth:
+            self._shared_string_chars += len(value)
+            if self._shared_string_chars > self._max_shared_string_chars:
+                raise _too_many_shared_strings()
 
     def end(self, name: str) -> None:
         depth = self._depth
+        if depth == self._text_depth:
+            self._text_depth = 0
         if depth == self._row_depth:
             self._row_depth = 0
         if depth == self._container_depth:
@@ -236,6 +299,8 @@ class _PartScan:
         number = self._row_number + 1 if stated is None else int(stated)
         if number <= self._row_number or number > SHEET_MAX_ROW:
             raise _misnumbered()
+        if number > self._max_rows:
+            raise _too_many_rows()
         self._row_number = number
         self._row_depth = depth
         self._column = 0
