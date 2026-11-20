@@ -160,6 +160,7 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
     worksheet_parts = _check_workbook_container(file_bytes, limits)
     try:
         values = _open_workbook(file_bytes, data_only=True)
+        formulas = _open_workbook(file_bytes, data_only=False)
     except Exception:
         raise SourceFileError(
             "MALFORMED_FILE", "The workbook cannot be read. Save it again as .xlsx."
@@ -182,7 +183,7 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
                 max_shared_string_items=limits.max_shared_string_items,
                 max_shared_string_chars=limits.max_shared_string_chars,
             )
-        records = _xlsx_records(selected, selected, limits)
+        records = _xlsx_records(selected, formulas[name], limits)
         sheet = _build_sheet(records, SourceFormat.XLSX, name, limits)
     except SourceFileError:
         raise
@@ -192,6 +193,7 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
         ) from None
     finally:
         values.close()
+        formulas.close()
     return sheet
 
 
