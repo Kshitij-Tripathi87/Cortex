@@ -100,7 +100,9 @@ def _unreadable() -> SourceFileError:
 def _too_many_rows() -> SourceFileError:
     return SourceFileError(
         "ROW_LIMIT_EXCEEDED",
-        "The selected worksheet extends beyond the row scan limit. Remove trailing rows or split the file.",
+        "The selected worksheet extends beyond the row scan limit. "
+"
+        "Remove trailing rows or split the file.",
     )
 
 
@@ -221,25 +223,25 @@ class _PartScan:
 
     __slots__ = (
         "_cell_budget",
+        "_cell_column",
+        "_cell_depth",
+        "_cell_row",
         "_column",
         "_container_depth",
         "_content",
         "_depth",
+        "_formula_bits",
+        "_formula_columns",
+        "_max_rows",
+        "_max_shared_string_chars",
+        "_max_shared_string_items",
         "_root",
         "_row_depth",
         "_row_number",
-        "_structure",
-        "_max_rows",
-        "_max_shared_string_items",
-        "_max_shared_string_chars",
-        "_shared_string_items",
         "_shared_string_chars",
+        "_shared_string_items",
+        "_structure",
         "_text_depth",
-        "_formula_bits",
-        "_formula_columns",
-        "_cell_depth",
-        "_cell_row",
-        "_cell_column",
     )
 
     def __init__(
