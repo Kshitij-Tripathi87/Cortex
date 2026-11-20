@@ -231,10 +231,7 @@ def test_xlsx_single_sheet_with_typed_cells() -> None:
         }
     )
 
-    with refused("AMBIGUOUS_WORKSHEET"):
-        read_xlsx(workbook, None, LIMITS)
-
-    sheet = read_xlsx(workbook, "Projects", LIMITS)
+    sheet = read_xlsx(workbook, "Orders", LIMITS)
 
     assert (sheet.source_format, sheet.sheet_name, sheet.header_row_number) == (
         SourceFormat.XLSX,
@@ -310,7 +307,10 @@ def test_xlsx_with_several_data_sheets_needs_a_choice() -> None:
 def test_xlsx_with_empty_sheets_requires_explicit_selection() -> None:
     workbook = xlsx_bytes({"Empty": [], "Projects": [["Project Code"], ["P1"]], "Blank": [[None]]})
 
-    assert read_xlsx(workbook, None, LIMITS).sheet_name == "Projects"
+    with refused("AMBIGUOUS_WORKSHEET"):
+        read_xlsx(workbook, None, LIMITS)
+
+    assert read_xlsx(workbook, "Projects", LIMITS).sheet_name == "Projects"
 
 
 def test_xlsx_unknown_sheet_and_empty_workbook() -> None:
