@@ -1,27 +1,4 @@
-"""Weighs the XML of a workbook archive before the workbook is opened.
-
-A workbook is small XML documents and a few large ones. The library that
-reads it turns elements into objects, and how much that costs has little to do
-with how many bytes the elements take: a megabyte of empty cell formats
-becomes hundreds of megabytes of style objects. It also places rows and cells
-by the numbers they carry and leaves out what does not fit, so a worksheet
-that numbers two rows alike is read with one of them missing.
-
-This scan reads every part of the archive once, as a stream of element names,
-and builds nothing. It refuses the workbook when a part
-
-* declares a document type, and with it possibly entities or default
-  attributes;
-* is nested deeper than any spreadsheet program writes;
-* holds more elements than the reader is prepared to turn into objects;
-* holds a single tag or a single text longer than a megabyte, which is where
-  a million attributes on one element would be;
-* numbers the rows of a worksheet, or the cells of a row, out of ascending
-  order.
-
-A part that is not XML at all (an image, a printer setting) is left alone: the
-library does not parse it, or fails on it in its own way.
-"""
+"""Bounded XML inspection for XLSX packages before openpyxl materialises objects."""
 
 import zipfile
 from collections.abc import Iterable
@@ -40,53 +17,53 @@ _ROW = f"{MAIN_NS}{_SEPARATOR}row"
 _CELL = f"{MAIN_NS}{_SEPARATOR}c"
 _SHARED_STRINGS = f"{MAIN_NS}{_SEPARATOR}sst"
 _STRING_ITEM = f"{MAIN_NS}{_SEPARATOR}si"
+_FORMULA = f"{MAIN_NS}{_SEPARATOR}f"
+_VALUE = f"{MAIN_NS}{_SEPARATOR}v"
+_TEXT = f"{MAIN_NS}{_SEPARATOR}t"
 
-# The largest worksheet the file format describes.
 SHEET_MAX_ROW = 1_048_576
 SHEET_MAX_COLUMN = 16_384
-# Elements outside the cells of a worksheet and outside the shared texts:
-# formats, names, relationships, properties. A workbook with every one of the
-# 65,490 cell formats a spreadsheet program allows stays below this.
 MAX_STRUCTURE_ELEMENTS = 250_000
-# Elements a cell is made of, on average, when the budget for cells is set:
-# the cell, its value, and room for a formula or an inline text.
 ELEMENTS_PER_CELL = 4
-# A document written by a spreadsheet program is nested less than twenty deep.
 MAX_DEPTH = 100
-# Bytes between one ">" and the next: a tag with its attributes, or a text. The
-# longest text a cell can hold is 32,767 characters, well below this.
 MAX_RUN_BYTES = 1024 * 1024
+# openpyxl materialises the complete shared-string table, even for one selected sheet.
+MAX_SHARED_STRING_ITEMS = 100_000
+MAX_SHARED_STRING_CHARS = 8_000_000
 
 
 def _too_much_content() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "A worksheet of the workbook, or its shared text, holds more cells than can be read. "
-        "Copy the worksheet to import into a workbook of its own.",
+        "A worksheet contains more cells than can be read safely. Split the worksheet into smaller files.",
     )
 
 
 def _too_much_structure() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "The workbook holds more formatting and structure than can be read. "
-        "Copy the data to import into a new workbook.",
+        "The workbook contains too much formatting or structure to read safely. Save the data in a new workbook.",
+    )
+
+
+def _too_many_shared_strings() -> SourceFileError:
+    return SourceFileError(
+        "FILE_TOO_LARGE",
+        "The workbook contains too many shared text values to read safely. Split the data across smaller workbooks.",
     )
 
 
 def _run_too_long() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "The workbook holds a single value or tag of more than a megabyte, which cannot be read. "
-        "Copy the data to import into a new workbook.",
+        "The workbook contains a single XML tag or text run longer than one megabyte.",
     )
 
 
 def _misnumbered() -> SourceFileError:
     return SourceFileError(
         "MALFORMED_FILE",
-        "The rows or cells of a worksheet are not numbered in ascending order within the "
-        "size of a worksheet. Open the workbook in a spreadsheet program and save it again.",
+        "The rows or cells of the selected worksheet are not numbered in ascending order. Open and save the workbook again.",
     )
 
 
@@ -95,46 +72,162 @@ def _unreadable() -> SourceFileError:
 
 
 def content_budget(limits: ReaderLimits, scanned_rows: int) -> int:
-    """How many elements the cells of one part may be made of.
-
-    Enough for a worksheet that fills every row the reader scans and every
-    column it accepts, and no more: what cannot be imported is not opened.
-    """
+    """Maximum XML elements in a selected sheet at the configured import bounds."""
     return ELEMENTS_PER_CELL * scanned_rows * (limits.max_columns + 1) + scanned_rows
 
 
-def scan_parts(archive: zipfile.ZipFile, names: Iterable[str], *, cell_elements: int) -> None:
-    """Refuse the archive if one of its XML parts asks for too much or is misnumbered."""
+def scan_parts(
+    archive: zipfile.ZipFile,
+    names: Iterable[str],
+    *,
+    cell_elements: int,
+    max_rows: int | None = None,
+) -> dict[str, frozenset[tuple[int, int]]]:
+    """Scan XML package parts and collect selected-sheet formula coordinates.
+
+    Callers first scan workbook-global parts, then scan the selected worksheet.
+    A row limit is applied only to the selected worksheet. Shared-string count
+    and text size have separate budgets because openpyxl materialises the table.
+    """
+    formulas: dict[str, frozenset[tuple[int, int]]] = {}
     for name in names:
-        scan = _PartScan(cell_elements)
+        if not name.lower().endswith((".xml", ".rels")):
+            continue
+        scan = _PartScan(cell_elements, max_rows=max_rows)
         parser = expat.ParserCreate(namespace_separator=_SEPARATOR)
         parser.StartElementHandler = scan.start
         parser.EndElementHandler = scan.end
+        parser.CharacterDataHandler = scan.characters
         parser.StartDoctypeDeclHandler = scan.document_type
         parser.EntityDeclHandler = scan.document_type
         try:
             with archive.open(name) as part:
                 parser.ParseFile(_BoundedRuns(part))
-        except expat.ExpatError:
-            # Not XML, or XML that breaks off. What came before the break was
-            # within every budget, and the library will fail on the rest.
-            continue
         except (SourceFileError, zipfile.BadZipFile):
             raise
-        except Exception:
-            # An encrypted or oddly compressed member, a row number that is
-            # not a number, a cell reference that names no column.
+        except expat.ExpatError:
             raise _unreadable() from None
+        except Exception:
+            raise _unreadable() from None
+        formulas[name] = frozenset(scan.formula_cells)
+    return formulas
+
+
+class _ProbeFound(Exception):
+    """Raised to stop a worksheet probe as soon as a cell value is found."""
+
+
+class _ProbeFinished(Exception):
+    """Raised when the bounded worksheet-selection prefix contains no data."""
+
+
+class _SheetProbe:
+    """Inspect a bounded worksheet prefix without creating openpyxl cell objects."""
+
+    __slots__ = (
+        "_cell_depth", "_column", "_depth", "_max_columns", "_max_rows",
+        "_row_depth", "_row_number", "_rows", "_sheet_data_depth", "_value_depth",
+    )
+
+    def __init__(self, max_rows: int, max_columns: int) -> None:
+        self._max_rows = max_rows
+        self._max_columns = max_columns
+        self._depth = 0
+        self._sheet_data_depth = 0
+        self._row_depth = 0
+        self._row_number = 0
+        self._rows = 0
+        self._column = 0
+        self._cell_depth = 0
+        self._value_depth = 0
+
+    def document_type(self, *_: Any) -> None:
+        raise _unreadable()
+
+    def start(self, name: str, attributes: dict[str, str]) -> None:
+        self._depth += 1
+        if self._depth > MAX_DEPTH:
+            raise _unreadable()
+        if name == _SHEET_DATA and self._depth == 2:
+            self._sheet_data_depth = self._depth
+            return
+        if self._sheet_data_depth and not self._row_depth and name == _ROW:
+            self._rows += 1
+            if self._rows > self._max_rows:
+                raise _ProbeFinished()
+            try:
+                self._row_number = int(attributes.get("r", self._rows))
+            except (TypeError, ValueError):
+                self._row_number = self._rows
+            self._row_depth = self._depth
+            self._column = 0
+            return
+        if not self._row_depth:
+            return
+        if self._depth == self._row_depth + 1 and name == _CELL:
+            reference = attributes.get("r")
+            try:
+                row, column = coordinate_to_tuple(reference) if reference else (
+                    self._row_number, self._column + 1
+                )
+            except ValueError:
+                self._cell_depth = 0
+                return
+            self._column = column
+            if row == self._row_number and row <= self._max_rows and column <= self._max_columns:
+                self._cell_depth = self._depth
+            return
+        if self._cell_depth and (
+            (name == _VALUE and self._depth == self._cell_depth + 1)
+            or (name == _TEXT and self._depth > self._cell_depth)
+        ):
+            self._value_depth = self._depth
+
+    def characters(self, value: str) -> None:
+        if self._value_depth and value.strip():
+            raise _ProbeFound()
+
+    def end(self, _name: str) -> None:
+        if self._depth == self._value_depth:
+            self._value_depth = 0
+        if self._depth == self._cell_depth:
+            self._cell_depth = 0
+        if self._depth == self._row_depth:
+            self._row_depth = 0
+        if self._depth == self._sheet_data_depth:
+            self._sheet_data_depth = 0
+        self._depth -= 1
+
+
+def probe_sheet_has_data(
+    archive: zipfile.ZipFile, name: str, *, max_rows: int, max_columns: int
+) -> bool:
+    """Return whether the bounded prefix has a non-empty cell value."""
+    probe = _SheetProbe(max_rows, max_columns)
+    parser = expat.ParserCreate(namespace_separator=_SEPARATOR)
+    parser.StartElementHandler = probe.start
+    parser.EndElementHandler = probe.end
+    parser.CharacterDataHandler = probe.characters
+    parser.StartDoctypeDeclHandler = probe.document_type
+    parser.EntityDeclHandler = probe.document_type
+    try:
+        with archive.open(name) as part:
+            parser.ParseFile(_BoundedRuns(part))
+    except _ProbeFound:
+        return True
+    except _ProbeFinished:
+        return False
+    except (SourceFileError, zipfile.BadZipFile):
+        raise
+    except expat.ExpatError:
+        raise _unreadable() from None
+    except Exception:
+        raise _unreadable() from None
+    return False
 
 
 class _BoundedRuns:
-    """Hands a part to the parser in pieces and refuses a run without a ``>``.
-
-    The parser keeps a tag in memory until it is complete, attributes and
-    all, and a text until its element ends. Neither can be counted before it
-    has been read, so the bytes are watched on their way in: every tag ends
-    with ``>``, in each encoding the parser accepts.
-    """
+    """Stream XML to expat while limiting the size of any one tag or text run."""
 
     __slots__ = ("_part", "_run")
 
@@ -157,32 +250,41 @@ class _BoundedRuns:
 
 
 class _PartScan:
-    """What one XML part holds, counted while it streams past."""
+    """Streaming counts and spreadsheet coordinates for one XML part."""
 
     __slots__ = (
-        "_cell_budget",
-        "_column",
-        "_container_depth",
-        "_content",
-        "_depth",
-        "_root",
-        "_row_depth",
-        "_row_number",
-        "_structure",
+        "_cell_budget", "_cell_coordinates", "_cell_depth", "_column",
+        "_container_depth", "_content", "_depth", "_formula_cells", "_max_rows",
+        "_root", "_row_depth", "_row_number", "_shared_string_chars",
+        "_shared_string_items", "_structure",
     )
 
-    def __init__(self, cell_budget: int) -> None:
+    def __init__(self, cell_budget: int, *, max_rows: int | None = None) -> None:
         self._cell_budget = cell_budget
+        self._max_rows = max_rows
         self._depth = 0
         self._root = ""
-        # Depth of the element whose descendants are cells or shared texts; 0 outside.
         self._container_depth = 0
         self._content = 0
         self._structure = 0
-        # Depth of the row being read; 0 outside a row.
         self._row_depth = 0
         self._row_number = 0
         self._column = 0
+        self._cell_depth = 0
+        self._cell_coordinates: tuple[int, int] | None = None
+        self._formula_cells: set[tuple[int, int]] = set()
+        self._shared_string_items = 0
+        self._shared_string_chars = 0
+
+    @property
+    def formula_cells(self) -> set[tuple[int, int]]:
+        return self._formula_cells
+
+    def characters(self, value: str) -> None:
+        if self._root == _SHARED_STRINGS and self._container_depth and value:
+            self._shared_string_chars += len(value)
+            if self._shared_string_chars > MAX_SHARED_STRING_CHARS:
+                raise _too_many_shared_strings()
 
     def document_type(self, *_: Any) -> None:
         raise _unreadable()
@@ -195,13 +297,12 @@ class _PartScan:
         elif depth > MAX_DEPTH:
             raise _unreadable()
 
-        # The cells of a worksheet stand in its sheetData element; the shared
-        # texts are the si elements of the text table. Nothing else is given
-        # the budget for cells, whatever the part is called: the library reads
-        # formats and names from any part that stands where it expects them.
         at_top = depth == 2 and not self._container_depth
         if at_top and name == _STRING_ITEM and self._root == _SHARED_STRINGS:
-            self._container_depth = depth  # the entry itself is content
+            self._shared_string_items += 1
+            if self._shared_string_items > MAX_SHARED_STRING_ITEMS:
+                raise _too_many_shared_strings()
+            self._container_depth = depth
         if self._container_depth:
             self._content += 1
             if self._content > self._cell_budget:
@@ -211,20 +312,28 @@ class _PartScan:
             if self._structure > MAX_STRUCTURE_ELEMENTS:
                 raise _too_much_structure()
             if at_top and name == _SHEET_DATA and self._root == _WORKSHEET:
-                self._container_depth = depth  # what follows inside is content
+                self._container_depth = depth
 
-        # Rows and cells are numbered the way the library numbers them,
-        # wherever in the part they stand: that is where it looks for them.
         if self._row_depth:
             if depth == self._row_depth + 1:
-                self._cell(name, attributes)
+                self._cell(name, attributes, depth)
             elif name == _ROW:
-                raise _misnumbered()  # a row inside a row
+                raise _misnumbered()
+            elif (
+                self._cell_depth
+                and depth == self._cell_depth + 1
+                and name == _FORMULA
+                and self._cell_coordinates is not None
+            ):
+                self._formula_cells.add(self._cell_coordinates)
         elif name == _ROW:
             self._row(attributes, depth)
 
-    def end(self, name: str) -> None:
+    def end(self, _name: str) -> None:
         depth = self._depth
+        if depth == self._cell_depth:
+            self._cell_depth = 0
+            self._cell_coordinates = None
         if depth == self._row_depth:
             self._row_depth = 0
         if depth == self._container_depth:
@@ -236,14 +345,17 @@ class _PartScan:
         number = self._row_number + 1 if stated is None else int(stated)
         if number <= self._row_number or number > SHEET_MAX_ROW:
             raise _misnumbered()
+        if self._max_rows is not None and number > self._max_rows:
+            raise SourceFileError(
+                "ROW_LIMIT_EXCEEDED",
+                f"The worksheet has more than {self._max_rows} scanned rows. Split the file.",
+            )
         self._row_number = number
         self._row_depth = depth
         self._column = 0
 
-    def _cell(self, name: str, attributes: dict[str, str]) -> None:
+    def _cell(self, name: str, attributes: dict[str, str], depth: int) -> None:
         if name != _CELL:
-            # The library reads every child of a row as a cell and counts it
-            # as a column, whatever it is called.
             raise _misnumbered()
         reference = attributes.get("r")
         if reference:
@@ -253,3 +365,5 @@ class _PartScan:
         if row != self._row_number or column <= self._column or column > SHEET_MAX_COLUMN:
             raise _misnumbered()
         self._column = column
+        self._cell_depth = depth
+        self._cell_coordinates = (row, column)
