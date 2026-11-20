@@ -240,9 +240,20 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> set[st
             }
             # openpyxl materializes global parts while opening the workbook.
             # It does not need to parse the contents of every worksheet.
+            # These are the workbook-level parts openpyxl materializes for
+            # a normal XLSX read. Other worksheets, drawings, custom XML and
+            # metadata not used by this ingestion path are deliberately ignored.
             global_xml_parts = [
-                name for name in names
-                if name.lower().endswith((".xml", ".rels")) and name not in worksheet_parts
+                name for name in (
+                    CONTENT_TYPES_PART,
+                    "_rels/.rels",
+                    WORKBOOK_PART,
+                    "xl/_rels/workbook.xml.rels",
+                    "xl/styles.xml",
+                    "xl/sharedStrings.xml",
+                    "xl/theme/theme1.xml",
+                )
+                if name in names
             ]
             content_types_info = archive.getinfo(CONTENT_TYPES_PART)
             if content_types_info.file_size > 2 * 1024 * 1024:
