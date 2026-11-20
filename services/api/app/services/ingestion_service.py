@@ -160,6 +160,8 @@ class ImportLimits:
             max_columns=self.max_columns,
             max_cell_chars=self.max_cell_chars,
             max_uncompressed_bytes=self.max_upload_bytes * UNCOMPRESSED_FACTOR,
+            max_shared_string_items=250_000,
+            max_shared_string_chars=8_000_000,
         )
 
 
