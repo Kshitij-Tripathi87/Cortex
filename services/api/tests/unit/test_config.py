@@ -36,6 +36,16 @@ def test_valid_development_settings() -> None:
     assert settings.sqlalchemy_url.database == "cortex_nexus"
 
 
+def test_import_concurrency_defaults_to_one_per_process() -> None:
+    assert build().max_concurrent_imports == 1
+
+
+@pytest.mark.parametrize("value", [0, 5])
+def test_import_concurrency_is_bounded(value: int) -> None:
+    with pytest.raises(ValidationError):
+        build(max_concurrent_imports=value)
+
+
 def test_database_url_is_mandatory() -> None:
     with pytest.raises(ValidationError) as failure:
         Settings(_env_file=None, app_env="development", nexus_dev_workspace_id=WORKSPACE_ID)
