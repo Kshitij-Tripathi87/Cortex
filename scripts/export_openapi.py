@@ -10,6 +10,7 @@ database, so the same commit always produces the same bytes.
 """
 
 import argparse
+import difflib
 import json
 import sys
 from pathlib import Path
@@ -59,6 +60,15 @@ def main() -> int:
             f"{output} {reason}. Run `make openapi` and commit the result.",
             file=sys.stderr,
         )
+        if current is not None:
+            diff = difflib.unified_diff(
+                current.splitlines(),
+                rendered.splitlines(),
+                fromfile=str(output),
+                tofile="generated OpenAPI",
+                lineterm="",
+            )
+            print("\\n".join(diff), file=sys.stderr)
         return 1
 
     output.parent.mkdir(parents=True, exist_ok=True)
