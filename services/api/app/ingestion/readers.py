@@ -283,11 +283,11 @@ def _check_workbook_container(file_bytes: bytes, limits: ReaderLimits) -> set[st
 
 
 def _select_sheet(workbook: Any, requested: str | None, limits: ReaderLimits) -> str:
-    """The worksheet to read: the named one, or the only one that holds data.
+    """Choose the named worksheet, or the only visible worksheet.
 
-    The names come from the workbook and are whatever its author wrote: any
-    length, any character, even the same name twice. They are compared, the
-    chosen one is stored, and an error quotes a few of them in a short form.
+    A workbook with several visible sheets requires an explicit selection;
+    probing every sheet to infer intent would read unselected content before
+    its resource limits have been applied.
     """
     available = [str(sheet.title) for sheet in workbook.worksheets]
     if len(set(available)) != len(available):
