@@ -476,7 +476,7 @@ def test_rows_and_cells_the_format_does_not_allow_are_refused(rows: str) -> None
     ).encode()
 
     with refused("MALFORMED_FILE"):
-        read_xlsx(handmade_workbook([("Projects", PROJECTS), ("Odd", part)]), "Projects", LIMITS)
+        read_xlsx(handmade_workbook([("Projects", PROJECTS), ("Odd", part)]), "Odd", LIMITS)
 
 
 # --- more objects than bytes ------------------------------------------------------------
@@ -543,7 +543,7 @@ def test_formats_hidden_in_a_part_that_calls_itself_a_worksheet_are_counted_as_f
         read_xlsx(workbook, None, LIMITS)
 
 
-def test_a_worksheet_with_more_cells_than_can_be_read_is_refused_even_when_not_imported() -> None:
+def test_an_oversized_unselected_worksheet_does_not_block_the_selected_sheet() -> None:
     cells = CELL_BUDGET // 2 + 1  # a cell and its value: two elements
     rows = "".join(
         f'<row r="{number}">' + "<c><v>1</v></c>" * 1_000 + "</row>"
@@ -552,11 +552,10 @@ def test_a_worksheet_with_more_cells_than_can_be_read_is_refused_even_when_not_i
     crowded = _document("worksheet", f"<sheetData>{rows}</sheetData>")
     workbook = handmade_workbook([("Projects", PROJECTS), ("Crowded", crowded)], hidden=["Crowded"])
 
-    with pytest.raises(SourceFileError) as failure:
-        read_xlsx(workbook, "Projects", LIMITS)
+    sheet = read_xlsx(workbook, "Projects", LIMITS)
 
-    assert failure.value.code == "FILE_TOO_LARGE"
-    assert "workbook of its own" in failure.value.message
+    assert sheet.sheet_name == "Projects"
+    assert dict(sheet.rows[0].raw_data) == {"Project Code": "DC-1", "Project Name": "One"}
 
 
 def test_a_larger_worksheet_beside_the_imported_one_is_tolerated_within_the_budget() -> None:
@@ -577,6 +576,80 @@ def test_shared_text_with_more_entries_than_can_be_read_is_refused() -> None:
     with refused("FILE_TOO_LARGE"):
         read_xlsx(workbook, None, LIMITS)
 
+
+def test_a_misnumbered_unselected_worksheet_does_not_block_the_selected_sheet() -> None:
+    malformed = _numbered([
+        HEADER,
+        (2, [("A2", "DC-1")]),
+        (2, [("A2", "duplicate row")]),
+    ])
+    workbook = handmade_workbook([("Projects", PROJECTS), ("Broken", malformed)])
+
+    sheet = read_xlsx(workbook, "Projects", LIMITS)
+
+    assert sheet.sheet_name == "Projects"
+    assert len(sheet.rows) == 1
+
+
+def test_shared_string_item_count_has_an_independent_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(workbook_scan, "MAX_SHARED_STRING_ITEMS", 3)
+    shared = shared_strings_part(["Project Code", "Project Name", "DC-1", "One"])
+    workbook = handmade_workbook(
+        [("Projects", sheet_part([[Shared(0), Shared(1)], [Shared(2), Shared(3)]]))],
+        shared_strings=shared,
+    )
+
+    with refused("FILE_TOO_LARGE"):
+        read_xlsx(workbook, "Projects", LIMITS)
+
+
+def test_shared_string_character_total_has_an_independent_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(workbook_scan, "MAX_SHARED_STRING_CHARS", 8)
+    shared = shared_strings_part(["Project Code", "Project Name", "DC-1", "One"])
+    workbook = handmade_workbook(
+        [("Projects", sheet_part([[Shared(0), Shared(1)], [Shared(2), Shared(3)]]))],
+        shared_strings=shared,
+    )
+
+    with refused("FILE_TOO_LARGE"):
+        read_xlsx(workbook, "Projects", LIMITS)
+
+
+def test_selected_worksheet_rejects_a_sparse_row_beyond_the_scan_limit() -> None:
+    limits = ReaderLimits(
+        max_rows=2, max_columns=10, max_cell_chars=50, max_uncompressed_bytes=5_000_000
+    )
+    last_allowed = limits.max_rows + readers.BLANK_ROW_ALLOWANCE + 1
+    selected = _numbered([HEADER, (last_allowed + 1, [(f"A{last_allowed + 1}", "DC-1")])])
+    workbook = handmade_workbook([("Projects", selected)])
+
+    with refused("ROW_LIMIT_EXCEEDED"):
+        read_xlsx(workbook, "Projects", limits)
+
+
+def test_the_workbook_is_opened_once_after_formula_coordinates_are_scanned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_open = readers._open_workbook
+    calls = 0
+
+    def counted_open(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(readers, "_open_workbook", counted_open)
+    rows = [["Project Code", "Budget"], ["DC-1", "10"], ["DC-2", "20"]]
+    part = sheet_part(rows).replace(
+        b'<c r="B3" t="inlineStr"><is><t xml:space="preserve">20</t></is></c>',
+        b'<c r="B3"><f>B2*2</f><v>20</v></c>',
+    )
+
+    sheet = read_xlsx(handmade_workbook([("Projects", part)]), "Projects", LIMITS)
+
+    assert calls == 1
+    assert sheet.rows[1].raw_data["Budget"] == 20
+    assert sheet.rows[1].formula_cells == ()
 
 def test_a_part_nested_deeper_than_any_program_writes_is_refused() -> None:
     depth = workbook_scan.MAX_DEPTH + 1
@@ -643,7 +716,7 @@ def test_a_single_tag_or_text_of_more_than_a_megabyte_is_refused(part: object) -
     workbook = handmade_workbook([("Projects", PROJECTS), ("Long", part())], hidden=["Long"])
 
     with pytest.raises(SourceFileError) as failure:
-        read_xlsx(workbook, "Projects", LIMITS)
+        read_xlsx(workbook, "Long", LIMITS)
 
     assert failure.value.code == "FILE_TOO_LARGE"
     assert "more than a megabyte" in failure.value.message
