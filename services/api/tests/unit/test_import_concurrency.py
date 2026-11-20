@@ -53,8 +53,9 @@ def test_second_import_is_rejected_before_the_route_runs() -> None:
         async def route(scope: Scope, receive: Receive, send: Send) -> None:
             nonlocal route_calls
             route_calls += 1
-            entered.set()
-            await release.wait()
+            if route_calls == 1:
+                entered.set()
+                await release.wait()
             await send({"type": "http.response.start", "status": 204, "headers": []})
             await send({"type": "http.response.body", "body": b""})
 
@@ -67,15 +68,17 @@ def test_second_import_is_rejected_before_the_route_runs() -> None:
             app, _scope("/api/v1/workspaces/123/ingestion/preview")
         )
         await second_run()
+        # Always release the first request before asserting. If the admission
+        # check is removed, the second request reaches the route and returns
+        # immediately, so the defect is detected rather than deadlocking here.
+        release.set()
+        await first
 
         assert route_calls == 1
         assert second_messages[0]["status"] == 429
         headers = dict(second_messages[0]["headers"])
         assert headers[b"retry-after"] == b"2"
         assert b"IMPORT_CAPACITY_EXCEEDED" in second_messages[1]["body"]
-
-        release.set()
-        await first
         assert first_messages[0]["status"] == 204
 
     asyncio.run(scenario())
