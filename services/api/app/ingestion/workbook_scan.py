@@ -129,8 +129,16 @@ class _SheetProbe:
     """Inspect a bounded worksheet prefix without creating openpyxl cell objects."""
 
     __slots__ = (
-        "_cell_depth", "_column", "_depth", "_max_columns", "_max_rows",
-        "_row_depth", "_row_number", "_rows", "_sheet_data_depth", "_value_depth",
+        "_cell_depth",
+        "_column",
+        "_depth",
+        "_max_columns",
+        "_max_rows",
+        "_row_depth",
+        "_row_number",
+        "_rows",
+        "_sheet_data_depth",
+        "_value_depth",
     )
 
     def __init__(self, max_rows: int, max_columns: int) -> None:
@@ -171,8 +179,10 @@ class _SheetProbe:
         if self._depth == self._row_depth + 1 and name == _CELL:
             reference = attributes.get("r")
             try:
-                row, column = coordinate_to_tuple(reference) if reference else (
-                    self._row_number, self._column + 1
+                row, column = (
+                    coordinate_to_tuple(reference)
+                    if reference
+                    else (self._row_number, self._column + 1)
                 )
             except ValueError:
                 self._cell_depth = 0
