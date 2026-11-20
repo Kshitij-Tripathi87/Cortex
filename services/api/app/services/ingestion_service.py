@@ -49,7 +49,6 @@ from app.core.errors import (
 )
 from app.db.session import transaction
 from app.ingestion import readers
-from app.ingestion.reader_admission import xlsx_reader_slot
 from app.ingestion.column_mapping import (
     ENTITY_SPECS,
     HeaderMapping,
@@ -69,6 +68,7 @@ from app.ingestion.contracts import (
     ValidationIssue,
 )
 from app.ingestion.normalization import to_json
+from app.ingestion.reader_admission import xlsx_reader_slot
 from app.ingestion.row_validation import assess_rows, candidate
 from app.models import limits as field_limits
 from app.models.enums import (
