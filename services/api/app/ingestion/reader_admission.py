@@ -1,8 +1,8 @@
 """Process-local admission control for memory-intensive XLSX parsing."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from threading import BoundedSemaphore
-from collections.abc import Iterator
 
 from app.ingestion.contracts import SourceFileError
 
