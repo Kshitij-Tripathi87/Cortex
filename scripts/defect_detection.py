@@ -272,7 +272,7 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet is read only as far as the range it claims",
         "app/ingestion/readers.py",
-        "    values_sheet.reset_dimensions()\n    formulas_sheet.reset_dimensions()\n",
+        "    def _get_size(self) -> None:\n        # The selected sheet has been scanned separately; iteration is explicitly bounded.\n        self._min_column = self._min_row = self._max_column = self._max_row = None\n",
         "",
         (WORKBOOKS,),
     ),
@@ -281,7 +281,7 @@ DEFECTS: tuple[Defect, ...] = (
         "app/ingestion/readers.py",
         "            scan_parts(\n"
         "                archive,\n"
-        "                [entry.filename for entry in entries],\n"
+        "                package_parts,\n"
         "                cell_elements=content_budget(limits, _scanned_rows(limits)),\n"
         "            )\n",
         "            pass\n",
@@ -297,8 +297,8 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet is probed across every column it has",
         "app/ingestion/readers.py",
-        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS, max_col=limits.max_columns + 1)\n",
-        "    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS)\n",
+        "            if row == self._row_number and row <= self._max_rows and column <= self._max_columns:\\n",
+        "            if row == self._row_number and row <= self._max_rows:\\n",
         (WORKBOOKS,),
     ),
     Defect(
@@ -350,7 +350,48 @@ DEFECTS: tuple[Defect, ...] = (
         "    if False:\n",
         (WORKBOOKS,),
     ),
-)
+    Defect(
+        "shared-string table has an independent item-count budget",
+        "app/ingestion/workbook_scan.py",
+        "            if self._shared_string_items > MAX_SHARED_STRING_ITEMS:\\n",
+        "            if False:\\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "shared-string table has an independent aggregate text budget",
+        "app/ingestion/workbook_scan.py",
+        "            if self._shared_string_chars > MAX_SHARED_STRING_CHARS:\\n",
+        "            if False:\\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "an unselected worksheet is scanned as if it were imported",
+        "app/ingestion/readers.py",
+        "            package_parts = [name for name in names_in_order if name not in worksheet_paths]\\n",
+        "            package_parts = names_in_order\\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "the XLSX preview route admits simultaneous reader work",
+        "app/services/ingestion_service.py",
+        "        with xlsx_reader_slot():\\n            return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())",
+        "        return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())",
+        ("tests/api/test_ingestion_preview.py",),
+    ),
+    Defect(
+        "the selected worksheet has no physical row-number ceiling",
+        "app/ingestion/workbook_scan.py",
+        "        if self._max_rows is not None and number > self._max_rows:\\n",
+        "        if False:\\n",
+        (WORKBOOKS,),
+    ),
+    Defect(
+        "formula coordinates are not captured during the selected-sheet scan",
+        "app/ingestion/workbook_scan.py",
+        "                self._formula_cells.add(self._cell_coordinates)\\n",
+        "                pass\\n",
+        (WORKBOOKS,),
+    ),)
 
 
 def run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
