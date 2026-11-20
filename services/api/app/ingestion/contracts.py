@@ -39,6 +39,9 @@ class ReaderLimits:
     max_columns: int
     max_cell_chars: int
     max_uncompressed_bytes: int
+    # openpyxl materializes shared strings even when the selected sheet does not use them.
+    max_shared_string_items: int = 250_000
+    max_shared_string_chars: int = 8_000_000
 
 
 @dataclass(frozen=True, slots=True)
