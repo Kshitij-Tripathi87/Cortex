@@ -340,10 +340,14 @@ def _check_workbook_container(
             if len(names_in_order) != len(names):
                 raise SourceFileError("MALFORMED_FILE", "The workbook repeats a ZIP package part.")
             if sum(entry.file_size for entry in entries) > limits.max_uncompressed_bytes:
-                raise SourceFileError("FILE_TOO_LARGE", "The workbook is too large once uncompressed.")
+                raise SourceFileError(
+                    "FILE_TOO_LARGE", "The workbook is too large once uncompressed."
+                )
             for metadata_name in required:
                 if archive.getinfo(metadata_name).file_size > MAX_METADATA_PART_BYTES:
-                    raise SourceFileError("FILE_TOO_LARGE", "Workbook metadata is too large to read safely.")
+                    raise SourceFileError(
+                        "FILE_TOO_LARGE", "Workbook metadata is too large to read safely."
+                    )
             content_types = archive.read(CONTENT_TYPES_PART).decode("utf-8", errors="replace")
             worksheets = _worksheet_parts(archive, names)
             worksheet_paths = {sheet.path for sheet in worksheets}
