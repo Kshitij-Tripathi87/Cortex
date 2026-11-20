@@ -318,7 +318,7 @@ class _PartScan:
                 elif (
                     self._cell_depth
                     and depth == self._cell_depth + 1
-                    and name == _FORMULA
+                    and name.rsplit(_SEPARATOR, 1)[-1] == "f"
                     and self._formula_bits is not None
                 ):
                     self._mark_formula()
