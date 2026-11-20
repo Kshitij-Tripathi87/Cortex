@@ -272,7 +272,9 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet is read only as far as the range it claims",
         "app/ingestion/readers.py",
-        "    def _get_size(self) -> None:\n        # The selected sheet has been scanned separately; iteration is explicitly bounded.\n        self._min_column = self._min_row = self._max_column = self._max_row = None\n",
+        "    def _get_size(self) -> None:\n"
+        "        # The selected sheet has been scanned separately; iteration is explicitly bounded.\n"
+        "        self._min_column = self._min_row = self._max_column = self._max_row = None\n",
         "",
         (WORKBOOKS,),
     ),
@@ -297,7 +299,8 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "a worksheet is probed across every column it has",
         "app/ingestion/workbook_scan.py",
-        "            if row == self._row_number and row <= self._max_rows and column <= self._max_columns:\n",
+        "            if row == self._row_number and row <= self._max_rows "
+        "and column <= self._max_columns:\n",
         "            if row == self._row_number and row <= self._max_rows:\n",
         (WORKBOOKS,),
     ),
@@ -367,14 +370,16 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "an unselected worksheet is scanned as if it were imported",
         "app/ingestion/readers.py",
-        "            package_parts = [name for name in names_in_order if name not in worksheet_paths]\n",
+        "            package_parts = [name for name in names_in_order "
+        "if name not in worksheet_paths]\n",
         "            package_parts = names_in_order\n",
         (WORKBOOKS,),
     ),
     Defect(
         "the XLSX preview route admits simultaneous reader work",
         "app/services/ingestion_service.py",
-        "        with xlsx_reader_slot():\n            return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())",
+        "        with xlsx_reader_slot():\n"
+        "            return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())",
         "        return readers.read_xlsx(upload.data, sheet_name, limits.reader_limits())",
         ("tests/api/test_ingestion_preview.py",),
     ),
