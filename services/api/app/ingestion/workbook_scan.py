@@ -35,21 +35,24 @@ MAX_SHARED_STRING_CHARS = 8_000_000
 def _too_much_content() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "A worksheet contains more cells than can be read safely. Split the worksheet into smaller files.",
+        "A worksheet contains more cells than can be read safely. "
+        "Split the worksheet into smaller files.",
     )
 
 
 def _too_much_structure() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "The workbook contains too much formatting or structure to read safely. Save the data in a new workbook.",
+        "The workbook contains too much formatting or structure to read safely. "
+        "Save the data in a new workbook.",
     )
 
 
 def _too_many_shared_strings() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "The workbook contains too many shared text values to read safely. Split the data across smaller workbooks.",
+        "The workbook contains too many shared text values to read safely. "
+        "Split the data across smaller workbooks.",
     )
 
 
@@ -63,7 +66,8 @@ def _run_too_long() -> SourceFileError:
 def _misnumbered() -> SourceFileError:
     return SourceFileError(
         "MALFORMED_FILE",
-        "The rows or cells of the selected worksheet are not numbered in ascending order. Open and save the workbook again.",
+        "The rows or cells of the selected worksheet are not numbered in ascending order. "
+        "Open and save the workbook again.",
     )
 
 
