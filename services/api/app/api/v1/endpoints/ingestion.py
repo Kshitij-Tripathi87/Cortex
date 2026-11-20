@@ -76,7 +76,7 @@ def preview_import(
         str | None,
         Form(
             max_length=SHEET_NAME_MAX,
-            description="Worksheet to read. Required when a workbook has several sheets with data.",
+            description="Worksheet to read. Required when a workbook has several visible worksheets.",
         ),
     ] = None,
 ) -> PreviewResponse:
