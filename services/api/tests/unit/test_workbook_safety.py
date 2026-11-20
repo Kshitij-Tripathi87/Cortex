@@ -656,6 +656,7 @@ def test_the_workbook_is_opened_once_after_formula_coordinates_are_scanned(
     assert sheet.rows[1].formula_cells == ()  # cached formulas are not missing-result warnings
     assert any(issue.code == "FORMULA_CACHED_VALUE_USED" for issue in sheet.warnings)
 
+
 def test_a_part_nested_deeper_than_any_program_writes_is_refused() -> None:
     depth = workbook_scan.MAX_DEPTH + 1
     nested = _document("styleSheet", "<a>" * depth + "</a>" * depth)
