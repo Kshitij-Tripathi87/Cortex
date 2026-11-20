@@ -125,9 +125,7 @@ def test_unsupported_file_returns_415(
 
 
 def test_xlsx_preview_is_rejected_while_the_reader_slot_is_occupied(api: Api) -> None:
-    workbook = xlsx_bytes(
-        {"Projects": [["Project Code", "Project Name"], ["DC-LOCK", "Locked"]]}
-    )
+    workbook = xlsx_bytes({"Projects": [["Project Code", "Project Name"], ["DC-LOCK", "Locked"]]})
 
     with xlsx_reader_slot():
         busy = upload(api, workbook, "project", filename="projects.xlsx", content_type=XLSX)
@@ -136,6 +134,7 @@ def test_xlsx_preview_is_rejected_while_the_reader_slot_is_occupied(api: Api) ->
     accepted = upload(api, workbook, "project", filename="projects.xlsx", content_type=XLSX)
     assert accepted.status_code == 201
     assert accepted.json()["valid_rows"] == 1
+
 
 def test_content_that_contradicts_the_extension_returns_415(api: Api) -> None:
     workbook = xlsx_bytes({"S": [["Project Code", "Project Name"], ["P1", "One"]]})
