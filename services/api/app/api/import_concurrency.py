@@ -9,7 +9,7 @@ with a shared queue or external admission controller.
 import json
 from threading import BoundedSemaphore
 
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.request_context import error_body
 
