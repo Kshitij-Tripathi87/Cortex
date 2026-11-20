@@ -43,7 +43,7 @@ def _too_much_content() -> SourceFileError:
 def _too_much_structure() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "The workbook contains too much formatting or structure to read safely. "
+        "The workbook contains too much formatting and structure to read safely. "
         "Save the data in a new workbook.",
     )
 
@@ -59,7 +59,7 @@ def _too_many_shared_strings() -> SourceFileError:
 def _run_too_long() -> SourceFileError:
     return SourceFileError(
         "FILE_TOO_LARGE",
-        "The workbook contains a single XML tag or text run longer than one megabyte.",
+        "The workbook contains a single XML tag or text run of more than a megabyte.",
     )
 
 
