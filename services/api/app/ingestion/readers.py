@@ -30,7 +30,7 @@ from decimal import Decimal
 from pathlib import PurePosixPath
 from typing import Any
 
-from defusedxml import ElementTree as SafeET
+from defusedxml import ElementTree as SafeET  # type: ignore[import-untyped]
 from openpyxl import DEFUSEDXML
 from openpyxl.reader.excel import ExcelReader
 from openpyxl.worksheet._read_only import ReadOnlyWorksheet
@@ -242,6 +242,8 @@ def _open_workbook(file_bytes: bytes, *, data_only: bool, selected_path: str) ->
         reader.wb.close()
         raise ValueError("The selected worksheet was not found.")
     return reader.wb
+
+
 def _scanned_rows(limits: ReaderLimits) -> int:
     """Rows of a worksheet that are looked at before it is refused as too long."""
     return limits.max_rows + BLANK_ROW_ALLOWANCE + 1
@@ -368,6 +370,8 @@ def _check_workbook_container(
             "Macro-enabled and binary workbooks are not accepted. Save the file as .xlsx.",
         )
     return worksheets
+
+
 def _select_sheet(
     archive: zipfile.ZipFile,
     worksheets: tuple[_WorksheetPart, ...],
@@ -418,6 +422,8 @@ def _select_sheet(
             f"The name of the worksheet is longer than {SHEET_NAME_MAX} characters. Rename it.",
         )
     return selected
+
+
 def _named_sheet(available: list[str], requested: str) -> str:
     """The worksheet with exactly this name, or the only one equal to it once trimmed."""
     if requested in available:
@@ -446,23 +452,15 @@ def _names_for_message(names: list[str]) -> str:
     return text
 
 
-def _sheet_has_data(sheet: Any, limits: ReaderLimits) -> bool:
-    """Whether the first rows hold anything, within the columns that can be imported.
-
-    Without the column bound a single cell in the last column of a row makes
-    the reader visit sixteen thousand empty ones, on every row probed and on
-    every worksheet of the workbook.
-    """
-    rows = sheet.iter_rows(max_row=SHEET_PROBE_ROWS, max_col=limits.max_columns + 1)
-    return any(not is_blank(cell.value) for row in rows for cell in row)
-
 
 def _xlsx_records(
     values_sheet: Any, formula_cells: frozenset[tuple[int, int]], limits: ReaderLimits
 ) -> Iterator[_Record]:
-    max_scanned = _scanned_rows(limits)
+    # The selected XML part was checked against _scanned_rows() before this
+    # iterator starts. With no max_row, openpyxl streams only physical rows
+    # (and row gaps) until EOF instead of manufacturing max_scanned empty rows.
     values_sheet.reset_dimensions()
-    rows = values_sheet.iter_rows(max_row=max_scanned, max_col=limits.max_columns + 1)
+    rows = values_sheet.iter_rows(max_col=limits.max_columns + 1)
     for position, value_row in enumerate(rows, start=1):
         row_number = next(
             (cell.row for cell in value_row if getattr(cell, "row", None) is not None), position
