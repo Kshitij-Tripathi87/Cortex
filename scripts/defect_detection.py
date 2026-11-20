@@ -275,7 +275,7 @@ DEFECTS: tuple[Defect, ...] = (
         "a worksheet is read only as far as the range it claims",
         "app/ingestion/readers.py",
         "    values_sheet.reset_dimensions()\n",
-        "        pass\n",
+        "    pass\n",
         (WORKBOOKS,),
     ),
     Defect(
