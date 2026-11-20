@@ -200,7 +200,8 @@ def read_xlsx(file_bytes: bytes, sheet_name: str | None, limits: ReaderLimits) -
         ) from None
 
 
-class _BoundedReadOnlyWorksheet(ReadOnlyWorksheet):
+# OpenPyXL does not ship typed base classes for its read-only worksheet internals.
+class _BoundedReadOnlyWorksheet(ReadOnlyWorksheet):  # type: ignore[misc]
     """Read-only worksheet that never trusts or scans declared dimensions."""
 
     def _get_size(self) -> None:
@@ -208,7 +209,8 @@ class _BoundedReadOnlyWorksheet(ReadOnlyWorksheet):
         self._min_column = self._min_row = self._max_column = self._max_row = None
 
 
-class _SelectedSheetReader(ExcelReader):
+# This override intentionally targets the locked OpenPyXL reader implementation.
+class _SelectedSheetReader(ExcelReader):  # type: ignore[misc]
     """Openpyxl reader that constructs only the worksheet selected by our scan."""
 
     def __init__(self, filename: Any, *, selected_path: str, **kwargs: Any) -> None:
