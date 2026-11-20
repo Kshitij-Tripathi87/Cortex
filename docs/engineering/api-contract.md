@@ -176,7 +176,7 @@ batches by `created_at` descending; batch rows by `row_number`.
 |---|---|
 | `file` | The CSV (UTF-8, comma-separated) or XLSX file |
 | `entity_type` | `project`, `supplier`, `equipment`, `purchase_order`, `purchase_order_item`, `milestone`, `supplier_commitment` |
-| `sheet_name` | Optional. Required when the workbook has more than one sheet with data |
+| `sheet_name` | Optional. Required when the workbook has more than one visible worksheet |
 
 ```json
 {
