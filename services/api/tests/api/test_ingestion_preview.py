@@ -9,8 +9,8 @@ from httpx2 import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.main import create_app
 from app.ingestion.reader_admission import xlsx_reader_slot
+from app.main import create_app
 from app.models import (
     Equipment,
     IngestionBatch,
