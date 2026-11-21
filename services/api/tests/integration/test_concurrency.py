@@ -428,8 +428,11 @@ def test_a_purchase_order_patch_waits_for_a_writer_that_holds_the_order(
 
         detail = writer.finish()
 
-    assert detail.issue_date == date(2026, 7, 1)
-    assert detail.total_value == Decimal("1234.56")
+    # `update_purchase_order` returns the service's own PurchaseOrderDetail
+    # dataclass, which wraps the record; the response schema of the same name
+    # in app/schemas/purchase_order.py is a different, flat class.
+    assert detail.purchase_order.issue_date == date(2026, 7, 1)
+    assert detail.purchase_order.total_value == Decimal("1234.56")
 
 
 # --- a batch is committed once: the batch row is the lock --------------------------------
