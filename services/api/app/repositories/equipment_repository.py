@@ -11,12 +11,16 @@ from app.models.equipment import Equipment
 from app.repositories._pagination import fetch_page
 
 
-def get_by_id(session: Session, workspace_id: UUID, equipment_id: UUID) -> Equipment | None:
-    return session.scalar(
-        select(Equipment).where(
-            Equipment.workspace_id == workspace_id, Equipment.id == equipment_id
-        )
+def get_by_id(
+    session: Session, workspace_id: UUID, equipment_id: UUID, *, for_update: bool = False
+) -> Equipment | None:
+    """The equipment record; with ``for_update`` its row stays locked until the transaction ends."""
+    statement = select(Equipment).where(
+        Equipment.workspace_id == workspace_id, Equipment.id == equipment_id
     )
+    if for_update:
+        statement = statement.with_for_update()
+    return session.scalar(statement)
 
 
 def get_by_code(session: Session, workspace_id: UUID, equipment_code: str) -> Equipment | None:

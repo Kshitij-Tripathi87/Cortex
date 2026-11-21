@@ -74,9 +74,17 @@ DEFECTS: tuple[Defect, ...] = (
         "appending a commitment through the API does not lock the purchase order",
         "app/services/purchase_order_service.py",
         "        purchase_order = purchase_order_repository.lock_by_id(\n"
-        "            session, workspace_id, purchase_order_id\n",
+        "            session, workspace_id, purchase_order_id\n"
+        "        )\n"
+        "        if purchase_order is None:\n"
+        "            raise _not_found()\n"
+        "        return record_commitment(\n",
         "        purchase_order = purchase_order_repository.get_by_id(\n"
-        "            session, workspace_id, purchase_order_id\n",
+        "            session, workspace_id, purchase_order_id\n"
+        "        )\n"
+        "        if purchase_order is None:\n"
+        "            raise _not_found()\n"
+        "        return record_commitment(\n",
         (CONCURRENCY,),
     ),
     Defect(
@@ -228,8 +236,8 @@ DEFECTS: tuple[Defect, ...] = (
     Defect(
         "project lookup by id ignores the workspace",
         "app/repositories/project_repository.py",
-        "where(Project.workspace_id == workspace_id, Project.id == project_id)",
-        "where(Project.id == project_id)",
+        "Project.workspace_id == workspace_id, Project.id == project_id",
+        "Project.id == project_id",
         (ISOLATION,),
     ),
     Defect(
@@ -349,6 +357,31 @@ DEFECTS: tuple[Defect, ...] = (
         "    if len(set(available)) != len(available):\n",
         "    if False:\n",
         (WORKBOOKS,),
+    ),
+    Defect(
+        "patching a project does not lock the record row",
+        "app/services/project_service.py",
+        "project = project_repository.get_by_id(session, workspace_id, "
+        "project_id, for_update=True)",
+        "project = project_repository.get_by_id(session, workspace_id, project_id)",
+        (CONCURRENCY,),
+    ),
+    Defect(
+        "patching a purchase order does not lock the record row",
+        "app/services/purchase_order_service.py",
+        "        purchase_order = purchase_order_repository.lock_by_id(\n"
+        "            session, workspace_id, purchase_order_id\n"
+        "        )\n"
+        "        if purchase_order is None:\n"
+        "            raise _not_found()\n"
+        "        apply_changes(purchase_order, patch.changes())\n",
+        "        purchase_order = purchase_order_repository.get_by_id(\n"
+        "            session, workspace_id, purchase_order_id\n"
+        "        )\n"
+        "        if purchase_order is None:\n"
+        "            raise _not_found()\n"
+        "        apply_changes(purchase_order, patch.changes())\n",
+        (CONCURRENCY,),
     ),
 )
 

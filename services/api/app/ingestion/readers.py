@@ -82,8 +82,13 @@ MAX_ARCHIVE_ENTRIES = 5_000
 # A worksheet may carry formatted but empty rows below its data. This many are
 # scanned beyond the row limit before the sheet is refused.
 BLANK_ROW_ALLOWANCE = 1_000
-# Rows inspected to decide whether a worksheet holds data at all.
-SHEET_PROBE_ROWS = 50
+# Rows inspected to decide whether a worksheet holds data at all. The same
+# allowance as above, and for the same reason: a table that starts below a
+# block of formatted empty rows (a title page, a cover sheet on the data
+# worksheet) is data all the same. What starts deeper is still readable, but
+# only by name; probing every worksheet to the end of the file would cost
+# what parsing costs.
+SHEET_PROBE_ROWS = BLANK_ROW_ALLOWANCE + 1
 # Worksheet names quoted in an error message: this many, each cut to this length.
 SHEET_NAMES_SHOWN = 10
 SHEET_NAME_SHOWN_CHARS = 40
@@ -258,7 +263,12 @@ def _select_sheet(workbook: Any, requested: str | None, limits: ReaderLimits) ->
             if sheet.sheet_state == "visible" and _sheet_has_data(sheet, limits)
         ]
         if not candidates:
-            raise SourceFileError("EMPTY_FILE", "The workbook has no worksheet with data.")
+            raise SourceFileError(
+                "EMPTY_FILE",
+                "The workbook has no visible worksheet with data in its first "
+                f"{SHEET_PROBE_ROWS} rows. If the table starts deeper, name the worksheet "
+                "to import with sheet_name.",
+            )
         if len(candidates) > 1:
             raise SourceFileError(
                 "AMBIGUOUS_WORKSHEET",

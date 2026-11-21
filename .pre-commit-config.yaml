@@ -1,0 +1,23 @@
+# The checks that answer in seconds, before a push instead of after one.
+# The full gate stays the Makefile (typecheck and tests need the environment;
+# see AGENTS.md, "Checks to run before handing work over").
+#
+#   pre-commit run --all-files     # once, by hand
+#   pre-commit install             # run automatically on every commit
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Keep in step with the locked ruff (services/api/uv.lock) and with CI.
+    rev: v0.17.5
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: uv-lock-check
+        name: uv.lock agrees with pyproject.toml
+        entry: uv lock --check --project services/api
+        language: system
+        files: ^services/api/(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

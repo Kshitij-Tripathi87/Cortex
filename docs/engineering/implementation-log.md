@@ -766,3 +766,64 @@ The full list, with what is not built at all, is
 | L-19 | Nothing can be deleted or archived | P2 | With a retention policy (L-23, L-24) |
 | V-03 | One contributor; no independent review | — | Review of the pull request |
 | V-05 | No file from a real source system was imported | — | First pilot data |
+
+## Review follow-ups of 2026-11-20
+
+An independent read of the finished v0.1 found gaps the sprint record did not
+carry. They were corrected the same day, on the branch
+`arena/da60bb26-cortex`. This section supersedes the L-34 line of the table
+above and the defect count of 37.
+
+### What changed
+
+| Change | Files |
+|---|---|
+| `alembic check` now also compares column types and server defaults, so a model that drifts from the migration fails `make migration-check` and CI instead of passing unseen | `services/api/alembic/env.py` |
+| History is append-only in PostgreSQL, not only in the services: migration 0002 puts `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` triggers on both version tables. A maintenance transaction says so with `SET LOCAL nexus.allow_history_rewrite = 'on'`; the test cleanup, the e2e reset and the confirmed seed reset do, and nothing else. L-34 drops to P3 | `services/api/alembic/versions/0002_append_only_history.py`, `tests/conftest.py`, `tests/integration/test_demo_dataset_e2e.py`, `scripts/seed_demo_data.py`, `tests/integration/test_model_constraints.py` |
+| The PATCH routes take a row lock before comparing and writing, as the milestone, commitment and import paths already did: `update_project`, `update_supplier`, `update_equipment` load `for_update`, `update_purchase_order` uses `lock_by_id`. Two held-lock tests guard the behaviour; defects 38 and 39 prove they fail without it | `app/repositories/{project,supplier,equipment}_repository.py`, `app/services/{project,supplier,equipment,purchase_order}_service.py`, `tests/integration/test_concurrency.py`, `scripts/defect_detection.py` |
+| Choosing a worksheet automatically probes as deep as the blank-row allowance (1,001 rows) instead of 50: a table below a cover block is found; beyond the horizon the refusal now names `sheet_name` as the way forward | `app/ingestion/readers.py`, `tests/unit/test_readers.py` |
+| `make coverage` fails below 95 % of statements and branches (V-06) | `services/api/pyproject.toml` |
+| CI pins its actions to commit SHAs; Dependabot follows both the pins and `uv.lock`; a pre-commit configuration runs the seconds-fast checks locally | `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.pre-commit-config.yaml` |
+| The request dependency no longer shares its name with `app.core.config.get_settings` | `app/api/deps.py` (`settings_from_request`) |
+| Two checks that would have disappeared under `python -O` now raise: a committed batch that comes back without a stamp, and a World State snapshot entered with unwritten changes (which used to roll them back silently). The second has a test | `app/api/v1/endpoints/ingestion.py`, `app/db/session.py`, `tests/integration/test_database_session.py` |
+| `make run` says so when `HOST` is not loopback: the API has no authentication (L-01) | `Makefile` |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `ruff check` and `ruff format --check` (0.17.5, the locked version), whole repository | Pass, 157 files |
+| YAML of the workflow, Dependabot and pre-commit files; TOML of `pyproject.toml` | Parse |
+| Migration chain: `alembic heads`, `alembic history` | One head, `0001 -> 0002` |
+| Migration 0002, rendered with `alembic upgrade 0001:0002 --sql` (offline, no database) | The function and its four triggers are emitted as written |
+| `CONSTRAINT` as a `RAISE ... USING` option | Correct: `pl_gram.y` maps the keyword `constraint` to `PLPGSQL_RAISEOPTION_CONSTRAINT`, and `pl_exec.c` reports it as `PG_DIAG_CONSTRAINT_NAME`, which is the field the tests read back through `diag.constraint_name` |
+| No application path writes to the two history tables | Every reference in `app/` is a read or an insert; no `delete()` anywhere in `app/services/` |
+| The 39 defect entries against the working tree: each `old` text occurs exactly once, each replacement still parses, each named test file exists | Pass, 39 of 39 (the two entries the lock changes had invalidated were repaired) |
+| Models against migration 0001: the DDL the metadata renders compared with the DDL the migration writes | 11 tables, 114 columns; no difference in type, none in server default — so `compare_type` and `compare_server_default` have nothing to report on the code as it stands |
+| Worksheet probing, measured against openpyxl 3.1.5 on hand-built workbooks | A table at row 60 is invisible to a 50-row probe and visible to a 1,001-row probe, with row numbers aligned to positions; a table at row 1,002 is invisible to the probe and readable when named (the parser scans to `max_rows + 1,001`); the cell-visit budget of `test_blank_cells_far_to_the_right_are_not_walked` is unchanged at 11,001 against a bound of 12,000 |
+| The `make run` guard | Silent for `127.0.0.1`, `localhost` and `::1`; warns for `0.0.0.0` and a LAN address |
+| Unit, API and integration tests, mypy, `alembic check` against a database, the defect run, the end-to-end chain | Not run on the machine that made the change: it has neither the pinned Python 3.12 (the code uses PEP 695 generics, which 3.11 cannot parse) nor PostgreSQL. CI ran all of them on this branch — see below |
+| The same chain in CI, on the commit that introduced these changes (`5d5462f`) | Both jobs green. Lint, format and mypy; 416 unit, 238 API and 139 integration tests; `make migrate` and `make migration-check` against PostgreSQL 16, so the two new comparison flags report no drift on this schema; the OpenAPI check; the end-to-end chain with its restarts; 39 of 39 deliberate defects, the baseline 303 tests green |
+
+### What CI found
+
+Two failures, both in the new tests, both corrected on the branch:
+
+| Failure | Why | Correction |
+|---|---|---|
+| `AttributeError: 'PurchaseOrderDetail' object has no attribute 'issue_date'` | `update_purchase_order` returns the `PurchaseOrderDetail` dataclass of its own module, which wraps the record. The response schema of the same name in `app/schemas/purchase_order.py` is a different, flat class, and the test read that one. `make typecheck` runs `mypy app`, so no local check could have caught it | `f42af8b`: the test reads `detail.purchase_order`, and says in a comment which of the two classes it holds |
+| Defect 39 NOT DETECTED: removing the lock from `update_purchase_order` left all 13 concurrency tests green | A writer that takes no lock still meets the holder, one statement later — its read goes through and its UPDATE waits — so "was seen waiting for a lock" does not distinguish the two. What the patch returns cannot either: `_detail` reads the record again with `populate_existing`, and so sees the holder's change in both cases | `5d5462f`: `waiting_statements` counts the waiting sessions by the first word of the statement each is running, and both patch tests now assert that the writer waits on a SELECT and on no UPDATE |
+
+Defect 38 was detected before the second correction and is detected by the
+sharper assertion too. The first run of these tests anywhere was the run that
+found both failures.
+
+Not done, deliberately, from the same review: the packaging gap, now recorded
+as L-38 (the wheel holds only `app` while the process reads `alembic.ini` and
+a repository-root `.env`; fixing it properly changes how the scripts find the
+package, which needs an environment to verify), admission control on the
+upload route (needs a new error contract and its documentation), a coverage
+step in CI (the floor lives in `pyproject.toml` until a run of `make coverage`
+in CI has been measured once), and a `CONTRIBUTING.md` with issue and pull
+request templates — this repository has one contributor, and `AGENTS.md`, the
+README and this log already carry what such a file would repeat.

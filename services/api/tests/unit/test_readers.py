@@ -317,6 +317,29 @@ def test_xlsx_unknown_sheet_and_empty_workbook() -> None:
         read_xlsx(xlsx_bytes({"Empty": []}), None, LIMITS)
 
 
+def test_a_worksheet_whose_table_starts_below_a_block_of_empty_rows_is_found() -> None:
+    """A cover block above the table must not hide the worksheet from the choice."""
+    part = sheet_part({60: {1: "Project Code", 2: "Project Name"}, 61: {1: "P1", 2: "N1"}})
+
+    sheet = read_xlsx(handmade_workbook([("Projects", part)]), None, LIMITS)
+
+    assert (sheet.sheet_name, sheet.header_row_number) == ("Projects", 60)
+    assert rows_of(sheet) == [(61, {"Project Code": "P1", "Project Name": "N1"})]
+
+
+def test_a_worksheet_beyond_the_probe_horizon_is_refused_with_the_way_forward() -> None:
+    deep = readers.SHEET_PROBE_ROWS + 1
+    part = sheet_part({deep: {1: "Project Code"}, deep + 1: {1: "P1"}})
+    workbook = handmade_workbook([("Projects", part)])
+
+    with refused("EMPTY_FILE") as failure:
+        read_xlsx(workbook, None, LIMITS)
+
+    assert "sheet_name" in failure.value.message
+    # Named, the same worksheet is read: the parser itself is not bound by the probe.
+    assert read_xlsx(workbook, "Projects", LIMITS).header_row_number == deep
+
+
 def test_a_named_worksheet_without_content_is_an_empty_file() -> None:
     workbook = xlsx_bytes({"Projects": [["Project Code"], ["P1"]], "Empty": [], "Blank": [[" "]]})
 

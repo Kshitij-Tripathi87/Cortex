@@ -57,7 +57,17 @@ def run_migrations_online() -> None:
     engine = create_engine(_database_url(), poolclass=pool.NullPool)
     try:
         with engine.connect() as connection:
-            context.configure(connection=connection, target_metadata=target_metadata)
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                # `alembic check` (make migration-check, CI) must also notice a
+                # column whose type or server default drifted between the
+                # models and the database, not only one that was added or
+                # removed. Without these, a changed String length, NUMERIC
+                # precision or default passes the gate unseen.
+                compare_type=True,
+                compare_server_default=True,
+            )
             with context.begin_transaction():
                 context.run_migrations()
     finally:

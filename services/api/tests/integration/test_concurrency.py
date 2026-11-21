@@ -16,6 +16,7 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import date
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -36,16 +37,24 @@ from app.models import (
     Workspace,
 )
 from app.models.enums import BatchStatus, IngestionEntityType, MilestoneType
-from app.repositories import ingestion_repository, milestone_repository, purchase_order_repository
-from app.schemas.purchase_order import CommitmentCreate
+from app.repositories import (
+    ingestion_repository,
+    milestone_repository,
+    project_repository,
+    purchase_order_repository,
+)
+from app.schemas.project import ProjectUpdate
+from app.schemas.purchase_order import CommitmentCreate, PurchaseOrderUpdate
 from app.schemas.supplier import SupplierCreate
 from app.services import (
     ingestion_service,
     milestone_service,
+    project_service,
     purchase_order_service,
     supplier_service,
 )
 from app.services.ingestion_service import PreviewResult, UploadedFile
+from tests import factories
 from tests.factories import csv_bytes
 from tests.importing import (
     COMMITMENT_HEADERS,
@@ -83,6 +92,24 @@ def lock_waiters(db: Database) -> int:
                 )
             ).scalar_one()
         )
+
+
+def waiting_statements(db: Database, first_word: str) -> int:
+    """How many waiting sessions are running a statement that begins with this word.
+
+    A writer that takes no lock still meets the holder, but later: it waits on
+    its UPDATE instead of on its SELECT. Counting the two apart is what shows
+    that the read, and not only the write, is serialised.
+    """
+    with db.engine.connect() as connection:
+        waiting = connection.execute(
+            text(
+                "SELECT query FROM pg_stat_activity "
+                "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+            )
+        ).scalars()
+    wanted = first_word.upper()
+    return sum(1 for statement in waiting if str(statement).strip().upper().startswith(wanted))
 
 
 def wait_until_blocked(db: Database, thread: threading.Thread) -> None:
@@ -356,6 +383,85 @@ def test_an_api_re_plan_waits_for_a_writer_that_holds_the_milestone(
 
     assert created is True
     assert [number for number, _ in plan_dates(session, milestone.id)] == [1, 2, 3]
+
+
+# --- patch requests: the record row is the lock ------------------------------------------
+
+
+def test_a_project_patch_waits_for_a_writer_that_holds_the_record(
+    db: Database, session: Session, workspace: Workspace
+) -> None:
+    """A patch reads the record it changes under a row lock.
+
+    Without the lock the request could read the old row, a second writer
+    could commit in between, and the patch would be applied to a record that
+    no longer looks the way it was compared against.
+    """
+    project = factories.make_project(session, workspace, code="DC-PATCH")
+    project_id, workspace_id = project.id, workspace.id
+    session.rollback()
+
+    with holder(db) as other:
+        locked = project_repository.get_by_id(other, workspace_id, project_id, for_update=True)
+        assert locked is not None
+        writer = Writer(
+            db,
+            lambda own: project_service.update_project(
+                own, workspace_id, project_id, ProjectUpdate(name="Renamed by the writer")
+            ),
+        ).start()
+
+        wait_until_blocked(db, writer.thread)
+        # Waiting on its read, not on its write: the record it is about to
+        # compare against is the one the holder is changing.
+        assert waiting_statements(db, "SELECT") >= 1
+        assert waiting_statements(db, "UPDATE") == 0
+        locked.location = "Changed by the holder"
+        other.commit()
+
+        updated = writer.finish()
+
+    # The patch saw the holder's change and kept it; only its own field moved.
+    assert (updated.name, updated.location) == ("Renamed by the writer", "Changed by the holder")
+
+
+def test_a_purchase_order_patch_waits_for_a_writer_that_holds_the_order(
+    db: Database, session: Session, workspace: Workspace
+) -> None:
+    """A patch of the header takes the same lock the commitment path already took."""
+    project = factories.make_project(session, workspace, code="DC-PATCH-PO")
+    supplier = factories.make_supplier(session, workspace, supplier_code="SUP-PATCH")
+    order = factories.make_purchase_order(session, project, supplier, po_number="PO-PATCH")
+    order_id, workspace_id = order.id, workspace.id
+    session.rollback()
+
+    with holder(db) as other:
+        locked = purchase_order_repository.lock_by_id(other, workspace_id, order_id)
+        assert locked is not None
+        writer = Writer(
+            db,
+            lambda own: purchase_order_service.update_purchase_order(
+                own, workspace_id, order_id, PurchaseOrderUpdate(issue_date=date(2026, 7, 1))
+            ),
+        ).start()
+
+        wait_until_blocked(db, writer.thread)
+        # Waiting on its read, not on its write. What the patch returns cannot
+        # show the difference on its own: the detail it is built from reads the
+        # record again with populate_existing, and so sees the holder's change
+        # either way.
+        assert waiting_statements(db, "SELECT") >= 1
+        assert waiting_statements(db, "UPDATE") == 0
+        locked.total_value = Decimal("1234.56")
+        other.commit()
+
+        detail = writer.finish()
+
+    # `update_purchase_order` returns the service's own PurchaseOrderDetail
+    # dataclass, which wraps the record; the response schema of the same name
+    # in app/schemas/purchase_order.py is a different, flat class.
+    assert detail.purchase_order.issue_date == date(2026, 7, 1)
+    assert detail.purchase_order.total_value == Decimal("1234.56")
 
 
 # --- a batch is committed once: the batch row is the lock --------------------------------

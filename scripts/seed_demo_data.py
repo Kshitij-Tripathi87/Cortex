@@ -60,6 +60,9 @@ def reset_database(database: Database, settings: Settings, confirmation: str | N
     if confirmation != RESET_PHRASE:
         raise SeedError(f'--reset needs --confirm "{RESET_PHRASE}". Nothing was deleted.')
     with database.engine.begin() as connection:
+        # The history tables refuse deletes by trigger (migration 0002); this
+        # confirmed development-only reset is maintenance and says so.
+        connection.execute(text("SET LOCAL nexus.allow_history_rewrite = 'on'"))
         for table in reversed(Base.metadata.sorted_tables):
             connection.execute(text(f'DELETE FROM "{table.name}"'))
     print(f"RESET  every record deleted from {settings.database_url_redacted}")

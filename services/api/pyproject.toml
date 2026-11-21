@@ -55,3 +55,9 @@ filterwarnings = ["error"]
 [tool.coverage.run]
 source = ["app"]
 branch = true
+
+[tool.coverage.report]
+# The measured floor of the suite, not an ambition: coverage was 97% of
+# statements and branches when it was last read (docs/engineering/
+# known-limitations.md, V-06). `make coverage` fails below this.
+fail_under = 95

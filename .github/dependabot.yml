@@ -1,0 +1,16 @@
+# Version updates for the two dependency surfaces of this repository:
+# the locked Python dependencies and the pinned GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: uv
+    # Where pyproject.toml and uv.lock live.
+    directory: /services/api
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    # The workflow pins actions to commit SHAs; Dependabot follows them and
+    # keeps the `# vX` comment beside each pin current.
+    directory: /
+    schedule:
+      interval: weekly

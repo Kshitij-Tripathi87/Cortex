@@ -75,6 +75,13 @@ coverage: ## The full test suite with a coverage report
 	$(UV_RUN) pytest -q --cov=app --cov-report=term-missing
 
 run: ## Start the API on loopback (HOST and PORT can be overridden)
+	@case "$(HOST)" in \
+		127.*|localhost|::1) ;; \
+		*) echo "HOST=$(HOST) is reachable from outside this machine, and this API has"; \
+			echo "no authentication and no authorisation (L-01). Anyone who can reach it"; \
+			echo "can read and change every record. Continue only on a network you own."; \
+			;; \
+	esac
 	$(UV_RUN) uvicorn app.main:app --host $(HOST) --port $(PORT)
 
 seed: ## Import the synthetic demo dataset through the preview and commit services

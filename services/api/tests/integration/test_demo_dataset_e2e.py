@@ -324,9 +324,11 @@ def test_the_dataset_as_a_workbook_with_typed_cells_gives_the_same_world_state(
     assert "42250000.00" in str(from_csv)  # a price, exact
     assert "generated_at" not in str(from_csv)
 
-    # Start again from an empty workspace.
+    # Start again from an empty workspace. Emptying the history tables is
+    # maintenance: the append-only triggers (migration 0002) need this said.
     session.rollback()
     with db.engine.begin() as connection:
+        connection.execute(text("SET LOCAL nexus.allow_history_rewrite = 'on'"))
         for table in reversed(Base.metadata.sorted_tables):
             connection.execute(text(f'DELETE FROM "{table.name}"'))
     with db.session() as fresh:
