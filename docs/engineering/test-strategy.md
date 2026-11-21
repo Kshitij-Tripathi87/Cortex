@@ -76,9 +76,9 @@ it replaces is no longer in the code. The run at gate G3 is recorded in
 the final code in `artifacts/sprint/review-defect-detection.txt` (37 of 37).
 Defects 27 to 37 guard the workbook reader and were added with the review
 after the gate. Defects 38 and 39 guard the row locks the PATCH routes take
-and were added with the review follow-ups of 2026-11-20; their first run is
-in CI on the code that introduced them. One more defect, in the last line of
-the table, was checked by hand.
+and were added with the review follow-ups of 2026-11-20; CI reports both
+detected on the code that introduced them, 39 of 39 in all. One more defect,
+in the last line of the table, was checked by hand.
 
 This is not an automated mutation run. The defects are chosen by hand, one
 per behaviour that matters most (row locks, workspace filters, bounds, the
@@ -126,8 +126,8 @@ checkout that is thrown away.
 | 35 | An error message quotes every worksheet name in full | `test_workbook_safety.py` | 2 failed |
 | 36 | A worksheet name of any length is passed on to the ledger | `test_workbook_safety.py` | 1 failed |
 | 37 | Two worksheets of a workbook may share a name | `test_workbook_safety.py` | 1 failed |
-| 38 | Patching a project does not lock the record row | `test_concurrency.py::test_a_project_patch_waits_for_a_writer_that_holds_the_record` | Added 2026-11-20; first run in CI |
-| 39 | Patching a purchase order does not lock the record row | `test_concurrency.py::test_a_purchase_order_patch_waits_for_a_writer_that_holds_the_order` | Added 2026-11-20; first run in CI |
+| 38 | Patching a project does not lock the record row | `test_concurrency.py::test_a_project_patch_waits_for_a_writer_that_holds_the_record` | 1 failed |
+| 39 | Patching a purchase order does not lock the record row | `test_concurrency.py::test_a_purchase_order_patch_waits_for_a_writer_that_holds_the_order` | 1 failed |
 | by hand | Batch row lock removed, checked against the older race test | `test_import_preview_commit.py::test_two_concurrent_commits_of_one_batch_take_effect_once` | Fails in 5 of 5 runs |
 
 One test was found **not** to prove what its name suggests.
@@ -163,7 +163,7 @@ evidence for the lock is defect 2.
 | Rollback on a failure in the middle of a batch | `tests/integration/test_import_preview_commit.py` |
 | Commit replay, concurrent commit | `tests/integration/test_import_preview_commit.py`, `test_import_idempotency.py`, `test_concurrency.py` |
 | Writers on the same purchase order or milestone; the same new file uploaded at once; a deadlock | `tests/integration/test_concurrency.py` |
-| A patch of a project or purchase order meets a writer that holds the record | `tests/integration/test_concurrency.py` |
+| A patch of a project or purchase order meets a writer that holds the record; the test reads which statement the writer waits on, because a patch that takes no lock still waits, one statement later, on its write | `tests/integration/test_concurrency.py` |
 | History rows refuse `UPDATE`, `DELETE` and `TRUNCATE` in the database; maintenance says so | `tests/integration/test_model_constraints.py` |
 | Values the database cannot hold (NUL in text, whole numbers and offsets beyond 32 bits, very long decimals) | `tests/api/test_unstorable_values.py`, `tests/unit/test_normalization.py` |
 | A different file with the same keys; conflicting rows | `tests/integration/test_import_idempotency.py` |

@@ -802,7 +802,21 @@ above and the defect count of 37.
 | Models against migration 0001: the DDL the metadata renders compared with the DDL the migration writes | 11 tables, 114 columns; no difference in type, none in server default — so `compare_type` and `compare_server_default` have nothing to report on the code as it stands |
 | Worksheet probing, measured against openpyxl 3.1.5 on hand-built workbooks | A table at row 60 is invisible to a 50-row probe and visible to a 1,001-row probe, with row numbers aligned to positions; a table at row 1,002 is invisible to the probe and readable when named (the parser scans to `max_rows + 1,001`); the cell-visit budget of `test_blank_cells_far_to_the_right_are_not_walked` is unchanged at 11,001 against a bound of 12,000 |
 | The `make run` guard | Silent for `127.0.0.1`, `localhost` and `::1`; warns for `0.0.0.0` and a LAN address |
-| Unit, API and integration tests, mypy, `alembic check` against a database, the defect run, the end-to-end chain | Not run: the machine has neither the pinned Python 3.12 (the code uses PEP 695 generics, which 3.11 cannot parse) nor PostgreSQL. Their first full run is CI on this branch, and the new database tests — the triggers, the patch locks, the snapshot guard — have never executed anywhere |
+| Unit, API and integration tests, mypy, `alembic check` against a database, the defect run, the end-to-end chain | Not run on the machine that made the change: it has neither the pinned Python 3.12 (the code uses PEP 695 generics, which 3.11 cannot parse) nor PostgreSQL. CI ran all of them on this branch — see below |
+| The same chain in CI, on the commit that introduced these changes (`5d5462f`) | Both jobs green. Lint, format and mypy; 416 unit, 238 API and 139 integration tests; `make migrate` and `make migration-check` against PostgreSQL 16, so the two new comparison flags report no drift on this schema; the OpenAPI check; the end-to-end chain with its restarts; 39 of 39 deliberate defects, the baseline 303 tests green |
+
+### What CI found
+
+Two failures, both in the new tests, both corrected on the branch:
+
+| Failure | Why | Correction |
+|---|---|---|
+| `AttributeError: 'PurchaseOrderDetail' object has no attribute 'issue_date'` | `update_purchase_order` returns the `PurchaseOrderDetail` dataclass of its own module, which wraps the record. The response schema of the same name in `app/schemas/purchase_order.py` is a different, flat class, and the test read that one. `make typecheck` runs `mypy app`, so no local check could have caught it | `f42af8b`: the test reads `detail.purchase_order`, and says in a comment which of the two classes it holds |
+| Defect 39 NOT DETECTED: removing the lock from `update_purchase_order` left all 13 concurrency tests green | A writer that takes no lock still meets the holder, one statement later — its read goes through and its UPDATE waits — so "was seen waiting for a lock" does not distinguish the two. What the patch returns cannot either: `_detail` reads the record again with `populate_existing`, and so sees the holder's change in both cases | `5d5462f`: `waiting_statements` counts the waiting sessions by the first word of the statement each is running, and both patch tests now assert that the writer waits on a SELECT and on no UPDATE |
+
+Defect 38 was detected before the second correction and is detected by the
+sharper assertion too. The first run of these tests anywhere was the run that
+found both failures.
 
 Not done, deliberately, from the same review: the packaging gap, now recorded
 as L-38 (the wheel holds only `app` while the process reads `alembic.ini` and
