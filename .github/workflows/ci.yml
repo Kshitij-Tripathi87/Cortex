@@ -2,6 +2,9 @@
 # Every command is a Makefile target or a script of this repository, so CI and
 # a developer run the same thing. Nothing here talks to a service outside the
 # runner except the package index.
+# Actions are pinned to commit SHAs, not tags; the `# vX` comment beside each
+# pin names the tag the SHA was taken from. Dependabot
+# (.github/dependabot.yml) proposes the moves.
 name: CI
 
 on:
@@ -33,13 +36,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version-file: .python-version
 
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.13.9"
           enable-cache: true
@@ -152,7 +155,7 @@ jobs:
 
       - name: Keep the evidence files
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sprint-evidence
           path: artifacts/tmp/
@@ -172,13 +175,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version-file: .python-version
 
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.13.9"
           enable-cache: true
@@ -227,7 +230,7 @@ jobs:
 
       - name: Keep the result
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: defect-detection
           path: artifacts/tmp/

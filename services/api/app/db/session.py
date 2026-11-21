@@ -119,7 +119,17 @@ def read_snapshot(session: Session) -> Iterator[Session]:
     A projection assembled from several queries (World State) must not mix
     data from before and after a concurrent commit. REPEATABLE READ gives all
     statements of the block one snapshot; READ ONLY makes a stray write fail.
+
+    Changes that have not been written yet are refused rather than thrown
+    away: a projection is read-only, so pending work here means the caller
+    forgot to commit, and silently discarding it would hide that.
     """
+    if session.dirty or session.new or session.deleted:
+        raise RuntimeError(
+            "read_snapshot was entered with unwritten changes "
+            f"({len(session.new)} new, {len(session.dirty)} changed, "
+            f"{len(session.deleted)} deleted); commit or roll them back first"
+        )
     if session.in_transaction():
         # The isolation level of a running transaction cannot be changed.
         session.rollback()

@@ -217,7 +217,10 @@ def update_purchase_order(
 ) -> PurchaseOrderDetail:
     with transaction(session):
         workspace_service.require_active_workspace(session, workspace_id)
-        purchase_order = purchase_order_repository.get_by_id(
+        # Locked, as the commitment path locks it: a second writer must not
+        # change the header between this read and the commit, or one patch
+        # would silently overwrite the other.
+        purchase_order = purchase_order_repository.lock_by_id(
             session, workspace_id, purchase_order_id
         )
         if purchase_order is None:

@@ -17,12 +17,18 @@ DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
 
 
-def get_settings(request: Request) -> Settings:
+def settings_from_request(request: Request) -> Settings:
+    """The settings this application was built with.
+
+    Not ``app.core.config.get_settings``: the process settings are read once
+    when the application is built; a request is served with what the
+    application under test was built from, which tests vary per case.
+    """
     settings: Settings = request.app.state.settings
     return settings
 
 
-SettingsDep = Annotated[Settings, Depends(get_settings)]
+SettingsDep = Annotated[Settings, Depends(settings_from_request)]
 
 
 def get_session(request: Request) -> Iterator[Session]:

@@ -106,7 +106,11 @@ def update_equipment(
 ) -> Equipment:
     with transaction(session):
         workspace_service.require_active_workspace(session, workspace_id)
-        equipment = equipment_repository.get_by_id(session, workspace_id, equipment_id)
+        # Locked: a second writer must not change the record between this read
+        # and the commit, or one patch would silently overwrite the other.
+        equipment = equipment_repository.get_by_id(
+            session, workspace_id, equipment_id, for_update=True
+        )
         if equipment is None:
             raise _not_found()
         changes = patch.changes()

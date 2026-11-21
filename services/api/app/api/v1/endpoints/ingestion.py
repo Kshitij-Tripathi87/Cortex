@@ -230,7 +230,12 @@ def get_batch(
 def commit_import(workspace: WorkspaceDep, session: SessionDep, batch_id: UUID) -> CommitResponse:
     result = ingestion_service.commit_import(session, workspace.workspace_id, batch_id)
     batch = result.batch
-    assert batch.committed_at is not None
+    if batch.committed_at is None:
+        # A committed batch is stamped in the same transaction that commits it,
+        # and a replayed one keeps the stamp it was given then. An assert here
+        # would disappear under `python -O` and leave the response model to
+        # fail instead; this is answered with the documented 500 envelope.
+        raise RuntimeError(f"batch {batch.id} came back from commit without committed_at")
     recorded = (batch.commit_summary or {}).get("entities", {})
     return CommitResponse(
         batch_id=batch.id,

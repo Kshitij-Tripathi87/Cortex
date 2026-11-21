@@ -11,10 +11,16 @@ from app.models.supplier import Supplier
 from app.repositories._pagination import fetch_page
 
 
-def get_by_id(session: Session, workspace_id: UUID, supplier_id: UUID) -> Supplier | None:
-    return session.scalar(
-        select(Supplier).where(Supplier.workspace_id == workspace_id, Supplier.id == supplier_id)
+def get_by_id(
+    session: Session, workspace_id: UUID, supplier_id: UUID, *, for_update: bool = False
+) -> Supplier | None:
+    """The supplier; with ``for_update`` its row stays locked until the transaction ends."""
+    statement = select(Supplier).where(
+        Supplier.workspace_id == workspace_id, Supplier.id == supplier_id
     )
+    if for_update:
+        statement = statement.with_for_update()
+    return session.scalar(statement)
 
 
 def get_by_code(session: Session, workspace_id: UUID, supplier_code: str) -> Supplier | None:

@@ -193,7 +193,12 @@ current value is the row with the greatest `version_no`, never "the first row
 a query returns". Submitting the date that is already current creates nothing.
 Version numbers are allocated while the parent row (purchase order or
 milestone) is locked, and `(parent, version_no)` is unique, so two writers
-cannot produce the same number.
+cannot produce the same number. Since migration 0002 PostgreSQL itself
+enforces the rule too: `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE`
+triggers on both tables refuse a rewrite in any session that has not declared
+itself maintenance with `SET LOCAL nexus.allow_history_rewrite = 'on'`. No
+route and no service operation sets it; the test-suite cleanup and the
+confirmed development reset of the demo seed do.
 
 ### IngestionBatch
 
@@ -263,7 +268,7 @@ and its batch are never deleted.
 | 5 | Equipment may exist without a purchase order | No such column | — |
 | 6 | Quantity is positive; money is not negative | `CHECK` | `MUST_BE_POSITIVE`, `MUST_BE_NON_NEGATIVE` |
 | 7 | Money and quantity are exact | `NUMERIC` | `Decimal`, strings in JSON |
-| 8 | Plans and commitments are append-only | Unique `(parent, version_no)` | No update or delete operation exists |
+| 8 | Plans and commitments are append-only | Unique `(parent, version_no)`; triggers refuse `UPDATE`, `DELETE` and `TRUNCATE` (migration 0002) | No update or delete operation exists |
 | 9 | Natural keys are unique per workspace | Unique constraints | `DUPLICATE_NATURAL_KEY` |
 | 10 | Nothing is hard-deleted | FKs without cascade | No delete operation exists |
 | 11 | Unknown source columns are kept | `raw_data` | `UNKNOWN_SOURCE_COLUMN` warning |

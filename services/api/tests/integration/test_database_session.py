@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.session import Database, read_snapshot, transaction
+from app.models import Workspace
 
 pytestmark = pytest.mark.db
 
@@ -126,3 +127,22 @@ def test_isolation_level_is_restored_after_a_snapshot(database: Database) -> Non
     assert inside == "repeatable read"
     assert outside == "read committed"
     assert count(database) == 1
+
+
+def test_a_snapshot_refuses_unwritten_work_instead_of_throwing_it_away(
+    database: Database,
+) -> None:
+    """A projection is read-only; pending changes mean a caller forgot to commit.
+
+    Opening the snapshot rolls the transaction back, because the isolation
+    level of a running transaction cannot be changed. That used to take the
+    caller's unwritten records with it.
+    """
+    with database.session() as session:
+        session.add(Workspace(slug="uncommitted", name="Uncommitted"))
+
+        with pytest.raises(RuntimeError, match="unwritten changes"), read_snapshot(session):
+            pytest.fail("the snapshot must not open over unwritten changes")
+
+        assert len(session.new) == 1
+        session.rollback()

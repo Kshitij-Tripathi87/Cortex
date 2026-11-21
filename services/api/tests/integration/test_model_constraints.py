@@ -11,8 +11,9 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from psycopg import errors as psycopg_errors
 from psycopg.errors import CheckViolation, ForeignKeyViolation, NotNullViolation, UniqueViolation
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -548,6 +549,74 @@ def test_a_version_must_have_a_date_and_an_author(session: Session, world: World
         write()
     session.rollback()
     assert isinstance(failure.value.orig, NotNullViolation)
+
+
+def test_history_rows_refuse_to_be_changed_or_removed(session: Session, world: World) -> None:
+    """The append-only rule of the version tables, enforced by PostgreSQL itself.
+
+    Migration 0002 puts a BEFORE trigger on both tables; every session that
+    did not say it is doing maintenance is refused, whatever the service
+    layer does or forgets to do.
+    """
+    factories.make_milestone(session, world.order_a)
+    factories.make_commitment(session, world.order_a, committed_delivery_date=date(2026, 11, 28))
+
+    rejected(
+        session,
+        psycopg_errors.IntegrityError,
+        "milestone_plan_versions_append_only",
+        lambda: session.execute(
+            text("UPDATE milestone_plan_versions SET planned_date = '2020-01-01'")
+        ),
+    )
+    rejected(
+        session,
+        psycopg_errors.IntegrityError,
+        "milestone_plan_versions_append_only",
+        lambda: session.execute(text("DELETE FROM milestone_plan_versions")),
+    )
+    rejected(
+        session,
+        psycopg_errors.IntegrityError,
+        "milestone_plan_versions_append_only",
+        lambda: session.execute(text("TRUNCATE milestone_plan_versions")),
+    )
+    rejected(
+        session,
+        psycopg_errors.IntegrityError,
+        "supplier_commitment_versions_append_only",
+        lambda: session.execute(
+            text("UPDATE supplier_commitment_versions SET committed_delivery_date = '2020-01-01'")
+        ),
+    )
+    rejected(
+        session,
+        psycopg_errors.IntegrityError,
+        "supplier_commitment_versions_append_only",
+        lambda: session.execute(text("DELETE FROM supplier_commitment_versions")),
+    )
+
+    # Nothing was lost: every refusal rolled the write back.
+    assert session.scalar(select(func.count()).select_from(MilestonePlanVersion)) == 1
+    assert session.scalar(select(func.count()).select_from(SupplierCommitmentVersion)) == 1
+
+
+def test_a_maintenance_transaction_may_clear_history_when_it_says_so(
+    session: Session, world: World
+) -> None:
+    """The one door through the trigger, and it is a door you have to name.
+
+    The test-suite cleanup and the confirmed development reset of the seed
+    use it; no route and no service operation does.
+    """
+    factories.make_milestone(session, world.order_a)
+
+    with session.begin():
+        session.execute(text("SET LOCAL nexus.allow_history_rewrite = 'on'"))
+        removed = session.execute(text("DELETE FROM milestone_plan_versions")).rowcount
+
+    assert removed == 1
+    assert session.scalar(select(func.count()).select_from(MilestonePlanVersion)) == 0
 
 
 # --- ingestion ledger -----------------------------------------------------------------

@@ -76,7 +76,11 @@ def update_supplier(
     """Change name, location or status. INACTIVE keeps every purchase order and its history."""
     with transaction(session):
         workspace_service.require_active_workspace(session, workspace_id)
-        supplier = supplier_repository.get_by_id(session, workspace_id, supplier_id)
+        # Locked: a second writer must not change the record between this read
+        # and the commit, or one patch would silently overwrite the other.
+        supplier = supplier_repository.get_by_id(
+            session, workspace_id, supplier_id, for_update=True
+        )
         if supplier is None:
             raise _not_found()
         apply_changes(supplier, patch.changes())

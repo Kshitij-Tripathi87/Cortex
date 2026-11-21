@@ -11,10 +11,16 @@ from app.models.project import Project
 from app.repositories._pagination import fetch_page
 
 
-def get_by_id(session: Session, workspace_id: UUID, project_id: UUID) -> Project | None:
-    return session.scalar(
-        select(Project).where(Project.workspace_id == workspace_id, Project.id == project_id)
+def get_by_id(
+    session: Session, workspace_id: UUID, project_id: UUID, *, for_update: bool = False
+) -> Project | None:
+    """The project; with ``for_update`` its row stays locked until the transaction ends."""
+    statement = select(Project).where(
+        Project.workspace_id == workspace_id, Project.id == project_id
     )
+    if for_update:
+        statement = statement.with_for_update()
+    return session.scalar(statement)
 
 
 def get_by_code(session: Session, workspace_id: UUID, code: str) -> Project | None:

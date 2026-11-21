@@ -104,7 +104,10 @@ def migrated_database(settings: Settings) -> Iterator[Database]:
 def db(migrated_database: Database) -> Database:
     """A migrated test database with every table empty."""
     # Children first. DELETE is much faster than TRUNCATE for a handful of rows.
+    # The history tables refuse deletes by trigger (migration 0002); emptying
+    # the test database is maintenance and says so for this transaction.
     with migrated_database.engine.begin() as connection:
+        connection.execute(text("SET LOCAL nexus.allow_history_rewrite = 'on'"))
         for table in reversed(Base.metadata.sorted_tables):
             connection.execute(text(f'DELETE FROM "{table.name}"'))
     return migrated_database
