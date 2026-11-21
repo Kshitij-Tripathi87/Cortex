@@ -94,6 +94,24 @@ def lock_waiters(db: Database) -> int:
         )
 
 
+def waiting_statements(db: Database, first_word: str) -> int:
+    """How many waiting sessions are running a statement that begins with this word.
+
+    A writer that takes no lock still meets the holder, but later: it waits on
+    its UPDATE instead of on its SELECT. Counting the two apart is what shows
+    that the read, and not only the write, is serialised.
+    """
+    with db.engine.connect() as connection:
+        waiting = connection.execute(
+            text(
+                "SELECT query FROM pg_stat_activity "
+                "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+            )
+        ).scalars()
+    wanted = first_word.upper()
+    return sum(1 for statement in waiting if str(statement).strip().upper().startswith(wanted))
+
+
 def wait_until_blocked(db: Database, thread: threading.Thread) -> None:
     """Return once the database reports a session waiting for a lock.
 
@@ -394,6 +412,10 @@ def test_a_project_patch_waits_for_a_writer_that_holds_the_record(
         ).start()
 
         wait_until_blocked(db, writer.thread)
+        # Waiting on its read, not on its write: the record it is about to
+        # compare against is the one the holder is changing.
+        assert waiting_statements(db, "SELECT") >= 1
+        assert waiting_statements(db, "UPDATE") == 0
         locked.location = "Changed by the holder"
         other.commit()
 
@@ -406,6 +428,7 @@ def test_a_project_patch_waits_for_a_writer_that_holds_the_record(
 def test_a_purchase_order_patch_waits_for_a_writer_that_holds_the_order(
     db: Database, session: Session, workspace: Workspace
 ) -> None:
+    """A patch of the header takes the same lock the commitment path already took."""
     project = factories.make_project(session, workspace, code="DC-PATCH-PO")
     supplier = factories.make_supplier(session, workspace, supplier_code="SUP-PATCH")
     order = factories.make_purchase_order(session, project, supplier, po_number="PO-PATCH")
@@ -423,6 +446,12 @@ def test_a_purchase_order_patch_waits_for_a_writer_that_holds_the_order(
         ).start()
 
         wait_until_blocked(db, writer.thread)
+        # Waiting on its read, not on its write. What the patch returns cannot
+        # show the difference on its own: the detail it is built from reads the
+        # record again with populate_existing, and so sees the holder's change
+        # either way.
+        assert waiting_statements(db, "SELECT") >= 1
+        assert waiting_statements(db, "UPDATE") == 0
         locked.total_value = Decimal("1234.56")
         other.commit()
 
